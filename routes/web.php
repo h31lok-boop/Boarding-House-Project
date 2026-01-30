@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\BoardingHouseApplicationController;
 use Illuminate\Support\Facades\Auth;
 
 Route::get('/', function () {
@@ -32,10 +33,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
         Route::get('/users', [AdminController::class, 'users'])->name('users');
+        Route::get('/tenant-history', [AdminController::class, 'tenantHistory'])->name('tenant-history');
         Route::get('/users/{user}/edit', [AdminController::class, 'editUser'])->name('users.edit');
         Route::put('/users/{user}', [AdminController::class, 'updateUser'])->name('users.update');
         Route::put('/users/{user}/role', [AdminController::class, 'updateUserRole'])->name('users.role');
         Route::resource('/boarding-houses', \App\Http\Controllers\BoardingHouseController::class)->names('boarding-houses');
+
+        Route::get('/boarding-house-applications', [BoardingHouseApplicationController::class, 'index'])->name('applications.index');
+        Route::post('/boarding-house-applications/{application}/approve', [BoardingHouseApplicationController::class, 'approve'])->name('applications.approve');
+        Route::post('/boarding-house-applications/{application}/reject', [BoardingHouseApplicationController::class, 'reject'])->name('applications.reject');
     });
 
     // Owner Dashboard (role-gated)
@@ -51,6 +57,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         abort_unless($user && $user->isTenant(), 403);
         return view('tenant.dashboard');
     })->name('tenant.dashboard');
+
+    Route::get('/tenant/boarding-houses', function () {
+        $user = Auth::user();
+        abort_unless($user && $user->isTenant(), 403);
+        $availableHouses = \App\Models\BoardingHouse::withCount('tenants')->get()->filter(fn($h) => $h->tenants_count < $h->capacity);
+        return view('tenant.boarding-houses', compact('availableHouses'));
+    })->name('tenant.boarding-houses');
+
+    Route::post('/boarding-houses/{boarding_house}/apply', [BoardingHouseApplicationController::class, 'store'])->name('tenant.boarding-houses.apply');
+    Route::post('/boarding-houses/apply', [BoardingHouseApplicationController::class, 'storeFromSelect'])->name('tenant.boarding-houses.apply.select');
 
     // Caretaker Dashboard (role-gated)
     Route::get('/caretaker/dashboard', function () {

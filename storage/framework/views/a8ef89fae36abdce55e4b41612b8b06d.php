@@ -13,76 +13,77 @@
      <?php $__env->endSlot(); ?>
 
     <?php
-        $metrics = [
-            ['label' => 'Total Rooms', 'value' => 120, 'color' => 'blue', 'icon' => '🏘️'],
-            ['label' => 'Occupancy', 'value' => '91%', 'color' => 'emerald', 'icon' => '📈'],
-            ['label' => 'Monthly Revenue', 'value' => '₱320k', 'color' => 'indigo', 'icon' => '💰'],
+        $users = \App\Models\User::with('boardingHouse')->latest()->take(20)->get();
+        $counts = [
+            'all' => \App\Models\User::count(),
+            'admin' => \App\Models\User::whereIn('role', ['admin', 'owner'])->orWhereHas('roles', fn($q) => $q->where('name', 'admin'))->count(),
+            'tenant' => \App\Models\User::where('role', 'tenant')->orWhereHas('roles', fn($q) => $q->where('name', 'tenant'))->count(),
+            'caretaker' => \App\Models\User::where('role', 'caretaker')->orWhereHas('roles', fn($q) => $q->where('name', 'caretaker'))->count(),
+            'osas' => \App\Models\User::where('role', 'osas')->orWhereHas('roles', fn($q) => $q->where('name', 'osas'))->count(),
         ];
-
-        $chartLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-        $chartData   = [250000, 265000, 275000, 290000, 305000, 320000];
     ?>
 
     <div class="space-y-6">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <?php $__currentLoopData = $metrics; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $metric): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                <div class="bg-white shadow-sm sm:rounded-lg border border-gray-100 p-5">
-                    <div class="flex items-start justify-between">
-                        <div>
-                            <p class="text-sm text-gray-500"><?php echo e($metric['label']); ?></p>
-                            <p class="mt-2 text-2xl font-bold text-gray-900"><?php echo e($metric['value']); ?></p>
-                        </div>
-                        <span class="text-lg"><?php echo e($metric['icon']); ?></span>
-                    </div>
-                </div>
-            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white shadow-sm sm:rounded-lg border border-gray-100 p-5">
+                <p class="text-sm text-gray-500">Total Users</p>
+                <p class="mt-2 text-2xl font-bold text-gray-900"><?php echo e($counts['all']); ?></p>
+            </div>
+            <div class="bg-white shadow-sm sm:rounded-lg border border-gray-100 p-5">
+                <p class="text-sm text-gray-500">Admins</p>
+                <p class="mt-2 text-2xl font-bold text-gray-900"><?php echo e($counts['admin']); ?></p>
+            </div>
+            <div class="bg-white shadow-sm sm:rounded-lg border border-gray-100 p-5">
+                <p class="text-sm text-gray-500">Tenants</p>
+                <p class="mt-2 text-2xl font-bold text-gray-900"><?php echo e($counts['tenant']); ?></p>
+            </div>
+            <div class="bg-white shadow-sm sm:rounded-lg border border-gray-100 p-5">
+                <p class="text-sm text-gray-500">Staff (Caretaker/OSAS)</p>
+                <p class="mt-2 text-2xl font-bold text-gray-900"><?php echo e($counts['caretaker'] + $counts['osas']); ?></p>
+            </div>
         </div>
 
-        <div class="bg-white shadow-sm sm:rounded-lg border border-gray-100">
-            <div class="p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-900">Revenue Trend</h3>
-                        <p class="text-sm text-gray-500">Last 6 months</p>
-                    </div>
-                </div>
-                <div class="h-72">
-                    <canvas id="ownerRevenueChart"></canvas>
-                </div>
+        <div class="bg-white shadow-sm sm:rounded-lg border border-gray-100 overflow-hidden">
+            <div class="p-6 border-b border-gray-100">
+                <h3 class="text-lg font-semibold text-gray-900">Recent Users</h3>
+                <p class="text-sm text-gray-500">Latest 20 signups</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
+                        <tr>
+                            <th class="px-5 py-3 text-left">Name</th>
+                            <th class="px-5 py-3 text-left">Email</th>
+                            <th class="px-5 py-3 text-left">Role</th>
+                            <th class="px-5 py-3 text-left">Boarding House</th>
+                            <th class="px-5 py-3 text-left">Status</th>
+                            <th class="px-5 py-3 text-right">Joined</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        <?php $__currentLoopData = $users; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $user): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                            <?php
+                                $role = $user->roles->pluck('name')->first() ?? $user->role ?? 'tenant';
+                            ?>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-5 py-3 font-medium text-gray-900"><?php echo e($user->name); ?></td>
+                                <td class="px-5 py-3 text-gray-600"><?php echo e($user->email); ?></td>
+                                <td class="px-5 py-3 text-gray-700 capitalize"><?php echo e($role); ?></td>
+                                <td class="px-5 py-3 text-gray-600"><?php echo e($user->boardingHouse->name ?? '—'); ?></td>
+                                <td class="px-5 py-3">
+                                    <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold <?php echo e($user->is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700'); ?>">
+                                        <?php echo e($user->is_active ? 'Active' : 'Inactive'); ?>
+
+                                    </span>
+                                </td>
+                                <td class="px-5 py-3 text-right text-gray-600"><?php echo e($user->created_at?->format('M d, Y')); ?></td>
+                            </tr>
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        const ownerCtx = document.getElementById('ownerRevenueChart');
-        new Chart(ownerCtx, {
-            type: 'line',
-            data: {
-                labels: <?php echo json_encode($chartLabels, 15, 512) ?>,
-                datasets: [{
-                    label: 'Revenue (₱)',
-                    data: <?php echo json_encode($chartData, 15, 512) ?>,
-                    borderColor: '#2563eb',
-                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                    fill: true,
-                    tension: 0.25,
-                    borderWidth: 2,
-                    pointRadius: 3,
-                }]
-            },
-            options: {
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: {
-                        ticks: { callback: v => `₱${Number(v).toLocaleString()}` },
-                        grid: { color: 'rgba(17,24,39,0.06)' }
-                    },
-                    x: { grid: { display: false } }
-                }
-            }
-        });
-    </script>
  <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>
 <?php if (isset($__attributesOriginal9ac128a9029c0e4701924bd2d73d7f54)): ?>

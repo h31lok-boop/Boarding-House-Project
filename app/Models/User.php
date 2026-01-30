@@ -23,7 +23,8 @@ class User extends Authenticatable
         'emergency_contact',
         'room_number',
         'move_in_date',
-        'is_active'
+        'is_active',
+        'boarding_house_id',
     ];
 
     protected $hidden = [
@@ -56,6 +57,16 @@ class User extends Authenticatable
     public function isTenant()
     {
         return $this->role === 'tenant';
+    }
+
+    public function boardingHouse()
+    {
+        return $this->belongsTo(\App\Models\BoardingHouse::class);
+    }
+
+    public function boardingHouseApplications()
+    {
+        return $this->hasMany(\App\Models\BoardingHouseApplication::class);
     }
 
     /**

@@ -18,35 +18,23 @@
             if ($isAdmin) {
                 $navLinks[] = ['label' => 'User Management', 'route' => 'admin.users', 'icon' => '👥', 'active' => 'admin.users*'];
                 $navLinks[] = ['label' => 'Boarding Houses', 'route' => 'admin.boarding-houses.index', 'icon' => '🏘️', 'active' => 'admin.boarding-houses.*'];
+                $navLinks[] = ['label' => 'Applications', 'route' => 'admin.applications.index', 'icon' => '📝', 'active' => 'admin.applications.*'];
+                $navLinks[] = ['label' => 'Tenant History', 'route' => 'admin.tenant-history', 'icon' => '📜', 'active' => 'admin.tenant-history'];
+            } elseif ($user->isTenant()) {
+                $navLinks[] = ['label' => 'Boarding Houses', 'route' => 'tenant.boarding-houses', 'icon' => '🏠', 'active' => 'tenant.boarding-houses'];
             }
         }
     ?>
 
     <div class="p-6 border-b border-gray-100">
         <a href="<?php echo e(route($dashRoute)); ?>" class="flex items-center gap-3">
-            <?php if (isset($component)) { $__componentOriginal8892e718f3d0d7a916180885c6f012e7 = $component; } ?>
-<?php if (isset($attributes)) { $__attributesOriginal8892e718f3d0d7a916180885c6f012e7 = $attributes; } ?>
-<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.application-logo','data' => ['class' => 'block h-10 w-auto fill-current text-gray-800']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
-<?php $component->withName('application-logo'); ?>
-<?php if ($component->shouldRender()): ?>
-<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
-<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
-<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
-<?php endif; ?>
-<?php $component->withAttributes(['class' => 'block h-10 w-auto fill-current text-gray-800']); ?>
-<?php echo $__env->renderComponent(); ?>
-<?php endif; ?>
-<?php if (isset($__attributesOriginal8892e718f3d0d7a916180885c6f012e7)): ?>
-<?php $attributes = $__attributesOriginal8892e718f3d0d7a916180885c6f012e7; ?>
-<?php unset($__attributesOriginal8892e718f3d0d7a916180885c6f012e7); ?>
-<?php endif; ?>
-<?php if (isset($__componentOriginal8892e718f3d0d7a916180885c6f012e7)): ?>
-<?php $component = $__componentOriginal8892e718f3d0d7a916180885c6f012e7; ?>
-<?php unset($__componentOriginal8892e718f3d0d7a916180885c6f012e7); ?>
-<?php endif; ?>
-            <div>
-                <p class="text-sm text-gray-500">Dashboard</p>
-                <p class="text-base font-semibold text-gray-800"><?php echo e(config('app.name', 'Laravel')); ?></p>
+            <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-400 text-white flex items-center justify-center font-black text-lg shadow-sm">
+                SF
+            </div>
+            <div class="leading-tight">
+                <p class="text-[11px] uppercase tracking-[0.18em] text-orange-500 font-semibold">StaySafe</p>
+                <p class="text-lg font-bold text-gray-900">Finder</p>
+                <p class="text-[11px] text-gray-500">Comfort &amp; Community</p>
             </div>
         </a>
     </div>

@@ -14,7 +14,20 @@ class BoardingHouseController extends Controller
 
     public function index()
     {
-        $houses = BoardingHouse::orderBy('created_at', 'desc')->paginate(10);
+        $filterStatus = request('status'); // available | occupied | all/blank
+
+        $houses = BoardingHouse::withCount('tenants')
+            ->when($filterStatus === 'available', function ($q) {
+                $q->having('tenants_count', '<', \DB::raw('capacity'));
+            })
+            ->when($filterStatus === 'occupied', function ($q) {
+                // treat any occupancy (>0) as occupied
+                $q->having('tenants_count', '>', 0);
+            })
+            ->orderBy('created_at', 'desc')
+            ->paginate(10)
+            ->appends(['status' => $filterStatus]);
+
         return view('admin.boarding-houses.index', compact('houses'));
     }
 

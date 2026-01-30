@@ -12,9 +12,26 @@
             @endif
 
             <div class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
-                <div class="p-5 border-b border-gray-100 flex items-center justify-between">
-                    <h3 class="text-lg font-semibold text-gray-800">All Users</h3>
-                    <span class="text-sm text-gray-500">Admin can change roles</span>
+                <div class="p-5 border-b border-gray-100 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-semibold text-gray-800">All Users</h3>
+                        <span class="text-sm text-gray-500">Admin can change roles</span>
+                    </div>
+                    <form method="GET" class="flex flex-col sm:flex-row sm:items-center gap-3">
+                        <label class="text-sm text-gray-600 flex items-center gap-2">
+                            <span>Filter by role:</span>
+                            <select name="role" class="border rounded-lg px-3 py-2 text-sm">
+                                <option value="">All</option>
+                                @foreach($roles as $role)
+                                    <option value="{{ $role }}" @selected(request('role') === $role)>{{ ucfirst($role) }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+                        <div class="flex gap-2">
+                            <button type="submit" class="bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-indigo-700">Apply</button>
+                            <a href="{{ route('admin.users') }}" class="px-3 py-2 rounded-lg text-sm border text-gray-700 hover:bg-gray-50">Reset</a>
+                        </div>
+                    </form>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full text-sm">

@@ -1,27 +1,24 @@
 <x-app-layout>
     @php
-        $user = auth()->user();
-        $isAdmin = $user && (strtolower($user->role ?? '') === 'admin' || $user->hasRole('admin'));
-        $title = $isAdmin ? 'Admin Dashboard' : 'Tenant Dashboard';
-    @endphp 
-
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">{{ $title }}</h2>
-    </x-slot>
-
-    @php
+        $tenant = auth()->user();
+        $house = $tenant?->boardingHouse;
+        $housemates = $house
+            ? \App\Models\User::where('boarding_house_id', $house->id)->whereKeyNot($tenant->id)->limit(5)->get(['id','name','email','is_active','role'])
+            : collect();
         $metrics = [
-            ['label' => 'Active Bookings', 'value' => 3, 'color' => 'emerald', 'icon' => '📅'],
-            ['label' => 'Outstanding Balance', 'value' => '₱4,500', 'color' => 'amber', 'icon' => '💳'],
-            ['label' => 'Support Tickets', 'value' => 1, 'color' => 'blue', 'icon' => '🛠️'],
+            ['label' => 'Boarding House', 'value' => $house->name ?? 'Not assigned', 'icon' => '🏠'],
+            ['label' => 'Room', 'value' => $tenant->room_number ?? 'TBD', 'icon' => '🛏️'],
+            ['label' => 'Move-in', 'value' => optional($tenant->move_in_date)->format('M d, Y') ?? 'TBD', 'icon' => '📅'],
+            ['label' => 'Status', 'value' => $tenant->is_active ? 'Active' : 'Pending', 'icon' => $tenant->is_active ? '✅' : '⏳'],
         ];
-
-        $chartLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-        $chartData   = [4500, 4300, 4200, 4000, 3800, 3600];
     @endphp
 
+    <x-slot name="header">
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight">Tenant Dashboard</h2>
+    </x-slot>
+
     <div class="space-y-6">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             @foreach ($metrics as $metric)
                 <div class="bg-white shadow-sm sm:rounded-lg border border-gray-100 p-5">
                     <div class="flex items-start justify-between">
@@ -35,49 +32,42 @@
             @endforeach
         </div>
 
-        <div class="bg-white shadow-sm sm:rounded-lg border border-gray-100">
-            <div class="p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <div>
-                        <h3 class="text-lg font-semibold text-gray-900">Balance Trend</h3>
-                        <p class="text-sm text-gray-500">Last 6 months</p>
-                    </div>
-                </div>
-                <div class="h-72">
-                    <canvas id="tenantBalanceChart"></canvas>
-                </div>
+        <div class="bg-white shadow-sm sm:rounded-lg border border-gray-100 overflow-hidden">
+            <div class="p-6 border-b border-gray-100">
+                <h3 class="text-lg font-semibold text-gray-900">Housemates</h3>
+                <p class="text-sm text-gray-500">People staying in the same boarding house</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-gray-50 text-gray-500 uppercase text-xs">
+                        <tr>
+                            <th class="px-5 py-3 text-left">Name</th>
+                            <th class="px-5 py-3 text-left">Email</th>
+                            <th class="px-5 py-3 text-left">Role</th>
+                            <th class="px-5 py-3 text-left">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @forelse($housemates as $mate)
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-5 py-3 font-medium text-gray-900">{{ $mate->name }}</td>
+                                <td class="px-5 py-3 text-gray-600">{{ $mate->email }}</td>
+                                <td class="px-5 py-3 text-gray-700 capitalize">{{ $mate->roles->pluck('name')->first() ?? $mate->role ?? 'tenant' }}</td>
+                                <td class="px-5 py-3">
+                                    <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold {{ $mate->is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-700' }}">
+                                        {{ $mate->is_active ? 'Active' : 'Inactive' }}
+                                    </span>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="4" class="px-5 py-6 text-center text-gray-500">No housemates yet.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
             </div>
         </div>
-    </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        const tenantCtx = document.getElementById('tenantBalanceChart');
-        new Chart(tenantCtx, {
-            type: 'line',
-            data: {
-                labels: @json($chartLabels),
-                datasets: [{
-                    label: 'Balance (₱)',
-                    data: @json($chartData),
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    fill: true,
-                    tension: 0.25,
-                    borderWidth: 2,
-                    pointRadius: 3,
-                }]
-            },
-            options: {
-                plugins: { legend: { display: false } },
-                scales: {
-                    y: {
-                        ticks: { callback: v => `₱${Number(v).toLocaleString()}` },
-                        grid: { color: 'rgba(17,24,39,0.06)' }
-                    },
-                    x: { grid: { display: false } }
-                }
-            }
-        });
-    </script>
+    </div>
 </x-app-layout>

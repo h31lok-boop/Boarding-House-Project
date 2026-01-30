@@ -21,8 +21,18 @@
                 </div>
             <?php endif; ?>
 
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
                 <a href="<?php echo e(route('admin.boarding-houses.create')); ?>" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">Add Boarding House</a>
+                <form method="GET" class="flex items-center gap-2 text-sm">
+                    <label class="text-gray-700">Filter:</label>
+                    <select name="status" class="border rounded-lg px-3 py-2">
+                        <option value="">All</option>
+                        <option value="available" <?php if(request('status') === 'available'): echo 'selected'; endif; ?>>Available</option>
+                        <option value="occupied" <?php if(request('status') === 'occupied'): echo 'selected'; endif; ?>>Occupied</option>
+                    </select>
+                    <button type="submit" class="px-3 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">Apply</button>
+                    <a href="<?php echo e(route('admin.boarding-houses.index')); ?>" class="px-3 py-2 rounded-lg border text-gray-700 hover:bg-gray-50">Reset</a>
+                </form>
             </div>
 
             <div class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
@@ -32,6 +42,7 @@
                             <th class="px-5 py-3 text-left">Name</th>
                             <th class="px-5 py-3 text-left">Address</th>
                             <th class="px-5 py-3 text-left">Capacity</th>
+                            <th class="px-5 py-3 text-left">Occupancy</th>
                             <th class="px-5 py-3 text-left">Status</th>
                             <th class="px-5 py-3 text-right">Actions</th>
                         </tr>
@@ -42,9 +53,15 @@
                                 <td class="px-5 py-3 font-medium text-gray-900"><?php echo e($house->name); ?></td>
                                 <td class="px-5 py-3 text-gray-600"><?php echo e($house->address); ?></td>
                                 <td class="px-5 py-3 text-gray-600"><?php echo e($house->capacity); ?></td>
+                                <td class="px-5 py-3 text-gray-600"><?php echo e($house->tenants_count); ?> / <?php echo e($house->capacity); ?></td>
                                 <td class="px-5 py-3">
-                                    <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold <?php echo e($house->is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'); ?>">
-                                        <?php echo e($house->is_active ? 'Active' : 'Inactive'); ?>
+                                    <?php
+                                        $full = $house->tenants_count >= $house->capacity;
+                                        $occupied = $house->tenants_count > 0;
+                                    ?>
+                                    <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold
+                                        <?php echo e($full ? 'bg-rose-100 text-rose-700' : ($occupied ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700')); ?>">
+                                        <?php echo e($full ? 'Full' : ($occupied ? 'Occupied' : 'Available')); ?>
 
                                     </span>
                                 </td>
