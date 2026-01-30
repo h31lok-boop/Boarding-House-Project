@@ -1,0 +1,92 @@
+<?php if (isset($component)) { $__componentOriginal9ac128a9029c0e4701924bd2d73d7f54 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginal9ac128a9029c0e4701924bd2d73d7f54 = $attributes; } ?>
+<?php $component = App\View\Components\AppLayout::resolve([] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('app-layout'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\App\View\Components\AppLayout::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes([]); ?>
+     <?php $__env->slot('header', null, []); ?> 
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight">User Management</h2>
+     <?php $__env->endSlot(); ?>
+
+    <div class="py-8">
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <?php if(session('success')): ?>
+                <div class="mb-4 px-4 py-3 rounded-lg bg-emerald-50 text-emerald-700">
+                    <?php echo e(session('success')); ?>
+
+                </div>
+            <?php endif; ?>
+
+            <div class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
+                <div class="p-5 border-b border-gray-100 flex items-center justify-between">
+                    <h3 class="text-lg font-semibold text-gray-800">All Users</h3>
+                    <span class="text-sm text-gray-500">Admin can change roles</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="bg-gray-50 border-b border-gray-100 uppercase text-xs text-gray-500">
+                            <tr>
+                                <th class="px-5 py-3 text-left">Name</th>
+                                <th class="px-5 py-3 text-left">Email</th>
+                                <th class="px-5 py-3 text-left">Current Role</th>
+                                <th class="px-5 py-3 text-left">Change Role</th>
+                                <th class="px-5 py-3 text-right">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-100">
+                            <?php $__currentLoopData = $users; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $user): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-5 py-3 font-medium text-gray-900"><?php echo e($user->name); ?></td>
+                                    <td class="px-5 py-3 text-gray-600"><?php echo e($user->email); ?></td>
+                                    <td class="px-5 py-3">
+                                        <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
+                                            <?php echo e($user->roles->pluck('name')->first() ?? $user->role ?? 'tenant'); ?>
+
+                                        </span>
+                                    </td>
+                                    <td class="px-5 py-3">
+                                        <form method="POST" action="<?php echo e(route('admin.users.role', $user)); ?>" class="flex items-center gap-3">
+                                            <?php echo csrf_field(); ?>
+                                            <?php echo method_field('PUT'); ?>
+                                            <select name="role" class="border rounded-lg px-3 py-2 text-sm">
+                                                <?php $__currentLoopData = $roles; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $role): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                                    <option value="<?php echo e($role); ?>" <?php if(($user->roles->pluck('name')->first() ?? $user->role) === $role): echo 'selected'; endif; ?>>
+                                                        <?php echo e(ucfirst($role)); ?>
+
+                                                    </option>
+                                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                                            </select>
+                                            <button type="submit" class="bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-indigo-700">
+                                                Update
+                                            </button>
+                                            <a href="<?php echo e(route('admin.users.edit', $user)); ?>" class="text-blue-600 hover:text-blue-800 text-sm font-semibold">Edit</a>
+                                        </form>
+                                    </td>
+                                    <td class="px-5 py-3 text-right text-emerald-600 font-semibold">Active</td>
+                                </tr>
+                            <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="p-4">
+                    <?php echo e($users->links()); ?>
+
+                </div>
+            </div>
+        </div>
+    </div>
+ <?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginal9ac128a9029c0e4701924bd2d73d7f54)): ?>
+<?php $attributes = $__attributesOriginal9ac128a9029c0e4701924bd2d73d7f54; ?>
+<?php unset($__attributesOriginal9ac128a9029c0e4701924bd2d73d7f54); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginal9ac128a9029c0e4701924bd2d73d7f54)): ?>
+<?php $component = $__componentOriginal9ac128a9029c0e4701924bd2d73d7f54; ?>
+<?php unset($__componentOriginal9ac128a9029c0e4701924bd2d73d7f54); ?>
+<?php endif; ?>
+<?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views/admin/users.blade.php ENDPATH**/ ?>
