@@ -69,18 +69,68 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/boarding-houses/apply', [BoardingHouseApplicationController::class, 'storeFromSelect'])->name('tenant.boarding-houses.apply.select');
 
     // Caretaker Dashboard (role-gated)
-    Route::get('/caretaker/dashboard', function () {
-        $user = Auth::user();
-        abort_unless($user && $user->hasRole('caretaker'), 403);
-        return view('caretaker.dashboard');
-    })->name('caretaker.dashboard');
+    Route::prefix('caretaker')->name('caretaker.')->middleware('caretaker')->group(function () {
+        Route::get('/dashboard', [\App\Http\Controllers\CaretakerController::class, 'dashboard'])->name('dashboard');
+        Route::get('/tenants', [\App\Http\Controllers\CaretakerController::class, 'tenants'])->name('tenants.index');
+        Route::get('/tenants/{id}', [\App\Http\Controllers\CaretakerController::class, 'tenantShow'])->name('tenants.show');
+        Route::post('/tenants/{id}/checkin', [\App\Http\Controllers\CaretakerController::class, 'tenantCheckin'])->name('tenants.checkin');
+        Route::post('/tenants/{id}/checkout', [\App\Http\Controllers\CaretakerController::class, 'tenantCheckout'])->name('tenants.checkout');
+        Route::post('/tenants/{id}', [\App\Http\Controllers\CaretakerController::class, 'tenantUpdate'])->name('tenants.update');
+
+        Route::get('/bookings', [\App\Http\Controllers\CaretakerController::class, 'bookings'])->name('bookings.index');
+        Route::get('/bookings/{id}', [\App\Http\Controllers\CaretakerController::class, 'bookingShow'])->name('bookings.show');
+        Route::post('/bookings/{id}/confirm', [\App\Http\Controllers\CaretakerController::class, 'bookingConfirm'])->name('bookings.confirm');
+        Route::post('/bookings/{id}/cancel', [\App\Http\Controllers\CaretakerController::class, 'bookingCancel'])->name('bookings.cancel');
+        Route::post('/bookings/{id}/extend', [\App\Http\Controllers\CaretakerController::class, 'bookingExtend'])->name('bookings.extend');
+
+        Route::get('/rooms', [\App\Http\Controllers\CaretakerController::class, 'rooms'])->name('rooms.index');
+        Route::post('/rooms/{id}/status', [\App\Http\Controllers\CaretakerController::class, 'roomStatus'])->name('rooms.status');
+        Route::post('/rooms/{id}', [\App\Http\Controllers\CaretakerController::class, 'roomUpdate'])->name('rooms.update');
+
+        Route::get('/maintenance', [\App\Http\Controllers\CaretakerController::class, 'maintenance'])->name('maintenance.index');
+        Route::post('/maintenance/{id}/priority', [\App\Http\Controllers\CaretakerController::class, 'maintenancePriority'])->name('maintenance.priority');
+        Route::post('/maintenance/{id}/resolve', [\App\Http\Controllers\CaretakerController::class, 'maintenanceResolve'])->name('maintenance.resolve');
+
+        Route::get('/incidents', [\App\Http\Controllers\CaretakerController::class, 'incidents'])->name('incidents.index');
+        Route::get('/incidents/{id}', [\App\Http\Controllers\CaretakerController::class, 'incidentShow'])->name('incidents.show');
+        Route::post('/incidents/{id}/update', [\App\Http\Controllers\CaretakerController::class, 'incidentUpdate'])->name('incidents.update');
+        Route::post('/incidents/{id}/resolve', [\App\Http\Controllers\CaretakerController::class, 'incidentResolve'])->name('incidents.resolve');
+
+        Route::get('/notices', [\App\Http\Controllers\CaretakerController::class, 'notices'])->name('notices.index');
+        Route::post('/notices', [\App\Http\Controllers\CaretakerController::class, 'noticesStore'])->name('notices.store');
+
+        Route::get('/reports', [\App\Http\Controllers\CaretakerController::class, 'reports'])->name('reports.index');
+        Route::post('/reports/generate', [\App\Http\Controllers\CaretakerController::class, 'reportsGenerate'])->name('reports.generate');
+
+        Route::get('/settings', [\App\Http\Controllers\CaretakerController::class, 'settings'])->name('settings');
+    });
 
     // OSAS Dashboard (role-gated)
-    Route::get('/osas/dashboard', function () {
-        $user = Auth::user();
-        abort_unless($user && $user->hasRole('osas'), 403);
-        return view('osas.dashboard');
-    })->name('osas.dashboard');
+    Route::prefix('osas')->name('osas.')->middleware('osas')->group(function () {
+        Route::get('/dashboard', [\App\Http\Controllers\OsasController::class, 'dashboard'])->name('dashboard');
+        Route::get('/validators', [\App\Http\Controllers\OsasController::class, 'validators'])->name('validators.index');
+        Route::post('/validators/{id}/toggle', [\App\Http\Controllers\OsasController::class, 'validatorToggle'])->name('validators.toggle');
+        Route::get('/validators/{id}', [\App\Http\Controllers\OsasController::class, 'validatorShow'])->name('validators.show');
+        Route::post('/validators/{id}/assign-task', [\App\Http\Controllers\OsasController::class, 'assignTask'])->name('validators.assign');
+
+        Route::get('/workbench', [\App\Http\Controllers\OsasController::class, 'workbench'])->name('workbench');
+        Route::get('/validations/{id}', [\App\Http\Controllers\OsasController::class, 'validationShow'])->name('validations.show');
+        Route::post('/validations/{id}/start', [\App\Http\Controllers\OsasController::class, 'validationStart'])->name('validations.start');
+        Route::post('/validations/{id}/save', [\App\Http\Controllers\OsasController::class, 'validationSave'])->name('validations.save');
+        Route::post('/validations/{id}/submit', [\App\Http\Controllers\OsasController::class, 'validationSubmit'])->name('validations.submit');
+        Route::post('/validations/{id}/evidence', [\App\Http\Controllers\OsasController::class, 'validationEvidence'])->name('validations.evidence');
+        Route::post('/validations/{id}/finding', [\App\Http\Controllers\OsasController::class, 'validationFinding'])->name('validations.finding');
+
+        Route::get('/accreditation', [\App\Http\Controllers\OsasController::class, 'accreditation'])->name('accreditation');
+        Route::post('/accreditation/{id}/approve', [\App\Http\Controllers\OsasController::class, 'accreditApprove'])->name('accreditation.approve');
+        Route::post('/accreditation/{id}/suspend', [\App\Http\Controllers\OsasController::class, 'accreditSuspend'])->name('accreditation.suspend');
+        Route::post('/accreditation/{id}/reinstate', [\App\Http\Controllers\OsasController::class, 'accreditReinstate'])->name('accreditation.reinstate');
+
+        Route::get('/reports', [\App\Http\Controllers\OsasController::class, 'reports'])->name('reports');
+        Route::post('/reports/export', [\App\Http\Controllers\OsasController::class, 'reportsExport'])->name('reports.export');
+
+        Route::get('/settings', [\App\Http\Controllers\OsasController::class, 'settings'])->name('settings');
+    });
 
     // Profile Management
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

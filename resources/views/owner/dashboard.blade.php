@@ -14,8 +14,46 @@
         ];
     @endphp
 
-    <div class="space-y-6">
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    @php $currentUser = Auth::user(); @endphp
+
+    <div class="space-y-6 relative" x-data="{ ownerMenu: false }">
+        {{-- owner quick menu toggle top-right --}}
+        <div class="absolute right-0 -top-2 z-20">
+            <button @click="ownerMenu = !ownerMenu" class="group relative flex items-center gap-2 bg-white shadow-lg border border-gray-100 rounded-full pl-2 pr-3 py-1 hover:shadow-xl transition">
+                <div class="h-9 w-9 rounded-full bg-gradient-to-br from-indigo-500 via-purple-500 to-cyan-400 text-white flex items-center justify-center font-semibold">
+                    {{ Str::substr($currentUser->name ?? 'U', 0, 2) }}
+                </div>
+                <div class="text-left leading-tight">
+                    <p class="text-sm font-semibold text-gray-900">{{ $currentUser->name }}</p>
+                    <p class="text-xs text-gray-500">{{ $currentUser->email }}</p>
+                </div>
+                <svg class="h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M6 9l6 6 6-6" />
+                </svg>
+            </button>
+            <div x-show="ownerMenu" @click.outside="ownerMenu=false" x-transition
+                 class="mt-2 w-56 bg-white border border-gray-100 rounded-xl shadow-xl overflow-hidden">
+                <div class="px-4 py-3 border-b border-gray-100">
+                    <p class="text-sm font-semibold text-gray-900">{{ $currentUser->name }}</p>
+                    <p class="text-xs text-gray-500 truncate">{{ $currentUser->email }}</p>
+                </div>
+                <div class="py-1 text-sm">
+                    <a href="{{ route('profile.edit') }}" class="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 text-gray-700">
+                        <span class="text-base">⚙️</span>
+                        <span>Profile</span>
+                    </a>
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button type="submit" class="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-gray-50 text-rose-600">
+                            <span class="text-base">↩</span>
+                            <span>Log Out</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-10">
             <div class="bg-white shadow-sm sm:rounded-lg border border-gray-100 p-5">
                 <p class="text-sm text-gray-500">Total Users</p>
                 <p class="mt-2 text-2xl font-bold text-gray-900">{{ $counts['all'] }}</p>

@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
         $this->call(RoleSeeder::class);
         $this->call(BoardingHouseSeeder::class);
         $this->call(TenantSeeder::class);
+        $this->call(OsasSeeder::class);
 
         // Demo Owner
         $owner = User::updateOrCreate(

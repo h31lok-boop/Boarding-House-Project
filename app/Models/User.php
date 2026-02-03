@@ -70,6 +70,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Validation tasks assigned to this validator (OSAS).
+     */
+    public function validationTasks()
+    {
+        return $this->hasMany(\App\Models\ValidationTask::class, 'validator_id');
+    }
+
+    /**
      * Determine the dashboard route name that matches the user's role.
      *
      * Supports legacy role columns (case-insensitive) and Spatie roles

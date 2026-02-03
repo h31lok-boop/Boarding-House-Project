@@ -1,5 +1,14 @@
-<x-layouts.caretaker>
-@php
+<?php if (isset($component)) { $__componentOriginal26723e7569d950d41cabbb4f5db8c6fb = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginal26723e7569d950d41cabbb4f5db8c6fb = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.layouts.caretaker','data' => []] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('layouts.caretaker'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes([]); ?>
+<?php
     $tenant = [
         'name' => 'Marie Santos',
         'email' => 'mariesantos@gmail.com',
@@ -46,9 +55,9 @@
         ['title' => 'Swimming Pool Cleaning',  'audience' => 'All Tenants', 'date' => 'Apr 15, 2024', 'status' => 'Planned'],
         ['title' => 'Lobby Disinfection',      'audience' => 'All Tenants', 'date' => 'Apr 14, 2024', 'status' => 'Open'],
     ];
-@endphp
+?>
 
-@php
+<?php
     // Safe route helper: falls back to current URL with query (never '#')
     $r = function (string $name, array $params = [], ?string $fallback = null) {
         if (\Illuminate\Support\Facades\Route::has($name)) {
@@ -57,12 +66,21 @@
         $fallback = $fallback ?? url()->current();
         return !empty($params) ? $fallback . '?' . http_build_query($params) : $fallback;
     };
-@endphp
+?>
 
-<x-caretaker.shell>
-{{-- Stats --}}
+<?php if (isset($component)) { $__componentOriginalc493ed10a4acd262765c863521dd2849 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginalc493ed10a4acd262765c863521dd2849 = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.caretaker.shell','data' => []] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('caretaker.shell'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes([]); ?>
+
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                @php
+                <?php
                     $statLinks = [
                         'Occupied Rooms' => $r('caretaker.rooms.index', ['status' => 'Occupied']),
                         'Available Rooms' => $r('caretaker.rooms.index', ['status' => 'Available']),
@@ -70,43 +88,43 @@
                         'Active Complaints' => $r('caretaker.incidents.index'),
                         "Today's Check-ins" => $r('caretaker.bookings.index', ['filter' => 'today']),
                     ];
-                @endphp
-                @foreach ($stats as $stat)
-                    <a href="{{ $statLinks[$stat['label']] ?? $r('caretaker.dashboard') }}" class="bg-white rounded-2xl shadow p-4 flex items-center gap-3 hover:shadow-md transition">
-                        <span class="text-2xl">{{ $stat['icon'] }}</span>
+                ?>
+                <?php $__currentLoopData = $stats; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $stat): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                    <a href="<?php echo e($statLinks[$stat['label']] ?? $r('caretaker.dashboard')); ?>" class="bg-white rounded-2xl shadow p-4 flex items-center gap-3 hover:shadow-md transition">
+                        <span class="text-2xl"><?php echo e($stat['icon']); ?></span>
                         <div>
-                            <p class="text-xs text-slate-400 uppercase">{{ $stat['label'] }}</p>
-                            <p class="text-xl font-bold text-slate-900">{{ $stat['value'] }}</p>
+                            <p class="text-xs text-slate-400 uppercase"><?php echo e($stat['label']); ?></p>
+                            <p class="text-xl font-bold text-slate-900"><?php echo e($stat['value']); ?></p>
                         </div>
                     </a>
-                @endforeach
+                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
             </div>
 
-            {{-- Primary panels --}}
+            
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="bg-white rounded-2xl shadow p-5 space-y-4">
                     <h3 class="font-semibold text-lg">Tenant Details</h3>
                     <div class="flex gap-3">
-                        <img src="https://i.pravatar.cc/80?img=15" class="h-14 w-14 rounded-full" alt="{{ $tenant['name'] }}">
+                        <img src="https://i.pravatar.cc/80?img=15" class="h-14 w-14 rounded-full" alt="<?php echo e($tenant['name']); ?>">
                         <div>
-                            <p class="font-semibold text-slate-900">{{ $tenant['name'] }}</p>
-                            <p class="text-sm text-slate-500">{{ $tenant['email'] }}</p>
-                            <p class="text-sm text-slate-500">{{ $tenant['phone'] }}</p>
+                            <p class="font-semibold text-slate-900"><?php echo e($tenant['name']); ?></p>
+                            <p class="text-sm text-slate-500"><?php echo e($tenant['email']); ?></p>
+                            <p class="text-sm text-slate-500"><?php echo e($tenant['phone']); ?></p>
                         </div>
                     </div>
                     <div class="flex items-center gap-2 text-sm">
-                        <span class="inline-block px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs">{{ $tenant['status'] }}</span>
+                        <span class="inline-block px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs"><?php echo e($tenant['status']); ?></span>
                         <span class="text-slate-400">•</span>
-                        <span class="text-slate-600">{{ $tenant['room'] }}</span>
+                        <span class="text-slate-600"><?php echo e($tenant['room']); ?></span>
                     </div>
                     <div class="grid grid-cols-2 gap-3 text-sm text-slate-700">
                         <div>
                             <p class="text-slate-400">Check-in</p>
-                            <p class="font-semibold">{{ $tenant['checkin'] }}</p>
+                            <p class="font-semibold"><?php echo e($tenant['checkin']); ?></p>
                         </div>
                         <div>
                             <p class="text-slate-400">Expected date</p>
-                            <p class="font-semibold">{{ $tenant['checkout'] }}</p>
+                            <p class="font-semibold"><?php echo e($tenant['checkout']); ?></p>
                         </div>
                     </div>
                 </div>
@@ -116,14 +134,14 @@
                         <div>
                             <h3 class="font-semibold text-lg">Current Booking</h3>
                             <p class="text-indigo-600 font-semibold">Booking ID #9032030</p>
-                            <p class="text-sm text-slate-500">{{ $tenant['room'] }}</p>
+                            <p class="text-sm text-slate-500"><?php echo e($tenant['room']); ?></p>
                         </div>
-                        <a href="{{ $r('caretaker.bookings.index') }}" class="text-indigo-600 text-sm">View All</a>
+                        <a href="<?php echo e($r('caretaker.bookings.index')); ?>" class="text-indigo-600 text-sm">View All</a>
                     </div>
                     <div class="flex flex-wrap gap-2">
-                        <form method="POST" action="{{ $r('caretaker.bookings.confirm', ['id' => 9032030]) }}">@csrf<button class="px-4 py-2 rounded-full bg-indigo-600 text-white text-sm">Check-in</button></form>
-                        <form method="POST" action="{{ $r('caretaker.bookings.extend', ['id' => 9032030]) }}">@csrf<button class="px-4 py-2 rounded-full bg-emerald-100 text-emerald-700 text-sm">Extend Stay</button></form>
-                        <a href="{{ $r('caretaker.incidents.index', ['booking' => 9032030]) }}" class="px-4 py-2 rounded-full bg-rose-100 text-rose-700 text-sm">Flag Issue</a>
+                        <form method="POST" action="<?php echo e($r('caretaker.bookings.confirm', ['id' => 9032030])); ?>"><?php echo csrf_field(); ?><button class="px-4 py-2 rounded-full bg-indigo-600 text-white text-sm">Check-in</button></form>
+                        <form method="POST" action="<?php echo e($r('caretaker.bookings.extend', ['id' => 9032030])); ?>"><?php echo csrf_field(); ?><button class="px-4 py-2 rounded-full bg-emerald-100 text-emerald-700 text-sm">Extend Stay</button></form>
+                        <a href="<?php echo e($r('caretaker.incidents.index', ['booking' => 9032030])); ?>" class="px-4 py-2 rounded-full bg-rose-100 text-rose-700 text-sm">Flag Issue</a>
                     </div>
                     <p class="text-xs text-slate-500">Room book, towels, MEG, shower, coffee set, bed, TV.</p>
                 </div>
@@ -131,39 +149,39 @@
                 <div class="bg-white rounded-2xl shadow p-5 space-y-4">
                     <div class="flex items-center justify-between">
                         <h3 class="font-semibold text-lg">Rooms & Listings</h3>
-                        <a href="{{ $r('caretaker.rooms.index') }}" class="px-3 py-2 rounded-full bg-indigo-600 text-white text-sm shadow">Manage Listings</a>
+                        <a href="<?php echo e($r('caretaker.rooms.index')); ?>" class="px-3 py-2 rounded-full bg-indigo-600 text-white text-sm shadow">Manage Listings</a>
                     </div>
                     <div class="flex gap-3 overflow-x-auto pb-1">
-                        @foreach ($rooms as $room)
-                            @php
+                        <?php $__currentLoopData = $rooms; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $room): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                            <?php
                                 $statusColor = [
                                     'Available' => 'bg-emerald-50 text-emerald-700 border border-emerald-100',
                                     'Occupied' => 'bg-indigo-50 text-indigo-700 border border-indigo-100',
                                     'Needs Cleaning' => 'bg-amber-50 text-amber-700 border border-amber-100',
                                 ][$room['status']] ?? 'bg-slate-50 text-slate-700 border-slate-100';
-                            @endphp
+                            ?>
                             <div class="min-w-[200px] rounded-2xl border border-slate-100 shadow-sm bg-white overflow-hidden">
                                 <div class="h-24 w-full overflow-hidden">
-                                    <img src="{{ $room['img'] }}" class="h-full w-full object-cover" alt="{{ $room['name'] }}">
+                                    <img src="<?php echo e($room['img']); ?>" class="h-full w-full object-cover" alt="<?php echo e($room['name']); ?>">
                                 </div>
                                 <div class="p-3 space-y-1 text-sm">
-                                    <p class="font-semibold text-slate-900">{{ $room['name'] }}</p>
-                                    <span class="px-2 py-1 text-xs rounded-full font-semibold {{ $statusColor }}">{{ $room['status'] }}</span>
+                                    <p class="font-semibold text-slate-900"><?php echo e($room['name']); ?></p>
+                                    <span class="px-2 py-1 text-xs rounded-full font-semibold <?php echo e($statusColor); ?>"><?php echo e($room['status']); ?></span>
                                 </div>
                             </div>
-                        @endforeach
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                     </div>
                 </div>
             </div>
 
-            {{-- Tables --}}
+            
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="bg-white rounded-2xl shadow p-5 space-y-4">
                     <div class="flex items-center justify-between">
                         <h3 class="text-lg font-semibold text-slate-900">Booking History</h3>
                         <div class="flex items-center gap-2 text-sm">
-                            <a href="{{ $r('caretaker.reports.index') }}" class="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">This Month</a>
-                            <form method="POST" action="{{ $r('caretaker.reports.generate') }}">@csrf<button class="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Generate Report</button></form>
+                            <a href="<?php echo e($r('caretaker.reports.index')); ?>" class="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">This Month</a>
+                            <form method="POST" action="<?php echo e($r('caretaker.reports.generate')); ?>"><?php echo csrf_field(); ?><button class="px-3 py-2 rounded-lg bg-slate-100 text-slate-700 border border-slate-200">Generate Report</button></form>
                         </div>
                     </div>
                     <div class="overflow-x-auto">
@@ -179,27 +197,27 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
-                                @foreach ($history as $row)
-                                    @php
+                                <?php $__currentLoopData = $history; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $row): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                    <?php
                                         $status = $row['status'];
                                         $map = [
                                             'Occupied' => 'bg-emerald-50 text-emerald-700 border border-emerald-100',
                                             'Reserved' => 'bg-amber-50 text-amber-700 border border-amber-100',
                                             'Checked Out' => 'bg-slate-100 text-slate-700 border-slate-200',
                                         ][$status] ?? 'bg-slate-50 text-slate-700 border-slate-100';
-                                    @endphp
+                                    ?>
                                     <tr class="hover:bg-slate-50">
-                                        <td class="px-4 py-3 font-semibold text-slate-900"><a class="text-indigo-600 hover:underline" href="{{ $r('caretaker.tenants.index') }}">{{ $row['tenant'] }}</a></td>
-                                        <td class="px-4 py-3 text-slate-700">{{ $row['room'] }}</td>
-                                        <td class="px-4 py-3 text-slate-700">{{ $row['type'] }}</td>
-                                        <td class="px-4 py-3 text-slate-700">{{ $row['floor'] }}</td>
-                                        <td class="px-4 py-3 text-slate-700">{{ $row['dates'] }}</td>
+                                        <td class="px-4 py-3 font-semibold text-slate-900"><a class="text-indigo-600 hover:underline" href="<?php echo e($r('caretaker.tenants.index')); ?>"><?php echo e($row['tenant']); ?></a></td>
+                                        <td class="px-4 py-3 text-slate-700"><?php echo e($row['room']); ?></td>
+                                        <td class="px-4 py-3 text-slate-700"><?php echo e($row['type']); ?></td>
+                                        <td class="px-4 py-3 text-slate-700"><?php echo e($row['floor']); ?></td>
+                                        <td class="px-4 py-3 text-slate-700"><?php echo e($row['dates']); ?></td>
                                         <td class="px-4 py-3 flex items-center gap-2">
-                                            <span class="px-2 py-1 text-xs rounded-full font-semibold {{ $map }}">{{ $status }}</span>
-                                            <a href="{{ $r('caretaker.bookings.index') }}" class="text-xs text-indigo-600 hover:underline">View</a>
+                                            <span class="px-2 py-1 text-xs rounded-full font-semibold <?php echo e($map); ?>"><?php echo e($status); ?></span>
+                                            <a href="<?php echo e($r('caretaker.bookings.index')); ?>" class="text-xs text-indigo-600 hover:underline">View</a>
                                         </td>
                                     </tr>
-                                @endforeach
+                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                             </tbody>
                         </table>
                     </div>
@@ -222,27 +240,27 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
-                                @foreach ($maintenance as $row)
+                                <?php $__currentLoopData = $maintenance; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $row): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                                     <tr class="hover:bg-slate-50">
-                                        <td class="px-4 py-3 font-semibold text-slate-900">{{ $row['id'] }}</td>
-                                        <td class="px-4 py-3 text-slate-700">{{ $row['room'] }}</td>
-                                        <td class="px-4 py-3 text-slate-700">{{ $row['tenant'] }}</td>
+                                        <td class="px-4 py-3 font-semibold text-slate-900"><?php echo e($row['id']); ?></td>
+                                        <td class="px-4 py-3 text-slate-700"><?php echo e($row['room']); ?></td>
+                                        <td class="px-4 py-3 text-slate-700"><?php echo e($row['tenant']); ?></td>
                                         <td class="px-4 py-3">
-                                            <form method="POST" action="{{ $r('caretaker.maintenance.priority', ['id' => $row['id']]) }}">@csrf<button class="px-2 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100">{{ $row['priority'] }}</button></form>
+                                            <form method="POST" action="<?php echo e($r('caretaker.maintenance.priority', ['id' => $row['id']])); ?>"><?php echo csrf_field(); ?><button class="px-2 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-100"><?php echo e($row['priority']); ?></button></form>
                                         </td>
                                         <td class="px-4 py-3 flex items-center gap-2">
-                                            <form method="POST" action="{{ $r('caretaker.maintenance.resolve', ['id' => $row['id']]) }}">@csrf<button class="px-2 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100">{{ $row['status'] }}</button></form>
-                                            <a href="{{ $r('caretaker.maintenance.index') }}" class="text-xs text-indigo-600 hover:underline">View</a>
+                                            <form method="POST" action="<?php echo e($r('caretaker.maintenance.resolve', ['id' => $row['id']])); ?>"><?php echo csrf_field(); ?><button class="px-2 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100"><?php echo e($row['status']); ?></button></form>
+                                            <a href="<?php echo e($r('caretaker.maintenance.index')); ?>" class="text-xs text-indigo-600 hover:underline">View</a>
                                         </td>
                                     </tr>
-                                @endforeach
+                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
 
-            {{-- Issues & Notices --}}
+            
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div class="bg-white rounded-2xl shadow p-5 space-y-4">
                     <div class="flex items-center justify-between">
@@ -261,17 +279,17 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
-                                @foreach ($complaints as $row)
+                                <?php $__currentLoopData = $complaints; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $row): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                                     <tr class="hover:bg-slate-50">
-                                        <td class="px-4 py-3 font-semibold text-slate-900"><a class="text-indigo-600 hover:underline" href="{{ $r('caretaker.incidents.show', ['id' => $row['id']]) }}">{{ $row['id'] }}</a></td>
-                                        <td class="px-4 py-3 text-slate-700">{{ $row['room'] }}</td>
-                                        <td class="px-4 py-3 text-slate-700">{{ $row['floor'] }}</td>
-                                        <td class="px-4 py-3 text-slate-700">{{ $row['date'] }}</td>
+                                        <td class="px-4 py-3 font-semibold text-slate-900"><a class="text-indigo-600 hover:underline" href="<?php echo e($r('caretaker.incidents.show', ['id' => $row['id']])); ?>"><?php echo e($row['id']); ?></a></td>
+                                        <td class="px-4 py-3 text-slate-700"><?php echo e($row['room']); ?></td>
+                                        <td class="px-4 py-3 text-slate-700"><?php echo e($row['floor']); ?></td>
+                                        <td class="px-4 py-3 text-slate-700"><?php echo e($row['date']); ?></td>
                                         <td class="px-4 py-3">
-                                            <form method="POST" action="{{ $r('caretaker.incidents.update', ['id' => $row['id']]) }}">@csrf<button class="px-3 py-2 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold">{{ $row['status'] }}</button></form>
+                                            <form method="POST" action="<?php echo e($r('caretaker.incidents.update', ['id' => $row['id']])); ?>"><?php echo csrf_field(); ?><button class="px-3 py-2 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold"><?php echo e($row['status']); ?></button></form>
                                         </td>
                                     </tr>
-                                @endforeach
+                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                             </tbody>
                         </table>
                     </div>
@@ -280,7 +298,7 @@
                 <div class="bg-white rounded-2xl shadow p-5 space-y-4">
                     <div class="flex items-center justify-between">
                         <h3 class="text-lg font-semibold text-slate-900">Notices & Announcements</h3>
-                        <a href="{{ $r('caretaker.notices.index') }}" class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold">Send New Notice</a>
+                        <a href="<?php echo e($r('caretaker.notices.index')); ?>" class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold">Send New Notice</a>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="min-w-full text-sm">
@@ -293,19 +311,38 @@
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
-                                @foreach ($notices as $notice)
-                                    @php $cls = $notice['status'] === 'Open' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-amber-50 text-amber-700 border border-amber-100'; @endphp
+                                <?php $__currentLoopData = $notices; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $notice): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                    <?php $cls = $notice['status'] === 'Open' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-amber-50 text-amber-700 border border-amber-100'; ?>
                                     <tr class="hover:bg-slate-50">
-                                        <td class="px-4 py-3 font-semibold text-slate-900"><a class="text-indigo-600 hover:underline" href="{{ $r('caretaker.notices.index') }}">{{ $notice['title'] }}</a></td>
-                                        <td class="px-4 py-3 text-slate-700">{{ $notice['audience'] }}</td>
-                                        <td class="px-4 py-3 text-slate-700">{{ $notice['date'] }}</td>
-                                        <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full font-semibold {{ $cls }}">{{ $notice['status'] }}</span></td>
+                                        <td class="px-4 py-3 font-semibold text-slate-900"><a class="text-indigo-600 hover:underline" href="<?php echo e($r('caretaker.notices.index')); ?>"><?php echo e($notice['title']); ?></a></td>
+                                        <td class="px-4 py-3 text-slate-700"><?php echo e($notice['audience']); ?></td>
+                                        <td class="px-4 py-3 text-slate-700"><?php echo e($notice['date']); ?></td>
+                                        <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full font-semibold <?php echo e($cls); ?>"><?php echo e($notice['status']); ?></span></td>
                                     </tr>
-                                @endforeach
+                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
-        </x-caretaker.shell>
-</x-layouts.caretaker>
+         <?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginalc493ed10a4acd262765c863521dd2849)): ?>
+<?php $attributes = $__attributesOriginalc493ed10a4acd262765c863521dd2849; ?>
+<?php unset($__attributesOriginalc493ed10a4acd262765c863521dd2849); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginalc493ed10a4acd262765c863521dd2849)): ?>
+<?php $component = $__componentOriginalc493ed10a4acd262765c863521dd2849; ?>
+<?php unset($__componentOriginalc493ed10a4acd262765c863521dd2849); ?>
+<?php endif; ?>
+ <?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginal26723e7569d950d41cabbb4f5db8c6fb)): ?>
+<?php $attributes = $__attributesOriginal26723e7569d950d41cabbb4f5db8c6fb; ?>
+<?php unset($__attributesOriginal26723e7569d950d41cabbb4f5db8c6fb); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginal26723e7569d950d41cabbb4f5db8c6fb)): ?>
+<?php $component = $__componentOriginal26723e7569d950d41cabbb4f5db8c6fb; ?>
+<?php unset($__componentOriginal26723e7569d950d41cabbb4f5db8c6fb); ?>
+<?php endif; ?>
+<?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\resources\views/caretaker/dashboard.blade.php ENDPATH**/ ?>
