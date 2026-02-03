@@ -1,7 +1,8 @@
 @php
     $links = [
         ['label' => 'Dashboard', 'route' => 'tenant.dashboard', 'icon' => '🏠', 'active' => 'tenant.dashboard'],
-        ['label' => 'Profile', 'route' => 'profile.edit', 'icon' => '⚙️', 'active' => 'profile.edit'],
+        ['label' => '📋 Boarding House Policies', 'route' => 'tenant.bh-policies', 'icon' => '', 'active' => 'tenant.bh-policies'],
+        ['label' => 'Profile', 'route' => 'profile.edit', 'icon' => '🕿', 'active' => 'profile.edit'],
     ];
 @endphp
 

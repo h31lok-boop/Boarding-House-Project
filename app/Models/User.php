@@ -23,7 +23,8 @@ class User extends Authenticatable
         'emergency_contact',
         'room_number',
         'move_in_date',
-        'is_active'
+        'is_active',
+        'is_archived'
     ];
 
     protected $hidden = [
@@ -35,7 +36,9 @@ class User extends Authenticatable
         'email_verified_at' => 'datetime',
         'date_of_birth' => 'date',
         'move_in_date' => 'date',
-        'is_active' => 'boolean'
+        'is_active' => 'boolean',
+        'is_archived' => 'boolean',
+        'archived_at' => 'datetime'
     ];
 
     public function isAdmin()

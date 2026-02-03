@@ -106,10 +106,18 @@ class AdminController extends Controller
      */
     public function users()
     {
-        $users = User::orderBy('created_at', 'desc')->paginate(15);
+        $users = User::where('is_archived', false)
+            ->orderBy('created_at', 'desc')
+            ->paginate(15);
+
+        $archivedUsers = User::where('is_archived', true)
+            ->orderByDesc('archived_at')
+            ->orderByDesc('created_at')
+            ->paginate(10, ['*'], 'archived_page');
+
         $roles = ['admin', 'tenant', 'caretaker', 'osas'];
 
-        return view('admin.users', compact('users', 'roles'));
+        return view('admin.users', compact('users', 'roles', 'archivedUsers'));
     }
 
     /**
@@ -167,5 +175,45 @@ class AdminController extends Controller
         }
 
         return redirect()->route('admin.users')->with('success', 'User updated.');
+    }
+
+    /**
+     * Delete a user (admin-only)
+     */
+    public function destroyUser(User $user)
+    {
+        if (auth()->id() === $user->id) {
+            return back()->with('error', 'You cannot delete your own account.');
+        }
+
+        $user->delete();
+
+        return redirect()->route('admin.users')->with('success', 'User deleted.');
+    }
+
+    public function archiveUser(User $user)
+    {
+        if (auth()->id() === $user->id) {
+            return back()->with('error', 'You cannot archive your own account.');
+        }
+
+        $user->update([
+            'is_archived' => true,
+            'archived_at' => now(),
+            'is_active' => false,
+        ]);
+
+        return redirect()->route('admin.users')->with('success', 'User archived.');
+    }
+
+    public function restoreUser(User $user)
+    {
+        $user->update([
+            'is_archived' => false,
+            'archived_at' => null,
+            'is_active' => true,
+        ]);
+
+        return redirect()->route('admin.users')->with('success', 'User restored.');
     }
 }

@@ -1,6 +1,12 @@
 <x-app-layout>
+    @php
+        $viewOnly = request()->boolean('view');
+    @endphp
+
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">Edit User</h2>
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+            {{ $viewOnly ? 'View User' : 'Edit User' }}
+        </h2>
     </x-slot>
 
     <div class="py-10">
@@ -26,22 +32,22 @@
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                            <input name="name" value="{{ old('name', $user->name) }}" class="w-full border rounded-lg px-3 py-2" required>
+                            <input name="name" value="{{ old('name', $user->name) }}" class="w-full border rounded-lg px-3 py-2 {{ $viewOnly ? 'bg-gray-50 cursor-not-allowed' : '' }}" {{ $viewOnly ? 'readonly' : '' }} required>
                         </div>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                            <input type="email" name="email" value="{{ old('email', $user->email) }}" class="w-full border rounded-lg px-3 py-2" required>
+                            <input type="email" name="email" value="{{ old('email', $user->email) }}" class="w-full border rounded-lg px-3 py-2 {{ $viewOnly ? 'bg-gray-50 cursor-not-allowed' : '' }}" {{ $viewOnly ? 'readonly' : '' }} required>
                         </div>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                            <input name="phone" value="{{ old('phone', $user->phone) }}" class="w-full border rounded-lg px-3 py-2">
+                            <input name="phone" value="{{ old('phone', $user->phone) }}" class="w-full border rounded-lg px-3 py-2 {{ $viewOnly ? 'bg-gray-50 cursor-not-allowed' : '' }}" {{ $viewOnly ? 'readonly' : '' }}>
                         </div>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                            <select name="role" class="border rounded-lg px-3 py-2 w-full">
+                            <select name="role" class="border rounded-lg px-3 py-2 w-full {{ $viewOnly ? 'bg-gray-50 cursor-not-allowed' : '' }}" {{ $viewOnly ? 'disabled' : '' }}>
                                 @foreach($roles as $role)
                                     <option value="{{ $role }}" @selected(($user->roles->pluck('name')->first() ?? $user->role) === $role)>
                                         {{ ucfirst($role) }}
@@ -50,16 +56,18 @@
                             </select>
                         </div>
 
-                        <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                            <input type="checkbox" name="is_active" value="1" @checked(old('is_active', $user->is_active))>
+                        <label class="inline-flex items-center gap-2 text-sm text-gray-700 {{ $viewOnly ? 'cursor-not-allowed' : '' }}">
+                            <input type="checkbox" name="is_active" value="1" @checked(old('is_active', $user->is_active)) {{ $viewOnly ? 'disabled' : '' }}>
                             Active
                         </label>
 
-                        <div class="pt-2">
-                            <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
-                                Save Changes
-                            </button>
-                        </div>
+                        @unless($viewOnly)
+                            <div class="pt-2">
+                                <button type="submit" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">
+                                    Update
+                                </button>
+                            </div>
+                        @endunless
                     </form>
                 </div>
             </div>

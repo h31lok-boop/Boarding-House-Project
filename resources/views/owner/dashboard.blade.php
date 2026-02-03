@@ -1,6 +1,20 @@
 <x-app-layout>
+    @php
+        $user = auth()->user();
+        $nameParts = preg_split('/\s+/', trim($user->name ?? 'Owner'));
+        $initials = strtoupper(substr($nameParts[0] ?? 'O', 0, 1) . substr($nameParts[1] ?? 'W', 0, 1));
+    @endphp
+
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">Owner Dashboard</h2>
+        <div class="flex items-center justify-between">
+            <h2 class="font-semibold text-xl text-gray-800 leading-tight">Owner Dashboard</h2>
+            <div id="ownerProfileCard" class="bg-white border border-gray-100 shadow-sm px-4 py-3 rounded-lg cursor-pointer select-none">
+                <p class="text-sm font-semibold text-gray-900 text-right">{{ $user->name ?? 'Owner' }}</p>
+                <p id="ownerEmail" class="text-xs text-gray-500 text-right mt-1 hidden rotate-180 origin-center">
+                    {{ $user->email ?? '' }}
+                </p>
+            </div>
+        </div>
     </x-slot>
 
     @php
@@ -73,5 +87,14 @@
                 }
             }
         });
+
+        // Toggle upside-down email reveal on card click
+        const ownerCard = document.getElementById('ownerProfileCard');
+        const ownerEmail = document.getElementById('ownerEmail');
+        if (ownerCard && ownerEmail) {
+            ownerCard.addEventListener('click', () => {
+                ownerEmail.classList.toggle('hidden');
+            });
+        }
     </script>
 </x-app-layout>

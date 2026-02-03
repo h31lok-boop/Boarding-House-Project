@@ -45,17 +45,7 @@
     </div>
 
     <div class="px-4 py-4 border-t border-gray-100">
-        <div class="flex items-center gap-3">
-            <div class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 uppercase">
-                {{ Str::substr(Auth::user()->name ?? 'U', 0, 2) }}
-            </div>
-            <div class="min-w-0">
-                <p class="text-sm font-semibold text-gray-800 truncate">{{ Auth::user()->name }}</p>
-                <p class="text-xs text-gray-500 truncate">{{ Auth::user()->email }}</p>
-            </div>
-        </div>
-
-        <div class="mt-3 space-y-1 text-sm font-medium">
+        <div class="space-y-1 text-sm font-medium">
             <a href="{{ route('profile.edit') }}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50">
                 <span class="text-base">⚙️</span>
                 <span>Profile</span>

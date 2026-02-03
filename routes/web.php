@@ -2,9 +2,11 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Admin\BoardingHousePolicyController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Lang;
 
 Route::get('/', function () {
     return view('welcome');
@@ -36,6 +38,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/users/{user}', [AdminController::class, 'updateUser'])->name('users.update');
         Route::put('/users/{user}/role', [AdminController::class, 'updateUserRole'])->name('users.role');
         Route::resource('/boarding-houses', \App\Http\Controllers\BoardingHouseController::class)->names('boarding-houses');
+        Route::get('/boarding-house-policies', [BoardingHousePolicyController::class, 'index'])->name('boarding-house-policies.index');
+        Route::post('/boarding-house-policies', [BoardingHousePolicyController::class, 'update'])->name('boarding-house-policies.update');
     });
 
     // Owner Dashboard (role-gated)
@@ -51,6 +55,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         abort_unless($user && $user->isTenant(), 403);
         return view('tenant.dashboard');
     })->name('tenant.dashboard');
+
+    Route::get('/tenant/bh-policies', function () {
+        $user = Auth::user();
+        abort_unless($user && $user->isTenant(), 403);
+
+        $policyCategories = Lang::get('boarding_house_policies.categories', []);
+
+        return view('tenant.bh-policies', compact('policyCategories'));
+    })->name('tenant.bh-policies');
 
     // Caretaker Dashboard (role-gated)
     Route::get('/caretaker/dashboard', function () {

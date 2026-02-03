@@ -8,34 +8,19 @@
 <?php $attributes = $attributes->except(\App\View\Components\AppLayout::ignoredParameterNames()); ?>
 <?php endif; ?>
 <?php $component->withAttributes([]); ?>
-    <?php
-        $user = auth()->user();
-        $nameParts = preg_split('/\s+/', trim($user->name ?? 'Owner'));
-        $initials = strtoupper(substr($nameParts[0] ?? 'O', 0, 1) . substr($nameParts[1] ?? 'W', 0, 1));
-    ?>
-
      <?php $__env->slot('header', null, []); ?> 
-        <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">Owner Dashboard</h2>
-            <div id="ownerProfileCard" class="bg-white border border-gray-100 shadow-sm px-4 py-3 rounded-lg cursor-pointer select-none">
-                <p class="text-sm font-semibold text-gray-900 text-right"><?php echo e($user->name ?? 'Owner'); ?></p>
-                <p id="ownerEmail" class="text-xs text-gray-500 text-right mt-1 hidden rotate-180 origin-center">
-                    <?php echo e($user->email ?? ''); ?>
-
-                </p>
-            </div>
-        </div>
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight">OSAS Dashboard</h2>
      <?php $__env->endSlot(); ?>
 
     <?php
         $metrics = [
-            ['label' => 'Total Rooms', 'value' => 120, 'color' => 'blue', 'icon' => '🏘️'],
-            ['label' => 'Occupancy', 'value' => '91%', 'color' => 'emerald', 'icon' => '📈'],
-            ['label' => 'Monthly Revenue', 'value' => '₱320k', 'color' => 'indigo', 'icon' => '💰'],
+            ['label' => 'Pending Approvals', 'value' => 12, 'color' => 'purple', 'icon' => '📝'],
+            ['label' => 'Validated Docs', 'value' => 48, 'color' => 'emerald', 'icon' => '✅'],
+            ['label' => 'Flagged Issues', 'value' => 2, 'color' => 'rose', 'icon' => '⚠️'],
         ];
 
         $chartLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-        $chartData   = [250000, 265000, 275000, 290000, 305000, 320000];
+        $chartData   = [30, 45, 40, 55, 60, 72]; // approvals processed
     ?>
 
     <div class="space-y-6">
@@ -57,12 +42,12 @@
             <div class="p-6">
                 <div class="flex items-center justify-between mb-4">
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-900">Revenue Trend</h3>
+                        <h3 class="text-lg font-semibold text-gray-900">Approvals Trend</h3>
                         <p class="text-sm text-gray-500">Last 6 months</p>
                     </div>
                 </div>
                 <div class="h-72">
-                    <canvas id="ownerRevenueChart"></canvas>
+                    <canvas id="osasApprovalsChart"></canvas>
                 </div>
             </div>
         </div>
@@ -70,42 +55,26 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        const ownerCtx = document.getElementById('ownerRevenueChart');
-        new Chart(ownerCtx, {
-            type: 'line',
+        const osasCtx = document.getElementById('osasApprovalsChart');
+        new Chart(osasCtx, {
+            type: 'bar',
             data: {
                 labels: <?php echo json_encode($chartLabels, 15, 512) ?>,
                 datasets: [{
-                    label: 'Revenue (₱)',
+                    label: 'Approvals',
                     data: <?php echo json_encode($chartData, 15, 512) ?>,
-                    borderColor: '#2563eb',
-                    backgroundColor: 'rgba(37, 99, 235, 0.1)',
-                    fill: true,
-                    tension: 0.25,
-                    borderWidth: 2,
-                    pointRadius: 3,
+                    backgroundColor: '#8b5cf6',
+                    borderRadius: 6
                 }]
             },
             options: {
                 plugins: { legend: { display: false } },
                 scales: {
-                    y: {
-                        ticks: { callback: v => `₱${Number(v).toLocaleString()}` },
-                        grid: { color: 'rgba(17,24,39,0.06)' }
-                    },
+                    y: { grid: { color: 'rgba(17,24,39,0.06)' }, ticks: { stepSize: 10 } },
                     x: { grid: { display: false } }
                 }
             }
         });
-
-        // Toggle upside-down email reveal on card click
-        const ownerCard = document.getElementById('ownerProfileCard');
-        const ownerEmail = document.getElementById('ownerEmail');
-        if (ownerCard && ownerEmail) {
-            ownerCard.addEventListener('click', () => {
-                ownerEmail.classList.toggle('hidden');
-            });
-        }
     </script>
  <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>
@@ -117,4 +86,4 @@
 <?php $component = $__componentOriginal9ac128a9029c0e4701924bd2d73d7f54; ?>
 <?php unset($__componentOriginal9ac128a9029c0e4701924bd2d73d7f54); ?>
 <?php endif; ?>
-<?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views/owner/dashboard.blade.php ENDPATH**/ ?>
+<?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views/osas/dashboard.blade.php ENDPATH**/ ?>
