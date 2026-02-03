@@ -12,14 +12,34 @@
             @endif
 
             <div class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
-                <div class="p-5 border-b border-gray-100 flex items-center justify-between">
-                    <h3 class="text-lg font-semibold text-gray-800">All Users</h3>
-                    <button id="openArchiveModal" class="text-sm text-gray-500 hover:text-gray-700" type="button" title="View archived users">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 7h18M5 7v11c0 .828.672 1.5 1.5 1.5h11c.828 0 1.5-.672 1.5-1.5V7M9 7v-3h6v3" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10 12h4m-2-2v4" />
-                        </svg>
-                    </button>
+                <div class="p-5 border-b border-gray-100 space-y-3">
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-800">All Users</h3>
+                            <span class="text-sm text-gray-500">Admin can change roles</span>
+                        </div>
+                        <button id="openArchiveModal" class="text-sm text-gray-500 hover:text-gray-700" type="button" title="View archived users">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 7h18M5 7v11c0 .828.672 1.5 1.5 1.5h11c.828 0 1.5-.672 1.5-1.5V7M9 7v-3h6v3" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10 12h4m-2-2v4" />
+                            </svg>
+                        </button>
+                    </div>
+                    <form method="GET" class="flex flex-col sm:flex-row sm:items-center gap-3">
+                        <label class="text-sm text-gray-600 flex items-center gap-2">
+                            <span>Filter by role:</span>
+                            <select name="role" class="border rounded-lg px-3 py-2 text-sm">
+                                <option value="">All</option>
+                                @foreach($roles as $role)
+                                    <option value="{{ $role }}" @selected(request('role') === $role)>{{ ucfirst($role) }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+                        <div class="flex gap-2">
+                            <button type="submit" class="bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-indigo-700">Apply</button>
+                            <a href="{{ route('admin.users') }}" class="px-3 py-2 rounded-lg text-sm border text-gray-700 hover:bg-gray-50">Reset</a>
+                        </div>
+                    </form>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full text-sm">

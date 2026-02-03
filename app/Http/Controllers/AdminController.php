@@ -106,7 +106,26 @@ class AdminController extends Controller
      */
     public function users()
     {
-        $users = User::where('is_archived', false)
+        $roles = ['admin', 'tenant', 'caretaker', 'osas'];
+        $filterRole = request('role');
+
+        $users = User::query()
+            ->where('is_archived', false)
+            ->when($filterRole, function ($query) use ($filterRole) {
+                $query->where(function ($q) use ($filterRole) {
+                    $q->where(function ($roleQuery) use ($filterRole) {
+                        // legacy column (owner counts as admin)
+                        if ($filterRole === 'admin') {
+                            $roleQuery->whereIn('role', ['admin', 'owner']);
+                        } else {
+                            $roleQuery->where('role', $filterRole);
+                        }
+                    })->orWhereHas('roles', function ($roleQuery) use ($filterRole) {
+                        // spatie roles
+                        $roleQuery->where('name', $filterRole);
+                    });
+                });
+            })
             ->orderBy('created_at', 'desc')
             ->paginate(15);
 
@@ -115,7 +134,10 @@ class AdminController extends Controller
             ->orderByDesc('created_at')
             ->paginate(10, ['*'], 'archived_page');
 
-        $roles = ['admin', 'tenant', 'caretaker', 'osas'];
+        // Keep filter when paginating
+        if ($filterRole) {
+            $users->appends(['role' => $filterRole]);
+        }
 
         return view('admin.users', compact('users', 'roles', 'archivedUsers'));
     }
@@ -215,5 +237,29 @@ class AdminController extends Controller
         ]);
 
         return redirect()->route('admin.users')->with('success', 'User restored.');
+    }
+
+    /**
+     * Show tenant history (ongoing vs past) with basic payment placeholder.
+     */
+    public function tenantHistory()
+    {
+        $ongoing = User::with('boardingHouse')
+            ->where(function ($q) {
+                $q->where('role', 'tenant')->orWhereHas('roles', fn($r) => $r->where('name', 'tenant'));
+            })
+            ->where('is_active', true)
+            ->orderByDesc('move_in_date')
+            ->get(['id','name','email','boarding_house_id','room_number','move_in_date','is_active']);
+
+        $past = User::with('boardingHouse')
+            ->where(function ($q) {
+                $q->where('role', 'tenant')->orWhereHas('roles', fn($r) => $r->where('name', 'tenant'));
+            })
+            ->where('is_active', false)
+            ->orderByDesc('move_in_date')
+            ->get(['id','name','email','boarding_house_id','room_number','move_in_date','is_active']);
+
+        return view('admin.tenant-history', compact('ongoing', 'past'));
     }
 }

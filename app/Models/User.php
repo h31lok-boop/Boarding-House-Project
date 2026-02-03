@@ -24,7 +24,8 @@ class User extends Authenticatable
         'room_number',
         'move_in_date',
         'is_active',
-        'is_archived'
+        'is_archived',
+        'boarding_house_id',
     ];
 
     protected $hidden = [
@@ -59,6 +60,24 @@ class User extends Authenticatable
     public function isTenant()
     {
         return $this->role === 'tenant';
+    }
+
+    public function boardingHouse()
+    {
+        return $this->belongsTo(\App\Models\BoardingHouse::class);
+    }
+
+    public function boardingHouseApplications()
+    {
+        return $this->hasMany(\App\Models\BoardingHouseApplication::class);
+    }
+
+    /**
+     * Validation tasks assigned to this validator (OSAS).
+     */
+    public function validationTasks()
+    {
+        return $this->hasMany(\App\Models\ValidationTask::class, 'validator_id');
     }
 
     /**

@@ -16,4 +16,9 @@ class BoardingHouse extends Model
         'capacity',
         'is_active',
     ];
+
+    public function tenants()
+    {
+        return $this->hasMany(User::class, 'boarding_house_id');
+    }
 }

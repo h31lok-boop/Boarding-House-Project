@@ -11,8 +11,18 @@
                 </div>
             @endif
 
-            <div class="flex justify-between items-center mb-4">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
                 <a href="{{ route('admin.boarding-houses.create') }}" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">Add Boarding House</a>
+                <form method="GET" class="flex items-center gap-2 text-sm">
+                    <label class="text-gray-700">Filter:</label>
+                    <select name="status" class="border rounded-lg px-3 py-2">
+                        <option value="">All</option>
+                        <option value="available" @selected(request('status') === 'available')>Available</option>
+                        <option value="occupied" @selected(request('status') === 'occupied')>Occupied</option>
+                    </select>
+                    <button type="submit" class="px-3 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700">Apply</button>
+                    <a href="{{ route('admin.boarding-houses.index') }}" class="px-3 py-2 rounded-lg border text-gray-700 hover:bg-gray-50">Reset</a>
+                </form>
             </div>
 
                 <div class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
@@ -22,6 +32,7 @@
                             <th class="px-5 py-3 text-left">Name</th>
                             <th class="px-5 py-3 text-left">Address</th>
                             <th class="px-5 py-3 text-left">Capacity</th>
+                            <th class="px-5 py-3 text-left">Occupancy</th>
                             <th class="px-5 py-3 text-left">Status</th>
                             <th class="px-5 py-3 text-right">Actions</th>
                         </tr>
@@ -32,9 +43,15 @@
                                 <td class="px-5 py-3 font-medium text-gray-900">{{ $house->name }}</td>
                                 <td class="px-5 py-3 text-gray-600">{{ $house->address }}</td>
                                 <td class="px-5 py-3 text-gray-600">{{ $house->capacity }}</td>
+                                <td class="px-5 py-3 text-gray-600">{{ $house->tenants_count }} / {{ $house->capacity }}</td>
                                 <td class="px-5 py-3">
-                                    <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold {{ $house->is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600' }}">
-                                        {{ $house->is_active ? 'Active' : 'Inactive' }}
+                                    @php
+                                        $full = $house->tenants_count >= $house->capacity;
+                                        $occupied = $house->tenants_count > 0;
+                                    @endphp
+                                    <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold
+                                        {{ $full ? 'bg-rose-100 text-rose-700' : ($occupied ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700') }}">
+                                        {{ $full ? 'Full' : ($occupied ? 'Occupied' : 'Available') }}
                                     </span>
                                 </td>
                                 <td class="px-5 py-3 text-right">

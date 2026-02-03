@@ -18,6 +18,9 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call(RoleSeeder::class);
+        $this->call(BoardingHouseSeeder::class);
+        $this->call(TenantSeeder::class);
+        $this->call(OsasSeeder::class);
 
         // Demo Owner
         $owner = User::updateOrCreate(
