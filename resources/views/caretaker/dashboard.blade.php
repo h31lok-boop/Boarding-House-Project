@@ -1,53 +1,4 @@
-<x-layouts.caretaker>
-@php
-    $tenant = [
-        'name' => 'Marie Santos',
-        'email' => 'mariesantos@gmail.com',
-        'phone' => '+63 912 345 6789',
-        'room' => 'Queen Room Deluxe A202',
-        'checkin' => 'April 15, 2024',
-        'checkout' => 'April 20, 2024',
-        'status' => 'Checked-in',
-    ];
-
-    $stats = [
-        ['label' => 'Occupied Rooms',      'value' => 42, 'icon' => '🏠'],
-        ['label' => 'Available Rooms',     'value' => 18, 'icon' => '🛏️'],
-        ['label' => 'Pending Maintenance', 'value' => 6,  'icon' => '🛠️'],
-        ['label' => 'Active Complaints',   'value' => 3,  'icon' => '⚠️'],
-        ['label' => "Today's Check-ins",   'value' => 3,  'icon' => '📅'],
-    ];
-
-    $rooms = [
-        ['name' => 'Queen A-202',    'status' => 'Occupied',  'img' => 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=900&q=60'],
-        ['name' => 'Twin Room C-110','status' => 'Available', 'img' => 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=900&q=60'],
-    ];
-
-    $history = [
-        ['tenant' => 'Marie Santos',     'dates' => 'April 15-20, 2024', 'room' => 'Queen A-202',  'type' => 'Queen',  'floor' => 2, 'status' => 'Occupied'],
-        ['tenant' => 'John Reyes',       'dates' => 'Mar 26-29, 2024',   'room' => 'Studio B-305', 'type' => 'Studio', 'floor' => 3, 'status' => 'Reserved'],
-        ['tenant' => 'Karen Dela Cruz',  'dates' => 'Mar 20-24, 2024',   'room' => 'Twin C-110',   'type' => 'Twin',   'floor' => 4, 'status' => 'Checked Out'],
-    ];
-
-    $maintenance = [
-        ['id' => 'Plumbing',   'room' => '#A202', 'tenant' => 'A202', 'priority' => 'Pending',      'status' => 'Confirm'],
-        ['id' => 'Electrical', 'room' => '#B305', 'tenant' => 'B305', 'priority' => 'In Progress',  'status' => 'Ongoing'],
-        ['id' => 'Cleaning',   'room' => '#C110', 'tenant' => 'C110', 'priority' => 'Resolved',     'status' => 'Updated'],
-    ];
-
-    $complaints = [
-        ['id' => '#B255', 'room' => '#A202', 'tenant' => 'John Reyes',      'floor' => 2, 'date' => 'April 15-20, 2024', 'status' => 'Update'],
-        ['id' => '#C110', 'room' => '#C110', 'tenant' => 'Karen Dela Cruz', 'floor' => 3, 'date' => 'Mar 20-24, 2024',   'status' => 'Resolved'],
-        ['id' => '#A302', 'room' => '#A302', 'tenant' => 'Marie Santos',    'floor' => 4, 'date' => 'Apr 19-20, 2024',   'status' => 'Update'],
-    ];
-
-    $notices = [
-        ['title' => 'AC Maintenance',          'audience' => 'All Tenants', 'date' => 'Apr 15, 2024', 'status' => 'Open'],
-        ['title' => 'Swimming Pool Cleaning',  'audience' => 'All Tenants', 'date' => 'Apr 15, 2024', 'status' => 'Planned'],
-        ['title' => 'Lobby Disinfection',      'audience' => 'All Tenants', 'date' => 'Apr 14, 2024', 'status' => 'Open'],
-    ];
-@endphp
-
+﻿<x-layouts.caretaker>
 @php
     // Safe route helper: falls back to current URL with query (never '#')
     $r = function (string $name, array $params = [], ?string $fallback = null) {
@@ -115,15 +66,19 @@
                     <div class="flex items-center justify-between">
                         <div>
                             <h3 class="font-semibold text-lg">Current Booking</h3>
-                            <p class="text-indigo-600 font-semibold">Booking ID #9032030</p>
-                            <p class="text-sm text-slate-500">{{ $tenant['room'] }}</p>
+                            <p class="text-indigo-600 font-semibold">Booking ID #{{ $currentBooking?->id ?? '—' }}</p>
+                            <p class="text-sm text-slate-500">{{ $currentBooking?->room?->name ?? $tenant['room'] }}</p>
                         </div>
                         <a href="{{ $r('caretaker.bookings.index') }}" class="text-indigo-600 text-sm">View All</a>
                     </div>
                     <div class="flex flex-wrap gap-2">
-                        <form method="POST" action="{{ $r('caretaker.bookings.confirm', ['id' => 9032030]) }}">@csrf<button class="px-4 py-2 rounded-full bg-indigo-600 text-white text-sm">Check-in</button></form>
-                        <form method="POST" action="{{ $r('caretaker.bookings.extend', ['id' => 9032030]) }}">@csrf<button class="px-4 py-2 rounded-full bg-emerald-100 text-emerald-700 text-sm">Extend Stay</button></form>
-                        <a href="{{ $r('caretaker.incidents.index', ['booking' => 9032030]) }}" class="px-4 py-2 rounded-full bg-rose-100 text-rose-700 text-sm">Flag Issue</a>
+                        @if($currentBooking)
+                            <form method="POST" action="{{ $r('caretaker.bookings.confirm', ['id' => $currentBooking->id]) }}">@csrf<button class="px-4 py-2 rounded-full bg-indigo-600 text-white text-sm">Check-in</button></form>
+                            <form method="POST" action="{{ $r('caretaker.bookings.extend', ['id' => $currentBooking->id]) }}">@csrf<button class="px-4 py-2 rounded-full bg-emerald-100 text-emerald-700 text-sm">Extend Stay</button></form>
+                            <a href="{{ $r('caretaker.incidents.index', ['booking' => $currentBooking->id]) }}" class="px-4 py-2 rounded-full bg-rose-100 text-rose-700 text-sm">Flag Issue</a>
+                        @else
+                            <span class="text-sm text-slate-500">No active booking available.</span>
+                        @endif
                     </div>
                     <p class="text-xs text-slate-500">Room book, towels, MEG, shower, coffee set, bed, TV.</p>
                 </div>
@@ -144,7 +99,11 @@
                             @endphp
                             <div class="min-w-[200px] rounded-2xl border border-slate-100 shadow-sm bg-white overflow-hidden">
                                 <div class="h-24 w-full overflow-hidden">
-                                    <img src="{{ $room['img'] }}" class="h-full w-full object-cover" alt="{{ $room['name'] }}">
+                                    @if($room['img'])
+                                        <img src="{{ $room['img'] }}" class="h-full w-full object-cover" alt="{{ $room['name'] }}">
+                                    @else
+                                        <div class="h-full w-full bg-slate-100"></div>
+                                    @endif
                                 </div>
                                 <div class="p-3 space-y-1 text-sm">
                                     <p class="font-semibold text-slate-900">{{ $room['name'] }}</p>
@@ -208,7 +167,7 @@
                 <div class="bg-white rounded-2xl shadow p-5 space-y-4">
                     <div class="flex items-center justify-between">
                         <h3 class="text-lg font-semibold text-slate-900">Maintenance Requests</h3>
-                        <div class="flex gap-2 text-xs text-slate-500"><span>This Month</span><span>•</span><span>24</span></div>
+                        <div class="flex gap-2 text-xs text-slate-500"><span>This Month</span><span>•</span><span>{{ count($maintenance) }}</span></div>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="min-w-full text-sm">
@@ -263,7 +222,7 @@
                             <tbody class="divide-y divide-slate-100">
                                 @foreach ($complaints as $row)
                                     <tr class="hover:bg-slate-50">
-                                        <td class="px-4 py-3 font-semibold text-slate-900"><a class="text-indigo-600 hover:underline" href="{{ $r('caretaker.incidents.show', ['id' => $row['id']]) }}">{{ $row['id'] }}</a></td>
+                                        <td class="px-4 py-3 font-semibold text-slate-900"><a class="text-indigo-600 hover:underline" href="{{ $r('caretaker.incidents.show', ['id' => $row['id']]) }}">#{{ $row['id'] }}</a></td>
                                         <td class="px-4 py-3 text-slate-700">{{ $row['room'] }}</td>
                                         <td class="px-4 py-3 text-slate-700">{{ $row['floor'] }}</td>
                                         <td class="px-4 py-3 text-slate-700">{{ $row['date'] }}</td>

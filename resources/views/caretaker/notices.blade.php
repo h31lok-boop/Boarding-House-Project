@@ -11,12 +11,12 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <input name="title" required placeholder="Title" class="border border-slate-200 rounded-lg px-3 py-2 w-full" />
                     <select name="audience" class="border border-slate-200 rounded-lg px-3 py-2 w-full">
-                        <option value="all">All Tenants</option>
-                        <option value="floor">Specific Floor</option>
-                        <option value="room">Specific Room</option>
+                        <option value="All Tenants">All Tenants</option>
+                        <option value="Specific Floor">Specific Floor</option>
+                        <option value="Specific Room">Specific Room</option>
                     </select>
                 </div>
-                <textarea name="message" rows="3" class="border border-slate-200 rounded-lg px-3 py-2 w-full" placeholder="Message"></textarea>
+                <textarea name="body" rows="3" class="border border-slate-200 rounded-lg px-3 py-2 w-full" placeholder="Message"></textarea>
                 <button class="px-4 py-2 rounded-full bg-indigo-600 text-white text-sm font-semibold">Send Notice</button>
             </form>
         </div>

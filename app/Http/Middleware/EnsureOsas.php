@@ -11,7 +11,9 @@ class EnsureOsas
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
-        abort_unless($user && $user->hasRole('osas'), 403);
+        $hasRole = $user && (method_exists($user, 'hasRole') && $user->hasRole('osas'));
+        $legacy = $user && strtolower($user->role ?? '') === 'osas';
+        abort_unless($hasRole || $legacy, 403);
         return $next($request);
     }
 }

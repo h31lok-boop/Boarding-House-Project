@@ -1,20 +1,28 @@
 {{-- resources/views/auth/register.blade.php --}}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <title>Create Account | StaySafe Finder</title>
     <link rel="stylesheet" href="https://fonts.bunny.net/css?family=manrope:400,500,600,700&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <script>
+        (function () {
+            const stored = localStorage.getItem('theme');
+            if (stored) {
+                document.documentElement.setAttribute('data-theme', stored);
+            }
+        })();
+    </script>
     <style>
         :root {
-            --primary: #4f6cff;
-            --primary-soft: #edf1ff;
-            --text: #111827;
-            --muted: #6b7280;
-            --border: #e5e7eb;
-            --bg: #f6f8fc;
+            --primary: var(--brand-500);
+            --primary-soft: rgba(255, 126, 95, 0.12);
+            --text: var(--text);
+            --muted: var(--muted);
+            --border: var(--border);
+            --bg: var(--bg);
         }
 
         * {
@@ -25,7 +33,7 @@
 
         body {
             font-family: 'Manrope', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: radial-gradient(circle at top, #ffffff 0%, #f1f5fb 55%, #e9effa 100%);
+            background: radial-gradient(circle at top, var(--surface) 0%, var(--bg) 55%, var(--surface-2) 100%);
             color: var(--text);
             min-height: 100vh;
             display: flex;
@@ -37,7 +45,7 @@
         .auth-card {
             width: 100%;
             max-width: 480px;
-            background: #ffffff;
+            background: var(--surface);
             border-radius: 24px;
             padding: 32px;
             box-shadow: 0 20px 40px rgba(17, 24, 39, 0.08);
@@ -48,7 +56,7 @@
             position: absolute;
             top: 20px;
             right: 20px;
-            background: #f0f2f7;
+            background: var(--surface-2);
             color: var(--muted);
             font-size: 12px;
             font-weight: 600;
@@ -119,7 +127,7 @@
             font-weight: 600;
             color: var(--muted);
             transition: all 0.2s ease;
-            background: #ffffff;
+            background: var(--surface);
             text-align: center;
         }
 
@@ -157,7 +165,7 @@
             border: 1px solid var(--border);
             border-radius: 14px;
             padding: 12px 14px;
-            background: #ffffff;
+            background: var(--surface);
             transition: border 0.2s ease, box-shadow 0.2s ease;
         }
 
@@ -254,6 +262,10 @@
 </head>
 <body>
     <div class="auth-card">
+        <button type="button" class="theme-toggle" data-theme-toggle style="position:absolute; top:20px; left:20px;">
+            <span>Theme:</span>
+            <span data-theme-label>Light</span>
+        </button>
         <span class="progress-badge">0%</span>
         <h1 class="auth-title">Create Account</h1>
         <p class="auth-subtitle">Sign up to start as a tenant.</p>

@@ -56,6 +56,12 @@ class BoardingHouseController extends Controller
         return view('admin.boarding-houses.edit', ['house' => $boarding_house]);
     }
 
+    public function show(BoardingHouse $boarding_house)
+    {
+        $boarding_house->loadCount('tenants');
+        return view('admin.boarding-houses.show', ['house' => $boarding_house]);
+    }
+
     public function update(Request $request, BoardingHouse $boarding_house)
     {
         $data = $request->validate([

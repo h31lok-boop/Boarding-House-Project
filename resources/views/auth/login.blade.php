@@ -1,23 +1,31 @@
 {{-- resources/views/auth/login.blade.php --}}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login | Sunshine Boarding House</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <script>
+        (function () {
+            const stored = localStorage.getItem('theme');
+            if (stored) {
+                document.documentElement.setAttribute('data-theme', stored);
+            }
+        })();
+    </script>
     <style>
         :root {
-            --primary: #ff7e5f;
-            --secondary: #feb47b;
-            --dark: #333;
-            --light: #f9f9f9;
-            --shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            --primary: var(--brand-500);
+            --secondary: var(--accent-500);
+            --dark: var(--text);
+            --light: var(--surface);
+            --shadow: var(--shadow);
         }
 
         body {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            background: radial-gradient(circle at top, var(--surface) 0%, var(--bg) 60%, var(--surface-2) 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -30,7 +38,7 @@
             width: 100%;
             max-width: 1000px;
             min-height: 600px;
-            background: white;
+            background: var(--surface);
             border-radius: 20px;
             overflow: hidden;
             box-shadow: var(--shadow);
@@ -55,6 +63,12 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
+        }
+
+        .theme-toggle-auth {
+            position: absolute;
+            top: 24px;
+            right: 24px;
         }
 
         .logo {
@@ -286,6 +300,10 @@
 </head>
 <body>
     <div class="login-container">
+        <button type="button" class="theme-toggle theme-toggle-auth" data-theme-toggle>
+            <span>Theme:</span>
+            <span data-theme-label>Light</span>
+        </button>
         <!-- Left Side - Branding -->
         <div class="login-left">
             <div class="logo">

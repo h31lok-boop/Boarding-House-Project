@@ -27,14 +27,28 @@
             'osas' => \App\Models\User::where('role', 'osas')->orWhereHas('roles', fn($q) => $q->where('name', 'osas'))->count(),
         ];
 
+        $totalRooms = \App\Models\Room::count();
+        $occupiedRooms = \App\Models\Room::where('status', 'Occupied')->count();
+        $occupancy = $totalRooms > 0 ? round(($occupiedRooms / $totalRooms) * 100) . '%' : '0%';
+        $monthlyBookings = \App\Models\Booking::where('status', 'Confirmed')
+            ->whereMonth('start_date', now()->month)
+            ->whereYear('start_date', now()->year)
+            ->count();
+
         $metrics = [
-            ['label' => 'Total Rooms', 'value' => 120, 'color' => 'blue', 'icon' => '🏘️'],
-            ['label' => 'Occupancy', 'value' => '91%', 'color' => 'emerald', 'icon' => '📈'],
-            ['label' => 'Monthly Revenue', 'value' => '₱320k', 'color' => 'indigo', 'icon' => '💰'],
+            ['label' => 'Total Rooms', 'value' => $totalRooms ?: 0, 'color' => 'blue', 'icon' => '🏘️'],
+            ['label' => 'Occupancy', 'value' => $occupancy, 'color' => 'emerald', 'icon' => '📈'],
+            ['label' => 'Monthly Bookings', 'value' => $monthlyBookings, 'color' => 'indigo', 'icon' => '📅'],
         ];
 
-        $chartLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-        $chartData   = [250000, 265000, 275000, 290000, 305000, 320000];
+        $chartLabels = collect(range(5, 0))->map(fn ($i) => now()->subMonths($i)->format('M'))->values();
+        $chartData = collect(range(5, 0))->map(function ($i) {
+            $date = now()->subMonths($i);
+            return \App\Models\Booking::where('status', 'Confirmed')
+                ->whereMonth('start_date', $date->month)
+                ->whereYear('start_date', $date->year)
+                ->count();
+        })->values();
     @endphp
 
     @php $currentUser = Auth::user(); @endphp
@@ -94,7 +108,7 @@
             <div class="p-6">
                 <div class="flex items-center justify-between mb-4">
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-900">Revenue Trend</h3>
+                        <h3 class="text-lg font-semibold text-gray-900">Booking Trend</h3>
                         <p class="text-sm text-gray-500">Last 6 months</p>
                     </div>
                 </div>
@@ -173,7 +187,7 @@
                 data: {
                     labels: @json($chartLabels),
                     datasets: [{
-                        label: 'Revenue (₱)',
+                        label: 'Bookings',
                         data: @json($chartData),
                         borderColor: '#2563eb',
                         backgroundColor: 'rgba(37, 99, 235, 0.1)',
@@ -187,7 +201,7 @@
                     plugins: { legend: { display: false } },
                     scales: {
                         y: {
-                            ticks: { callback: v => `₱${Number(v).toLocaleString()}` },
+                        ticks: { callback: v => Number(v).toLocaleString() },
                             grid: { color: 'rgba(17,24,39,0.06)' }
                         },
                         x: { grid: { display: false } }

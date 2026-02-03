@@ -11,7 +11,9 @@ class EnsureCaretaker
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
-        abort_unless($user && $user->hasRole('caretaker'), 403);
+        $hasRole = $user && (method_exists($user, 'hasRole') && $user->hasRole('caretaker'));
+        $legacy = $user && strtolower($user->role ?? '') === 'caretaker';
+        abort_unless($hasRole || $legacy, 403);
         return $next($request);
     }
 }

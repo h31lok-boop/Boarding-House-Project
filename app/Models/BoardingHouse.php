@@ -21,4 +21,9 @@ class BoardingHouse extends Model
     {
         return $this->hasMany(User::class, 'boarding_house_id');
     }
+
+    public function rooms()
+    {
+        return $this->hasMany(Room::class);
+    }
 }

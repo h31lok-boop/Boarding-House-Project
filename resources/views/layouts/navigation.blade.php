@@ -1,4 +1,4 @@
-<nav class="w-64 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border-r border-slate-800 flex flex-col text-slate-100 shadow-xl">
+<nav class="w-64 ui-surface border-r ui-border flex flex-col shadow-xl">
     @php
         $dashRoute = 'dashboard';
         if (auth()->check()) {
@@ -26,15 +26,15 @@
         }
     @endphp
 
-    <div class="p-6 border-b border-slate-800">
+    <div class="p-6 border-b ui-border">
         <a href="{{ route($dashRoute) }}" class="flex items-center gap-3">
-            <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-indigo-500 via-fuchsia-500 to-cyan-400 text-white flex items-center justify-center font-black text-lg shadow-lg shadow-indigo-900/60">
+            <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-[#ff7e5f] via-[#feb47b] to-[#ffd1a3] text-white flex items-center justify-center font-black text-lg shadow-lg">
                 SF
             </div>
             <div class="leading-tight">
-                <p class="text-[11px] uppercase tracking-[0.18em] text-indigo-200 font-semibold">StaySafe</p>
-                <p class="text-lg font-bold text-slate-100">Finder</p>
-                <p class="text-[11px] text-slate-400">Comfort &amp; Community</p>
+                <p class="text-[11px] uppercase tracking-[0.18em] ui-muted font-semibold">StaySafe</p>
+                <p class="text-lg font-bold">Finder</p>
+                <p class="text-[11px] ui-muted">Comfort &amp; Community</p>
             </div>
         </a>
     </div>
@@ -43,7 +43,7 @@
         <div class="px-4 py-6 space-y-1">
             @foreach($navLinks as $link)
                 <a href="{{ route($link['route']) }}"
-                   class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ request()->routeIs($link['active']) ? 'bg-gradient-to-r from-indigo-500/30 via-fuchsia-500/20 to-cyan-500/30 text-slate-50 shadow-lg shadow-indigo-900/40 border border-indigo-500/30' : 'text-slate-300 hover:bg-white/5 hover:text-slate-50 border border-transparent' }}">
+                   class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ request()->routeIs($link['active']) ? 'bg-[color:var(--surface-2)] text-[color:var(--text)] border ui-border shadow' : 'text-[color:var(--muted)] hover:bg-[color:var(--surface-2)] hover:text-[color:var(--text)] border border-transparent' }}">
                     <span class="text-lg">{{ $link['icon'] }}</span>
                     <span>{{ $link['label'] }}</span>
                 </a>
@@ -51,26 +51,32 @@
         </div>
     </div>
 
-    <div class="px-4 py-4 border-t border-slate-800">
+    <div class="px-4 py-4 border-t ui-border">
+        <div class="mb-3">
+            <button type="button" class="theme-toggle" data-theme-toggle>
+                <span>Theme:</span>
+                <span data-theme-label>Light</span>
+            </button>
+        </div>
         <div class="flex items-center gap-3">
-            <div class="h-10 w-10 rounded-full bg-indigo-500/30 border border-indigo-400/40 flex items-center justify-center text-indigo-100 uppercase">
+            <div class="h-10 w-10 rounded-full bg-orange-500/20 border ui-border flex items-center justify-center uppercase">
                 {{ Str::substr(Auth::user()->name ?? 'U', 0, 2) }}
             </div>
             <div class="min-w-0">
-                <p class="text-sm font-semibold text-slate-100 truncate">{{ Auth::user()->name }}</p>
-                <p class="text-xs text-slate-400 truncate">{{ Auth::user()->email }}</p>
+                <p class="text-sm font-semibold truncate">{{ Auth::user()->name }}</p>
+                <p class="text-xs ui-muted truncate">{{ Auth::user()->email }}</p>
             </div>
         </div>
 
         <div class="mt-3 space-y-1 text-sm font-medium">
-            <a href="{{ route('profile.edit') }}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/5 hover:text-slate-50">
+            <a href="{{ route('profile.edit') }}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-[color:var(--muted)] hover:bg-[color:var(--surface-2)] hover:text-[color:var(--text)]">
                 <span class="text-base">⚙️</span>
                 <span>Profile</span>
             </a>
 
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
-                <button type="submit" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-rose-300 hover:bg-rose-500/10">
+                <button type="submit" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-rose-500 hover:bg-rose-500/10">
                     <span class="text-base">↩</span>
                     <span>Log Out</span>
                 </button>

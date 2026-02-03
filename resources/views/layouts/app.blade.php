@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-theme="light">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -9,19 +9,27 @@
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+        <link href="https://fonts.bunny.net/css?family=manrope:400,500,600,700&display=swap" rel="stylesheet" />
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+        <script>
+            (function () {
+                const stored = localStorage.getItem('theme');
+                if (stored) {
+                    document.documentElement.setAttribute('data-theme', stored);
+                }
+            })();
+        </script>
     </head>
-    <body class="font-sans antialiased bg-slate-950 text-slate-100">
-        <div class="min-h-screen flex bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+    <body class="font-sans antialiased ui-bg">
+        <div class="min-h-screen flex">
             @include('layouts.navigation')
 
             <div class="flex-1">
                 <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 app-shell">
                     @isset($header)
-                        <header class="bg-gradient-to-r from-slate-900/80 via-slate-800/80 to-slate-900/80 backdrop-blur-xl shadow-lg rounded-2xl border border-white/10 mb-4 text-slate-100">
+                        <header class="ui-card mb-4">
                             <div class="py-4 px-4 sm:px-6 lg:px-8">
                                 {{ $header }}
                             </div>
