@@ -91,7 +91,7 @@ class User extends Authenticatable
         $legacyRole = $this->role ? strtolower($this->role) : null;
 
         if ($legacyRole === 'owner') {
-            return 'owner.dashboard';
+            return 'admin.dashboard';
         }
 
         if ($legacyRole === 'tenant') {

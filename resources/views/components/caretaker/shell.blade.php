@@ -3,50 +3,77 @@
 ])
 
 @php
+    $title = $title ?? 'Caretaker Dashboard';
     $r = fn($name, $params = []) => \Illuminate\Support\Facades\Route::has($name) ? route($name, $params) : url()->current();
-    $navBase = 'block px-3 py-2 rounded-lg';
+    $navBase = 'flex items-center gap-2 px-3 py-2 rounded-lg';
     $navActive = $navBase . ' ui-surface-2 text-[color:var(--text)] font-medium border ui-border';
     $navInactive = $navBase . ' text-[color:var(--muted)] hover:bg-[color:var(--surface-2)]';
 @endphp
 
 <div class="min-h-screen flex w-full">
     {{-- Sidebar --}}
-    <aside class="w-[260px] shrink-0 h-screen sticky top-0 ui-surface border-r ui-border px-4 py-6 flex flex-col">
-        <div class="mb-6 flex items-center gap-2">
-            <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-orange-500 via-amber-400 to-rose-400 text-white flex items-center justify-center font-bold">CT</div>
-            <div class="leading-tight">
-                <p class="text-sm font-semibold">Caretaker</p>
-                <p class="text-xs ui-muted">Operations</p>
-            </div>
+    <aside class="sidebar w-[260px] shrink-0 h-screen sticky top-0 ui-surface border-r ui-border px-4 py-6 flex flex-col">
+        <div class="sidebar-header">
+            <x-sidebar.brand />
+            <button class="h-9 w-9 rounded-full ui-surface border ui-border flex items-center justify-center shadow" data-sidebar-toggle>
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16M4 12h16M4 18h16"/></svg>
+            </button>
         </div>
 
-        <nav class="flex-1 space-y-4 text-sm">
+        <nav class="flex-1 space-y-4 text-sm sidebar-nav">
             <div>
-                <p class="text-xs uppercase ui-muted mb-2">Operations</p>
-                <a href="{{ $r('caretaker.dashboard') }}" class="{{ request()->routeIs('caretaker.dashboard') ? $navActive : $navInactive }}">Dashboard</a>
-                <a href="{{ $r('caretaker.tenants.index') }}" class="{{ request()->routeIs('caretaker.tenants.*') ? $navActive : $navInactive }}">Tenants</a>
-                <a href="{{ $r('caretaker.bookings.index') }}" class="{{ request()->routeIs('caretaker.bookings.*') ? $navActive : $navInactive }}">Bookings</a>
+                <p class="text-xs uppercase ui-muted mb-2 sidebar-group">Operations</p>
+                <a href="{{ $r('caretaker.dashboard') }}" class="{{ request()->routeIs('caretaker.dashboard') ? $navActive : $navInactive }}">
+                    <span class="sidebar-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M3 10l9-7 9 7"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M5 10v10h14V10"/></svg></span>
+                    <span class="sidebar-text">Dashboard</span>
+                </a>
+                <a href="{{ $r('caretaker.tenants.index') }}" class="{{ request()->routeIs('caretaker.tenants.*') ? $navActive : $navInactive }}">
+                    <span class="sidebar-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M16 11a4 4 0 1 0-8 0 4 4 0 0 0 8 0Z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M3 20a7 7 0 0 1 14 0"/></svg></span>
+                    <span class="sidebar-text">Tenants</span>
+                </a>
+                <a href="{{ $r('caretaker.bookings.index') }}" class="{{ request()->routeIs('caretaker.bookings.*') ? $navActive : $navInactive }}">
+                    <span class="sidebar-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="17" rx="2" stroke-width="1.6"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M8 2v4M16 2v4M3 10h18"/></svg></span>
+                    <span class="sidebar-text">Bookings</span>
+                </a>
             </div>
             <div>
-                <p class="text-xs uppercase ui-muted mb-2">Property</p>
-                <a href="{{ $r('caretaker.rooms.index') }}" class="{{ request()->routeIs('caretaker.rooms.*') ? $navActive : $navInactive }}">Rooms & Listings</a>
-                <a href="{{ $r('caretaker.maintenance.index') }}" class="{{ request()->routeIs('caretaker.maintenance.*') ? $navActive : $navInactive }}">Maintenance</a>
+                <p class="text-xs uppercase ui-muted mb-2 sidebar-group">Property</p>
+                <a href="{{ $r('caretaker.rooms.index') }}" class="{{ request()->routeIs('caretaker.rooms.*') ? $navActive : $navInactive }}">
+                    <span class="sidebar-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M4 11h16v9H4z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M4 11V7a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v4"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M8 20v-3h4v3"/></svg></span>
+                    <span class="sidebar-text">Rooms & Listings</span>
+                </a>
+                <a href="{{ $r('caretaker.maintenance.index') }}" class="{{ request()->routeIs('caretaker.maintenance.*') ? $navActive : $navInactive }}">
+                    <span class="sidebar-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M10 6l2 2-6 6H4v-2l6-6Z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M14 4l6 6"/></svg></span>
+                    <span class="sidebar-text">Maintenance</span>
+                </a>
             </div>
             <div>
-                <p class="text-xs uppercase ui-muted mb-2">Issues</p>
-                <a href="{{ $r('caretaker.incidents.index') }}" class="{{ request()->routeIs('caretaker.incidents.*') ? $navActive : $navInactive }}">Incidents & Complaints</a>
+                <p class="text-xs uppercase ui-muted mb-2 sidebar-group">Issues</p>
+                <a href="{{ $r('caretaker.incidents.index') }}" class="{{ request()->routeIs('caretaker.incidents.*') ? $navActive : $navInactive }}">
+                    <span class="sidebar-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M12 9v4"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M12 17h.01"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M10.3 3.8 1.8 19a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0Z"/></svg></span>
+                    <span class="sidebar-text">Incidents & Complaints</span>
+                </a>
             </div>
             <div>
-                <p class="text-xs uppercase ui-muted mb-2">Communication</p>
-                <a href="{{ $r('caretaker.notices.index') }}" class="{{ request()->routeIs('caretaker.notices.*') ? $navActive : $navInactive }}">Notices</a>
+                <p class="text-xs uppercase ui-muted mb-2 sidebar-group">Communication</p>
+                <a href="{{ $r('caretaker.notices.index') }}" class="{{ request()->routeIs('caretaker.notices.*') ? $navActive : $navInactive }}">
+                    <span class="sidebar-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="5" width="18" height="14" rx="2" stroke-width="1.6"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="m4 7 8 6 8-6"/></svg></span>
+                    <span class="sidebar-text">Notices</span>
+                </a>
             </div>
             <div>
-                <p class="text-xs uppercase ui-muted mb-2">Insights</p>
-                <a href="{{ $r('caretaker.reports.index') }}" class="{{ request()->routeIs('caretaker.reports.*') ? $navActive : $navInactive }}">Reports / Analytics</a>
-                <a href="{{ $r('caretaker.settings') }}" class="{{ request()->routeIs('caretaker.settings') ? $navActive : $navInactive }}">Settings</a>
+                <p class="text-xs uppercase ui-muted mb-2 sidebar-group">Insights</p>
+                <a href="{{ $r('caretaker.reports.index') }}" class="{{ request()->routeIs('caretaker.reports.*') ? $navActive : $navInactive }}">
+                    <span class="sidebar-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M4 20V6"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M8 20V10"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M12 20V4"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M16 20V12"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M20 20V8"/></svg></span>
+                    <span class="sidebar-text">Reports / Analytics</span>
+                </a>
+                <a href="{{ $r('caretaker.settings') }}" class="{{ request()->routeIs('caretaker.settings') ? $navActive : $navInactive }}">
+                    <span class="sidebar-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="m4.9 6.3 1.6-1 1.2 1.3a7.5 7.5 0 0 1 2.2-.9l.4-1.7h2l.4 1.7c.8.2 1.5.5 2.2.9l1.2-1.3 1.6 1-0.6 1.7c.6.6 1 1.3 1.3 2.1l1.7.4v2l-1.7.4c-.2.8-.6 1.5-1.3 2.1l.6 1.7-1.6 1-1.2-1.3a7.5 7.5 0 0 1-2.2.9l-.4 1.7h-2l-.4-1.7a7.5 7.5 0 0 1-2.2-.9l-1.2 1.3-1.6-1 .6-1.7a7.2 7.2 0 0 1-1.3-2.1L3 13v-2l1.7-.4c.2-.8.6-1.5 1.3-2.1l-.6-1.7Z"/></svg></span>
+                    <span class="sidebar-text">Settings</span>
+                </a>
             </div>
         </nav>
-        <p class="text-xs ui-muted mt-4">© 2026 Boarding House</p>
+        <p class="text-xs ui-muted mt-4 sidebar-footer">© 2026 Boarding House</p>
     </aside>
 
     <main class="flex-1 ui-bg">

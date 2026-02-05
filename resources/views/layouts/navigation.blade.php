@@ -1,4 +1,4 @@
-<nav class="w-64 ui-surface border-r ui-border flex flex-col shadow-xl">
+<nav class="w-64 ui-surface border-r ui-border flex flex-col shadow-xl h-screen sticky top-0 overflow-hidden">
     @php
         $dashRoute = 'dashboard';
         if (auth()->check()) {
@@ -9,19 +9,19 @@
         }
 
         $navLinks = [
-            ['label' => 'Dashboard', 'route' => $dashRoute, 'icon' => '🏠', 'active' => $dashRoute],
+            ['label' => 'Dashboard', 'route' => $dashRoute, 'icon' => 'DASH', 'active' => $dashRoute],
         ];
 
         if (auth()->check()) {
             $user = auth()->user();
             $isAdmin = strtolower($user->role ?? '') === 'admin' || strtolower($user->role ?? '') === 'owner' || (method_exists($user, 'hasRole') && $user->hasRole('admin'));
             if ($isAdmin) {
-                $navLinks[] = ['label' => 'User Management', 'route' => 'admin.users', 'icon' => '👥', 'active' => 'admin.users*'];
-                $navLinks[] = ['label' => 'Boarding Houses', 'route' => 'admin.boarding-houses.index', 'icon' => '🏘️', 'active' => 'admin.boarding-houses.*'];
-                $navLinks[] = ['label' => 'Applications', 'route' => 'admin.applications.index', 'icon' => '📝', 'active' => 'admin.applications.*'];
-                $navLinks[] = ['label' => 'Tenant History', 'route' => 'admin.tenant-history', 'icon' => '📜', 'active' => 'admin.tenant-history'];
+                $navLinks[] = ['label' => 'User Management', 'route' => 'admin.users', 'icon' => 'USR', 'active' => 'admin.users*'];
+                $navLinks[] = ['label' => 'Boarding Houses', 'route' => 'admin.boarding-houses.index', 'icon' => 'BHS', 'active' => 'admin.boarding-houses.*'];
+                $navLinks[] = ['label' => 'Applications', 'route' => 'admin.applications.index', 'icon' => 'APP', 'active' => 'admin.applications.*'];
+                $navLinks[] = ['label' => 'Tenant History', 'route' => 'admin.tenant-history', 'icon' => 'HIS', 'active' => 'admin.tenant-history'];
             } elseif ($user->isTenant()) {
-                $navLinks[] = ['label' => 'Boarding Houses', 'route' => 'tenant.boarding-houses', 'icon' => '🏠', 'active' => 'tenant.boarding-houses'];
+                $navLinks[] = ['label' => 'Boarding Houses', 'route' => 'tenant.boarding-houses', 'icon' => 'BHS', 'active' => 'tenant.boarding-houses'];
             }
         }
     @endphp
@@ -39,12 +39,24 @@
         </a>
     </div>
 
-    <div class="flex-1 overflow-y-auto">
+    <div class="px-4 py-4 border-b ui-border">
+        <div class="flex items-center gap-3">
+            <div class="h-10 w-10 rounded-full bg-gradient-to-br from-orange-500 via-rose-500 to-amber-400 text-white flex items-center justify-center text-xs font-semibold uppercase">
+                {{ Str::substr(Auth::user()->name ?? 'U', 0, 2) }}
+            </div>
+            <div class="min-w-0">
+                <p class="text-sm font-semibold truncate">{{ Auth::user()->name }}</p>
+                <p class="text-xs ui-muted truncate">{{ Auth::user()->email }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex-1 overflow-hidden">
         <div class="px-4 py-6 space-y-1">
             @foreach($navLinks as $link)
                 <a href="{{ route($link['route']) }}"
                    class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ request()->routeIs($link['active']) ? 'bg-[color:var(--surface-2)] text-[color:var(--text)] border ui-border shadow' : 'text-[color:var(--muted)] hover:bg-[color:var(--surface-2)] hover:text-[color:var(--text)] border border-transparent' }}">
-                    <span class="text-lg">{{ $link['icon'] }}</span>
+                    <span class="text-[10px] font-semibold tracking-wide px-2 py-1 rounded-full ui-surface-2">{{ $link['icon'] }}</span>
                     <span>{{ $link['label'] }}</span>
                 </a>
             @endforeach
@@ -58,26 +70,16 @@
                 <span data-theme-label>Light</span>
             </button>
         </div>
-        <div class="flex items-center gap-3">
-            <div class="h-10 w-10 rounded-full bg-orange-500/20 border ui-border flex items-center justify-center uppercase">
-                {{ Str::substr(Auth::user()->name ?? 'U', 0, 2) }}
-            </div>
-            <div class="min-w-0">
-                <p class="text-sm font-semibold truncate">{{ Auth::user()->name }}</p>
-                <p class="text-xs ui-muted truncate">{{ Auth::user()->email }}</p>
-            </div>
-        </div>
-
-        <div class="mt-3 space-y-1 text-sm font-medium">
+        <div class="space-y-1 text-sm font-medium">
             <a href="{{ route('profile.edit') }}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-[color:var(--muted)] hover:bg-[color:var(--surface-2)] hover:text-[color:var(--text)]">
-                <span class="text-base">⚙️</span>
+                <span class="text-[10px] font-semibold tracking-wide px-2 py-1 rounded-full ui-surface-2">PRO</span>
                 <span>Profile</span>
             </a>
 
             <form method="POST" action="{{ route('logout') }}">
                 @csrf
                 <button type="submit" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-rose-500 hover:bg-rose-500/10">
-                    <span class="text-base">↩</span>
+                    <span class="text-[10px] font-semibold tracking-wide px-2 py-1 rounded-full ui-surface-2">OUT</span>
                     <span>Log Out</span>
                 </button>
             </form>

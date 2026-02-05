@@ -148,6 +148,17 @@ body {
     border-color: var(--brand-500);
 }
 
+.pill,
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 0.2rem 0.6rem;
+    font-weight: 600;
+    border: 1px solid transparent;
+}
+
 .theme-toggle {
     display: inline-flex;
     align-items: center;
@@ -160,9 +171,50 @@ body {
     font-size: 0.85rem;
 }
 
+.sidebar {
+    transition: width 0.2s ease;
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+[data-sidebar='collapsed'] .sidebar-header {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+[data-sidebar='collapsed'] .sidebar {
+    width: 80px;
+}
+
+[data-sidebar='collapsed'] .sidebar .sidebar-text,
+[data-sidebar='collapsed'] .sidebar .sidebar-group,
+[data-sidebar='collapsed'] .sidebar .sidebar-footer,
+[data-sidebar='collapsed'] .sidebar .sidebar-brand-text {
+    display: none;
+}
+
+[data-sidebar='collapsed'] .sidebar .sidebar-nav a {
+    justify-content: center;
+}
+
+.sidebar-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
 [data-theme='dark'] .bg-white { background-color: var(--surface) !important; }
 [data-theme='dark'] .bg-slate-50,
 [data-theme='dark'] .bg-gray-50 { background-color: var(--surface-2) !important; }
+[data-theme='dark'] .bg-slate-100,
+[data-theme='dark'] .bg-gray-100 { background-color: rgba(255, 255, 255, 0.06) !important; }
 [data-theme='dark'] .text-slate-900,
 [data-theme='dark'] .text-gray-900 { color: var(--text) !important; }
 [data-theme='dark'] .text-slate-700,
@@ -176,3 +228,7 @@ body {
 [data-theme='dark'] .border-slate-200,
 [data-theme='dark'] .border-gray-100,
 [data-theme='dark'] .border-gray-200 { border-color: var(--border) !important; }
+[data-theme='dark'] .hover\\:bg-slate-50:hover,
+[data-theme='dark'] .hover\\:bg-gray-50:hover { background-color: rgba(255, 255, 255, 0.04) !important; }
+[data-theme='dark'] .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+[data-theme='dark'] .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: var(--border) !important; }

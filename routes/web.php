@@ -55,7 +55,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/owner/dashboard', function () {
         $user = Auth::user();
         abort_unless($user && $user->isOwner(), 403);
-        return view('owner.dashboard');
+        return redirect()->route('admin.dashboard');
     })->name('owner.dashboard');
 
     // Tenant Dashboard (role-gated)
