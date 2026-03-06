@@ -65,7 +65,7 @@
                     <button type="button" class="theme-toggle" data-theme-toggle><span>Theme:</span> <span data-theme-label>Light</span></button>
                     <div class="relative" x-data="{open:false,confirm:false}">
                         <button @click="open=!open" class="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-[color:var(--surface-2)]">
-                            <img src="https://i.pravatar.cc/40?img=22" class="h-9 w-9 rounded-full object-cover" alt="OSAS">
+                            <img src="{{ asset('images/osas-avatar.png') }}" class="h-9 w-9 rounded-full object-cover" alt="OSAS">
                             <svg class="h-4 w-4 ui-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                         </button>
                         <div x-show="open" @click.outside="open=false" x-transition class="absolute right-0 mt-2 w-52 ui-surface rounded-xl shadow-lg border ui-border z-50">

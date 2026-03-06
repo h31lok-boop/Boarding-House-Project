@@ -19,38 +19,48 @@
 <?php endif; ?>
 <?php $component->withAttributes([]); ?>
     <div class="space-y-4">
-        <h1 class="text-2xl font-semibold text-slate-900">Reports & Analytics</h1>
+        <h1 class="text-2xl font-semibold text-slate-900">Notices & Announcements</h1>
         <?php if(session('status')): ?><div class="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-lg"><?php echo e(session('status')); ?></div><?php endif; ?>
-        <div class="bg-white rounded-2xl shadow p-5 space-y-4">
-            <form method="POST" action="<?php echo e(route('caretaker.reports.generate')); ?>" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+
+        <div class="bg-white rounded-2xl shadow p-5 space-y-3">
+            <h3 class="font-semibold text-slate-900">Send Notice</h3>
+            <form method="POST" action="<?php echo e(route('caretaker.notices.store')); ?>" class="space-y-3">
                 <?php echo csrf_field(); ?>
-                <div>
-                    <label class="text-xs text-slate-500">Date Range</label>
-                    <input type="date" name="from" class="w-full border border-slate-200 rounded-lg px-3 py-2" />
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input name="title" required placeholder="Title" class="border border-slate-200 rounded-lg px-3 py-2 w-full" />
+                    <select name="audience" class="border border-slate-200 rounded-lg px-3 py-2 w-full">
+                        <option value="All Tenants">All Tenants</option>
+                        <option value="Specific Floor">Specific Floor</option>
+                        <option value="Specific Room">Specific Room</option>
+                    </select>
                 </div>
-                <div>
-                    <label class="text-xs text-slate-500">To</label>
-                    <input type="date" name="to" class="w-full border border-slate-200 rounded-lg px-3 py-2" />
-                </div>
-                <div class="flex items-end">
-                    <button class="px-4 py-2 rounded-full bg-indigo-600 text-white text-sm font-semibold">Generate Report</button>
-                </div>
+                <textarea name="body" rows="3" class="border border-slate-200 rounded-lg px-3 py-2 w-full" placeholder="Message"></textarea>
+                <button class="px-4 py-2 rounded-full bg-indigo-600 text-white text-sm font-semibold">Send Notice</button>
             </form>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-slate-700">
-                <div class="bg-white rounded-2xl shadow border border-slate-100 p-4">
-                    <p class="text-xs uppercase text-slate-500">Occupancy Rate</p>
-                    <p class="text-2xl font-bold">78%</p>
-                </div>
-                <div class="bg-white rounded-2xl shadow border border-slate-100 p-4">
-                    <p class="text-xs uppercase text-slate-500">Maintenance Requests</p>
-                    <p class="text-2xl font-bold">24</p>
-                </div>
-                <div class="bg-white rounded-2xl shadow border border-slate-100 p-4">
-                    <p class="text-xs uppercase text-slate-500">Incidents This Month</p>
-                    <p class="text-2xl font-bold">5</p>
-                </div>
-            </div>
         </div>
+
+        <div class="bg-white rounded-2xl shadow overflow-hidden">
+            <table class="min-w-full text-sm">
+                <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
+                <tr>
+                    <th class="px-4 py-3 text-left">Notice</th>
+                    <th class="px-4 py-3 text-left">Audience</th>
+                    <th class="px-4 py-3 text-left">Date</th>
+                    <th class="px-4 py-3 text-left">Status</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+                <?php $__currentLoopData = $notices; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $n): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-4 py-3 font-semibold text-slate-900"><?php echo e($n['title']); ?></td>
+                        <td class="px-4 py-3 text-slate-700"><?php echo e($n['audience']); ?></td>
+                        <td class="px-4 py-3 text-slate-700"><?php echo e($n['date']); ?></td>
+                        <td class="px-4 py-3"><span class="px-2 py-1 text-xs rounded-full font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100"><?php echo e($n['status']); ?></span></td>
+                    </tr>
+                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+            </tbody>
+        </table>
+    </div>
     </div>
  <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>
@@ -72,4 +82,4 @@
 <?php $component = $__componentOriginal26723e7569d950d41cabbb4f5db8c6fb; ?>
 <?php unset($__componentOriginal26723e7569d950d41cabbb4f5db8c6fb); ?>
 <?php endif; ?>
-<?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\resources\views/caretaker/reports.blade.php ENDPATH**/ ?>
+<?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\resources\views/caretaker/notices.blade.php ENDPATH**/ ?>

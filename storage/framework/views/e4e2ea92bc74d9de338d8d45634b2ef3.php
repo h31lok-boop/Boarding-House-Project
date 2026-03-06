@@ -19,37 +19,19 @@
 <?php endif; ?>
 <?php $component->withAttributes([]); ?>
     <div class="space-y-4">
-        <h1 class="text-2xl font-semibold text-slate-900">Reports & Analytics</h1>
-        <?php if(session('status')): ?><div class="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-lg"><?php echo e(session('status')); ?></div><?php endif; ?>
-        <div class="bg-white rounded-2xl shadow p-5 space-y-4">
-            <form method="POST" action="<?php echo e(route('caretaker.reports.generate')); ?>" class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <?php echo csrf_field(); ?>
+        <h1 class="text-2xl font-semibold text-slate-900">Settings</h1>
+        <div class="bg-white rounded-2xl shadow p-5 space-y-3">
+            <form class="space-y-3">
                 <div>
-                    <label class="text-xs text-slate-500">Date Range</label>
-                    <input type="date" name="from" class="w-full border border-slate-200 rounded-lg px-3 py-2" />
+                    <label class="text-xs text-slate-500">Notification Email</label>
+                    <input type="email" class="w-full border border-slate-200 rounded-lg px-3 py-2" value="caretaker@staysafe.com" />
                 </div>
-                <div>
-                    <label class="text-xs text-slate-500">To</label>
-                    <input type="date" name="to" class="w-full border border-slate-200 rounded-lg px-3 py-2" />
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" checked class="h-4 w-4" />
+                    <span class="text-sm text-slate-700">Enable alerts for maintenance and incidents</span>
                 </div>
-                <div class="flex items-end">
-                    <button class="px-4 py-2 rounded-full bg-indigo-600 text-white text-sm font-semibold">Generate Report</button>
-                </div>
+                <button class="px-4 py-2 rounded-full bg-indigo-600 text-white text-sm font-semibold" type="button">Save Preferences</button>
             </form>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-slate-700">
-                <div class="bg-white rounded-2xl shadow border border-slate-100 p-4">
-                    <p class="text-xs uppercase text-slate-500">Occupancy Rate</p>
-                    <p class="text-2xl font-bold">78%</p>
-                </div>
-                <div class="bg-white rounded-2xl shadow border border-slate-100 p-4">
-                    <p class="text-xs uppercase text-slate-500">Maintenance Requests</p>
-                    <p class="text-2xl font-bold">24</p>
-                </div>
-                <div class="bg-white rounded-2xl shadow border border-slate-100 p-4">
-                    <p class="text-xs uppercase text-slate-500">Incidents This Month</p>
-                    <p class="text-2xl font-bold">5</p>
-                </div>
-            </div>
         </div>
     </div>
  <?php echo $__env->renderComponent(); ?>
@@ -72,4 +54,4 @@
 <?php $component = $__componentOriginal26723e7569d950d41cabbb4f5db8c6fb; ?>
 <?php unset($__componentOriginal26723e7569d950d41cabbb4f5db8c6fb); ?>
 <?php endif; ?>
-<?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\resources\views/caretaker/reports.blade.php ENDPATH**/ ?>
+<?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\resources\views/caretaker/settings.blade.php ENDPATH**/ ?>
