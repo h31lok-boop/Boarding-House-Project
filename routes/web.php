@@ -95,15 +95,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('/bookings', [\App\Http\Controllers\CaretakerController::class, 'bookings'])->name('bookings.index');
         Route::get('/bookings/{id}', [\App\Http\Controllers\CaretakerController::class, 'bookingShow'])->name('bookings.show');
+        Route::post('/bookings/{id}/processing', [\App\Http\Controllers\CaretakerController::class, 'bookingProcess'])->name('bookings.process');
         Route::post('/bookings/{id}/confirm', [\App\Http\Controllers\CaretakerController::class, 'bookingConfirm'])->name('bookings.confirm');
         Route::post('/bookings/{id}/cancel', [\App\Http\Controllers\CaretakerController::class, 'bookingCancel'])->name('bookings.cancel');
         Route::post('/bookings/{id}/extend', [\App\Http\Controllers\CaretakerController::class, 'bookingExtend'])->name('bookings.extend');
+        Route::get('/bookings/availability', [\App\Http\Controllers\CaretakerController::class, 'bookingAvailability'])->name('bookings.availability');
 
         Route::get('/rooms', [\App\Http\Controllers\CaretakerController::class, 'rooms'])->name('rooms.index');
+        Route::get('/rooms/availability', [\App\Http\Controllers\CaretakerController::class, 'roomsAvailability'])->name('rooms.availability');
         Route::post('/rooms/{id}/status', [\App\Http\Controllers\CaretakerController::class, 'roomStatus'])->name('rooms.status');
         Route::post('/rooms/{id}', [\App\Http\Controllers\CaretakerController::class, 'roomUpdate'])->name('rooms.update');
 
         Route::get('/maintenance', [\App\Http\Controllers\CaretakerController::class, 'maintenance'])->name('maintenance.index');
+        Route::get('/maintenance/{id}', [\App\Http\Controllers\CaretakerController::class, 'maintenanceShow'])->name('maintenance.show');
+        Route::post('/maintenance/{id}/update', [\App\Http\Controllers\CaretakerController::class, 'maintenanceUpdate'])->name('maintenance.update');
         Route::post('/maintenance/{id}/priority', [\App\Http\Controllers\CaretakerController::class, 'maintenancePriority'])->name('maintenance.priority');
         Route::post('/maintenance/{id}/resolve', [\App\Http\Controllers\CaretakerController::class, 'maintenanceResolve'])->name('maintenance.resolve');
 

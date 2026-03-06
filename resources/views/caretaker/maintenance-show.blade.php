@@ -7,24 +7,24 @@
             'High' => 'bg-rose-50 text-rose-700 border border-rose-100',
         ];
         $statusStyles = [
-            'Open' => 'bg-amber-50 text-amber-700 border border-amber-100',
+            'Pending' => 'bg-amber-50 text-amber-700 border border-amber-100',
             'In Progress' => 'bg-sky-50 text-sky-700 border border-sky-100',
-            'Resolved' => 'bg-emerald-50 text-emerald-700 border border-emerald-100',
+            'Completed' => 'bg-emerald-50 text-emerald-700 border border-emerald-100',
         ];
-        $priorityClass = $priorityStyles[$incidentData['priority']] ?? $priorityStyles['Low'];
-        $statusClass = $statusStyles[$incidentData['status']] ?? $statusStyles['Open'];
+        $priorityClass = $priorityStyles[$maintenanceData['priority']] ?? $priorityStyles['Medium'];
+        $statusClass = $statusStyles[$maintenanceData['status']] ?? $statusStyles['Pending'];
     @endphp
 
     <div class="space-y-6">
         <div class="flex flex-col gap-2">
             <div class="flex items-center justify-between">
-                <h1 class="text-2xl font-semibold text-slate-900">Incident #{{ $incidentData['id'] }}</h1>
+                <h1 class="text-2xl font-semibold text-slate-900">Maintenance Request #{{ $maintenanceData['id'] }}</h1>
                 <div class="flex items-center gap-2">
-                    <span class="px-3 py-1 rounded-full text-xs font-semibold {{ $statusClass }}">{{ $incidentData['status'] }}</span>
-                    <span class="px-3 py-1 rounded-full text-xs font-semibold {{ $priorityClass }}">{{ $incidentData['priority'] }} Priority</span>
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold {{ $statusClass }}">{{ $maintenanceData['status'] }}</span>
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold {{ $priorityClass }}">{{ $maintenanceData['priority'] }} Priority</span>
                 </div>
             </div>
-            <p class="text-sm ui-muted">{{ $incidentData['issue_type'] }} - {{ $incidentData['category'] }}</p>
+            <p class="text-sm ui-muted">{{ $maintenanceData['category'] }}</p>
         </div>
 
         @if(session('status'))
@@ -35,9 +35,9 @@
             <div class="lg:col-span-2 space-y-6">
                 <div class="ui-card p-5 space-y-4">
                     <div>
-                        <p class="text-xs uppercase tracking-wide ui-muted">Issue Summary</p>
-                        <h2 class="text-lg font-semibold text-slate-900">{{ $incidentData['title'] }}</h2>
-                        <p class="text-sm text-slate-700 mt-2">{{ $incidentData['description'] }}</p>
+                        <p class="text-xs uppercase tracking-wide ui-muted">Issue</p>
+                        <h2 class="text-lg font-semibold text-slate-900">{{ $maintenanceData['issue'] }}</h2>
+                        <p class="text-sm text-slate-700 mt-2">{{ $maintenanceData['description'] }}</p>
                     </div>
                     <div>
                         <p class="text-xs uppercase tracking-wide ui-muted">Uploaded Photo</p>
@@ -49,7 +49,7 @@
 
                 <div class="ui-card p-5 space-y-3">
                     <p class="text-xs uppercase tracking-wide ui-muted">Caretaker Remarks</p>
-                    <p class="text-sm text-slate-700">No remarks yet. Add notes when updating the status.</p>
+                    <p class="text-sm text-slate-700">No remarks yet. Add notes during status updates.</p>
                 </div>
             </div>
 
@@ -57,21 +57,21 @@
                 <div class="ui-card p-5 space-y-4">
                     <div>
                         <p class="text-xs uppercase tracking-wide ui-muted">Tenant Details</p>
-                        <p class="text-base font-semibold text-slate-900">{{ $incidentData['tenant'] }}</p>
-                        <p class="text-sm ui-muted">{{ $incidentData['tenant_email'] }}</p>
-                        <p class="text-sm ui-muted">{{ $incidentData['tenant_phone'] }}</p>
+                        <p class="text-base font-semibold text-slate-900">{{ $maintenanceData['tenant'] }}</p>
+                        <p class="text-sm ui-muted">{{ $maintenanceData['tenant_email'] }}</p>
+                        <p class="text-sm ui-muted">{{ $maintenanceData['tenant_phone'] }}</p>
                     </div>
                     <div>
                         <p class="text-xs uppercase tracking-wide ui-muted">Room</p>
-                        <p class="text-sm font-semibold text-slate-800">{{ $incidentData['room'] }}</p>
+                        <p class="text-sm font-semibold text-slate-800">{{ $maintenanceData['room'] }}</p>
                     </div>
                     <div>
                         <p class="text-xs uppercase tracking-wide ui-muted">Reported</p>
-                        <p class="text-sm text-slate-700">{{ $incidentData['reported_at'] }}</p>
+                        <p class="text-sm text-slate-700">{{ $maintenanceData['reported_at'] }}</p>
                     </div>
                     <div>
-                        <p class="text-xs uppercase tracking-wide ui-muted">Last Updated</p>
-                        <p class="text-sm text-slate-700">{{ $incidentData['updated_at'] }}</p>
+                        <p class="text-xs uppercase tracking-wide ui-muted">Resolved</p>
+                        <p class="text-sm text-slate-700">{{ $maintenanceData['resolved_at'] }}</p>
                     </div>
                 </div>
 
@@ -82,21 +82,21 @@
                             <span class="mt-1 h-2 w-2 rounded-full bg-amber-400"></span>
                             <div>
                                 <p class="font-semibold">Reported</p>
-                                <p class="ui-muted">{{ $incidentData['reported_at'] }}</p>
+                                <p class="ui-muted">{{ $maintenanceData['reported_at'] }}</p>
                             </div>
                         </div>
                         <div class="flex items-start gap-2">
                             <span class="mt-1 h-2 w-2 rounded-full bg-sky-400"></span>
                             <div>
-                                <p class="font-semibold">Status Updated</p>
-                                <p class="ui-muted">{{ $incidentData['updated_at'] }}</p>
+                                <p class="font-semibold">In Progress</p>
+                                <p class="ui-muted">Pending update</p>
                             </div>
                         </div>
                         <div class="flex items-start gap-2">
                             <span class="mt-1 h-2 w-2 rounded-full bg-emerald-400"></span>
                             <div>
-                                <p class="font-semibold">Resolution</p>
-                                <p class="ui-muted">Pending final confirmation</p>
+                                <p class="font-semibold">Completed</p>
+                                <p class="ui-muted">{{ $maintenanceData['resolved_at'] }}</p>
                             </div>
                         </div>
                     </div>
@@ -105,8 +105,8 @@
                 <div class="ui-card p-5 space-y-3">
                     <p class="text-xs uppercase tracking-wide ui-muted">Actions</p>
                     <div class="flex flex-col gap-2">
-                        <form method="POST" action="{{ route('caretaker.incidents.update', $incident->id) }}">@csrf<button class="w-full px-4 py-2 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 text-sm font-semibold">Update Status</button></form>
-                        <form method="POST" action="{{ route('caretaker.incidents.resolve', $incident->id) }}">@csrf<button class="w-full px-4 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 text-sm font-semibold">Mark Resolved</button></form>
+                        <form method="POST" action="{{ route('caretaker.maintenance.update', $item->id) }}">@csrf<button class="w-full px-4 py-2 rounded-lg bg-slate-100 text-slate-700 border border-slate-200 text-sm font-semibold">Update Status</button></form>
+                        <form method="POST" action="{{ route('caretaker.maintenance.resolve', $item->id) }}">@csrf<button class="w-full px-4 py-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 text-sm font-semibold">Mark Completed</button></form>
                     </div>
                 </div>
             </div>

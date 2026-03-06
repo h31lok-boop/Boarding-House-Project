@@ -1,5 +1,6 @@
 ﻿@props([
     'searchPlaceholder' => 'Search tenants, rooms, bookings...',
+    'showHeader' => true,
 ])
 
 @php
@@ -78,6 +79,7 @@
 
     <main class="flex-1 ui-bg">
         <div class="max-w-7xl mx-auto px-6 py-6 space-y-6">
+            @if($showHeader)
             {{-- Header --}}
             <div class="ui-card p-4 flex items-center gap-4">
                 <input type="text" placeholder="{{ $searchPlaceholder }}" class="flex-1 ui-input text-sm">
@@ -114,6 +116,8 @@
                     </div>
                 </div>
             </div>
+
+            @endif
 
             {{ $slot }}
         </div>
