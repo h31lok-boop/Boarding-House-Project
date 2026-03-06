@@ -28,12 +28,21 @@ foreach ($attributes->all() as $__key => $__value) {
 
 unset($__defined_vars, $__key, $__value); ?>
 
+<<<<<<< Updated upstream
 <label <?php echo e($attributes->merge(['class' => 'block font-medium text-sm ui-muted'])); ?>>
     <?php echo e($value ?? $slot); ?>
 
 <<<<<<<< Updated upstream:storage/framework/views/27f368da8f38283144267e9019fe9356.php
 </label>
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\resources\views/components/input-label.blade.php ENDPATH**/ ?>
+=======
+<label <?php echo e($attributes->merge(['class' => 'block font-medium text-sm text-gray-700'])); ?>>
+    <?php echo e($value ?? $slot); ?>
+
+<<<<<<<< Updated upstream:storage/framework/views/3bb664bb4e7daf65f664d2ef584b0ca9.php
+</label>
+<?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\components\input-label.blade.php ENDPATH**/ ?>
+>>>>>>> Stashed changes
 ========
     </div>
 <?php endif; ?>

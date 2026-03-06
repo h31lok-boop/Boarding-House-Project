@@ -31,7 +31,11 @@
                 <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 app-shell">
                     @isset($header)
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
                         <header class="ui-card mb-4">
+=======
+                        <header class="relative z-50 overflow-visible bg-white shadow-sm rounded-xl border border-gray-200 mb-4">
+>>>>>>> Stashed changes
 =======
                         <header class="relative z-50 overflow-visible bg-white shadow-sm rounded-xl border border-gray-200 mb-4">
 >>>>>>> Stashed changes

@@ -24,11 +24,14 @@ class BoardingHouse extends Model
     ];
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     public function tenants()
     {
         return $this->hasMany(User::class, 'boarding_house_id');
     }
 
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
     public function rooms()

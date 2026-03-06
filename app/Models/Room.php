@@ -10,14 +10,20 @@ class Room extends Model
     use HasFactory;
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     protected $guarded = [];
 =======
+=======
+>>>>>>> Stashed changes
     protected $fillable = [
         'boarding_house_id',
         'room_no',
         'description',
         'image',
     ];
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
     public function boardingHouse()
@@ -25,11 +31,14 @@ class Room extends Model
         return $this->belongsTo(BoardingHouse::class);
     }
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 
     public function bookings()
     {
         return $this->hasMany(Booking::class);
     }
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 }

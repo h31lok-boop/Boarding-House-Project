@@ -1,4 +1,8 @@
 <svg width="6" height="10" viewBox="0 0 6 10" fill="none" xmlns="http://www.w3.org/2000/svg" <?php echo e($attributes); ?>>
     <path d="M5.125 0.75L0.875 5L5.125 9.25" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
+<<<<<<<< Updated upstream:storage/framework/views/092447dca200db95b6a99493345c9245.php
 <?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/icons/chevron-left.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\icons\chevron-left.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/8e982b1bdf5d50aaf78c64b3c7191619.php

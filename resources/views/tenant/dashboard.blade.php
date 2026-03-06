@@ -1,4 +1,5 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 <x-layouts.caretaker>
 
 @php
@@ -278,6 +279,8 @@
 </x-layouts.caretaker>
 
 =======
+=======
+>>>>>>> Stashed changes
 <x-app-layout main-class="w-full">
     <x-slot name="header">
         <div class="relative z-[9999] flex items-center justify-between gap-3">

@@ -109,6 +109,7 @@ class AdminController extends Controller
     public function users(Request $request)
     {
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         $roles = ['admin', 'tenant', 'caretaker', 'osas'];
         $filterRole = request('role');
 
@@ -132,10 +133,15 @@ class AdminController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(15);
 =======
+=======
+>>>>>>> Stashed changes
         $search = trim((string) $request->query('q', ''));
         $status = strtolower((string) $request->query('status', 'all'));
         $sort = strtolower((string) $request->query('sort', 'created_at'));
         $dir = strtolower((string) $request->query('dir', 'desc'));
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 
         $allowedStatuses = ['all', 'pending', 'approved'];

@@ -13,12 +13,15 @@
   
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
   <div class="py-10">
     <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
       <div class="ui-card">
         <div class="p-6 border-b ui-border">
           <a href="{{ route('admin.users') }}" class="text-sm text-indigo-600 text-indigo-800">&larr; Back to Users</a>
 =======
+=======
+>>>>>>> Stashed changes
                     @php
                         $profileImageUrl = $user->profile_image ? \Illuminate\Support\Facades\Storage::url($user->profile_image) : '';
                     @endphp

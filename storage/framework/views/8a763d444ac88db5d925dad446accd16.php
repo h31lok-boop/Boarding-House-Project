@@ -2,4 +2,8 @@
     <path d="M5.25 9L9.25 5L5.25 1" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/>
     <path d="M0.75 9L4.75 5L0.75 1" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
+<<<<<<<< Updated upstream:storage/framework/views/8a763d444ac88db5d925dad446accd16.php
 <?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/icons/chevrons-right.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\icons\chevrons-right.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/6c512a0ff805b2c6346499dff86a04ea.php

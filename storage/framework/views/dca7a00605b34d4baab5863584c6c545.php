@@ -48,4 +48,8 @@ unset($__defined_vars, $__key, $__value); ?>
         <?php endif; ?>
     </span>
 </div>
+<<<<<<<< Updated upstream:storage/framework/views/dca7a00605b34d4baab5863584c6c545.php
 <?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/file-with-line.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\file-with-line.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/91791758bc22b9c97b9c6f3a6bdc1523.php

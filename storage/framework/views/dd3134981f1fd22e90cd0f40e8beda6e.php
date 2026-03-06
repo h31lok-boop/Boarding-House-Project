@@ -32,8 +32,13 @@ unset($__defined_vars, $__key, $__value); ?>
     <span class="text-neutral-400 dark:text-neutral-600">// </span><?php echo e($message); ?>
 
 </div>
+<<<<<<< Updated upstream
 <<<<<<<< Updated upstream:storage/framework/views/65191a5b50b06a58425f72f8655175a8.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/empty-state.blade.php ENDPATH**/ ?>
+=======
+<<<<<<<< Updated upstream:storage/framework/views/6f435b7573dd568e24f7dc12b3038f82.php
+<?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/empty-state.blade.php ENDPATH**/ ?>
+>>>>>>> Stashed changes
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\empty-state.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/dd3134981f1fd22e90cd0f40e8beda6e.php

@@ -77,8 +77,13 @@ unset($__defined_vars, $__key, $__value); ?>
 <?php unset($__componentOriginalfe2bc8d0a6d110d41fdc8740012cee8d); ?>
 <?php endif; ?>
 </div>
+<<<<<<< Updated upstream
 <<<<<<<< Updated upstream:storage/framework/views/7893139587bda8631b89091a81dc059c.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/vendor-frame.blade.php ENDPATH**/ ?>
+=======
+<<<<<<<< Updated upstream:storage/framework/views/d109e3d640379d340dea10af41574f74.php
+<?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/vendor-frame.blade.php ENDPATH**/ ?>
+>>>>>>> Stashed changes
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\vendor-frame.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/118de978763995095f3aed8b506cd06a.php

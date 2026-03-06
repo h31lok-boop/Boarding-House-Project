@@ -371,8 +371,13 @@ unset($__defined_vars, $__key, $__value); ?>
         </button>
     </div>
 </div>
+<<<<<<< Updated upstream
 <<<<<<<< Updated upstream:storage/framework/views/6fcc7f60134c73d686ab3d3f3a428e80.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/query.blade.php ENDPATH**/ ?>
+=======
+<<<<<<<< Updated upstream:storage/framework/views/5e8e2ba661b195ea45137b2f0c8e832a.php
+<?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/query.blade.php ENDPATH**/ ?>
+>>>>>>> Stashed changes
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\query.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/5ffa8530eb95d191820425490c74d917.php

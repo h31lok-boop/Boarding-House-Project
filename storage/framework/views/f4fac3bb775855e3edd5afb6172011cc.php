@@ -9,8 +9,13 @@
     </clipPath>
   </defs>
 </svg>
+<<<<<<< Updated upstream
 <<<<<<<< Updated upstream:storage/framework/views/85acdbeef20daaa14ca41ab361d6ebcd.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/icons/chevrons-up-down.blade.php ENDPATH**/ ?>
+=======
+<<<<<<<< Updated upstream:storage/framework/views/be7cb5a863cde25e1b2d59b1511f51e1.php
+<?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/icons/chevrons-up-down.blade.php ENDPATH**/ ?>
+>>>>>>> Stashed changes
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\icons\chevrons-up-down.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/f4fac3bb775855e3edd5afb6172011cc.php

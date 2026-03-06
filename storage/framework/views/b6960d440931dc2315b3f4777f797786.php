@@ -62,8 +62,13 @@ unset($__defined_vars, $__key, $__value); ?>
 <?php $component = $__componentOriginal12cb286571f553eebcbe98210b217f94; ?>
 <?php unset($__componentOriginal12cb286571f553eebcbe98210b217f94); ?>
 <?php endif; ?>
+<<<<<<< Updated upstream
 <<<<<<<< Updated upstream:storage/framework/views/0ac596feb64328c1bac2b3aefbe9f5dd.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/formatted-source.blade.php ENDPATH**/ ?>
+=======
+<<<<<<<< Updated upstream:storage/framework/views/f1c9aa1a37fed4779ab8f31fe81f3527.php
+<?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/formatted-source.blade.php ENDPATH**/ ?>
+>>>>>>> Stashed changes
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\formatted-source.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/b6960d440931dc2315b3f4777f797786.php
