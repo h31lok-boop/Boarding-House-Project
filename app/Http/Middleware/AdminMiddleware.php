@@ -21,9 +21,11 @@ class AdminMiddleware
 
         // Prefer Spatie roles when available, fall back to legacy column.
         $isAdminRole = method_exists($user, 'hasRole') && $user->hasRole('admin');
+        $isSuperRole = method_exists($user, 'hasRole') && $user->hasRole('superduperadmin');
         $isLegacyAdmin = $user->role === 'admin' || $user->role === 'owner';
+        $isLegacySuper = strtolower((string) $user->role) === 'superduperadmin';
 
-        if (! $isAdminRole && ! $isLegacyAdmin) {
+        if (! $isAdminRole && ! $isLegacyAdmin && ! $isSuperRole && ! $isLegacySuper) {
             abort(403, 'You are not authorized to access this page.');
         }
 

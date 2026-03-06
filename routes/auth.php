@@ -12,14 +12,10 @@ use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
-    // Disable self-service registration; keep route name for backward compat.
-    Route::get('register', function () {
-        return redirect()->route('login');
-    })->name('register');
+    Route::get('register', [RegisteredUserController::class, 'create'])
+        ->name('register');
 
-    Route::post('register', function () {
-        abort(404);
-    });
+    Route::post('register', [RegisteredUserController::class, 'store']);
 
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');

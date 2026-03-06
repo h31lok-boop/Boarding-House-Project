@@ -331,6 +331,17 @@
                 @enderror
             </div>
 
+            <div class="field">
+                <label for="password_confirmation">Confirm Password</label>
+                <div class="input-wrap">
+                    <i class="fas fa-lock"></i>
+                    <input id="password_confirmation" name="password_confirmation" type="password" placeholder="Re-enter your password" required>
+                    <button class="toggle-btn" type="button" data-toggle="password" data-target="password_confirmation">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+
             <div class="field tenant-only" data-tenant-only>
                 <label for="institution_name">Institution Name</label>
                 <div class="input-wrap">

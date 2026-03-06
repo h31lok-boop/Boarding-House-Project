@@ -51,7 +51,17 @@ class User extends Authenticatable
 
     public function isAdmin()
     {
-        return in_array($this->role, ['admin', 'owner'], true);
+        return $this->isSuperDuperAdmin()
+            || in_array($this->role, ['admin', 'owner'], true);
+    }
+
+    public function isSuperDuperAdmin(): bool
+    {
+        if (strtolower((string) $this->role) === 'superduperadmin') {
+            return true;
+        }
+
+        return method_exists($this, 'hasRole') && $this->hasRole('superduperadmin');
     }
 
     public function isResident()
@@ -64,6 +74,11 @@ class User extends Authenticatable
         return $this->role === 'owner';
     }
 
+    public function isManager()
+    {
+        return $this->isOwner();
+    }
+
     public function isTenant()
     {
         return $this->role === 'tenant';
@@ -74,9 +89,39 @@ class User extends Authenticatable
         return $this->belongsTo(\App\Models\BoardingHouse::class);
     }
 
+    public function ownedBoardingHouses()
+    {
+        return $this->hasMany(\App\Models\BoardingHouse::class, 'owner_id');
+    }
+
     public function boardingHouseApplications()
     {
         return $this->hasMany(\App\Models\BoardingHouseApplication::class);
+    }
+
+    public function favorites()
+    {
+        return $this->hasMany(\App\Models\Favorite::class);
+    }
+
+    public function inquiries()
+    {
+        return $this->hasMany(\App\Models\Inquiry::class);
+    }
+
+    public function reservations()
+    {
+        return $this->hasMany(\App\Models\Reservation::class);
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(\App\Models\Review::class);
+    }
+
+    public function tenantRecords()
+    {
+        return $this->hasMany(\App\Models\Tenant::class);
     }
 
     /**
@@ -108,6 +153,10 @@ class User extends Authenticatable
         if (method_exists($this, 'getRoleNames')) {
             $roleNames = $this->getRoleNames()->map(fn ($name) => strtolower($name));
 
+            if ($roleNames->contains('superduperadmin')) {
+                return 'superduperadmin.dashboard';
+            }
+
             // Admin must win over any default/tenant assignment.
             if ($roleNames->contains('admin')) {
                 return 'admin.dashboard';
@@ -124,6 +173,10 @@ class User extends Authenticatable
             if ($roleNames->contains('osas')) {
                 return 'osas.dashboard';
             }
+        }
+
+        if ($legacyRole === 'superduperadmin') {
+            return 'superduperadmin.dashboard';
         }
 
         if ($legacyRole === 'admin' || $legacyRole === 'owner') {

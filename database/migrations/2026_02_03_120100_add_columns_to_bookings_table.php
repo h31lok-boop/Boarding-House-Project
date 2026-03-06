@@ -9,12 +9,24 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('bookings', function (Blueprint $table) {
-            $table->foreignId('room_id')->nullable()->constrained()->nullOnDelete();
-            $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('status')->default('Pending'); // Pending, Confirmed, Cancelled
-            $table->date('start_date')->nullable();
-            $table->date('end_date')->nullable();
-            $table->text('notes')->nullable();
+            if (! Schema::hasColumn('bookings', 'room_id')) {
+                $table->foreignId('room_id')->nullable()->constrained()->nullOnDelete();
+            }
+            if (! Schema::hasColumn('bookings', 'user_id')) {
+                $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
+            }
+            if (! Schema::hasColumn('bookings', 'status')) {
+                $table->string('status')->default('Pending'); // Pending, Confirmed, Cancelled
+            }
+            if (! Schema::hasColumn('bookings', 'start_date')) {
+                $table->date('start_date')->nullable();
+            }
+            if (! Schema::hasColumn('bookings', 'end_date')) {
+                $table->date('end_date')->nullable();
+            }
+            if (! Schema::hasColumn('bookings', 'notes')) {
+                $table->text('notes')->nullable();
+            }
         });
     }
 

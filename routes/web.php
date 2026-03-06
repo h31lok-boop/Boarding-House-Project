@@ -5,33 +5,17 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\BoardingHousePolicyController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\DashboardController;
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
 use App\Http\Controllers\BoardingHouseApplicationController;
-=======
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 use App\Http\Controllers\RoomController;
-use App\Http\Controllers\TenantAccountController;
-use App\Http\Controllers\TenantPaymentController;
+use App\Http\Controllers\SuperDuperAdmin\BoardingHouseController as SuperDuperAdminBoardingHouseController;
+use App\Http\Controllers\SuperDuperAdmin\DashboardController as SuperDuperAdminDashboardController;
+use App\Http\Controllers\Map\BoardingHouseMapController;
+use App\Http\Controllers\User\BoardingHouseBrowseController;
+use App\Http\Controllers\User\FavoriteController;
+use App\Http\Controllers\User\InquiryController;
+use App\Http\Controllers\User\ReservationController;
 use App\Models\BoardingHouse;
 use App\Models\Room;
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Lang;
 
@@ -56,7 +40,25 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         return redirect()->route($routeName);
     })->name('dashboard');
-    Route::get('/dashboard/search', [DashboardController::class, 'search'])->name('dashboard.search');
+
+    // SuperDuperAdmin area
+    Route::prefix('superduperadmin')->name('superduperadmin.')->middleware('superduperadmin')->group(function () {
+        Route::get('/dashboard', [SuperDuperAdminDashboardController::class, 'index'])->name('dashboard');
+        Route::post('/boarding-houses', [SuperDuperAdminBoardingHouseController::class, 'store'])->name('boarding-houses.store');
+        Route::get('/boarding-houses/{boardingHouse}/edit', [SuperDuperAdminBoardingHouseController::class, 'edit'])->name('boarding-houses.edit');
+        Route::put('/boarding-houses/{boardingHouse}', [SuperDuperAdminBoardingHouseController::class, 'update'])->name('boarding-houses.update');
+        Route::delete('/boarding-houses/{boardingHouse}', [SuperDuperAdminBoardingHouseController::class, 'destroy'])->name('boarding-houses.destroy');
+        Route::post('/boarding-houses/{boardingHouse}/approve', [SuperDuperAdminBoardingHouseController::class, 'approve'])->name('boarding-houses.approve');
+        Route::post('/boarding-houses/{boardingHouse}/reject', [SuperDuperAdminBoardingHouseController::class, 'reject'])->name('boarding-houses.reject');
+    });
+
+    Route::prefix('map')->name('map.')->group(function () {
+        Route::get('/admin/boarding-houses', [BoardingHouseMapController::class, 'admin'])
+            ->middleware('admin')
+            ->name('admin.boarding-houses');
+        Route::get('/user/boarding-houses', [BoardingHouseMapController::class, 'user'])
+            ->name('user.boarding-houses');
+    });
 
     // Admin-only area
     Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
@@ -66,22 +68,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/users/{user}/edit', [AdminController::class, 'editUser'])->name('users.edit');
         Route::put('/users/{user}', [AdminController::class, 'updateUser'])->name('users.update');
         Route::put('/users/{user}/role', [AdminController::class, 'updateUserRole'])->name('users.role');
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-=======
-        Route::put('/users/{user}/status', [AdminController::class, 'updateUserStatus'])->name('users.status');
->>>>>>> Stashed changes
-=======
-        Route::put('/users/{user}/status', [AdminController::class, 'updateUserStatus'])->name('users.status');
->>>>>>> Stashed changes
-=======
-        Route::put('/users/{user}/status', [AdminController::class, 'updateUserStatus'])->name('users.status');
->>>>>>> Stashed changes
-=======
-        Route::put('/users/{user}/status', [AdminController::class, 'updateUserStatus'])->name('users.status');
->>>>>>> Stashed changes
         Route::put('/users/{user}/archive', [AdminController::class, 'archiveUser'])->name('users.archive');
         Route::put('/users/{user}/restore', [AdminController::class, 'restoreUser'])->name('users.restore');
         Route::delete('/users/{user}', [AdminController::class, 'destroyUser'])->name('users.destroy');
@@ -89,85 +75,35 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('/rooms', RoomController::class)->only(['store', 'update', 'destroy'])->names('rooms');
         Route::get('/boarding-house-policies', [BoardingHousePolicyController::class, 'index'])->name('boarding-house-policies.index');
         Route::post('/boarding-house-policies', [BoardingHousePolicyController::class, 'update'])->name('boarding-house-policies.update');
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
 
         Route::get('/boarding-house-applications', [BoardingHouseApplicationController::class, 'index'])->name('applications.index');
         Route::post('/boarding-house-applications/{application}/approve', [BoardingHouseApplicationController::class, 'approve'])->name('applications.approve');
         Route::post('/boarding-house-applications/{application}/reject', [BoardingHouseApplicationController::class, 'reject'])->name('applications.reject');
-=======
-        Route::get('/tenant-reviews', function () {
-            return view('admin.tenant-reviews');
-        })->name('tenant-reviews');
->>>>>>> Stashed changes
-=======
-        Route::get('/tenant-reviews', function () {
-            return view('admin.tenant-reviews');
-        })->name('tenant-reviews');
->>>>>>> Stashed changes
-=======
-        Route::get('/tenant-reviews', function () {
-            return view('admin.tenant-reviews');
-        })->name('tenant-reviews');
->>>>>>> Stashed changes
-=======
-        Route::get('/tenant-reviews', function () {
-            return view('admin.tenant-reviews');
-        })->name('tenant-reviews');
->>>>>>> Stashed changes
     });
 
     // Owner Dashboard (role-gated)
     Route::get('/owner/dashboard', [DashboardController::class, 'owner'])->name('owner.dashboard');
     Route::get('/owner/maintenance', [DashboardController::class, 'ownerMaintenance'])->name('owner.maintenance');
-
     Route::get('/owner/rooms', function () {
         $user = Auth::user();
         abort_unless($user && $user->isOwner(), 403);
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-        return redirect()->route('admin.dashboard');
-    })->name('owner.dashboard');
-=======
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-        $rooms = Room::with('boardingHouse')->orderBy('created_at', 'desc')->get();
+        $rooms = Room::with('boardingHouse')->orderByDesc('created_at')->get();
         $boardingHouses = BoardingHouse::orderBy('name')->get();
         return view('owner.rooms', compact('rooms', 'boardingHouses'));
     })->name('owner.rooms');
-
     Route::get('/owner/boarding-houses', function () {
         $user = Auth::user();
         abort_unless($user && $user->isOwner(), 403);
-        $houses = BoardingHouse::orderBy('created_at', 'desc')->get();
+        $houses = BoardingHouse::orderByDesc('created_at')->get();
         return view('owner.boarding-houses', compact('houses'));
     })->name('owner.boarding-houses');
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 
     // Tenant Dashboard (role-gated)
-    Route::get('/tenant/dashboard', [DashboardController::class, 'tenant'])->name('tenant.dashboard');
-    Route::get('/tenant/dashboard/search', [DashboardController::class, 'tenantSearch'])->name('tenant.dashboard.search');
-    Route::get('/tenant/account', [TenantAccountController::class, 'show'])->name('tenant.account');
-    Route::patch('/tenant/account', [TenantAccountController::class, 'update'])->name('tenant.account.update');
-    Route::get('/tenant/payments/pay', [TenantPaymentController::class, 'pay'])->name('tenant.payments.pay');
-    Route::post('/tenant/payments/pay', [TenantPaymentController::class, 'process'])->name('tenant.payments.process');
+    Route::get('/tenant/dashboard', function () {
+        $user = Auth::user();
+        abort_unless($user && $user->isTenant(), 403);
+        return view('tenant.dashboard');
+    })->name('tenant.dashboard');
 
     Route::get('/tenant/bh-policies', function () {
         $user = Auth::user();
@@ -178,12 +114,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return view('tenant.bh-policies', compact('policyCategories'));
     })->name('tenant.bh-policies');
 
-    Route::get('/tenant/boarding-houses', function () {
-        $user = Auth::user();
-        abort_unless($user && $user->isTenant(), 403);
-        $availableHouses = \App\Models\BoardingHouse::withCount('tenants')->get()->filter(fn($h) => $h->tenants_count < $h->capacity);
-        return view('tenant.boarding-houses', compact('availableHouses'));
-    })->name('tenant.boarding-houses');
+    Route::prefix('tenant')->name('tenant.')->group(function () {
+        Route::get('/boarding-houses', [BoardingHouseBrowseController::class, 'index'])->name('boarding-houses');
+        Route::get('/boarding-houses/compare', [BoardingHouseBrowseController::class, 'compare'])->name('boarding-houses.compare');
+    });
+
+    Route::prefix('user')->name('user.')->group(function () {
+        Route::get('/boarding-houses', [BoardingHouseBrowseController::class, 'index'])->name('boarding-houses.index');
+        Route::get('/boarding-houses/compare', [BoardingHouseBrowseController::class, 'compare'])->name('boarding-houses.compare');
+        Route::get('/boarding-houses/{boardingHouse}', [BoardingHouseBrowseController::class, 'show'])->name('boarding-houses.show');
+
+        Route::get('/favorites', [FavoriteController::class, 'index'])->name('favorites.index');
+        Route::post('/favorites/{boardingHouse}', [FavoriteController::class, 'store'])->middleware('throttle:30,1')->name('favorites.store');
+        Route::delete('/favorites/{boardingHouse}', [FavoriteController::class, 'destroy'])->name('favorites.destroy');
+
+        Route::post('/boarding-houses/{boardingHouse}/inquiries', [InquiryController::class, 'store'])->middleware('throttle:10,1')->name('inquiries.store');
+        Route::post('/boarding-houses/{boardingHouse}/reservations', [ReservationController::class, 'store'])->middleware('throttle:10,1')->name('reservations.store');
+    });
 
     Route::post('/boarding-houses/{boarding_house}/apply', [BoardingHouseApplicationController::class, 'store'])->name('tenant.boarding-houses.apply');
     Route::post('/boarding-houses/apply', [BoardingHouseApplicationController::class, 'storeFromSelect'])->name('tenant.boarding-houses.apply.select');

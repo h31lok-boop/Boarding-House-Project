@@ -11,6 +11,8 @@
   };
 @endphp
 
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+
 <x-admin.shell>
   @php
     $activeTenants = \App\Models\User::where('role', 'tenant')->where('is_active', true)->count();
@@ -36,9 +38,29 @@
         ->whereYear('start_date', $date->year)
         ->count();
     })->values();
+
     @endphp
 
     <div class="space-y-6">
+        <div class="ui-card p-4 border border-indigo-200 bg-indigo-50/40">
+            <div class="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                    <h3 class="font-semibold text-indigo-700">Geotagging Help</h3>
+                    <p class="text-sm ui-muted mt-1">
+                        Geotagging is inside Boarding House forms. Open Add/Edit, then click the map or drag marker to set latitude/longitude.
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    <a href="{{ $r('admin.boarding-houses.create') }}" class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700">
+                        Add Geotagged House
+                    </a>
+                    <a href="{{ $r('admin.boarding-houses.index') }}" class="px-3 py-2 rounded-lg border ui-border text-sm hover:bg-[color:var(--surface-2)]">
+                        Open House List
+                    </a>
+                </div>
+            </div>
+        </div>
+
         @php
         $totalRooms = \App\Models\Room::count();
         $totalHouses = \App\Models\BoardingHouse::count();
@@ -102,6 +124,19 @@
             </div>
         </div>
 
+    <div class="ui-card p-6">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h3 class="text-lg font-semibold">Leaflet Geotag Map</h3>
+          <p class="text-sm ui-muted">All geotagged boarding houses.</p>
+        </div>
+        <a href="{{ $r('admin.boarding-houses.create') }}" class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700">
+          Add Geotagged House
+        </a>
+      </div>
+      <div id="adminGeoMap" class="w-full rounded-lg border ui-border" style="height: 360px;"></div>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div class="lg:col-span-2 ui-card">
         <div class="p-6">
@@ -127,6 +162,7 @@
           <div class="space-y-2 text-sm">
             <a href="{{ $r('admin.users') }}" class="block px-3 py-2 rounded-lg ui-surface-2 bg-[color:var(--surface)]">Manage Users</a>
             <a href="{{ $r('admin.boarding-houses.index') }}" class="block px-3 py-2 rounded-lg ui-surface-2 bg-[color:var(--surface)]">Boarding Houses</a>
+            <a href="{{ $r('admin.boarding-houses.create') }}" class="block px-3 py-2 rounded-lg ui-surface-2 bg-[color:var(--surface)]">Add Geotagged House</a>
             <a href="{{ $r('admin.applications.index') }}" class="block px-3 py-2 rounded-lg ui-surface-2 bg-[color:var(--surface)]">Applications</a>
             <a href="{{ $r('admin.tenant-history') }}" class="block px-3 py-2 rounded-lg ui-surface-2 bg-[color:var(--surface)]">Tenant History</a>
           </div>
@@ -135,8 +171,56 @@
     </div>
   </div>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script>
+    const mapElement = document.getElementById('adminGeoMap');
+    if (mapElement) {
+      const map = L.map('adminGeoMap').setView([6.7440, 125.3550], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(map);
+
+      const renderMarkers = (records) => {
+        const bounds = [];
+
+        records.forEach((house) => {
+          const lat = Number(house.latitude);
+          const lng = Number(house.longitude);
+          if (Number.isNaN(lat) || Number.isNaN(lng)) {
+            return;
+          }
+
+          const popup = `
+            <div style="min-width:220px">
+              <strong>${house.name ?? 'Boarding House'}</strong><br>
+              <small>${house.address ?? ''}</small><br>
+              <small>Price: ${house.price ? 'PHP ' + Number(house.price).toLocaleString() : 'N/A'}</small><br>
+              <small>Available Rooms: ${house.available_rooms ?? 0}</small><br>
+              <small>Status: ${house.status ?? 'N/A'}</small>
+            </div>
+          `;
+
+          L.marker([lat, lng]).addTo(map).bindPopup(popup);
+          bounds.push([lat, lng]);
+        });
+
+        if (bounds.length > 0) {
+          map.fitBounds(bounds, { padding: [30, 30] });
+        }
+      };
+
+      fetch(@json(route('map.admin.boarding-houses')))
+        .then((response) => response.ok ? response.json() : Promise.reject(new Error('Map data request failed')))
+        .then((payload) => {
+          renderMarkers(Array.isArray(payload.data) ? payload.data : []);
+        })
+        .catch(() => {
+          // Keep map loaded even when API request fails.
+        });
+    }
+
     const ctx = document.getElementById('adminRevenueChart');
     const revenueChart = new Chart(ctx, {
       type: 'line',

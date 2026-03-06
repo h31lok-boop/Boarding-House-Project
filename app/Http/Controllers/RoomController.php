@@ -21,9 +21,17 @@ class RoomController extends Controller
         $data = $request->validate([
             'boarding_house_id' => [Rule::requiredIf($requiresDetails), 'exists:boarding_houses,id'],
             'room_no' => [Rule::requiredIf($requiresDetails), 'string', 'max:50'],
+            'price' => ['nullable', 'numeric', 'min:0'],
+            'capacity' => ['nullable', 'integer', 'min:1'],
+            'available_slots' => ['nullable', 'integer', 'min:0'],
+            'status' => ['nullable', Rule::in(['Available', 'Occupied', 'Reserved', 'Unavailable'])],
             'description' => ['nullable', 'string'],
             'image' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:5120'],
         ]);
+
+        $data['capacity'] = $data['capacity'] ?? 1;
+        $data['available_slots'] = $data['available_slots'] ?? $data['capacity'];
+        $data['status'] = $data['status'] ?? 'Available';
 
         if ($request->hasFile('image')) {
             $data['image'] = $request->file('image')->store('rooms', 'public');
@@ -49,6 +57,10 @@ class RoomController extends Controller
         $data = $request->validate([
             'boarding_house_id' => [Rule::requiredIf($requiresDetails), 'exists:boarding_houses,id'],
             'room_no' => [Rule::requiredIf($requiresDetails), 'string', 'max:50'],
+            'price' => ['nullable', 'numeric', 'min:0'],
+            'capacity' => ['nullable', 'integer', 'min:1'],
+            'available_slots' => ['nullable', 'integer', 'min:0'],
+            'status' => ['nullable', Rule::in(['Available', 'Occupied', 'Reserved', 'Unavailable'])],
             'description' => ['nullable', 'string'],
             'image' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:5120'],
             'remove_image' => ['nullable', 'boolean'],
@@ -98,6 +110,10 @@ class RoomController extends Controller
         return [
             'id' => $room->id,
             'room_no' => $room->room_no,
+            'price' => $room->price,
+            'capacity' => $room->capacity,
+            'available_slots' => $room->available_slots,
+            'status' => $room->status,
             'description' => $room->description,
             'boarding_house_id' => $room->boarding_house_id,
             'boarding_house_name' => $room->boardingHouse?->name,

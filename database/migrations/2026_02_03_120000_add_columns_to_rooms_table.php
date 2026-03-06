@@ -9,12 +9,24 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('rooms', function (Blueprint $table) {
-            $table->foreignId('boarding_house_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('name')->nullable();
-            $table->string('status')->default('Available');
-            $table->unsignedInteger('capacity')->default(1);
-            $table->text('amenities')->nullable();
-            $table->string('image_url')->nullable();
+            if (! Schema::hasColumn('rooms', 'boarding_house_id')) {
+                $table->foreignId('boarding_house_id')->nullable()->constrained()->nullOnDelete();
+            }
+            if (! Schema::hasColumn('rooms', 'name')) {
+                $table->string('name')->nullable();
+            }
+            if (! Schema::hasColumn('rooms', 'status')) {
+                $table->string('status')->default('Available');
+            }
+            if (! Schema::hasColumn('rooms', 'capacity')) {
+                $table->unsignedInteger('capacity')->default(1);
+            }
+            if (! Schema::hasColumn('rooms', 'amenities')) {
+                $table->text('amenities')->nullable();
+            }
+            if (! Schema::hasColumn('rooms', 'image_url')) {
+                $table->string('image_url')->nullable();
+            }
         });
     }
 

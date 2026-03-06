@@ -30,16 +30,21 @@ class BoardingHouseFactory extends Factory
         $city = $this->faker->randomElement($cities);
 
         return [
-            'name'        => $this->faker->company . ' Boarding House',
-            'address'     => 'Brgy. ' . $this->faker->streetName . ', ' . $city,
+            'name' => $this->faker->company . ' Boarding House',
+            'address' => 'Brgy. ' . $this->faker->streetName . ', ' . $city,
+            'latitude' => $this->faker->randomFloat(7, 6.7000000, 6.7900000),
+            'longitude' => $this->faker->randomFloat(7, 125.3000000, 125.4100000),
             'description' => $this->faker->randomElement([
-                'Near university belt with free Wi‑Fi and study lounge.',
+                'Near university belt with free Wi-Fi and study lounge.',
                 'Walking distance to transport hubs; includes weekly cleaning.',
                 'Secure compound with CCTV, shared kitchen, and laundry area.',
                 'Quiet neighborhood, furnished rooms, and strong fiber internet.',
             ]),
-            'capacity'    => $this->faker->numberBetween(15, 80),
-            'is_active'   => $this->faker->boolean(90),
+            'house_rules' => 'No smoking. Quiet hours from 10PM to 6AM.',
+            'monthly_payment' => $this->faker->numberBetween(2500, 7000),
+            'capacity' => $this->faker->numberBetween(15, 80),
+            'is_active' => $this->faker->boolean(90),
+            'approval_status' => 'approved',
         ];
     }
 }

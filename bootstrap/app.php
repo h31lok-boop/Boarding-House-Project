@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin'     => \App\Http\Middleware\AdminMiddleware::class,
+            'superduperadmin' => \App\Http\Middleware\EnsureSuperDuperAdmin::class,
             'caretaker' => \App\Http\Middleware\EnsureCaretaker::class,
             'osas'      => \App\Http\Middleware\EnsureOsas::class,
         ]);

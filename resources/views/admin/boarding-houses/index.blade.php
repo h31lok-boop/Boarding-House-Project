@@ -2,6 +2,7 @@
 <x-admin.shell>
   <div class="ui-card p-4 mb-6">
     <h2 class="font-semibold text-xl leading-tight">Boarding Houses</h2>
+    <p class="text-sm ui-muted mt-1">For geotagging, open Add or Edit then click the map to set coordinates.</p>
   </div>
 
   

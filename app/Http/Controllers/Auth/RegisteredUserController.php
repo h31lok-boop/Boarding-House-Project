@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
 use Spatie\Permission\Models\Role;
@@ -36,19 +37,38 @@ class RegisteredUserController extends Controller
             'phone' => ['nullable', 'string', 'max:30'],
             'institution_name' => ['nullable', 'string', 'max:255'],
             'move_in_date' => ['nullable', 'date'],
-            'password' => ['required', Rules\Password::defaults()],
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'terms' => ['sometimes', 'accepted'],
         ]);
 
-        $user = User::create([
+        $hashedPassword = Hash::make($request->password);
+
+        $attributes = [
             'role' => 'tenant',
             'name' => $request->name,
             'email' => $request->email,
             'phone' => $request->phone,
             'institution_name' => $request->institution_name,
             'move_in_date' => $request->move_in_date,
-            'password' => Hash::make($request->password),
-        ]);
+            'password' => $hashedPassword,
+            'is_active' => true,
+            'email_verified_at' => now(),
+        ];
+
+        // Keep compatibility with both legacy and current schemas.
+        if (Schema::hasColumn('users', 'contact_number')) {
+            $attributes['contact_number'] = $request->phone;
+        }
+        if (Schema::hasColumn('users', 'password_hash')) {
+            $attributes['password_hash'] = $hashedPassword;
+        }
+        if (Schema::hasColumn('users', 'status')) {
+            $attributes['status'] = 'active';
+        }
+
+        $user = new User();
+        $user->forceFill($attributes);
+        $user->save();
 
         // sync Spatie role
         if (method_exists($user, 'assignRole')) {
@@ -58,7 +78,8 @@ class RegisteredUserController extends Controller
 
         event(new Registered($user));
 
-        Auth::login($user);
+        Auth::guard('web')->login($user);
+        $request->session()->regenerate();
 
         // Use a single, predictable redirect. The dashboard route itself
         // handles per-role forwarding so callers and tests always see the

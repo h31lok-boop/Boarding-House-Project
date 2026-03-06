@@ -1,1 +1,0 @@
-<?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\signin.blade.php ENDPATH**/ ?>

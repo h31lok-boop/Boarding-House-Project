@@ -3,10 +3,8 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Models\Admin;
-use App\Models\BoardingHouse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
 
 class AdminController extends Controller
 {
@@ -106,12 +104,8 @@ class AdminController extends Controller
     /**
      * User management list (admin can promote/demote roles)
      */
-    public function users(Request $request)
+    public function users()
     {
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
         $roles = ['admin', 'tenant', 'caretaker', 'osas'];
         $filterRole = request('role');
 
@@ -134,114 +128,8 @@ class AdminController extends Controller
             })
             ->orderBy('created_at', 'desc')
             ->paginate(15);
-=======
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-        $search = trim((string) $request->query('q', ''));
-        $status = strtolower((string) $request->query('status', 'all'));
-        $sort = strtolower((string) $request->query('sort', 'created_at'));
-        $dir = strtolower((string) $request->query('dir', 'desc'));
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
 
-        $allowedStatuses = ['all', 'pending', 'approved'];
-        $allowedSorts = ['name', 'email', 'institution_name', 'status', 'created_at'];
-        $allowedDirections = ['asc', 'desc'];
-
-        if (! in_array($status, $allowedStatuses, true)) {
-            $status = 'all';
-        }
-
-        if (! in_array($sort, $allowedSorts, true)) {
-            $sort = 'created_at';
-        }
-
-        if (! in_array($dir, $allowedDirections, true)) {
-            $dir = 'desc';
-        }
-
-        $usersQuery = User::with('roles')
-            ->where('is_archived', false)
-            ->where(function ($query) {
-                $query->whereRaw('LOWER(role) = ?', ['tenant'])
-                    ->orWhereHas('roles', function ($roleQuery) {
-                        $roleQuery->whereRaw('LOWER(name) = ?', ['tenant']);
-                    });
-            });
-
-        if ($search !== '') {
-            $usersQuery->where(function ($query) use ($search) {
-                $query->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%")
-                    ->orWhere('phone', 'like', "%{$search}%")
-                    ->orWhere('institution_name', 'like', "%{$search}%")
-                    ->orWhere('room_number', 'like', "%{$search}%");
-            });
-        }
-
-        if ($status === 'approved') {
-            $usersQuery->where('is_active', true);
-        } elseif ($status === 'pending') {
-            $usersQuery->where('is_active', false);
-        }
-
-        if ($sort === 'status') {
-            $usersQuery->orderByRaw(
-                "CASE
-                    WHEN is_active = 1 THEN 0
-                    ELSE 1
-                END {$dir}"
-            );
-            $usersQuery->orderBy('created_at', 'desc');
-        } else {
-            $usersQuery->orderBy($sort, $dir);
-            if ($sort !== 'created_at') {
-                $usersQuery->orderBy('created_at', 'desc');
-            }
-        }
-
-        $users = $usersQuery
-            ->paginate(15)
-            ->withQueryString();
-
-        $boardinghouseNames = $users->getCollection()
-            ->pluck('institution_name')
-            ->filter()
-            ->unique()
-            ->values();
-
-        $boardinghouseAddressByName = BoardingHouse::query()
-            ->whereIn('name', $boardinghouseNames)
-            ->pluck('address', 'name');
-
-        $users->getCollection()->transform(function ($tenant) use ($boardinghouseAddressByName) {
-            $tenant->boardinghouse_address = $tenant->institution_name
-                ? ($boardinghouseAddressByName[$tenant->institution_name] ?? null)
-                : null;
-
-            return $tenant;
-        });
-
-        $archivedUsers = User::with('roles')
-            ->where('is_archived', true)
-            ->where(function ($query) {
-                $query->whereRaw('LOWER(role) = ?', ['tenant'])
-                    ->orWhereHas('roles', function ($roleQuery) {
-                        $roleQuery->whereRaw('LOWER(name) = ?', ['tenant']);
-                    });
-            })
+        $archivedUsers = User::where('is_archived', true)
             ->orderByDesc('archived_at')
             ->orderByDesc('created_at')
             ->paginate(10, ['*'], 'archived_page');
@@ -251,7 +139,7 @@ class AdminController extends Controller
             $users->appends(['role' => $filterRole]);
         }
 
-        return view('admin.users', compact('users', 'roles', 'archivedUsers', 'search', 'status', 'sort', 'dir'));
+        return view('admin.users', compact('users', 'roles', 'archivedUsers'));
     }
 
     /**
@@ -294,21 +182,7 @@ class AdminController extends Controller
             'phone' => ['nullable', 'string', 'max:30'],
             'role' => ['required', 'in:'.implode(',', $roles)],
             'is_active' => ['nullable', 'boolean'],
-            'profile_image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
-            'profile_image_remove' => ['nullable', 'boolean'],
         ]);
-
-        if ($request->boolean('profile_image_remove') && $user->profile_image) {
-            Storage::disk('public')->delete($user->profile_image);
-            $user->profile_image = null;
-        }
-
-        if ($request->hasFile('profile_image')) {
-            if ($user->profile_image) {
-                Storage::disk('public')->delete($user->profile_image);
-            }
-            $user->profile_image = $request->file('profile_image')->store('profile-images', 'public');
-        }
 
         $user->fill([
             'name' => $validated['name'],
@@ -316,9 +190,7 @@ class AdminController extends Controller
             'phone' => $validated['phone'] ?? null,
             'role' => $validated['role'] === 'admin' ? 'owner' : $validated['role'],
             'is_active' => $request->boolean('is_active'),
-        ]);
-
-        $user->save();
+        ])->save();
 
         if (method_exists($user, 'syncRoles')) {
             $user->syncRoles([$validated['role']]);
@@ -327,48 +199,16 @@ class AdminController extends Controller
         return redirect()->route('admin.users')->with('success', 'User updated.');
     }
 
-    public function updateUserStatus(Request $request, User $user)
-    {
-        $request->validate([
-            'is_active' => ['required', 'boolean'],
-        ]);
-
-        $user->is_active = $request->boolean('is_active');
-        if ($user->is_active && ! $user->move_in_date) {
-            $user->move_in_date = now();
-        }
-        $user->save();
-
-        $statusLabel = $user->is_active ? 'Approved' : 'Pending';
-
-        if ($request->wantsJson()) {
-            return response()->json([
-                'message' => 'User status updated.',
-                'is_active' => $user->is_active,
-                'status_label' => $statusLabel,
-            ]);
-        }
-
-        return redirect()->route('admin.users')->with('success', 'User status updated.');
-    }
-
     /**
      * Delete a user (admin-only)
      */
     public function destroyUser(User $user)
     {
         if (auth()->id() === $user->id) {
-            if (request()->wantsJson()) {
-                return response()->json(['message' => 'You cannot delete your own account.'], 422);
-            }
             return back()->with('error', 'You cannot delete your own account.');
         }
 
         $user->delete();
-
-        if (request()->wantsJson()) {
-            return response()->json(['message' => 'User deleted.']);
-        }
 
         return redirect()->route('admin.users')->with('success', 'User deleted.');
     }
@@ -376,9 +216,6 @@ class AdminController extends Controller
     public function archiveUser(User $user)
     {
         if (auth()->id() === $user->id) {
-            if (request()->wantsJson()) {
-                return response()->json(['message' => 'You cannot archive your own account.'], 422);
-            }
             return back()->with('error', 'You cannot archive your own account.');
         }
 
@@ -387,10 +224,6 @@ class AdminController extends Controller
             'archived_at' => now(),
             'is_active' => false,
         ]);
-
-        if (request()->wantsJson()) {
-            return response()->json(['message' => 'User archived.']);
-        }
 
         return redirect()->route('admin.users')->with('success', 'User archived.');
     }
