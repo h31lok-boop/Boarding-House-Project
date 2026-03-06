@@ -13,15 +13,24 @@ class BoardingHouse extends Model
         'name',
         'address',
         'description',
+        'landlord_info',
+        'monthly_payment',
+        'exterior_image',
+        'room_image',
+        'cr_image',
+        'kitchen_image',
         'capacity',
         'is_active',
     ];
 
+<<<<<<< Updated upstream
     public function tenants()
     {
         return $this->hasMany(User::class, 'boarding_house_id');
     }
 
+=======
+>>>>>>> Stashed changes
     public function rooms()
     {
         return $this->hasMany(Room::class);

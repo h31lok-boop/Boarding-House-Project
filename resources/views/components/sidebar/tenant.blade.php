@@ -8,6 +8,7 @@
         : ($user->role ?? 'User');
 
     $links = [
+<<<<<<< Updated upstream
         ['label' => 'Dashboard', 'route' => 'tenant.dashboard', 'icon' => 'DASH', 'active' => 'tenant.dashboard'],
         ['label' => 'Boarding House Policies', 'route' => 'tenant.bh-policies', 'icon' => 'POL', 'active' => 'tenant.bh-policies'],
         ['label' => 'Profile', 'route' => 'profile.edit', 'icon' => 'PRO', 'active' => 'profile.edit'],
@@ -52,3 +53,24 @@
         </button>
     </form>
 </div>
+=======
+        ['label' => 'Dashboard', 'route' => 'tenant.dashboard', 'icon' => 'D', 'active' => 'tenant.dashboard'],
+        ['label' => 'Boarding House Policies', 'route' => 'tenant.bh-policies', 'icon' => 'P', 'active' => 'tenant.bh-policies'],
+    ];
+@endphp
+
+<nav class="space-y-1 text-sm font-medium text-gray-700">
+    @foreach ($links as $link)
+        @php
+            $isActive = request()->routeIs($link['active']);
+        @endphp
+        <a
+            href="{{ route($link['route']) }}"
+            class="block px-3 py-2 rounded-lg border {{ $isActive ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'border-transparent hover:bg-gray-50 text-gray-700' }}"
+        >
+            <span>{{ $link['label'] }}</span>
+        </a>
+    @endforeach
+
+</nav>
+>>>>>>> Stashed changes

@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 <x-layouts.caretaker>
 
 @php
@@ -276,3 +277,279 @@
 
 </x-layouts.caretaker>
 
+=======
+<x-app-layout main-class="w-full">
+    <x-slot name="header">
+        <div class="relative z-[9999] flex items-center justify-between gap-3">
+            <h2 class="font-semibold text-xl text-gray-800 leading-tight">Tenant Dashboard</h2>
+
+            <form method="POST" action="{{ route('logout') }}" class="inline-flex">
+                @csrf
+                <button
+                    type="submit"
+                    class="inline-flex items-center rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100 transition"
+                >
+                    Log Out
+                </button>
+            </form>
+        </div>
+    </x-slot>
+
+    @php
+        $kpiCards = $tenantKpiCards ?? [];
+        $booking = $bookingInfo ?? [];
+        $payment = $billingBreakdown ?? [];
+        $status = $paymentStatus ?? ['label' => 'N/A', 'badge' => 'bg-gray-100 text-gray-600 border-gray-200', 'note' => ''];
+        $alertsList = $alerts ?? [];
+        $chart = $paymentChart ?? ['labels' => [], 'balance_trend' => [], 'payments_made' => []];
+
+        $toneStyles = [
+            'amber' => 'from-amber-50 to-white border-amber-100',
+            'indigo' => 'from-indigo-50 to-white border-indigo-100',
+            'emerald' => 'from-emerald-50 to-white border-emerald-100',
+        ];
+
+        $alertStyles = [
+            'danger' => 'border-rose-200 bg-rose-50 text-rose-700',
+            'warning' => 'border-amber-200 bg-amber-50 text-amber-700',
+            'info' => 'border-blue-200 bg-blue-50 text-blue-700',
+            'success' => 'border-emerald-200 bg-emerald-50 text-emerald-700',
+        ];
+    @endphp
+
+    <div class="space-y-6">
+        <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            @foreach ($kpiCards as $card)
+                <a
+                    href="{{ $card['href'] }}"
+                    class="block rounded-2xl border bg-gradient-to-br {{ $toneStyles[$card['tone']] ?? 'from-gray-50 to-white border-gray-100' }} shadow-sm hover:shadow-md transition p-5"
+                >
+                    <p class="text-sm font-medium text-gray-600">{{ $card['title'] }}</p>
+                    <p class="mt-2 text-2xl font-bold text-gray-900">{{ $card['value'] }}</p>
+                    <p class="mt-2 text-sm text-gray-600">{{ $card['subtitle'] }}</p>
+
+                    @if (!empty($card['action_label']))
+                        <span class="mt-4 inline-flex items-center rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white">
+                            {{ $card['action_label'] }}
+                        </span>
+                    @endif
+                </a>
+            @endforeach
+        </section>
+
+        <section class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.8fr)_minmax(320px,1fr)] gap-6 items-start">
+            <div class="space-y-6">
+                <article id="billing-breakdown" class="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <h3 class="text-base font-semibold text-gray-900">Billing Breakdown</h3>
+                            <p class="text-sm text-gray-500">Track your outstanding and monthly payment details</p>
+                        </div>
+                        <a
+                            href="{{ route('tenant.dashboard') }}#billing-breakdown"
+                            class="inline-flex items-center rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition"
+                        >
+                            Pay Now
+                        </a>
+                    </div>
+
+                    <div class="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div class="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-rose-700">Outstanding Balance</p>
+                            <p class="mt-1 text-xl font-bold text-rose-900">PHP {{ number_format((float) ($payment['outstanding_balance'] ?? 0), 2) }}</p>
+                        </div>
+                        <div class="rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-amber-700">Due This Month</p>
+                            <p class="mt-1 text-xl font-bold text-amber-900">PHP {{ number_format((float) ($payment['due_this_month'] ?? 0), 2) }}</p>
+                        </div>
+                        <div class="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                            <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700">Payments Made</p>
+                            <p class="mt-1 text-xl font-bold text-emerald-900">PHP {{ number_format((float) ($payment['paid_this_month'] ?? 0), 2) }}</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+                        <p class="font-medium">
+                            Next Payment Due:
+                            <span class="font-semibold text-gray-900">{{ $payment['next_due_date'] ?? 'Not scheduled' }}</span>
+                        </p>
+                        <p class="mt-1">
+                            Amount:
+                            <span class="font-semibold text-gray-900">PHP {{ number_format((float) ($payment['next_due_amount'] ?? 0), 2) }}</span>
+                        </p>
+                    </div>
+                </article>
+
+                <article class="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                            <h3 class="text-base font-semibold text-gray-900">Payment Trends</h3>
+                            <p class="text-sm text-gray-500">Toggle between Balance Trend and Payments Made</p>
+                        </div>
+                        <div class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+                            <button type="button" class="tenant-chart-mode-btn px-3 py-1.5 rounded-md text-xs font-semibold bg-indigo-600 text-white" data-mode="balance">
+                                Balance Trend
+                            </button>
+                            <button type="button" class="tenant-chart-mode-btn px-3 py-1.5 rounded-md text-xs font-semibold text-gray-600 hover:text-gray-900" data-mode="payments">
+                                Payments Made
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 h-72">
+                        <canvas id="tenantPaymentChart"></canvas>
+                    </div>
+                </article>
+            </div>
+
+            <aside class="space-y-6">
+                <article id="booking-info" class="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
+                    <h3 class="text-base font-semibold text-gray-900">Current Booking / Room Info</h3>
+                    <div class="mt-4 space-y-3 text-sm text-gray-700">
+                        <div>
+                            <p class="text-xs uppercase tracking-wide text-gray-400">Boarding House</p>
+                            <p class="font-semibold text-gray-900">{{ $booking['boarding_house'] ?? 'No active booking' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs uppercase tracking-wide text-gray-400">Room No.</p>
+                            <p class="font-semibold text-gray-900">{{ $booking['room_number'] ?? 'Not assigned' }}</p>
+                        </div>
+                        @if (!empty($booking['address']))
+                            <div>
+                                <p class="text-xs uppercase tracking-wide text-gray-400">Address</p>
+                                <p class="font-medium text-gray-800">{{ $booking['address'] }}</p>
+                            </div>
+                        @endif
+                        @if (!empty($booking['move_in_date']))
+                            <div>
+                                <p class="text-xs uppercase tracking-wide text-gray-400">Move-in Date</p>
+                                <p class="font-medium text-gray-800">{{ $booking['move_in_date'] }}</p>
+                            </div>
+                        @endif
+                        @if (!empty($booking['description']))
+                            <div>
+                                <p class="text-xs uppercase tracking-wide text-gray-400">Room Details</p>
+                                <p class="font-medium text-gray-800">{{ $booking['description'] }}</p>
+                            </div>
+                        @endif
+                    </div>
+                </article>
+
+                <article class="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
+                    <h3 class="text-base font-semibold text-gray-900">Payment Status</h3>
+                    <div class="mt-3">
+                        <span class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold {{ $status['badge'] }}">
+                            {{ $status['label'] }}
+                        </span>
+                        <p class="mt-2 text-sm text-gray-600">{{ $status['note'] }}</p>
+                    </div>
+                </article>
+
+                <article id="alerts-panel" class="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
+                    <h3 class="text-base font-semibold text-gray-900">To-Do / Alerts</h3>
+                    <div class="mt-4 space-y-3">
+                        @foreach ($alertsList as $alert)
+                            <a
+                                href="{{ $alert['href'] }}"
+                                class="block rounded-xl border px-3 py-2 transition hover:shadow-sm {{ $alertStyles[$alert['level']] ?? 'border-gray-200 bg-gray-50 text-gray-700' }}"
+                            >
+                                <p class="text-sm font-semibold">{{ $alert['title'] }}</p>
+                                <p class="mt-1 text-xs">{{ $alert['detail'] }}</p>
+                            </a>
+                        @endforeach
+                    </div>
+                </article>
+            </aside>
+        </section>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        (() => {
+            if (typeof Chart === 'undefined') return;
+
+            const chartCanvas = document.getElementById('tenantPaymentChart');
+            if (!chartCanvas) return;
+
+            const chartSource = @json($chart);
+            const labels = chartSource.labels || [];
+            const seriesMap = {
+                balance: {
+                    label: 'Balance Trend (PHP)',
+                    data: chartSource.balance_trend || [],
+                    color: '#f97316',
+                    fill: 'rgba(249, 115, 22, 0.14)',
+                },
+                payments: {
+                    label: 'Payments Made (PHP)',
+                    data: chartSource.payments_made || [],
+                    color: '#10b981',
+                    fill: 'rgba(16, 185, 129, 0.12)',
+                },
+            };
+
+            const buildDataset = (mode) => ({
+                labels,
+                datasets: [{
+                    label: seriesMap[mode].label,
+                    data: seriesMap[mode].data,
+                    borderColor: seriesMap[mode].color,
+                    backgroundColor: seriesMap[mode].fill,
+                    fill: true,
+                    tension: 0.25,
+                    borderWidth: 2,
+                    pointRadius: 3,
+                }],
+            });
+
+            const chart = new Chart(chartCanvas, {
+                type: 'line',
+                data: buildDataset('balance'),
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => `${context.dataset.label}: PHP ${Number(context.parsed.y || 0).toLocaleString()}`,
+                            },
+                        },
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: (value) => `PHP ${Number(value).toLocaleString()}`,
+                            },
+                            grid: { color: 'rgba(17, 24, 39, 0.08)' },
+                        },
+                        x: {
+                            grid: { display: false },
+                        },
+                    },
+                },
+            });
+
+            document.querySelectorAll('.tenant-chart-mode-btn').forEach((button) => {
+                button.addEventListener('click', () => {
+                    const mode = button.dataset.mode;
+                    if (!seriesMap[mode]) return;
+
+                    chart.data = buildDataset(mode);
+                    chart.update();
+
+                    document.querySelectorAll('.tenant-chart-mode-btn').forEach((btn) => {
+                        btn.classList.remove('bg-indigo-600', 'text-white');
+                        btn.classList.add('text-gray-600');
+                    });
+
+                    button.classList.remove('text-gray-600');
+                    button.classList.add('bg-indigo-600', 'text-white');
+                });
+            });
+        })();
+    </script>
+</x-app-layout>
+>>>>>>> Stashed changes

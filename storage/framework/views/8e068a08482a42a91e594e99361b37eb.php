@@ -36,9 +36,66 @@
                         </div>
                     <?php endif; ?>
 
-                    <form method="POST" action="<?php echo e(route('admin.users.update', $user)); ?>" class="space-y-5">
+                    <?php
+                        $profileImageUrl = $user->profile_image ? \Illuminate\Support\Facades\Storage::url($user->profile_image) : '';
+                    ?>
+
+                    <form method="POST" action="<?php echo e(route('admin.users.update', $user)); ?>" enctype="multipart/form-data" class="space-y-5">
                         <?php echo csrf_field(); ?>
                         <?php echo method_field('PUT'); ?>
+
+                        <?php if($viewOnly): ?>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Profile</label>
+                                <img
+                                    src="<?php echo e($profileImageUrl !== '' ? $profileImageUrl : asset('images/avatar-placeholder.svg')); ?>"
+                                    alt="Profile image"
+                                    class="h-32 w-32 rounded-xl border border-gray-300 bg-gray-100 object-cover"
+                                    onerror="this.onerror=null;this.src='<?php echo e(asset('images/avatar-placeholder.svg')); ?>';"
+                                >
+                            </div>
+                        <?php else: ?>
+                            <?php if (isset($component)) { $__componentOriginal5022b45cbce253685c1fba3d2431887b = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginal5022b45cbce253685c1fba3d2431887b = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.profile-image-uploader','data' => ['label' => 'Profile','name' => 'profile_image','initial' => $profileImageUrl,'fallback' => asset('images/avatar-placeholder.svg'),'maxSizeKb' => '5120']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('profile-image-uploader'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['label' => 'Profile','name' => 'profile_image','initial' => \Illuminate\View\Compilers\BladeCompiler::sanitizeComponentAttribute($profileImageUrl),'fallback' => \Illuminate\View\Compilers\BladeCompiler::sanitizeComponentAttribute(asset('images/avatar-placeholder.svg')),'max-size-kb' => '5120']); ?>
+<?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginal5022b45cbce253685c1fba3d2431887b)): ?>
+<?php $attributes = $__attributesOriginal5022b45cbce253685c1fba3d2431887b; ?>
+<?php unset($__attributesOriginal5022b45cbce253685c1fba3d2431887b); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginal5022b45cbce253685c1fba3d2431887b)): ?>
+<?php $component = $__componentOriginal5022b45cbce253685c1fba3d2431887b; ?>
+<?php unset($__componentOriginal5022b45cbce253685c1fba3d2431887b); ?>
+<?php endif; ?>
+                            <?php if (isset($component)) { $__componentOriginalf94ed9c5393ef72725d159fe01139746 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginalf94ed9c5393ef72725d159fe01139746 = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.input-error','data' => ['class' => 'mt-2','messages' => $errors->get('profile_image')]] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('input-error'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['class' => 'mt-2','messages' => \Illuminate\View\Compilers\BladeCompiler::sanitizeComponentAttribute($errors->get('profile_image'))]); ?>
+<?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginalf94ed9c5393ef72725d159fe01139746)): ?>
+<?php $attributes = $__attributesOriginalf94ed9c5393ef72725d159fe01139746; ?>
+<?php unset($__attributesOriginalf94ed9c5393ef72725d159fe01139746); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginalf94ed9c5393ef72725d159fe01139746)): ?>
+<?php $component = $__componentOriginalf94ed9c5393ef72725d159fe01139746; ?>
+<?php unset($__componentOriginalf94ed9c5393ef72725d159fe01139746); ?>
+<?php endif; ?>
+                        <?php endif; ?>
 
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>

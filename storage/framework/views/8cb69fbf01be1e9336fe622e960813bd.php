@@ -9,18 +9,18 @@
 <?php endif; ?>
 <?php $component->withAttributes([]); ?>
      <?php $__env->slot('header', null, []); ?> 
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">OSAS Dashboard</h2>
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight">Caretaker Dashboard</h2>
      <?php $__env->endSlot(); ?>
 
     <?php
         $metrics = [
-            ['label' => 'Pending Approvals', 'value' => 12, 'color' => 'purple', 'icon' => '📝'],
-            ['label' => 'Validated Docs', 'value' => 48, 'color' => 'emerald', 'icon' => '✅'],
-            ['label' => 'Flagged Issues', 'value' => 2, 'color' => 'rose', 'icon' => '⚠️'],
+            ['label' => 'Open Tickets', 'value' => 7, 'color' => 'amber', 'icon' => '🛠️'],
+            ['label' => 'Today\'s Tasks', 'value' => 5, 'color' => 'indigo', 'icon' => '📋'],
+            ['label' => 'Avg. Response', 'value' => '42m', 'color' => 'emerald', 'icon' => '⏱️'],
         ];
 
         $chartLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-        $chartData   = [30, 45, 40, 55, 60, 72]; // approvals processed
+        $chartData   = [18, 15, 12, 14, 10, 9]; // avg response minutes
     ?>
 
     <div class="space-y-6">
@@ -42,12 +42,12 @@
             <div class="p-6">
                 <div class="flex items-center justify-between mb-4">
                     <div>
-                        <h3 class="text-lg font-semibold text-gray-900">Approvals Trend</h3>
+                        <h3 class="text-lg font-semibold text-gray-900">Response Time Trend</h3>
                         <p class="text-sm text-gray-500">Last 6 months</p>
                     </div>
                 </div>
                 <div class="h-72">
-                    <canvas id="osasApprovalsChart"></canvas>
+                    <canvas id="caretakerResponseChart"></canvas>
                 </div>
             </div>
         </div>
@@ -55,22 +55,29 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        const osasCtx = document.getElementById('osasApprovalsChart');
-        new Chart(osasCtx, {
-            type: 'bar',
+        const caretakerCtx = document.getElementById('caretakerResponseChart');
+        new Chart(caretakerCtx, {
+            type: 'line',
             data: {
                 labels: <?php echo json_encode($chartLabels, 15, 512) ?>,
                 datasets: [{
-                    label: 'Approvals',
+                    label: 'Avg Response (minutes)',
                     data: <?php echo json_encode($chartData, 15, 512) ?>,
-                    backgroundColor: '#8b5cf6',
-                    borderRadius: 6
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                    fill: true,
+                    tension: 0.25,
+                    borderWidth: 2,
+                    pointRadius: 3,
                 }]
             },
             options: {
                 plugins: { legend: { display: false } },
                 scales: {
-                    y: { grid: { color: 'rgba(17,24,39,0.06)' }, ticks: { stepSize: 10 } },
+                    y: {
+                        ticks: { callback: v => `${v}m` },
+                        grid: { color: 'rgba(17,24,39,0.06)' }
+                    },
                     x: { grid: { display: false } }
                 }
             }
@@ -86,4 +93,4 @@
 <?php $component = $__componentOriginal9ac128a9029c0e4701924bd2d73d7f54; ?>
 <?php unset($__componentOriginal9ac128a9029c0e4701924bd2d73d7f54); ?>
 <?php endif; ?>
-<?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views/osas/dashboard.blade.php ENDPATH**/ ?>
+<?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\caretaker\dashboard.blade.php ENDPATH**/ ?>

@@ -11,6 +11,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->append(\App\Http\Middleware\ForceUtf8ResponseHeaders::class);
+
         $middleware->alias([
             'admin'     => \App\Http\Middleware\AdminMiddleware::class,
             'caretaker' => \App\Http\Middleware\EnsureCaretaker::class,

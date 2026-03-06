@@ -9,7 +9,7 @@
 <?php endif; ?>
 <?php $component->withAttributes([]); ?>
      <?php $__env->slot('header', null, []); ?> 
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">Edit Boarding House</h2>
+        <h2 class="font-semibold text-xl text-gray-800 leading-tight">Add Boarding House</h2>
      <?php $__env->endSlot(); ?>
 
     <div class="py-8">
@@ -25,27 +25,26 @@
                     </div>
                 <?php endif; ?>
 
-                <form method="POST" action="<?php echo e(route('admin.boarding-houses.update', $house)); ?>" class="space-y-5">
+                <form method="POST" action="<?php echo e(route('admin.boarding-houses.store')); ?>" class="space-y-5">
                     <?php echo csrf_field(); ?>
-                    <?php echo method_field('PUT'); ?>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                        <input name="name" value="<?php echo e(old('name', $house->name)); ?>" class="w-full border rounded-lg px-3 py-2" required>
+                        <input name="name" value="<?php echo e(old('name')); ?>" class="w-full border rounded-lg px-3 py-2" required>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                        <input name="address" value="<?php echo e(old('address', $house->address)); ?>" class="w-full border rounded-lg px-3 py-2" required>
+                        <input name="address" value="<?php echo e(old('address')); ?>" class="w-full border rounded-lg px-3 py-2" required>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Capacity</label>
-                        <input type="number" name="capacity" min="1" value="<?php echo e(old('capacity', $house->capacity)); ?>" class="w-full border rounded-lg px-3 py-2" required>
+                        <input type="number" name="capacity" min="1" value="<?php echo e(old('capacity', 1)); ?>" class="w-full border rounded-lg px-3 py-2" required>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                        <textarea name="description" rows="3" class="w-full border rounded-lg px-3 py-2"><?php echo e(old('description', $house->description)); ?></textarea>
+                        <textarea name="description" rows="3" class="w-full border rounded-lg px-3 py-2"><?php echo e(old('description')); ?></textarea>
                     </div>
                     <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-                        <input type="checkbox" name="is_active" value="1" <?php if(old('is_active', $house->is_active)): echo 'checked'; endif; ?>>
+                        <input type="checkbox" name="is_active" value="1" <?php if(old('is_active', true)): echo 'checked'; endif; ?>>
                         Active
                     </label>
                     <div class="pt-2">
@@ -66,4 +65,4 @@
 <?php $component = $__componentOriginal9ac128a9029c0e4701924bd2d73d7f54; ?>
 <?php unset($__componentOriginal9ac128a9029c0e4701924bd2d73d7f54); ?>
 <?php endif; ?>
-<?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views/admin/boarding-houses/edit.blade.php ENDPATH**/ ?>
+<?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\admin\boarding-houses\create.blade.php ENDPATH**/ ?>

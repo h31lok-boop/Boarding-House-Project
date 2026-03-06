@@ -13,9 +13,22 @@
         @csrf
     </form>
 
-    <form method="post" action="{{ route('profile.update') }}" class="mt-6 space-y-6">
+    <form method="post" action="{{ route('profile.update') }}" enctype="multipart/form-data" class="mt-6 space-y-6">
         @csrf
         @method('patch')
+
+        @php
+            $profileImageUrl = $user->profile_image ? \Illuminate\Support\Facades\Storage::url($user->profile_image) : '';
+        @endphp
+
+        <x-profile-image-uploader
+            label="Profile"
+            name="profile_image"
+            :initial="$profileImageUrl"
+            :fallback="asset('images/avatar-placeholder.svg')"
+            max-size-kb="2048"
+        />
+        <x-input-error class="mt-2" :messages="$errors->get('profile_image')" />
 
         <div>
             <x-input-label for="name" :value="__('Name')" />

@@ -5,7 +5,15 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\BoardingHousePolicyController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\DashboardController;
+<<<<<<< Updated upstream
 use App\Http\Controllers\BoardingHouseApplicationController;
+=======
+use App\Http\Controllers\RoomController;
+use App\Http\Controllers\TenantAccountController;
+use App\Http\Controllers\TenantPaymentController;
+use App\Models\BoardingHouse;
+use App\Models\Room;
+>>>>>>> Stashed changes
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Lang;
 
@@ -30,6 +38,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         return redirect()->route($routeName);
     })->name('dashboard');
+    Route::get('/dashboard/search', [DashboardController::class, 'search'])->name('dashboard.search');
 
     // Admin-only area
     Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
@@ -39,31 +48,60 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/users/{user}/edit', [AdminController::class, 'editUser'])->name('users.edit');
         Route::put('/users/{user}', [AdminController::class, 'updateUser'])->name('users.update');
         Route::put('/users/{user}/role', [AdminController::class, 'updateUserRole'])->name('users.role');
+<<<<<<< Updated upstream
+=======
+        Route::put('/users/{user}/status', [AdminController::class, 'updateUserStatus'])->name('users.status');
+>>>>>>> Stashed changes
         Route::put('/users/{user}/archive', [AdminController::class, 'archiveUser'])->name('users.archive');
         Route::put('/users/{user}/restore', [AdminController::class, 'restoreUser'])->name('users.restore');
         Route::delete('/users/{user}', [AdminController::class, 'destroyUser'])->name('users.destroy');
         Route::resource('/boarding-houses', \App\Http\Controllers\BoardingHouseController::class)->names('boarding-houses');
+        Route::resource('/rooms', RoomController::class)->only(['store', 'update', 'destroy'])->names('rooms');
         Route::get('/boarding-house-policies', [BoardingHousePolicyController::class, 'index'])->name('boarding-house-policies.index');
         Route::post('/boarding-house-policies', [BoardingHousePolicyController::class, 'update'])->name('boarding-house-policies.update');
+<<<<<<< Updated upstream
 
         Route::get('/boarding-house-applications', [BoardingHouseApplicationController::class, 'index'])->name('applications.index');
         Route::post('/boarding-house-applications/{application}/approve', [BoardingHouseApplicationController::class, 'approve'])->name('applications.approve');
         Route::post('/boarding-house-applications/{application}/reject', [BoardingHouseApplicationController::class, 'reject'])->name('applications.reject');
+=======
+        Route::get('/tenant-reviews', function () {
+            return view('admin.tenant-reviews');
+        })->name('tenant-reviews');
+>>>>>>> Stashed changes
     });
 
     // Owner Dashboard (role-gated)
-    Route::get('/owner/dashboard', function () {
+    Route::get('/owner/dashboard', [DashboardController::class, 'owner'])->name('owner.dashboard');
+    Route::get('/owner/maintenance', [DashboardController::class, 'ownerMaintenance'])->name('owner.maintenance');
+
+    Route::get('/owner/rooms', function () {
         $user = Auth::user();
         abort_unless($user && $user->isOwner(), 403);
+<<<<<<< Updated upstream
         return redirect()->route('admin.dashboard');
     })->name('owner.dashboard');
+=======
+        $rooms = Room::with('boardingHouse')->orderBy('created_at', 'desc')->get();
+        $boardingHouses = BoardingHouse::orderBy('name')->get();
+        return view('owner.rooms', compact('rooms', 'boardingHouses'));
+    })->name('owner.rooms');
+
+    Route::get('/owner/boarding-houses', function () {
+        $user = Auth::user();
+        abort_unless($user && $user->isOwner(), 403);
+        $houses = BoardingHouse::orderBy('created_at', 'desc')->get();
+        return view('owner.boarding-houses', compact('houses'));
+    })->name('owner.boarding-houses');
+>>>>>>> Stashed changes
 
     // Tenant Dashboard (role-gated)
-    Route::get('/tenant/dashboard', function () {
-        $user = Auth::user();
-        abort_unless($user && $user->isTenant(), 403);
-        return view('tenant.dashboard');
-    })->name('tenant.dashboard');
+    Route::get('/tenant/dashboard', [DashboardController::class, 'tenant'])->name('tenant.dashboard');
+    Route::get('/tenant/dashboard/search', [DashboardController::class, 'tenantSearch'])->name('tenant.dashboard.search');
+    Route::get('/tenant/account', [TenantAccountController::class, 'show'])->name('tenant.account');
+    Route::patch('/tenant/account', [TenantAccountController::class, 'update'])->name('tenant.account.update');
+    Route::get('/tenant/payments/pay', [TenantPaymentController::class, 'pay'])->name('tenant.payments.pay');
+    Route::post('/tenant/payments/pay', [TenantPaymentController::class, 'process'])->name('tenant.payments.process');
 
     Route::get('/tenant/bh-policies', function () {
         $user = Auth::user();

@@ -1,7 +1,36 @@
+<?php $attributes ??= new \Illuminate\View\ComponentAttributeBag;
+
+$__newAttributes = [];
+$__propNames = \Illuminate\View\ComponentAttributeBag::extractPropNames((['mainClass' => 'max-w-4xl mx-auto']));
+
+foreach ($attributes->all() as $__key => $__value) {
+    if (in_array($__key, $__propNames)) {
+        $$__key = $$__key ?? $__value;
+    } else {
+        $__newAttributes[$__key] = $__value;
+    }
+}
+
+$attributes = new \Illuminate\View\ComponentAttributeBag($__newAttributes);
+
+unset($__propNames);
+unset($__newAttributes);
+
+foreach (array_filter((['mainClass' => 'max-w-4xl mx-auto']), 'is_string', ARRAY_FILTER_USE_KEY) as $__key => $__value) {
+    $$__key = $$__key ?? $__value;
+}
+
+$__defined_vars = get_defined_vars();
+
+foreach ($attributes->all() as $__key => $__value) {
+    if (array_key_exists($__key, $__defined_vars)) unset($$__key);
+}
+
+unset($__defined_vars, $__key, $__value); ?>
 <!DOCTYPE html>
 <html lang="<?php echo e(str_replace('_', '-', app()->getLocale())); ?>">
     <head>
-        <meta charset="utf-8">
+        <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="<?php echo e(csrf_token()); ?>">
 
@@ -21,7 +50,11 @@
             <div class="flex-1">
                 <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 app-shell">
                     <?php if(isset($header)): ?>
+<<<<<<< Updated upstream:storage/framework/views/c447f5d72531f0717b87022926d010eb.php
                         <header class="bg-gradient-to-r from-slate-900/80 via-slate-800/80 to-slate-900/80 backdrop-blur-xl shadow-lg rounded-2xl border border-white/10 mb-4 text-slate-100">
+=======
+                        <header class="relative z-50 overflow-visible bg-white shadow-sm rounded-xl border border-gray-200 mb-4">
+>>>>>>> Stashed changes:storage/framework/views/9d569a0a75843814d4af1a32ce0a1d8b.php
                             <div class="py-4 px-4 sm:px-6 lg:px-8">
                                 <?php echo e($header); ?>
 
@@ -29,7 +62,7 @@
                         </header>
                     <?php endif; ?>
 
-                    <main class="max-w-4xl mx-auto">
+                    <main class="<?php echo e($mainClass); ?>">
                         <?php echo $__env->yieldContent('content'); ?>
                         <?php echo e($slot); ?>
 

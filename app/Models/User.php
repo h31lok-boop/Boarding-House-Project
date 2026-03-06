@@ -18,6 +18,10 @@ class User extends Authenticatable
         'password',
         'role',
         'phone',
+        'profile_image',
+        'notify_payment_reminders',
+        'notify_booking_updates',
+        'notify_ticket_updates',
         'institution_name',
         'date_of_birth',
         'emergency_contact',
@@ -39,6 +43,9 @@ class User extends Authenticatable
         'move_in_date' => 'date',
         'is_active' => 'boolean',
         'is_archived' => 'boolean',
+        'notify_payment_reminders' => 'boolean',
+        'notify_booking_updates' => 'boolean',
+        'notify_ticket_updates' => 'boolean',
         'archived_at' => 'datetime'
     ];
 

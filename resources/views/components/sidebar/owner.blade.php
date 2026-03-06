@@ -8,12 +8,19 @@
         : ($user->role ?? 'User');
 
     $links = [
+<<<<<<< Updated upstream
         ['label' => 'Overview', 'route' => 'admin.dashboard', 'icon' => 'HOME', 'active' => 'admin.dashboard'],
         ['label' => 'Users', 'route' => 'admin.users', 'icon' => 'USR', 'active' => 'admin.users*'],
         ['label' => 'Boarding Houses', 'route' => 'admin.boarding-houses.index', 'icon' => 'BHS', 'active' => 'admin.boarding-houses.*'],
         ['label' => 'Applications', 'route' => 'admin.applications.index', 'icon' => 'APP', 'active' => 'admin.applications.*'],
         ['label' => 'Tenant History', 'route' => 'admin.tenant-history', 'icon' => 'HIS', 'active' => 'admin.tenant-history'],
         ['label' => 'Profile', 'route' => 'profile.edit', 'icon' => 'PRO', 'active' => 'profile.edit'],
+=======
+        ['label' => 'Dashboard', 'route' => 'owner.dashboard', 'icon' => '📈', 'active' => 'owner.dashboard'],
+        ['label' => 'Room Management', 'route' => 'owner.rooms', 'icon' => '🛏️', 'active' => 'owner.rooms*'],
+        ['label' => 'Tenant Reviews', 'route' => 'admin.tenant-reviews', 'icon' => '*', 'active' => 'admin.tenant-reviews*'],
+        ['label' => 'Profile', 'route' => 'profile.edit', 'icon' => '⚙️', 'active' => 'profile.edit'],
+>>>>>>> Stashed changes
     ];
 @endphp
 

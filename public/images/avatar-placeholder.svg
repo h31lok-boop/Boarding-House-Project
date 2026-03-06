@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" role="img" aria-label="Avatar placeholder">
+  <rect x="0" y="0" width="200" height="200" fill="#f3f4f6"/>
+  <rect x="1" y="1" width="198" height="198" fill="none" stroke="#d1d5db" stroke-width="2"/>
+  <circle cx="100" cy="74" r="30" fill="#9ca3af"/>
+  <path d="M42 166c0-30 26-54 58-54s58 24 58 54v9H42v-9z" fill="#9ca3af"/>
+</svg>
