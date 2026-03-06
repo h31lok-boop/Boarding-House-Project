@@ -28,5 +28,15 @@ foreach ($attributes->all() as $__key => $__value) {
 
 unset($__defined_vars, $__key, $__value); ?>
 
+<<<<<<<< Updated upstream:storage/framework/views/d091aa9fcdec552e0bb5a7ca45831cf0.php
 <input <?php if($disabled): echo 'disabled'; endif; ?> <?php echo e($attributes->merge(['class' => 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm'])); ?>>
 <?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\components\text-input.blade.php ENDPATH**/ ?>
+========
+<?php if($status): ?>
+    <div <?php echo e($attributes->merge(['class' => 'font-medium text-sm text-green-600'])); ?>>
+        <?php echo e($status); ?>
+
+    </div>
+<?php endif; ?>
+<?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\components\auth-session-status.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/693a2cc9137ac2f360cc95f620a8d2dd.php

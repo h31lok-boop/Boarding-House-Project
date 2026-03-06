@@ -32,6 +32,7 @@ unset($__defined_vars, $__key, $__value); ?>
     <?php echo e($value ?? $slot); ?>
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 <<<<<<<< Updated upstream:storage/framework/views/3bb664bb4e7daf65f664d2ef584b0ca9.php
 </label>
 <?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\components\input-label.blade.php ENDPATH**/ ?>
@@ -40,6 +41,10 @@ unset($__defined_vars, $__key, $__value); ?>
 <?php endif; ?>
 <?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\components\auth-session-status.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/693a2cc9137ac2f360cc95f620a8d2dd.php
+=======
+</label>
+<?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\components\input-label.blade.php ENDPATH**/ ?>
+>>>>>>> Stashed changes
 =======
 </label>
 <?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\components\input-label.blade.php ENDPATH**/ ?>

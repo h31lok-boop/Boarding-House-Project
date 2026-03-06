@@ -2,7 +2,11 @@
 
 $__newAttributes = [];
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 $__propNames = \Illuminate\View\ComponentAttributeBag::extractPropNames((['value']));
+=======
+$__propNames = \Illuminate\View\ComponentAttributeBag::extractPropNames((['disabled' => false]));
+>>>>>>> Stashed changes
 =======
 $__propNames = \Illuminate\View\ComponentAttributeBag::extractPropNames((['disabled' => false]));
 >>>>>>> Stashed changes
@@ -21,7 +25,11 @@ unset($__propNames);
 unset($__newAttributes);
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 foreach (array_filter((['value']), 'is_string', ARRAY_FILTER_USE_KEY) as $__key => $__value) {
+=======
+foreach (array_filter((['disabled' => false]), 'is_string', ARRAY_FILTER_USE_KEY) as $__key => $__value) {
+>>>>>>> Stashed changes
 =======
 foreach (array_filter((['disabled' => false]), 'is_string', ARRAY_FILTER_USE_KEY) as $__key => $__value) {
 >>>>>>> Stashed changes
@@ -36,6 +44,7 @@ foreach ($attributes->all() as $__key => $__value) {
 
 unset($__defined_vars, $__key, $__value); ?>
 
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <label <?php echo e($attributes->merge(['class' => 'block font-medium text-sm ui-muted'])); ?>>
@@ -57,11 +66,19 @@ unset($__defined_vars, $__key, $__value); ?>
 <<<<<<<< Updated upstream:storage/framework/views/08f7a8b2c3b850d579a90191b93080e1.php
 <input <?php if($disabled): echo 'disabled'; endif; ?> <?php echo e($attributes->merge(['class' => 'ui-input'])); ?>>
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\resources\views/components/text-input.blade.php ENDPATH**/ ?>
+=======
+<<<<<<<< Updated upstream:storage/framework/views/d091aa9fcdec552e0bb5a7ca45831cf0.php
+<input <?php if($disabled): echo 'disabled'; endif; ?> <?php echo e($attributes->merge(['class' => 'border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm'])); ?>>
+<?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\components\text-input.blade.php ENDPATH**/ ?>
+>>>>>>> Stashed changes
 ========
 <?php if($status): ?>
     <div <?php echo e($attributes->merge(['class' => 'font-medium text-sm text-green-600'])); ?>>
         <?php echo e($status); ?>
 
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
     </div>
 <?php endif; ?>

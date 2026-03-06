@@ -246,7 +246,12 @@
 </section>
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
+<<<<<<<< Updated upstream:storage/framework/views/d8dabc83ca52370a16cf20ed3354e02e.php
+>>>>>>> Stashed changes
+=======
+<<<<<<<< Updated upstream:storage/framework/views/d8dabc83ca52370a16cf20ed3354e02e.php
 <<<<<<<< Updated upstream:storage/framework/views/d8dabc83ca52370a16cf20ed3354e02e.php
 >>>>>>> Stashed changes
 <<<<<<<< Updated upstream:storage/framework/views/d8dabc83ca52370a16cf20ed3354e02e.php
@@ -255,10 +260,19 @@
 <?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\profile\partials\update-profile-information-form.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/1249a40eee1b9afb34ae31d23cb77d43.php
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
 <?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\profile\partials\update-profile-information-form.blade.php ENDPATH**/ ?>
 >>>>>>> Stashed changes
 =======
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\profile\partials\update-profile-information-form.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/1249a40eee1b9afb34ae31d23cb77d43.php
+>>>>>>> Stashed changes
+=======
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\profile\partials\update-profile-information-form.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/1249a40eee1b9afb34ae31d23cb77d43.php
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\profile\partials\update-profile-information-form.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/1249a40eee1b9afb34ae31d23cb77d43.php

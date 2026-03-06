@@ -82,6 +82,7 @@ $type = match ($method) {
 <?php endif; ?>
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 <<<<<<<< Updated upstream:storage/framework/views/fb49f41ed324d355b45a37ee7151ddfd.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/http-method.blade.php ENDPATH**/ ?>
 =======
@@ -92,6 +93,14 @@ $type = match ($method) {
 <<<<<<<< Updated upstream:storage/framework/views/fb49f41ed324d355b45a37ee7151ddfd.php
 <<<<<<<< Updated upstream:storage/framework/views/fb49f41ed324d355b45a37ee7151ddfd.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/http-method.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\http-method.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/a7f32b2fe15e74b490ec1cdc69ff1d1c.php
+>>>>>>> Stashed changes
+=======
+<<<<<<<< Updated upstream:storage/framework/views/c0f61a681e3f4623b89e82bdc59b416b.php
+<<<<<<<< Updated upstream:storage/framework/views/c0f61a681e3f4623b89e82bdc59b416b.php
+<?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/http-method.blade.php ENDPATH**/ ?>
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\http-method.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/a7f32b2fe15e74b490ec1cdc69ff1d1c.php

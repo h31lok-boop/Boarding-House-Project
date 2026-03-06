@@ -76,6 +76,7 @@ $classes = implode(' ', [$baseClasses, $typeClasses, $variantClasses]);
 </div>
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 <<<<<<<< Updated upstream:storage/framework/views/c20ca29ae33ad4c70f6b631532c8e698.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/badge.blade.php ENDPATH**/ ?>
 =======
@@ -86,6 +87,14 @@ $classes = implode(' ', [$baseClasses, $typeClasses, $variantClasses]);
 <<<<<<<< Updated upstream:storage/framework/views/c20ca29ae33ad4c70f6b631532c8e698.php
 <<<<<<<< Updated upstream:storage/framework/views/c20ca29ae33ad4c70f6b631532c8e698.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/badge.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\badge.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/970895cb04362afc1266e0fb217973b2.php
+>>>>>>> Stashed changes
+=======
+<<<<<<<< Updated upstream:storage/framework/views/16649122e76f2b1db8db13893d9a4688.php
+<<<<<<<< Updated upstream:storage/framework/views/16649122e76f2b1db8db13893d9a4688.php
+<?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/badge.blade.php ENDPATH**/ ?>
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\badge.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/970895cb04362afc1266e0fb217973b2.php

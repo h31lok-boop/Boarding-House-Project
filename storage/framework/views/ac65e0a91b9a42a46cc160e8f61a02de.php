@@ -4,6 +4,7 @@
 </svg>
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 <<<<<<<< Updated upstream:storage/framework/views/ba5a32a96c33d2b879093bc114d9e6c1.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/icons/chevrons-left.blade.php ENDPATH**/ ?>
 =======
@@ -13,6 +14,9 @@
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\icons\chevrons-left.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/ac65e0a91b9a42a46cc160e8f61a02de.php
+=======
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\icons\chevrons-left.blade.php ENDPATH**/ ?>
+>>>>>>> Stashed changes
 =======
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\icons\chevrons-left.blade.php ENDPATH**/ ?>
 >>>>>>> Stashed changes

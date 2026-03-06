@@ -97,6 +97,7 @@ unset($__defined_vars, $__key, $__value); ?>
 </div>
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 <<<<<<<< Updated upstream:storage/framework/views/9b1f68548d9475849d4730d7851d4d9c.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/syntax-highlight.blade.php ENDPATH**/ ?>
 =======
@@ -107,6 +108,14 @@ unset($__defined_vars, $__key, $__value); ?>
 <<<<<<<< Updated upstream:storage/framework/views/9b1f68548d9475849d4730d7851d4d9c.php
 <<<<<<<< Updated upstream:storage/framework/views/9b1f68548d9475849d4730d7851d4d9c.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/syntax-highlight.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\syntax-highlight.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/f41f3d9a2ea5c159161a7cd57e18c927.php
+>>>>>>> Stashed changes
+=======
+<<<<<<<< Updated upstream:storage/framework/views/7937049c042232d8c69f7e733fe87319.php
+<<<<<<<< Updated upstream:storage/framework/views/7937049c042232d8c69f7e733fe87319.php
+<?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/syntax-highlight.blade.php ENDPATH**/ ?>
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\syntax-highlight.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/f41f3d9a2ea5c159161a7cd57e18c927.php

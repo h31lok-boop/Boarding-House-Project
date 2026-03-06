@@ -111,6 +111,7 @@ class AdminController extends Controller
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         $roles = ['admin', 'tenant', 'caretaker', 'osas'];
         $filterRole = request('role');
 
@@ -138,12 +139,17 @@ class AdminController extends Controller
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
         $search = trim((string) $request->query('q', ''));
         $status = strtolower((string) $request->query('status', 'all'));
         $sort = strtolower((string) $request->query('sort', 'created_at'));
         $dir = strtolower((string) $request->query('dir', 'desc'));
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes

@@ -68,6 +68,7 @@ unset($__defined_vars, $__key, $__value); ?>
 </div>
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 <<<<<<<< Updated upstream:storage/framework/views/2b89b08bc617b345fed84b2b5825cd9e.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/routing.blade.php ENDPATH**/ ?>
 =======
@@ -78,6 +79,14 @@ unset($__defined_vars, $__key, $__value); ?>
 <<<<<<<< Updated upstream:storage/framework/views/2b89b08bc617b345fed84b2b5825cd9e.php
 <<<<<<<< Updated upstream:storage/framework/views/2b89b08bc617b345fed84b2b5825cd9e.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/routing.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\routing.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/904ee6ee46186d5f998021b850ad9c65.php
+>>>>>>> Stashed changes
+=======
+<<<<<<<< Updated upstream:storage/framework/views/30f6ec1f069b6681185f81457bd6528a.php
+<<<<<<<< Updated upstream:storage/framework/views/30f6ec1f069b6681185f81457bd6528a.php
+<?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/routing.blade.php ENDPATH**/ ?>
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\routing.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/904ee6ee46186d5f998021b850ad9c65.php

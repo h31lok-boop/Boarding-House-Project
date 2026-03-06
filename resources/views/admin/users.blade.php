@@ -1,6 +1,7 @@
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 <x-layouts.caretaker>
 <x-admin.shell>
   <div class="ui-card p-4 mb-6">
@@ -86,6 +87,8 @@
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
 <x-app-layout main-class="w-full">
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">Tenant Management</h2>
@@ -155,6 +158,7 @@
                 </div>
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 
                 <form method="GET" action="{{ route('admin.users') }}" class="mt-4 grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_220px_auto] gap-3">
                     <label class="sr-only" for="tenant-search">Search tenants</label>
@@ -433,6 +437,8 @@
         </div>
     </div>
 >>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
 
                 <form method="GET" action="{{ route('admin.users') }}" class="mt-4 grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_220px_auto] gap-3">
                     <label class="sr-only" for="tenant-search">Search tenants</label>
@@ -555,6 +561,23 @@
                         @endforelse
                     </tbody>
                 </table>
+<<<<<<< Updated upstream
+            </div>
+
+            <div class="px-5 py-4 border-t border-gray-100 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <p class="text-sm text-gray-500" id="tenantPaginationSummary">
+                    @if($users->total() > 0)
+                        Showing {{ $users->firstItem() }} to {{ $users->lastItem() }} of {{ $users->total() }} tenants
+                    @else
+                        Showing 0 tenants
+                    @endif
+                </p>
+                <div>
+                    {{ $users->withQueryString()->links() }}
+                </div>
+            </div>
+>>>>>>> Stashed changes
+=======
             </div>
 
             <div class="px-5 py-4 border-t border-gray-100 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -730,6 +753,27 @@
 >>>>>>> Stashed changes
     </div>
   </div>
+
+    <div id="archiveDeleteConfirm" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-60">
+        <div class="bg-white rounded-lg px-6 py-5 shadow-xl text-center text-sm font-semibold text-gray-900">
+            <p class="mb-3">Delete this item permanently?</p>
+            <div class="flex justify-center gap-2">
+                <button id="archiveDeleteNo" class="px-4 py-2 rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50">No</button>
+                <button id="archiveDeleteYes" class="px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700">Yes</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="tenantDeleteConfirm" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-60">
+        <div class="bg-white rounded-lg px-6 py-5 shadow-xl w-[min(92vw,420px)]">
+            <h3 class="text-base font-semibold text-gray-900">Delete Tenant</h3>
+            <p id="tenantDeleteMessage" class="mt-2 text-sm text-gray-600">Delete this tenant permanently?</p>
+            <div class="mt-4 flex justify-end gap-2">
+                <button id="tenantDeleteNo" class="px-4 py-2 rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50">Cancel</button>
+                <button id="tenantDeleteYes" class="px-4 py-2 rounded-md bg-rose-600 text-white hover:bg-rose-700">Delete</button>
+            </div>
+        </div>
+    </div>
 
     <div id="archiveDeleteConfirm" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-60">
         <div class="bg-white rounded-lg px-6 py-5 shadow-xl text-center text-sm font-semibold text-gray-900">

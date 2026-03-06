@@ -114,6 +114,7 @@ unset($__defined_vars, $__key, $__value); ?>
 </div>
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 <<<<<<<< Updated upstream:storage/framework/views/fe56b05baf903dfe3cfcc194280fa104.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/topbar.blade.php ENDPATH**/ ?>
 =======
@@ -124,6 +125,14 @@ unset($__defined_vars, $__key, $__value); ?>
 <<<<<<<< Updated upstream:storage/framework/views/fe56b05baf903dfe3cfcc194280fa104.php
 <<<<<<<< Updated upstream:storage/framework/views/fe56b05baf903dfe3cfcc194280fa104.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/topbar.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\topbar.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/f839c0f6ba0723d75c27e0a7ff3344d2.php
+>>>>>>> Stashed changes
+=======
+<<<<<<<< Updated upstream:storage/framework/views/a2c4c78c6ea0aff3dbdc3f123789246c.php
+<<<<<<<< Updated upstream:storage/framework/views/a2c4c78c6ea0aff3dbdc3f123789246c.php
+<?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/topbar.blade.php ENDPATH**/ ?>
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\topbar.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/f839c0f6ba0723d75c27e0a7ff3344d2.php

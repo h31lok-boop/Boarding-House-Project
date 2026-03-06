@@ -8,8 +8,11 @@ use App\Http\Controllers\DashboardController;
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 use App\Http\Controllers\BoardingHouseApplicationController;
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 =======
@@ -21,6 +24,9 @@ use App\Models\BoardingHouse;
 use App\Models\Room;
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -63,6 +69,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+        Route::put('/users/{user}/status', [AdminController::class, 'updateUserStatus'])->name('users.status');
+>>>>>>> Stashed changes
 =======
         Route::put('/users/{user}/status', [AdminController::class, 'updateUserStatus'])->name('users.status');
 >>>>>>> Stashed changes
@@ -82,10 +92,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 
         Route::get('/boarding-house-applications', [BoardingHouseApplicationController::class, 'index'])->name('applications.index');
         Route::post('/boarding-house-applications/{application}/approve', [BoardingHouseApplicationController::class, 'approve'])->name('applications.approve');
         Route::post('/boarding-house-applications/{application}/reject', [BoardingHouseApplicationController::class, 'reject'])->name('applications.reject');
+=======
+        Route::get('/tenant-reviews', function () {
+            return view('admin.tenant-reviews');
+        })->name('tenant-reviews');
+>>>>>>> Stashed changes
 =======
         Route::get('/tenant-reviews', function () {
             return view('admin.tenant-reviews');
@@ -113,9 +129,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         return redirect()->route('admin.dashboard');
     })->name('owner.dashboard');
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 =======
@@ -133,6 +152,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('owner.boarding-houses');
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes

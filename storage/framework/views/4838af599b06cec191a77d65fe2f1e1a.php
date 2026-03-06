@@ -239,7 +239,12 @@
 </section>
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
+<<<<<<<< Updated upstream:storage/framework/views/d5f7fedfe2fa1c043ca4fcc6bb4c67ad.php
+>>>>>>> Stashed changes
+=======
+<<<<<<<< Updated upstream:storage/framework/views/d5f7fedfe2fa1c043ca4fcc6bb4c67ad.php
 <<<<<<<< Updated upstream:storage/framework/views/d5f7fedfe2fa1c043ca4fcc6bb4c67ad.php
 >>>>>>> Stashed changes
 <<<<<<<< Updated upstream:storage/framework/views/d5f7fedfe2fa1c043ca4fcc6bb4c67ad.php
@@ -248,10 +253,19 @@
 <?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\profile\partials\update-password-form.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/4838af599b06cec191a77d65fe2f1e1a.php
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
 <?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\profile\partials\update-password-form.blade.php ENDPATH**/ ?>
 >>>>>>> Stashed changes
 =======
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\profile\partials\update-password-form.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/4838af599b06cec191a77d65fe2f1e1a.php
+>>>>>>> Stashed changes
+=======
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\profile\partials\update-password-form.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/4838af599b06cec191a77d65fe2f1e1a.php
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\profile\partials\update-password-form.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/4838af599b06cec191a77d65fe2f1e1a.php

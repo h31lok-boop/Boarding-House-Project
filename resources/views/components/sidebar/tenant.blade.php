@@ -11,6 +11,7 @@
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         ['label' => 'Dashboard', 'route' => 'tenant.dashboard', 'icon' => 'DASH', 'active' => 'tenant.dashboard'],
         ['label' => 'Boarding House Policies', 'route' => 'tenant.bh-policies', 'icon' => 'POL', 'active' => 'tenant.bh-policies'],
         ['label' => 'Profile', 'route' => 'profile.edit', 'icon' => 'PRO', 'active' => 'profile.edit'],
@@ -56,6 +57,8 @@
     </form>
 </div>
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 =======

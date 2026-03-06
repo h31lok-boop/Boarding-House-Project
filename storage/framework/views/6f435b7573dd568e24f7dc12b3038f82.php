@@ -33,7 +33,11 @@ unset($__defined_vars, $__key, $__value); ?>
 
 </div>
 <<<<<<<< Updated upstream:storage/framework/views/6f435b7573dd568e24f7dc12b3038f82.php
+<<<<<<<< Updated upstream:storage/framework/views/6f435b7573dd568e24f7dc12b3038f82.php
 <?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/empty-state.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\empty-state.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/dd3134981f1fd22e90cd0f40e8beda6e.php
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\empty-state.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/dd3134981f1fd22e90cd0f40e8beda6e.php

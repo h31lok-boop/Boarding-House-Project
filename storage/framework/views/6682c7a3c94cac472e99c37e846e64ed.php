@@ -58,7 +58,11 @@ No route parameter data available.
 No database queries detected.
 <?php endif; ?>
 <<<<<<<< Updated upstream:storage/framework/views/6682c7a3c94cac472e99c37e846e64ed.php
+<<<<<<<< Updated upstream:storage/framework/views/6682c7a3c94cac472e99c37e846e64ed.php
 <?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/markdown.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\markdown.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/53b417ce9533a68671fe92079861e046.php
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\markdown.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/53b417ce9533a68671fe92079861e046.php

@@ -155,7 +155,11 @@ unset($__defined_vars, $__key, $__value); ?>
 <?php endif; ?>
 </div>
 <<<<<<<< Updated upstream:storage/framework/views/0135c3055c4e2c9635f52992463a05d6.php
+<<<<<<<< Updated upstream:storage/framework/views/0135c3055c4e2c9635f52992463a05d6.php
 <?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/header.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\header.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/1818e61bc42f5c8ee32083b986f68042.php
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\header.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/1818e61bc42f5c8ee32083b986f68042.php
