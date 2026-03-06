@@ -10,7 +10,11 @@
     </defs>
 </svg>
 <<<<<<<< Updated upstream:storage/framework/views/280577afb6d2666cc188d15e89dcaeee.php
+<<<<<<<< Updated upstream:storage/framework/views/280577afb6d2666cc188d15e89dcaeee.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/icons/folder-open.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\icons\folder-open.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/fd83865d9a753e961b163117e946a53c.php
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\icons\folder-open.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/fd83865d9a753e961b163117e946a53c.php

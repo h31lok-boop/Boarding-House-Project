@@ -165,7 +165,11 @@ unset($__defined_vars, $__key, $__value); ?>
     </div>
 </div>
 <<<<<<<< Updated upstream:storage/framework/views/ac735b18885256ddedc96264933e35c5.php
+<<<<<<<< Updated upstream:storage/framework/views/ac735b18885256ddedc96264933e35c5.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/request-url.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\request-url.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/3c0f6a715a4f98cd2bf6251e4895f8ab.php
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\request-url.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/3c0f6a715a4f98cd2bf6251e4895f8ab.php

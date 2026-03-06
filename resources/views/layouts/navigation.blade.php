@@ -1,5 +1,6 @@
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 <nav class="w-64 ui-surface border-r ui-border flex flex-col shadow-xl h-screen sticky top-0 overflow-hidden">
     @php
         $dashRoute = 'dashboard';
@@ -174,6 +175,64 @@
     @endunless
 
 >>>>>>> Stashed changes
+=======
+@php
+    $dashRoute = 'dashboard';
+    $isOwner = false;
+    $isAdmin = false;
+    $isTenantNav = request()->routeIs('tenant.*');
+
+    if (auth()->check()) {
+        $user = auth()->user();
+        if (method_exists($user, 'dashboardRouteName')) {
+            $dashRoute = $user->dashboardRouteName();
+        }
+
+        $role = strtolower((string) ($user->role ?? ''));
+        $isOwner = $role === 'owner';
+        $isTenantByRole = $role === 'tenant' || (method_exists($user, 'hasRole') && $user->hasRole('tenant'));
+        $isTenantNav = $isTenantNav || $isTenantByRole;
+        $isAdmin = $role === 'admin' || $isOwner || (method_exists($user, 'hasRole') && $user->hasRole('admin'));
+    }
+
+    $navLinks = [
+        ['label' => 'Dashboard', 'route' => $dashRoute, 'icon' => 'D', 'active' => $dashRoute],
+    ];
+
+    if ($isTenantNav) {
+        $navLinks[] = ['label' => 'Profile', 'route' => 'tenant.account', 'icon' => 'U', 'active' => 'tenant.account*'];
+        $navLinks[] = ['label' => 'Boarding House Policies', 'route' => 'tenant.bh-policies', 'icon' => 'P', 'active' => 'tenant.bh-policies*'];
+    }
+
+    if ($isAdmin) {
+        $navLinks[] = ['label' => 'Tenant Management', 'route' => 'admin.users', 'icon' => 'U', 'active' => 'admin.users*'];
+        $navLinks[] = ['label' => 'Tenant Reviews', 'route' => 'admin.tenant-reviews', 'icon' => 'R', 'active' => 'admin.tenant-reviews*'];
+
+        if (! $isOwner) {
+            $navLinks[] = ['label' => 'Boarding Houses', 'route' => 'admin.boarding-houses.index', 'icon' => 'B', 'active' => 'admin.boarding-houses.*'];
+        }
+    }
+
+    if ($isOwner) {
+        $navLinks[] = ['label' => 'Boarding Houses', 'route' => 'owner.boarding-houses', 'icon' => 'B', 'active' => 'owner.boarding-houses*'];
+        $navLinks[] = ['label' => 'Room Management', 'route' => 'owner.rooms', 'icon' => 'R', 'active' => 'owner.rooms*'];
+    }
+@endphp
+<nav class="w-64 bg-white border-r border-gray-200 flex flex-col justify-start {{ $isTenantNav ? '' : 'gap-3' }}">
+
+    @unless ($isTenantNav)
+        <div class="p-6 border-b border-gray-100">
+            <a href="{{ route($dashRoute) }}" class="flex items-center gap-3">
+                <x-application-logo class="block h-10 w-auto fill-current text-gray-800" />
+                <div>
+                    <p class="text-sm text-gray-500">Dashboard</p>
+                    <p class="text-base font-semibold text-gray-800">{{ config('app.name', 'Laravel') }}</p>
+                </div>
+            </a>
+        </div>
+    @endunless
+
+>>>>>>> Stashed changes
     <div class="flex-1 overflow-y-auto">
         <div class="px-6 pb-6 space-y-1">
             @foreach ($navLinks as $link)
@@ -213,6 +272,9 @@
                         <span class="inline-flex h-5 w-5 items-center justify-center rounded-md bg-gray-100 text-[10px] font-semibold">{{ $link['icon'] }}</span>
                     @endif
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -222,6 +284,7 @@
         </div>
     </div>
 
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
     <div class="px-4 py-4 border-t ui-border">
@@ -263,6 +326,16 @@
                 </a>
 
 >>>>>>> Stashed changes
+=======
+    @if (! $isTenantNav)
+        <div class="px-4 py-4 border-t border-gray-100">
+            <div class="space-y-1 text-sm font-medium">
+                <a href="{{ route('profile.edit') }}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-50">
+                    <span class="inline-flex h-5 w-5 items-center justify-center rounded-md bg-gray-100 text-[10px] font-semibold">P</span>
+                    <span>Profile</span>
+                </a>
+
+>>>>>>> Stashed changes
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
                     <button type="submit" class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-red-600 hover:bg-red-50">
@@ -272,6 +345,9 @@
                 </form>
             </div>
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes

@@ -9,11 +9,20 @@
     </defs>
 </svg>
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 <<<<<<<< Updated upstream:storage/framework/views/5fffb4faa89c2a242dd8d0c908538bf5.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/icons/alert.blade.php ENDPATH**/ ?>
 =======
 <<<<<<<< Updated upstream:storage/framework/views/f315c72da37e4ca4d53625f1e0c83e51.php
 <?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/icons/alert.blade.php ENDPATH**/ ?>
+>>>>>>> Stashed changes
+=======
+<<<<<<<< Updated upstream:storage/framework/views/5fffb4faa89c2a242dd8d0c908538bf5.php
+<<<<<<<< Updated upstream:storage/framework/views/5fffb4faa89c2a242dd8d0c908538bf5.php
+<?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/icons/alert.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\icons\alert.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/553eed5931914c369140a630f4c64e2e.php
 >>>>>>> Stashed changes
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\icons\alert.blade.php ENDPATH**/ ?>

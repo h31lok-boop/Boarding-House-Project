@@ -7,8 +7,11 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\DashboardController;
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 use App\Http\Controllers\BoardingHouseApplicationController;
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 use App\Http\Controllers\RoomController;
@@ -17,6 +20,9 @@ use App\Http\Controllers\TenantPaymentController;
 use App\Models\BoardingHouse;
 use App\Models\Room;
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -56,6 +62,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/users/{user}/role', [AdminController::class, 'updateUserRole'])->name('users.role');
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+=======
+        Route::put('/users/{user}/status', [AdminController::class, 'updateUserStatus'])->name('users.status');
+>>>>>>> Stashed changes
 =======
         Route::put('/users/{user}/status', [AdminController::class, 'updateUserStatus'])->name('users.status');
 >>>>>>> Stashed changes
@@ -71,10 +81,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/boarding-house-policies', [BoardingHousePolicyController::class, 'update'])->name('boarding-house-policies.update');
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 
         Route::get('/boarding-house-applications', [BoardingHouseApplicationController::class, 'index'])->name('applications.index');
         Route::post('/boarding-house-applications/{application}/approve', [BoardingHouseApplicationController::class, 'approve'])->name('applications.approve');
         Route::post('/boarding-house-applications/{application}/reject', [BoardingHouseApplicationController::class, 'reject'])->name('applications.reject');
+=======
+        Route::get('/tenant-reviews', function () {
+            return view('admin.tenant-reviews');
+        })->name('tenant-reviews');
+>>>>>>> Stashed changes
 =======
         Route::get('/tenant-reviews', function () {
             return view('admin.tenant-reviews');
@@ -96,9 +112,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         abort_unless($user && $user->isOwner(), 403);
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         return redirect()->route('admin.dashboard');
     })->name('owner.dashboard');
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
         $rooms = Room::with('boardingHouse')->orderBy('created_at', 'desc')->get();
@@ -113,6 +132,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         return view('owner.boarding-houses', compact('houses'));
     })->name('owner.boarding-houses');
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes

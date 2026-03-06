@@ -112,7 +112,12 @@ $maxWidth = [
 </div>
 <<<<<<<< Updated upstream:storage/framework/views/4d463bce04e11a535f45c720a9c10267.php
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
+<<<<<<<< Updated upstream:storage/framework/views/4d463bce04e11a535f45c720a9c10267.php
+>>>>>>> Stashed changes
+=======
+<<<<<<<< Updated upstream:storage/framework/views/4d463bce04e11a535f45c720a9c10267.php
 <<<<<<<< Updated upstream:storage/framework/views/4d463bce04e11a535f45c720a9c10267.php
 >>>>>>> Stashed changes
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\resources\views/components/modal.blade.php ENDPATH**/ ?>
@@ -120,7 +125,16 @@ $maxWidth = [
 <?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\components\modal.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/d0f6d6386767bde4b460378f6e88e33e.php
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 =======
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\components\modal.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/d0f6d6386767bde4b460378f6e88e33e.php
+>>>>>>> Stashed changes
+=======
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\components\modal.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/d0f6d6386767bde4b460378f6e88e33e.php
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\components\modal.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/d0f6d6386767bde4b460378f6e88e33e.php

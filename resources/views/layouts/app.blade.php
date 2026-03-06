@@ -32,7 +32,11 @@
                     @isset($header)
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
                         <header class="ui-card mb-4">
+=======
+                        <header class="relative z-50 overflow-visible bg-white shadow-sm rounded-xl border border-gray-200 mb-4">
+>>>>>>> Stashed changes
 =======
                         <header class="relative z-50 overflow-visible bg-white shadow-sm rounded-xl border border-gray-200 mb-4">
 >>>>>>> Stashed changes

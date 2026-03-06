@@ -1,5 +1,6 @@
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 <x-layouts.caretaker>
 @php
     // Safe route helper: falls back to current URL with query (never '#')
@@ -264,6 +265,82 @@
                     </div>
                 </div>
 >>>>>>> Stashed changes
+=======
+<x-app-layout main-class="w-full">
+    @php
+        $user = auth()->user();
+        $nameParts = preg_split('/\s+/', trim((string) ($user->name ?? 'Owner')));
+        $initials = strtoupper(substr($nameParts[0] ?? 'O', 0, 1).substr($nameParts[1] ?? 'W', 0, 1));
+
+        $cardAccent = [
+            'blue' => 'from-blue-50 to-white border-blue-100',
+            'emerald' => 'from-emerald-50 to-white border-emerald-100',
+            'indigo' => 'from-indigo-50 to-white border-indigo-100',
+            'violet' => 'from-violet-50 to-white border-violet-100',
+        ];
+
+        $calendarNow = now();
+        $calendarStart = $calendarNow->copy()->startOfMonth();
+        $daysInMonth = $calendarStart->daysInMonth;
+        $leadingSlots = $calendarStart->dayOfWeekIso - 1;
+        $calendarCells = [];
+
+        for ($slot = 0; $slot < $leadingSlots; $slot++) {
+            $calendarCells[] = null;
+        }
+
+        for ($day = 1; $day <= $daysInMonth; $day++) {
+            $calendarCells[] = $day;
+        }
+
+        while (count($calendarCells) % 7 !== 0) {
+            $calendarCells[] = null;
+        }
+    @endphp
+
+    <x-slot name="header">
+        <div class="flex items-center justify-between">
+            <h2 class="font-semibold text-xl text-gray-800 leading-tight">Owner Dashboard</h2>
+        </div>
+    </x-slot>
+
+    <div class="owner-dashboard-container mx-auto w-full max-w-6xl px-0 sm:px-0 lg:px-0 space-y-6">
+        <section class="w-full rounded-2xl bg-white border border-gray-100 shadow-sm px-4 py-4 md:px-5">
+            <div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-4 md:items-center">
+                <div id="ownerDashboardSearch" class="relative">
+                    <label class="block">
+                        <span class="sr-only">Search dashboard</span>
+                        <div class="relative" style="position: relative;">
+                            <input
+                                id="ownerDashboardSearchInput"
+                                type="search"
+                                placeholder="Search tenant, room, booking, payment, or ticket..."
+                                autocomplete="off"
+                                class="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 pr-16 text-sm text-gray-700 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-200"
+                                style="padding-left: 44px;"
+                            >
+                            <svg class="pointer-events-none absolute h-5 w-5 text-gray-400" style="left: 16px; top: 50%; transform: translateY(-50%);" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m21 21-4.3-4.3M10.8 18a7.2 7.2 0 1 1 0-14.4 7.2 7.2 0 0 1 0 14.4Z"/>
+                            </svg>
+                            <button
+                                id="ownerDashboardSearchClear"
+                                type="button"
+                                class="hidden absolute right-2 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                                style="top: 50%; transform: translateY(-50%);"
+                            >
+                                Clear
+                            </button>
+                        </div>
+                    </label>
+
+                    <div
+                        id="ownerDashboardSearchResults"
+                        class="hidden absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg"
+                    >
+                        <div id="ownerDashboardSearchResultsList" class="max-h-96 overflow-y-auto p-2"></div>
+                    </div>
+                </div>
+>>>>>>> Stashed changes
 
                 <div class="flex items-center justify-between md:justify-end gap-3">
                     <button type="button" class="relative h-10 w-10 rounded-xl border border-gray-200 bg-gray-50 text-gray-600 hover:bg-gray-100">
@@ -297,6 +374,9 @@
                             <p class="text-xs text-gray-500 truncate">{{ $user->email ?? '' }}</p>
                         </div>
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -440,6 +520,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
         const ownerCtx = document.getElementById('ownerRevenueChart');
@@ -907,6 +988,224 @@
                 }],
             });
 >>>>>>> Stashed changes
+=======
+        (() => {
+            const searchRoot = document.getElementById('ownerDashboardSearch');
+            const searchInput = document.getElementById('ownerDashboardSearchInput');
+            const clearButton = document.getElementById('ownerDashboardSearchClear');
+            const searchResultsPanel = document.getElementById('ownerDashboardSearchResults');
+            const searchResultsList = document.getElementById('ownerDashboardSearchResultsList');
+            const searchEndpoint = @json(route('dashboard.search'));
+
+            if (searchRoot && searchInput && clearButton && searchResultsPanel && searchResultsList) {
+                let debounceTimer = null;
+                let activeRequest = null;
+                let latestQuery = '';
+
+                const toggleClearButton = () => {
+                    clearButton.classList.toggle('hidden', searchInput.value.trim() === '');
+                };
+
+                const hideResults = () => {
+                    searchResultsPanel.classList.add('hidden');
+                    searchResultsList.innerHTML = '';
+                };
+
+                const renderMessage = (message) => {
+                    searchResultsList.innerHTML = '';
+                    const row = document.createElement('div');
+                    row.className = 'px-3 py-3 text-sm text-gray-500';
+                    row.textContent = message;
+                    searchResultsList.appendChild(row);
+                    searchResultsPanel.classList.remove('hidden');
+                };
+
+                const renderResults = (payload, query) => {
+                    const groups = [
+                        { label: 'Bookings', items: Array.isArray(payload.bookings) ? payload.bookings : [] },
+                        { label: 'Payments', items: Array.isArray(payload.payments) ? payload.payments : [] },
+                        { label: 'Tickets', items: Array.isArray(payload.tickets) ? payload.tickets : [] },
+                    ];
+
+                    searchResultsList.innerHTML = '';
+                    let total = 0;
+
+                    groups.forEach((group) => {
+                        if (!group.items.length) {
+                            return;
+                        }
+
+                        total += group.items.length;
+
+                        const section = document.createElement('div');
+                        section.className = 'mb-2';
+
+                        const heading = document.createElement('p');
+                        heading.className = 'px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400';
+                        heading.textContent = group.label;
+                        section.appendChild(heading);
+
+                        group.items.forEach((item) => {
+                            const link = document.createElement('a');
+                            link.href = item.url || '#';
+                            link.className = 'block rounded-lg px-3 py-2 hover:bg-gray-50 transition';
+
+                            const title = document.createElement('p');
+                            title.className = 'text-sm font-semibold text-gray-900';
+                            title.textContent = item.title || group.label;
+                            link.appendChild(title);
+
+                            if (item.subtitle) {
+                                const subtitle = document.createElement('p');
+                                subtitle.className = 'mt-0.5 text-xs text-gray-500';
+                                subtitle.textContent = item.subtitle;
+                                link.appendChild(subtitle);
+                            }
+
+                            section.appendChild(link);
+                        });
+
+                        searchResultsList.appendChild(section);
+                    });
+
+                    if (total === 0) {
+                        renderMessage(`No results for "${query}".`);
+                        return;
+                    }
+
+                    searchResultsPanel.classList.remove('hidden');
+                };
+
+                const runSearch = (query) => {
+                    if (activeRequest) {
+                        activeRequest.abort();
+                    }
+
+                    activeRequest = new AbortController();
+                    const url = new URL(searchEndpoint, window.location.origin);
+                    url.searchParams.set('q', query);
+
+                    fetch(url.toString(), {
+                        method: 'GET',
+                        headers: { Accept: 'application/json' },
+                        signal: activeRequest.signal,
+                    })
+                        .then((response) => {
+                            if (!response.ok) {
+                                throw new Error('Search request failed');
+                            }
+                            return response.json();
+                        })
+                        .then((payload) => {
+                            if (latestQuery !== query) {
+                                return;
+                            }
+
+                            renderResults(payload, query);
+                        })
+                        .catch((error) => {
+                            if (error.name === 'AbortError') {
+                                return;
+                            }
+
+                            renderMessage('Unable to load search results.');
+                        });
+                };
+
+                searchInput.addEventListener('input', () => {
+                    const query = searchInput.value.trim();
+                    latestQuery = query;
+                    toggleClearButton();
+                    window.clearTimeout(debounceTimer);
+
+                    if (query === '') {
+                        hideResults();
+                        return;
+                    }
+
+                    renderMessage('Searching...');
+                    debounceTimer = window.setTimeout(() => runSearch(query), 320);
+                });
+
+                searchInput.addEventListener('focus', () => {
+                    if (searchResultsList.childElementCount > 0 && searchInput.value.trim() !== '') {
+                        searchResultsPanel.classList.remove('hidden');
+                    }
+                });
+
+                searchInput.addEventListener('keydown', (event) => {
+                    if (event.key === 'Escape') {
+                        hideResults();
+                        searchInput.blur();
+                    }
+                });
+
+                clearButton.addEventListener('click', () => {
+                    if (activeRequest) {
+                        activeRequest.abort();
+                    }
+
+                    searchInput.value = '';
+                    latestQuery = '';
+                    toggleClearButton();
+                    hideResults();
+                    searchInput.focus();
+                });
+
+                document.addEventListener('click', (event) => {
+                    if (!searchRoot.contains(event.target)) {
+                        hideResults();
+                    }
+                });
+            }
+
+            if (typeof Chart === 'undefined') {
+                return;
+            }
+
+            const occupancyCanvas = document.getElementById('ownerOccupancyChart');
+            if (occupancyCanvas) {
+                new Chart(occupancyCanvas, {
+                    type: 'doughnut',
+                    data: {
+                        labels: @json($occupancyChart['labels']),
+                        datasets: [{
+                            data: @json($occupancyChart['data']),
+                            backgroundColor: ['#10b981', '#c7d2fe'],
+                            borderWidth: 0,
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { boxWidth: 10, usePointStyle: true },
+                            },
+                        },
+                    },
+                });
+            }
+
+            const revenueSeries = @json($revenueChart);
+            const revenueCanvas = document.getElementById('ownerRevenueChart');
+            let revenueChart = null;
+
+            const buildRevenueDataset = (mode) => ({
+                labels: revenueSeries[mode]?.labels || [],
+                datasets: [{
+                    label: 'Revenue (PHP)',
+                    data: revenueSeries[mode]?.data || [],
+                    borderColor: '#4f46e5',
+                    backgroundColor: 'rgba(79, 70, 229, 0.12)',
+                    fill: true,
+                    tension: 0.3,
+                    borderWidth: 2,
+                    pointRadius: 2,
+                }],
+            });
+>>>>>>> Stashed changes
 
             if (revenueCanvas) {
                 revenueChart = new Chart(revenueCanvas, {
@@ -953,6 +1252,9 @@
             });
         })();
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes

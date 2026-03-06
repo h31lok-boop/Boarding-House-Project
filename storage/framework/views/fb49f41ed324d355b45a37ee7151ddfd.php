@@ -81,7 +81,11 @@ $type = match ($method) {
 <?php unset($__componentOriginal0bc865510ef3ecddbe48edc4e8cc9ddb); ?>
 <?php endif; ?>
 <<<<<<<< Updated upstream:storage/framework/views/fb49f41ed324d355b45a37ee7151ddfd.php
+<<<<<<<< Updated upstream:storage/framework/views/fb49f41ed324d355b45a37ee7151ddfd.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/http-method.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\http-method.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/a7f32b2fe15e74b490ec1cdc69ff1d1c.php
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\http-method.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/a7f32b2fe15e74b490ec1cdc69ff1d1c.php

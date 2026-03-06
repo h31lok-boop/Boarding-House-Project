@@ -391,11 +391,20 @@
 <?php unset($__componentOriginalbbd4eeea836234825f7514ed20d2d52d); ?>
 <?php endif; ?>
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 <<<<<<<< Updated upstream:storage/framework/views/59984df1debf026758311f4d0484b76c.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/show.blade.php ENDPATH**/ ?>
 =======
 <<<<<<<< Updated upstream:storage/framework/views/60b1777d66797f03f2936942ffd1e682.php
 <?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/show.blade.php ENDPATH**/ ?>
+>>>>>>> Stashed changes
+=======
+<<<<<<<< Updated upstream:storage/framework/views/59984df1debf026758311f4d0484b76c.php
+<<<<<<<< Updated upstream:storage/framework/views/59984df1debf026758311f4d0484b76c.php
+<?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/show.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\show.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/e646126c3f6a9868f405694b0404e4bf.php
 >>>>>>> Stashed changes
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\show.blade.php ENDPATH**/ ?>

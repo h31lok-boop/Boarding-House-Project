@@ -11,8 +11,11 @@ class Room extends Model
 
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     protected $guarded = [];
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
     protected $fillable = [
@@ -22,6 +25,9 @@ class Room extends Model
         'image',
     ];
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
@@ -32,11 +38,14 @@ class Room extends Model
     }
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 
     public function bookings()
     {
         return $this->hasMany(Booking::class);
     }
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 =======

@@ -49,7 +49,11 @@ unset($__defined_vars, $__key, $__value); ?>
     </span>
 </div>
 <<<<<<<< Updated upstream:storage/framework/views/7324dbc4f46bb607edb5952adc700447.php
+<<<<<<<< Updated upstream:storage/framework/views/7324dbc4f46bb607edb5952adc700447.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/file-with-line.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\file-with-line.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/91791758bc22b9c97b9c6f3a6bdc1523.php
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\file-with-line.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/91791758bc22b9c97b9c6f3a6bdc1523.php

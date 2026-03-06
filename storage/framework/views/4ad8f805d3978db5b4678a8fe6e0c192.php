@@ -181,7 +181,11 @@
 </section>
 <<<<<<<< Updated upstream:storage/framework/views/4ad8f805d3978db5b4678a8fe6e0c192.php
 <<<<<<<< Updated upstream:storage/framework/views/4ad8f805d3978db5b4678a8fe6e0c192.php
+<<<<<<<< Updated upstream:storage/framework/views/4ad8f805d3978db5b4678a8fe6e0c192.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\resources\views/profile/partials/delete-user-form.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\profile\partials\delete-user-form.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/89565e787aa579143624b2ab4b8e50e6.php
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views\profile\partials\delete-user-form.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/89565e787aa579143624b2ab4b8e50e6.php

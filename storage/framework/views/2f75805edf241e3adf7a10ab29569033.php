@@ -59,11 +59,20 @@
 <?php endif; ?>
 </div>
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 <<<<<<<< Updated upstream:storage/framework/views/047e607a55b84d4da9a5067899ea4a03.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/laravel-ascii-spotlight.blade.php ENDPATH**/ ?>
 =======
 <<<<<<<< Updated upstream:storage/framework/views/a0b89f389a40f8a586705f26050bd31e.php
 <?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/laravel-ascii-spotlight.blade.php ENDPATH**/ ?>
+>>>>>>> Stashed changes
+=======
+<<<<<<<< Updated upstream:storage/framework/views/047e607a55b84d4da9a5067899ea4a03.php
+<<<<<<<< Updated upstream:storage/framework/views/047e607a55b84d4da9a5067899ea4a03.php
+<?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/laravel-ascii-spotlight.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\laravel-ascii-spotlight.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/2f75805edf241e3adf7a10ab29569033.php
 >>>>>>> Stashed changes
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\laravel-ascii-spotlight.blade.php ENDPATH**/ ?>

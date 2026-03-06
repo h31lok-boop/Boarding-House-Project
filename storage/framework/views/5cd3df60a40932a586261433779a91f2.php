@@ -4,11 +4,20 @@
     <path d="M2.75 2.75H9.25C10.355 2.75 11.25 3.645 11.25 4.75V8.25C11.25 9.355 10.355 10.25 9.25 10.25H2.75C1.645 10.25 0.75 9.355 0.75 8.25V4.75C0.75 3.645 1.645 2.75 2.75 2.75Z" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 <<<<<<<< Updated upstream:storage/framework/views/d4ef7afe2ce0b26dc3994bbb6a22224c.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/icons/folder.blade.php ENDPATH**/ ?>
 =======
 <<<<<<<< Updated upstream:storage/framework/views/9689adbcde2a81772d0df4431808a4af.php
 <?php /**PATH C:\Users\Aiza\Documents\lesson 1\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/icons/folder.blade.php ENDPATH**/ ?>
+>>>>>>> Stashed changes
+=======
+<<<<<<<< Updated upstream:storage/framework/views/d4ef7afe2ce0b26dc3994bbb6a22224c.php
+<<<<<<<< Updated upstream:storage/framework/views/d4ef7afe2ce0b26dc3994bbb6a22224c.php
+<?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/icons/folder.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\icons\folder.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/5cd3df60a40932a586261433779a91f2.php
 >>>>>>> Stashed changes
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\icons\folder.blade.php ENDPATH**/ ?>

@@ -75,7 +75,11 @@ $classes = implode(' ', [$baseClasses, $typeClasses, $variantClasses]);
 
 </div>
 <<<<<<<< Updated upstream:storage/framework/views/c20ca29ae33ad4c70f6b631532c8e698.php
+<<<<<<<< Updated upstream:storage/framework/views/c20ca29ae33ad4c70f6b631532c8e698.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/badge.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\badge.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/970895cb04362afc1266e0fb217973b2.php
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\badge.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/970895cb04362afc1266e0fb217973b2.php

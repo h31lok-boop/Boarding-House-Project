@@ -77,7 +77,11 @@ unset($__defined_vars, $__key, $__value); ?>
     <?php endif; ?>
 </div>
 <<<<<<<< Updated upstream:storage/framework/views/74c53bcd300585a1187cbf423bfad6cc.php
+<<<<<<<< Updated upstream:storage/framework/views/74c53bcd300585a1187cbf423bfad6cc.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/routing-parameter.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\routing-parameter.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/f70a052ec23fa03a8456b1005dbd9324.php
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\routing-parameter.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/f70a052ec23fa03a8456b1005dbd9324.php

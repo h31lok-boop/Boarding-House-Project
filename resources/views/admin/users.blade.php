@@ -1,5 +1,6 @@
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 <x-layouts.caretaker>
 <x-admin.shell>
   <div class="ui-card p-4 mb-6">
@@ -83,6 +84,8 @@
 =======
 =======
 >>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
 <x-app-layout main-class="w-full">
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">Tenant Management</h2>
@@ -150,6 +153,7 @@
 =======
                     </button>
                 </div>
+<<<<<<< Updated upstream
 <<<<<<< Updated upstream
 
                 <form method="GET" action="{{ route('admin.users') }}" class="mt-4 grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_220px_auto] gap-3">
@@ -289,6 +293,146 @@
             </div>
 >>>>>>> Stashed changes
 =======
+=======
+
+                <form method="GET" action="{{ route('admin.users') }}" class="mt-4 grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_220px_auto] gap-3">
+                    <label class="sr-only" for="tenant-search">Search tenants</label>
+                    <input
+                        id="tenant-search"
+                        type="text"
+                        name="q"
+                        value="{{ $search ?? '' }}"
+                        placeholder="Search name, email, phone, boardinghouse, room"
+                        class="w-full rounded-lg border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    >
+
+                    <label class="sr-only" for="status-filter">Status</label>
+                    <select
+                        id="status-filter"
+                        name="status"
+                        class="w-full rounded-lg border-gray-300 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                    >
+                        <option value="all" @selected(($status ?? 'all') === 'all')>All Status</option>
+                        <option value="approved" @selected(($status ?? '') === 'approved')>Approved</option>
+                        <option value="pending" @selected(($status ?? '') === 'pending')>Pending</option>
+                    </select>
+
+                    <div class="flex items-center gap-2">
+                        <button type="submit" class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">
+                            Apply
+                        </button>
+                        <a href="{{ route('admin.users') }}" class="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-semibold hover:bg-gray-50">
+                            Reset
+                        </a>
+                    </div>
+                </form>
+            </div>
+
+            <div class="overflow-x-auto w-full">
+                <table class="w-full min-w-[980px] table-fixed text-sm">
+                    <thead class="bg-gray-50 border-b border-gray-100 uppercase text-xs text-gray-500">
+                        <tr>
+                            <th class="w-[14%] px-5 py-3 text-center">Profile</th>
+                            <th class="w-[46%] px-5 py-3 text-left">Info</th>
+                            <th class="w-[10%] px-5 py-3 text-left">Room No.</th>
+                            <th class="w-[15%] px-5 py-3 text-left">Status</th>
+                            <th class="w-[15%] px-5 py-3 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tenantTableBody" class="divide-y divide-gray-100">
+                        @forelse($users as $user)
+                            @php
+                                $statusLabel = $user->is_active ? 'Approved' : 'Pending';
+                                $statusClasses = [
+                                    'Approved' => 'bg-emerald-50 text-emerald-700 border-emerald-100',
+                                    'Pending' => 'bg-amber-50 text-amber-700 border-amber-100',
+                                ][$statusLabel] ?? 'bg-gray-50 text-gray-700 border-gray-100';
+                                $profileImageUrl = $user->profile_image
+                                    ? \Illuminate\Support\Facades\Storage::url($user->profile_image)
+                                    : asset('images/avatar-placeholder.svg');
+                                $avatarFallback = asset('images/avatar-placeholder.svg');
+                                $phone = trim((string) ($user->phone ?? '')) ?: null;
+                                $boardinghouseName = trim((string) ($user->institution_name ?? '')) ?: null;
+                                $fullAddress = trim((string) ($user->boardinghouse_address ?? '')) ?: null;
+                                $roomNumber = trim((string) ($user->room_number ?? '')) ?: null;
+                                $addressValue = $fullAddress ?: ($boardinghouseName ?: null);
+                            @endphp
+                            <tr
+                                class="tenant-row hover:bg-gray-50"
+                            >
+                                <td class="px-5 py-4 align-top">
+                                    <div class="flex justify-center">
+                                        <div
+                                            class="h-[80px] w-[80px] shrink-0 overflow-hidden rounded-full border border-gray-200 bg-gray-100"
+                                            style="flex: 0 0 80px;"
+                                        >
+                                            <img
+                                                src="{{ $profileImageUrl }}"
+                                                alt="{{ $user->name }} profile image"
+                                                class="h-[80px] w-[80px] rounded-full object-cover"
+                                                onerror="this.onerror=null;this.src='{{ $avatarFallback }}';"
+                                            >
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-5 py-4 align-top">
+                                    <div class="min-w-0 space-y-1 text-sm text-gray-700">
+                                        <p class="break-words"><span class="font-semibold text-gray-900">Full Name:</span> {{ $user->name }}</p>
+                                        <p class="break-all"><span class="font-semibold text-gray-900">Email:</span> {{ $user->email }}</p>
+                                        <p class="break-words"><span class="font-semibold text-gray-900">Phone Number:</span> {{ $phone ?? 'N/A' }}</p>
+                                        <p class="break-words"><span class="font-semibold text-gray-900">Address:</span> {{ $addressValue ?? 'N/A' }}</p>
+                                    </div>
+                                </td>
+                                <td class="px-5 py-4 align-top text-sm text-gray-700">
+                                    {{ $roomNumber ?: 'N/A' }}
+                                </td>
+                                <td class="px-5 py-4 align-top">
+                                    <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold border {{ $statusClasses }}" data-status-badge>
+                                        {{ $statusLabel }}
+                                    </span>
+                                </td>
+                                <td class="px-5 py-4 text-right align-top">
+                                    <div class="flex flex-wrap justify-end gap-2" data-no-row-open="1">
+                                        <a href="{{ route('admin.users.edit', $user) }}" class="px-3 py-1 rounded-lg border border-amber-200 bg-amber-50 text-amber-600 text-xs font-semibold uppercase tracking-wide hover:bg-amber-100">
+                                            Edit
+                                        </a>
+                                        <button
+                                            type="button"
+                                            class="px-3 py-1 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 text-xs font-semibold uppercase tracking-wide hover:bg-rose-100 delete-user-btn"
+                                            data-delete-url="{{ route('admin.users.destroy', $user) }}"
+                                            data-user-name="{{ $user->name }}"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr id="noTenantRow">
+                                <td colspan="5" class="px-5 py-8 text-center text-sm text-gray-500">
+                                    No tenants found for the current filters.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="px-5 py-4 border-t border-gray-100 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <p class="text-sm text-gray-500" id="tenantPaginationSummary">
+                    @if($users->total() > 0)
+                        Showing {{ $users->firstItem() }} to {{ $users->lastItem() }} of {{ $users->total() }} tenants
+                    @else
+                        Showing 0 tenants
+                    @endif
+                </p>
+                <div>
+                    {{ $users->withQueryString()->links() }}
+                </div>
+            </div>
+        </div>
+    </div>
+>>>>>>> Stashed changes
 
                 <form method="GET" action="{{ route('admin.users') }}" class="mt-4 grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_220px_auto] gap-3">
                     <label class="sr-only" for="tenant-search">Search tenants</label>
@@ -586,6 +730,27 @@
 >>>>>>> Stashed changes
     </div>
   </div>
+
+    <div id="archiveDeleteConfirm" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-60">
+        <div class="bg-white rounded-lg px-6 py-5 shadow-xl text-center text-sm font-semibold text-gray-900">
+            <p class="mb-3">Delete this item permanently?</p>
+            <div class="flex justify-center gap-2">
+                <button id="archiveDeleteNo" class="px-4 py-2 rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50">No</button>
+                <button id="archiveDeleteYes" class="px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700">Yes</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="tenantDeleteConfirm" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-60">
+        <div class="bg-white rounded-lg px-6 py-5 shadow-xl w-[min(92vw,420px)]">
+            <h3 class="text-base font-semibold text-gray-900">Delete Tenant</h3>
+            <p id="tenantDeleteMessage" class="mt-2 text-sm text-gray-600">Delete this tenant permanently?</p>
+            <div class="mt-4 flex justify-end gap-2">
+                <button id="tenantDeleteNo" class="px-4 py-2 rounded-md border border-gray-200 text-gray-700 hover:bg-gray-50">Cancel</button>
+                <button id="tenantDeleteYes" class="px-4 py-2 rounded-md bg-rose-600 text-white hover:bg-rose-700">Delete</button>
+            </div>
+        </div>
+    </div>
 
     <div id="archiveDeleteConfirm" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-60">
         <div class="bg-white rounded-lg px-6 py-5 shadow-xl text-center text-sm font-semibold text-gray-900">

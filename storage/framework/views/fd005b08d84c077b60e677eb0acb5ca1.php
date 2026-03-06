@@ -26,7 +26,11 @@
 </body>
 </html>
 <<<<<<<< Updated upstream:storage/framework/views/fd005b08d84c077b60e677eb0acb5ca1.php
+<<<<<<<< Updated upstream:storage/framework/views/fd005b08d84c077b60e677eb0acb5ca1.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/layout.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\layout.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/79efa15a0c91ea70150c56c251587895.php
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\layout.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/79efa15a0c91ea70150c56c251587895.php

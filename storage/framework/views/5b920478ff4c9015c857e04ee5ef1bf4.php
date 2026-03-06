@@ -2,6 +2,7 @@
     <path d="M0.875 9.25L5.125 5L0.875 0.75" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 <<<<<<<< Updated upstream:storage/framework/views/fd8b1496d702f48af40c586fc60295e6.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/icons/chevron-right.blade.php ENDPATH**/ ?>
 =======
@@ -11,3 +12,6 @@
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\icons\chevron-right.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/5b920478ff4c9015c857e04ee5ef1bf4.php
+=======
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\icons\chevron-right.blade.php ENDPATH**/ ?>
+>>>>>>> Stashed changes

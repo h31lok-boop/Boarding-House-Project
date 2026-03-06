@@ -1,5 +1,6 @@
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 <x-layouts.caretaker>
 
 @php
@@ -279,6 +280,8 @@
 </x-layouts.caretaker>
 
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 <x-app-layout main-class="w-full">

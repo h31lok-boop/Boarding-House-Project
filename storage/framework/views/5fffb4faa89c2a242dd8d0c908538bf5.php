@@ -9,7 +9,11 @@
     </defs>
 </svg>
 <<<<<<<< Updated upstream:storage/framework/views/5fffb4faa89c2a242dd8d0c908538bf5.php
+<<<<<<<< Updated upstream:storage/framework/views/5fffb4faa89c2a242dd8d0c908538bf5.php
 <?php /**PATH C:\Users\Jay\Documents\GitHub\Boarding-House-Project\vendor\laravel\framework\src\Illuminate\Foundation\Providers/../resources/exceptions/renderer/components/icons/alert.blade.php ENDPATH**/ ?>
+========
+<?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\icons\alert.blade.php ENDPATH**/ ?>
+>>>>>>>> Stashed changes:storage/framework/views/553eed5931914c369140a630f4c64e2e.php
 ========
 <?php /**PATH C:\Users\Hazel\Herd\final-project\vendor\laravel\framework\src\Illuminate\Foundation\resources\exceptions\renderer\components\icons\alert.blade.php ENDPATH**/ ?>
 >>>>>>>> Stashed changes:storage/framework/views/553eed5931914c369140a630f4c64e2e.php
