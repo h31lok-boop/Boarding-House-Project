@@ -5,14 +5,14 @@ declare(strict_types=1);
 
 use Dotenv\Dotenv;
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__.'/../vendor/autoload.php';
 
 $projectRoot = dirname(__DIR__);
-$defaultSqlFile = $projectRoot . '/database/sql/geoboard_rework.sql';
+$defaultSqlFile = $projectRoot.'/database/sql/geoboard_rework.sql';
 $sqlFile = $argv[1] ?? $defaultSqlFile;
 
 if (! is_file($sqlFile)) {
-    fwrite(STDERR, "SQL file not found: {$sqlFile}" . PHP_EOL);
+    fwrite(STDERR, "SQL file not found: {$sqlFile}".PHP_EOL);
     exit(1);
 }
 
@@ -29,36 +29,36 @@ try {
     $connection = new mysqli($dbHost, $dbUser, $dbPass, '', $dbPort);
     $connection->set_charset('utf8mb4');
 } catch (Throwable $e) {
-    fwrite(STDERR, "Failed to connect to MySQL: {$e->getMessage()}" . PHP_EOL);
+    fwrite(STDERR, "Failed to connect to MySQL: {$e->getMessage()}".PHP_EOL);
     exit(1);
 }
 
 $statements = parseSqlStatements($sqlFile);
 
 if ($statements === []) {
-    fwrite(STDERR, 'No SQL statements found in file.' . PHP_EOL);
+    fwrite(STDERR, 'No SQL statements found in file.'.PHP_EOL);
     exit(1);
 }
 
-echo 'Importing SQL from: ' . $sqlFile . PHP_EOL;
-echo 'Statements to execute: ' . count($statements) . PHP_EOL;
+echo 'Importing SQL from: '.$sqlFile.PHP_EOL;
+echo 'Statements to execute: '.count($statements).PHP_EOL;
 
 foreach ($statements as $index => $statement) {
     $sequence = $index + 1;
     $label = summarizeStatement($statement);
-    echo sprintf("[%d/%d] %s", $sequence, count($statements), $label) . PHP_EOL;
+    echo sprintf('[%d/%d] %s', $sequence, count($statements), $label).PHP_EOL;
 
     try {
         $connection->query($statement);
     } catch (Throwable $e) {
-        fwrite(STDERR, 'Execution failed at statement #' . $sequence . PHP_EOL);
-        fwrite(STDERR, 'Statement preview: ' . $label . PHP_EOL);
-        fwrite(STDERR, 'MySQL error: ' . $e->getMessage() . PHP_EOL);
+        fwrite(STDERR, 'Execution failed at statement #'.$sequence.PHP_EOL);
+        fwrite(STDERR, 'Statement preview: '.$label.PHP_EOL);
+        fwrite(STDERR, 'MySQL error: '.$e->getMessage().PHP_EOL);
         exit(1);
     }
 }
 
-echo 'Database rework import completed successfully.' . PHP_EOL;
+echo 'Database rework import completed successfully.'.PHP_EOL;
 
 function parseSqlStatements(string $sqlFile): array
 {
@@ -75,6 +75,7 @@ function parseSqlStatements(string $sqlFile): array
 
         if (preg_match('/^DELIMITER\s+(.+)$/i', $trimmedLine, $matches) === 1) {
             $delimiter = $matches[1];
+
             continue;
         }
 
@@ -82,7 +83,7 @@ function parseSqlStatements(string $sqlFile): array
             continue;
         }
 
-        $buffer .= $line . PHP_EOL;
+        $buffer .= $line.PHP_EOL;
 
         if (! endsWithDelimiter($buffer, $delimiter)) {
             continue;
@@ -135,6 +136,6 @@ function summarizeStatement(string $statement): string
     }
 
     return strlen($singleLine) > 110
-        ? substr($singleLine, 0, 107) . '...'
+        ? substr($singleLine, 0, 107).'...'
         : $singleLine;
 }

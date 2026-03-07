@@ -30,8 +30,8 @@ class BoardingHouseFactory extends Factory
         $city = $this->faker->randomElement($cities);
 
         return [
-            'name' => $this->faker->company . ' Boarding House',
-            'address' => 'Brgy. ' . $this->faker->streetName . ', ' . $city,
+            'name' => $this->faker->company.' Boarding House',
+            'address' => 'Brgy. '.$this->faker->streetName.', '.$city,
             'latitude' => $this->faker->randomFloat(7, 6.7000000, 6.7900000),
             'longitude' => $this->faker->randomFloat(7, 125.3000000, 125.4100000),
             'description' => $this->faker->randomElement([

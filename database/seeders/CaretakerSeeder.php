@@ -2,13 +2,13 @@
 
 namespace Database\Seeders;
 
+use App\Models\BoardingHouse;
 use App\Models\Booking;
 use App\Models\Incident;
 use App\Models\MaintenanceRequest;
 use App\Models\Notice;
 use App\Models\Room;
 use App\Models\User;
-use App\Models\BoardingHouse;
 use Illuminate\Database\Seeder;
 
 class CaretakerSeeder extends Seeder

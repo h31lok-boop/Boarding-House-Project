@@ -1,8 +1,9 @@
 <?php
+
 namespace App\Http\Controllers;
 
-use App\Models\User;
 use App\Models\Admin;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -19,6 +20,7 @@ class AdminController extends Controller
     public function index()
     {
         $admins = Admin::orderBy('created_at', 'desc')->paginate(15);
+
         return view('admin.index', compact('admins'));
     }
 
@@ -47,6 +49,7 @@ class AdminController extends Controller
     public function edit($id)
     {
         $admin = Admin::findOrFail($id);
+
         return view('admin.edit', compact('admin'));
     }
 
@@ -62,7 +65,7 @@ class AdminController extends Controller
 
         $admin->name = $data['name'];
         $admin->email = $data['email'];
-        if (!empty($data['password'])) {
+        if (! empty($data['password'])) {
             $admin->password = Hash::make($data['password']);
         }
         $admin->save();
@@ -83,21 +86,21 @@ class AdminController extends Controller
         $residents = User::whereIn('role', ['tenant', 'resident'])
             ->orderBy('created_at', 'desc')
             ->paginate(10);
-        
+
         return view('admin.residents', compact('residents'));
     }
 
     public function approveResident($id)
     {
         $user = User::findOrFail($id);
-        
+
         // Assign room number (in real app, you'd have a room management system)
         $user->update([
-            'room_number' => 'R' . str_pad($id, 3, '0', STR_PAD_LEFT),
+            'room_number' => 'R'.str_pad($id, 3, '0', STR_PAD_LEFT),
             'move_in_date' => now(),
-            'is_active' => true
+            'is_active' => true,
         ]);
-        
+
         return redirect()->back()->with('success', 'Resident approved successfully!');
     }
 
@@ -169,6 +172,7 @@ class AdminController extends Controller
     public function editUser(User $user)
     {
         $roles = ['admin', 'tenant', 'caretaker', 'osas'];
+
         return view('admin.user-edit', compact('user', 'roles'));
     }
 
@@ -246,19 +250,19 @@ class AdminController extends Controller
     {
         $ongoing = User::with('boardingHouse')
             ->where(function ($q) {
-                $q->where('role', 'tenant')->orWhereHas('roles', fn($r) => $r->where('name', 'tenant'));
+                $q->where('role', 'tenant')->orWhereHas('roles', fn ($r) => $r->where('name', 'tenant'));
             })
             ->where('is_active', true)
             ->orderByDesc('move_in_date')
-            ->get(['id','name','email','boarding_house_id','room_number','move_in_date','is_active']);
+            ->get(['id', 'name', 'email', 'boarding_house_id', 'room_number', 'move_in_date', 'is_active']);
 
         $past = User::with('boardingHouse')
             ->where(function ($q) {
-                $q->where('role', 'tenant')->orWhereHas('roles', fn($r) => $r->where('name', 'tenant'));
+                $q->where('role', 'tenant')->orWhereHas('roles', fn ($r) => $r->where('name', 'tenant'));
             })
             ->where('is_active', false)
             ->orderByDesc('move_in_date')
-            ->get(['id','name','email','boarding_house_id','room_number','move_in_date','is_active']);
+            ->get(['id', 'name', 'email', 'boarding_house_id', 'room_number', 'move_in_date', 'is_active']);
 
         return view('admin.tenant-history', compact('ongoing', 'past'));
     }

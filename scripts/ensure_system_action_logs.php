@@ -5,7 +5,7 @@ declare(strict_types=1);
 
 use Dotenv\Dotenv;
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__.'/../vendor/autoload.php';
 
 $projectRoot = dirname(__DIR__);
 Dotenv::createImmutable($projectRoot)->safeLoad();
@@ -21,7 +21,7 @@ $db = new mysqli($host, $user, $pass, $database, $port);
 $db->set_charset('utf8mb4');
 
 $db->query(
-    "CREATE TABLE IF NOT EXISTS `system_action_logs` (
+    'CREATE TABLE IF NOT EXISTS `system_action_logs` (
         `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         `actor_id` BIGINT UNSIGNED NULL,
         `action` VARCHAR(80) NOT NULL,
@@ -34,7 +34,7 @@ $db->query(
         INDEX `idx_system_action_actor` (`actor_id`),
         INDEX `idx_system_action_entity` (`entity_type`, `entity_id`),
         INDEX `idx_system_action_action` (`action`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
 );
 
-echo "system_action_logs table ensured in {$database}" . PHP_EOL;
+echo "system_action_logs table ensured in {$database}".PHP_EOL;

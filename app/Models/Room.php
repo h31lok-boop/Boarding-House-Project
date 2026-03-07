@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Schema;
 class Room extends Model
 {
     use HasFactory;
+
     private static array $schemaColumnCache = [];
 
     protected $guarded = [];

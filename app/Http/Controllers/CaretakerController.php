@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Booking;
 use App\Models\BoardingHouse;
+use App\Models\Booking;
 use App\Models\Incident;
 use App\Models\MaintenanceRequest;
 use App\Models\Notice;
@@ -11,17 +11,17 @@ use App\Models\Room;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Str;
 
 class CaretakerController extends Controller
 {
     public function dashboard()
     {
         $rooms = Room::query()->latest()->take(6)->get();
-        $bookings = Booking::with(['room','user'])->latest()->take(8)->get();
-        $maintenanceItems = MaintenanceRequest::with(['room','user'])->latest()->take(6)->get();
-        $incidents = Incident::with(['room','user'])->latest()->take(6)->get();
+        $bookings = Booking::with(['room', 'user'])->latest()->take(8)->get();
+        $maintenanceItems = MaintenanceRequest::with(['room', 'user'])->latest()->take(6)->get();
+        $incidents = Incident::with(['room', 'user'])->latest()->take(6)->get();
         $notices = Notice::latest()->take(6)->get();
 
         $stats = [
@@ -55,7 +55,7 @@ class CaretakerController extends Controller
         $history = $bookings->map(function ($booking) {
             return [
                 'tenant' => $booking->user?->name ?? 'Unknown',
-                'dates' => trim(($booking->start_date?->format('M d, Y') ?? 'TBD') . ' - ' . ($booking->end_date?->format('M d, Y') ?? 'TBD')),
+                'dates' => trim(($booking->start_date?->format('M d, Y') ?? 'TBD').' - '.($booking->end_date?->format('M d, Y') ?? 'TBD')),
                 'room' => $booking->room?->name ?? 'Unassigned',
                 'type' => $booking->room?->name ?? 'Standard',
                 'floor' => '—',
@@ -120,23 +120,23 @@ class CaretakerController extends Controller
                 if ($diff < 0) {
                     $statusLabel = 'Overdue';
                     $statusTone = 'rose';
-                    $rentStatusLine = 'Overdue - ' . $daysLate . ' day' . ($daysLate === 1 ? '' : 's') . ' late';
+                    $rentStatusLine = 'Overdue - '.$daysLate.' day'.($daysLate === 1 ? '' : 's').' late';
                     $isOverdue = true;
                 } elseif ($diff <= 3) {
                     $statusLabel = 'Due soon';
                     $statusTone = 'amber';
-                    $rentStatusLine = $diff === 0 ? 'Due today' : 'Due in ' . $diff . ' day' . ($diff === 1 ? '' : 's');
+                    $rentStatusLine = $diff === 0 ? 'Due today' : 'Due in '.$diff.' day'.($diff === 1 ? '' : 's');
                     $isOverdue = false;
                 } else {
                     $statusLabel = 'Paid / On-time';
                     $statusTone = 'emerald';
-                    $rentStatusLine = 'Paid - Due on ' . $dueDate->format('M d');
+                    $rentStatusLine = 'Paid - Due on '.$dueDate->format('M d');
                     $isOverdue = false;
                 }
 
                 $rentAmount = $user->id % 2 === 0 ? 1500 : 1000;
                 $age = $user->date_of_birth ? $user->date_of_birth->age : null;
-                $ageLabel = $age ? '(' . $age . ')' : '';
+                $ageLabel = $age ? '('.$age.')' : '';
                 $occupancyLabel = $user->is_active ? 'Checked-in' : 'Inactive';
                 $occupancyTone = $user->is_active ? 'emerald' : 'slate';
 
@@ -146,7 +146,7 @@ class CaretakerController extends Controller
                 } elseif (preg_match('/\broom\b/i', $roomRaw)) {
                     $roomLabel = $roomRaw;
                 } else {
-                    $roomLabel = 'Room ' . $roomRaw;
+                    $roomLabel = 'Room '.$roomRaw;
                 }
 
                 return [
@@ -170,6 +170,7 @@ class CaretakerController extends Controller
                     'is_overdue' => $isOverdue,
                 ];
             });
+
         return view('caretaker.tenants', compact('tenants'));
     }
 
@@ -184,36 +185,41 @@ class CaretakerController extends Controller
             'room' => $user->room_number ?? 'Unassigned',
             'status' => $user->is_active ? 'Checked-in' : 'Inactive',
         ];
+
         return view('caretaker.tenant-show', compact('tenant'));
     }
 
     public function tenantCheckin($id)
     {
         Session::flash('status', "Tenant #{$id} checked in");
+
         return back();
     }
 
     public function tenantCheckout($id)
     {
         Session::flash('status', "Tenant #{$id} checked out");
+
         return back();
     }
 
     public function tenantUpdate(Request $request, $id)
     {
         Session::flash('status', "Tenant #{$id} updated");
+
         return back();
     }
 
     public function bookings()
     {
         [$bookings, $statusCounts] = $this->prepareBookingManagementData();
+
         return view('caretaker.bookings', compact('bookings', 'statusCounts'));
     }
 
     private function prepareBookingManagementData(): array
     {
-        $bookingModels = Booking::with(['room.boardingHouse','user'])->orderByDesc('created_at')->get();
+        $bookingModels = Booking::with(['room.boardingHouse', 'user'])->orderByDesc('created_at')->get();
         $rooms = Room::with('boardingHouse')->get();
         $maintenanceModels = MaintenanceRequest::select('room_id', 'status')->get();
         $maintenanceRoomIds = $this->getActiveMaintenanceRoomIds($maintenanceModels);
@@ -227,8 +233,8 @@ class CaretakerController extends Controller
             $roomName = trim((string) ($booking->room?->name ?? ''));
             if ($roomName === '' || strtolower($roomName) === 'unassigned') {
                 $roomName = 'Unassigned';
-            } elseif (!preg_match('/\broom\b/i', $roomName)) {
-                $roomName = 'Room ' . $roomName;
+            } elseif (! preg_match('/\broom\b/i', $roomName)) {
+                $roomName = 'Room '.$roomName;
             }
 
             $roomId = $booking->room?->id;
@@ -239,7 +245,7 @@ class CaretakerController extends Controller
             } elseif ($available <= 0) {
                 $availabilityLabel = 'No rooms available';
             } else {
-                $availabilityLabel = $available . ' available';
+                $availabilityLabel = $available.' available';
             }
             $urgency = $roomStats['urgency'] ?? null;
 
@@ -249,13 +255,13 @@ class CaretakerController extends Controller
             return [
                 'id' => $booking->id,
                 'tenant' => $tenant,
-                'avatar' => 'https://i.pravatar.cc/96?u=' . $tenantId,
+                'avatar' => 'https://i.pravatar.cc/96?u='.$tenantId,
                 'boarding_house' => $booking->room?->boardingHouse?->name ?? 'Boarding House',
                 'room' => $roomName,
                 'room_id' => $roomId,
                 'checkin' => $checkinLabel,
                 'checkout' => $checkoutLabel,
-                'dates' => $checkoutLabel ? trim($checkinLabel . ' - ' . $checkoutLabel) : $checkinLabel,
+                'dates' => $checkoutLabel ? trim($checkinLabel.' - '.$checkoutLabel) : $checkinLabel,
                 'status' => $status,
                 'availability_label' => $availabilityLabel,
                 'urgency' => $urgency,
@@ -267,7 +273,8 @@ class CaretakerController extends Controller
 
     public function bookingShow($id)
     {
-        $booking = Booking::with(['room','user'])->findOrFail($id);
+        $booking = Booking::with(['room', 'user'])->findOrFail($id);
+
         return view('caretaker.booking-show', compact('booking'));
     }
 
@@ -276,6 +283,7 @@ class CaretakerController extends Controller
         $booking = Booking::findOrFail($id);
         $booking->update(['status' => 'Processing']);
         Session::flash('status', "Booking #{$id} moved to processing");
+
         return back();
     }
 
@@ -284,6 +292,7 @@ class CaretakerController extends Controller
         $booking = Booking::findOrFail($id);
         $booking->update(['status' => 'Confirmed']);
         Session::flash('status', "Booking #{$id} confirmed");
+
         return back();
     }
 
@@ -292,6 +301,7 @@ class CaretakerController extends Controller
         $booking = Booking::findOrFail($id);
         $booking->update(['status' => 'Cancelled']);
         Session::flash('status', "Booking #{$id} cancelled");
+
         return back();
     }
 
@@ -304,6 +314,7 @@ class CaretakerController extends Controller
             $booking->save();
         }
         Session::flash('status', "Booking #{$id} extended");
+
         return back();
     }
 
@@ -351,7 +362,7 @@ class CaretakerController extends Controller
 
         $houses = BoardingHouse::with('rooms')
             ->whereIn('name', $targetNames)
-            ->orderByRaw("CASE name " . implode(' ', array_map(fn ($name, $index) => "WHEN '{$name}' THEN {$index}", $targetNames, array_keys($targetNames))) . " END")
+            ->orderByRaw('CASE name '.implode(' ', array_map(fn ($name, $index) => "WHEN '{$name}' THEN {$index}", $targetNames, array_keys($targetNames))).' END')
             ->get();
 
         $roomModels = $houses->flatMap(fn ($house) => $house->rooms);
@@ -371,7 +382,7 @@ class CaretakerController extends Controller
 
                 $roomName = trim((string) ($room->name ?? ''));
                 if ($roomName === '') {
-                    $roomName = 'Room ' . $room->id;
+                    $roomName = 'Room '.$room->id;
                 }
 
                 return [
@@ -389,7 +400,7 @@ class CaretakerController extends Controller
                 ? 'No rooms available'
                 : ($availableRoomsCount === 1
                     ? 'Only 1 room left'
-                    : $availableRoomsCount . ' rooms available');
+                    : $availableRoomsCount.' rooms available');
 
             $urgency = null;
             if ($availableRoomsCount === 1) {
@@ -417,6 +428,7 @@ class CaretakerController extends Controller
         $room = Room::findOrFail($id);
         $room->update(['status' => $request->input('status', 'Available')]);
         Session::flash('status', "Room #{$id} status updated");
+
         return back();
     }
 
@@ -424,13 +436,14 @@ class CaretakerController extends Controller
     {
         $room = Room::findOrFail($id);
         $payload = $request->only(['name', 'status', 'capacity', 'amenities', 'image_url']);
-        if (empty(array_filter($payload, fn($value) => $value !== null && $value !== ''))) {
+        if (empty(array_filter($payload, fn ($value) => $value !== null && $value !== ''))) {
             $room->status = $room->status === 'Available' ? 'Occupied' : 'Available';
             $room->save();
         } else {
             $room->update($payload);
         }
         Session::flash('status', "Room #{$id} details updated");
+
         return back();
     }
 
@@ -470,7 +483,7 @@ class CaretakerController extends Controller
                 ? 'No rooms available'
                 : ($availableRoomsCount === 1
                     ? 'Only 1 room left'
-                    : $availableRoomsCount . ' rooms available');
+                    : $availableRoomsCount.' rooms available');
 
             $urgency = null;
             if ($availableRoomsCount === 1) {
@@ -495,7 +508,7 @@ class CaretakerController extends Controller
 
     public function maintenance()
     {
-        $requestModels = MaintenanceRequest::with(['room','user'])->latest()->get();
+        $requestModels = MaintenanceRequest::with(['room', 'user'])->latest()->get();
         $summary = [
             'pending' => 0,
             'progress' => 0,
@@ -523,8 +536,8 @@ class CaretakerController extends Controller
             $roomName = trim((string) ($item->room?->name ?? ''));
             if ($roomName === '') {
                 $roomName = 'Unassigned';
-            } elseif (!preg_match('/\broom\b/i', $roomName)) {
-                $roomName = 'Room ' . $roomName;
+            } elseif (! preg_match('/\broom\b/i', $roomName)) {
+                $roomName = 'Room '.$roomName;
             }
 
             $reportedAt = $item->created_at;
@@ -548,7 +561,7 @@ class CaretakerController extends Controller
 
     public function maintenanceShow($id)
     {
-        $item = MaintenanceRequest::with(['room','user'])->findOrFail($id);
+        $item = MaintenanceRequest::with(['room', 'user'])->findOrFail($id);
         $status = $this->normalizeMaintenanceStatus($item->status ?? null);
         $priority = $this->normalizeMaintenancePriority($item->priority ?? null);
         $category = $this->categorizeMaintenance($item->issue ?? '', $item->description ?? '');
@@ -556,8 +569,8 @@ class CaretakerController extends Controller
         $roomName = trim((string) ($item->room?->name ?? ''));
         if ($roomName === '') {
             $roomName = 'Unassigned';
-        } elseif (!preg_match('/\broom\b/i', $roomName)) {
-            $roomName = 'Room ' . $roomName;
+        } elseif (! preg_match('/\broom\b/i', $roomName)) {
+            $roomName = 'Room '.$roomName;
         }
 
         $reportedAt = $item->created_at;
@@ -608,6 +621,7 @@ class CaretakerController extends Controller
         }
 
         Session::flash('status', "Maintenance #{$id} updated");
+
         return back();
     }
 
@@ -623,6 +637,7 @@ class CaretakerController extends Controller
         $item->priority = $next[$current] ?? 'Medium';
         $item->save();
         Session::flash('status', "Maintenance #{$id} priority updated");
+
         return back();
     }
 
@@ -639,12 +654,13 @@ class CaretakerController extends Controller
         }
 
         Session::flash('status', "Maintenance #{$id} completed");
+
         return back();
     }
 
     public function incidents()
     {
-        $incidentModels = Incident::with(['room','user'])->latest()->get();
+        $incidentModels = Incident::with(['room', 'user'])->latest()->get();
 
         $summary = [
             'open' => 0,
@@ -693,7 +709,7 @@ class CaretakerController extends Controller
 
     public function incidentShow($id)
     {
-        $incident = Incident::with(['room','user'])->findOrFail($id);
+        $incident = Incident::with(['room', 'user'])->findOrFail($id);
         $status = $this->normalizeIncidentStatus($incident->status ?? null);
         $priority = $this->normalizeIncidentSeverity($incident->severity ?? null);
         $category = $this->categorizeIncident($incident->title ?? '', $incident->description ?? '');
@@ -724,7 +740,7 @@ class CaretakerController extends Controller
     {
         $incident = Incident::findOrFail($id);
         $incident->status = $incident->status === 'Open' ? 'In Progress' : 'Open';
-        if (!$incident->reported_at) {
+        if (! $incident->reported_at) {
             $incident->reported_at = $incident->created_at ?? now();
         }
         $incident->save();
@@ -738,6 +754,7 @@ class CaretakerController extends Controller
         ]);
 
         Session::flash('status', "Incident {$id} updated");
+
         return back();
     }
 
@@ -745,7 +762,7 @@ class CaretakerController extends Controller
     {
         $incident = Incident::findOrFail($id);
         $incident->status = 'Resolved';
-        if (!$incident->reported_at) {
+        if (! $incident->reported_at) {
             $incident->reported_at = $incident->created_at ?? now();
         }
         $incident->save();
@@ -759,6 +776,7 @@ class CaretakerController extends Controller
         ]);
 
         Session::flash('status', "Incident {$id} resolved");
+
         return back();
     }
 
@@ -774,6 +792,7 @@ class CaretakerController extends Controller
                     'body' => $notice->body,
                 ];
             });
+
         return view('caretaker.notices', compact('notices'));
     }
 
@@ -793,7 +812,8 @@ class CaretakerController extends Controller
             'created_by' => $request->user()?->id,
         ]);
 
-        Session::flash('status', "Notice sent to {$request->input('audience','All Tenants')}");
+        Session::flash('status', "Notice sent to {$request->input('audience', 'All Tenants')}");
+
         return back();
     }
 
@@ -804,7 +824,8 @@ class CaretakerController extends Controller
 
     public function reportsGenerate(Request $request)
     {
-        Session::flash('status', "Report generated.");
+        Session::flash('status', 'Report generated.');
+
         return back();
     }
 
@@ -899,7 +920,7 @@ class CaretakerController extends Controller
 
     private function categorizeMaintenance(string $issue, string $description): string
     {
-        $text = strtolower(trim($issue . ' ' . $description));
+        $text = strtolower(trim($issue.' '.$description));
         if (str_contains($text, 'plumb') || str_contains($text, 'leak') || str_contains($text, 'faucet') || str_contains($text, 'sink') || str_contains($text, 'toilet')) {
             return 'Plumbing';
         }
@@ -925,6 +946,7 @@ class CaretakerController extends Controller
                 $ids[] = $item->room_id;
             }
         }
+
         return array_values(array_unique($ids));
     }
 
@@ -966,7 +988,7 @@ class CaretakerController extends Controller
 
     private function categorizeIncident(string $title, string $description): array
     {
-        $text = strtolower(trim($title . ' ' . $description));
+        $text = strtolower(trim($title.' '.$description));
 
         $category = 'Other';
         if (str_contains($text, 'noise')) {
@@ -1021,7 +1043,7 @@ class CaretakerController extends Controller
 
         foreach ($bookings as $booking) {
             $status = $this->normalizeBookingStatus($booking->status ?? null);
-            if (!array_key_exists($status, $counts)) {
+            if (! array_key_exists($status, $counts)) {
                 $counts[$status] = 0;
             }
             $counts[$status]++;
@@ -1053,7 +1075,7 @@ class CaretakerController extends Controller
 
         foreach ($bookings as $booking) {
             $roomId = $booking->room_id ?? null;
-            if (!$roomId || !isset($stats[$roomId])) {
+            if (! $roomId || ! isset($stats[$roomId])) {
                 continue;
             }
 

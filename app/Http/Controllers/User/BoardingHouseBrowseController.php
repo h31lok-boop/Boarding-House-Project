@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 class BoardingHouseBrowseController extends Controller
 {
     private const DEFAULT_LAT = 6.7440000;
+
     private const DEFAULT_LNG = 125.3550000;
 
     public function index(Request $request)
@@ -68,6 +69,7 @@ class BoardingHouseBrowseController extends Controller
                 (int) ($house->available_rooms_count ?? 0),
                 (int) ($house->room_categories_available_rooms_sum ?? 0),
             );
+
             return $house;
         });
 
@@ -93,7 +95,7 @@ class BoardingHouseBrowseController extends Controller
                     (int) ($house->available_rooms_count ?? 0),
                     (int) ($house->room_categories_available_rooms_sum ?? 0),
                 ),
-                'image_url' => $house->images->first()?->image_path ? asset('storage/' . $house->images->first()->image_path) : null,
+                'image_url' => $house->images->first()?->image_path ? asset('storage/'.$house->images->first()->image_path) : null,
                 'distance_km' => $this->distanceKm($refLat, $refLng, $house->latitude, $house->longitude),
             ])
             ->values();
@@ -181,6 +183,7 @@ class BoardingHouseBrowseController extends Controller
         $houses = $houses->map(function ($house) use ($refLat, $refLng) {
             $house->distance_km = $this->distanceKm($refLat, $refLng, $house->latitude, $house->longitude);
             $house->min_room_price = $house->rooms->min('price') ?? $house->roomCategories->min('monthly_rate') ?? $house->price;
+
             return $house;
         });
 
@@ -201,6 +204,7 @@ class BoardingHouseBrowseController extends Controller
         }
 
         $number = (float) $value;
+
         return $number < 0 ? null : $number;
     }
 
@@ -307,7 +311,7 @@ class BoardingHouseBrowseController extends Controller
         if ($nearMe && $distanceLat !== null && $distanceLng !== null) {
             $distanceSql = '(6371 * ACOS(COS(RADIANS(?)) * COS(RADIANS(latitude)) * COS(RADIANS(longitude) - RADIANS(?)) + SIN(RADIANS(?)) * SIN(RADIANS(latitude))))';
             $query->select('boarding_houses.*')
-                ->selectRaw($distanceSql . ' as distance_km_calc', [$distanceLat, $distanceLng, $distanceLat])
+                ->selectRaw($distanceSql.' as distance_km_calc', [$distanceLat, $distanceLng, $distanceLat])
                 ->orderBy('distance_km_calc')
                 ->orderByDesc('boarding_houses.created_at');
         } else {

@@ -1,4 +1,5 @@
 <?php
+
 // app/Models/User.php
 
 namespace App\Models;
@@ -10,7 +11,7 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasRoles;
+    use HasFactory, HasRoles, Notifiable;
 
     protected $fillable = [
         'name',
@@ -46,7 +47,7 @@ class User extends Authenticatable
         'notify_payment_reminders' => 'boolean',
         'notify_booking_updates' => 'boolean',
         'notify_ticket_updates' => 'boolean',
-        'archived_at' => 'datetime'
+        'archived_at' => 'datetime',
     ];
 
     public function isAdmin()

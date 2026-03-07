@@ -50,7 +50,7 @@ class InquiryController extends Controller
             'school_company' => 'GeoBoard Academy',
             'course_or_position' => 'Student',
             'valid_id_type' => 'other',
-            'valid_id_number' => 'AUTO-TENANT-' . $userId,
+            'valid_id_number' => 'AUTO-TENANT-'.$userId,
             'valid_id_file' => 'auto-generated.txt',
             'emergency_contact_name' => 'Emergency Contact',
             'emergency_contact_number' => '+630000000000',
@@ -79,7 +79,7 @@ class InquiryController extends Controller
         return (int) DB::table('owner_profiles')->insertGetId([
             'user_id' => $boardingHouse->owner_id,
             'valid_id_type' => 'other',
-            'valid_id_number' => 'AUTO-OWNER-' . $boardingHouse->owner_id,
+            'valid_id_number' => 'AUTO-OWNER-'.$boardingHouse->owner_id,
             'valid_id_file' => 'auto-generated.txt',
             'verification_status' => 'pending',
             'created_at' => now(),
@@ -92,7 +92,7 @@ class InquiryController extends Controller
         $datePrefix = now()->format('Ymd');
 
         do {
-            $candidate = 'INQ-' . $datePrefix . '-' . strtoupper(Str::random(4));
+            $candidate = 'INQ-'.$datePrefix.'-'.strtoupper(Str::random(4));
             $exists = DB::table('inquiries')->where('inquiry_number', $candidate)->exists();
         } while ($exists);
 

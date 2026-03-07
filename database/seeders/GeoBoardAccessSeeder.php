@@ -12,6 +12,8 @@ class GeoBoardAccessSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->ensureSafeSeedPasswordUsage();
+
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
         $roles = ['superduperadmin', 'admin', 'owner', 'manager', 'tenant', 'user', 'caretaker', 'osas'];
@@ -22,12 +24,12 @@ class GeoBoardAccessSeeder extends Seeder
             ]);
         }
 
-        $super = $this->upsertUser('Super Duper Admin', 'superduperadmin@geoboard.com', 'SuperDuper123!', 'superduperadmin', '09170000001');
-        $admin = $this->upsertUser('System Administrator', 'admin@geoboard.com', 'Admin123!', 'admin', '09170000002');
-        $owner = $this->upsertUser('Boarding Owner One', 'owner1@geoboard.com', 'Owner123!', 'owner', '09170000003');
-        $manager = $this->upsertUser('Boarding Manager One', 'manager1@geoboard.com', 'Manager123!', 'manager', '09170000004');
-        $tenant = $this->upsertUser('Tenant User One', 'tenant1@geoboard.com', 'Tenant123!', 'tenant', '09170000005');
-        $user = $this->upsertUser('Regular User One', 'user1@geoboard.com', 'User123!', 'user', '09170000006');
+        $super = $this->upsertUser('Super Duper Admin', 'superduperadmin@geoboard.com', $this->seedPasswordFor('superduperadmin'), 'superduperadmin', '09170000001');
+        $admin = $this->upsertUser('System Administrator', 'admin@geoboard.com', $this->seedPasswordFor('admin'), 'admin', '09170000002');
+        $owner = $this->upsertUser('Boarding Owner One', 'owner1@geoboard.com', $this->seedPasswordFor('owner'), 'owner', '09170000003');
+        $manager = $this->upsertUser('Boarding Manager One', 'manager1@geoboard.com', $this->seedPasswordFor('manager'), 'manager', '09170000004');
+        $tenant = $this->upsertUser('Tenant User One', 'tenant1@geoboard.com', $this->seedPasswordFor('tenant'), 'tenant', '09170000005');
+        $user = $this->upsertUser('Regular User One', 'user1@geoboard.com', $this->seedPasswordFor('user'), 'user', '09170000006');
 
         foreach ([$super, $admin, $owner, $manager, $tenant, $user] as $account) {
             $account->syncRoles([$account->role]);
@@ -67,9 +69,9 @@ class GeoBoardAccessSeeder extends Seeder
             ['user_id' => $userId],
             [
                 'company_name' => $companyName,
-                'business_permit_number' => 'BPN-' . $userId,
+                'business_permit_number' => 'BPN-'.$userId,
                 'valid_id_type' => 'other',
-                'valid_id_number' => 'OWN-' . $userId,
+                'valid_id_number' => 'OWN-'.$userId,
                 'valid_id_file' => 'auto-owner-id.txt',
                 'verification_status' => 'verified',
                 'verified_by' => $verifiedBy,
@@ -85,11 +87,11 @@ class GeoBoardAccessSeeder extends Seeder
         DB::table('tenant_profiles')->updateOrInsert(
             ['user_id' => $userId],
             [
-                'student_id' => 'TEN-' . $userId,
+                'student_id' => 'TEN-'.$userId,
                 'school_company' => $schoolCompany,
                 'course_or_position' => 'BSIT Student',
                 'valid_id_type' => 'other',
-                'valid_id_number' => 'TENANT-' . $userId,
+                'valid_id_number' => 'TENANT-'.$userId,
                 'valid_id_file' => 'auto-tenant-id.txt',
                 'emergency_contact_name' => 'Emergency Contact',
                 'emergency_contact_number' => '09990000000',
@@ -101,5 +103,30 @@ class GeoBoardAccessSeeder extends Seeder
                 'updated_at' => now(),
             ]
         );
+    }
+
+    private function seedPasswordFor(string $role): string
+    {
+        $roleKey = 'SEED_PASSWORD_'.strtoupper($role);
+        $password = (string) env($roleKey, '');
+        if ($password !== '') {
+            return $password;
+        }
+
+        return (string) env('SEED_DEFAULT_PASSWORD', 'ChangeThisPassword123!');
+    }
+
+    private function ensureSafeSeedPasswordUsage(): void
+    {
+        if (! app()->environment('production')) {
+            return;
+        }
+
+        $default = (string) env('SEED_DEFAULT_PASSWORD', 'ChangeThisPassword123!');
+        if ($default === 'ChangeThisPassword123!') {
+            throw new \RuntimeException(
+                'Refusing to seed default credentials in production. Set SEED_DEFAULT_PASSWORD or SEED_PASSWORD_* values.'
+            );
+        }
     }
 }

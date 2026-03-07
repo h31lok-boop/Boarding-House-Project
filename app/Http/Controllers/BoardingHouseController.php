@@ -122,6 +122,7 @@ class BoardingHouseController extends Controller
     public function show(BoardingHouse $boarding_house)
     {
         $boarding_house->loadCount('tenants');
+
         return view('admin.boarding-houses.show', ['house' => $boarding_house]);
     }
 
@@ -223,6 +224,7 @@ class BoardingHouseController extends Controller
             'source' => 'admin',
             'name' => $name,
         ]);
+
         return redirect()->route('admin.boarding-houses.index')->with('success', 'Boarding house deleted.');
     }
 

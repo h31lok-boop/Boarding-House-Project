@@ -28,7 +28,7 @@ class ForceUtf8ResponseHeaders
         if (
             $contentType !== ''
             && str_contains($normalizedContentType, 'text/html')
-            && !str_contains($normalizedContentType, 'charset=')
+            && ! str_contains($normalizedContentType, 'charset=')
         ) {
             $response->headers->set('Content-Type', 'text/html; charset=UTF-8');
         }

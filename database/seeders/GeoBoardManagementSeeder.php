@@ -64,7 +64,7 @@ class GeoBoardManagementSeeder extends Seeder
         foreach ($houseTemplates as $index => $template) {
             $ownerProfile = $ownerProfiles[$index % $ownerProfiles->count()];
             $barangay = $barangays[$index % $barangays->count()];
-            $slug = Str::slug($template['name']) . '-' . ($index + 1);
+            $slug = Str::slug($template['name']).'-'.($index + 1);
 
             $address = sprintf(
                 'Purok %d, %s, %s, %s',
@@ -195,7 +195,7 @@ SVG;
                     'name' => $categorySeed['name'],
                 ],
                 [
-                    'description' => $categorySeed['name'] . ' room package',
+                    'description' => $categorySeed['name'].' room package',
                     'capacity' => 2,
                     'monthly_rate' => $categorySeed['monthly_rate'],
                     'total_rooms' => $categorySeed['total_rooms'],
@@ -219,7 +219,7 @@ SVG;
             }
 
             for ($slot = 1; $slot <= $categorySeed['total_rooms']; $slot++) {
-                $roomNumber = strtoupper(substr($categorySeed['name'], 0, 1)) . '-' . str_pad((string) $slot, 2, '0', STR_PAD_LEFT);
+                $roomNumber = strtoupper(substr($categorySeed['name'], 0, 1)).'-'.str_pad((string) $slot, 2, '0', STR_PAD_LEFT);
                 $available = $slot <= $categorySeed['available_rooms'];
 
                 DB::table('rooms')->updateOrInsert(
@@ -228,10 +228,10 @@ SVG;
                         'room_number' => $roomNumber,
                     ],
                     [
-                        'room_name' => $categorySeed['name'] . ' Room ' . $slot,
+                        'room_name' => $categorySeed['name'].' Room '.$slot,
                         'boarding_house_id' => $boardingHouse->id,
                         'room_no' => $roomNumber,
-                        'name' => $categorySeed['name'] . ' Room ' . $slot,
+                        'name' => $categorySeed['name'].' Room '.$slot,
                         'price' => $categorySeed['monthly_rate'],
                         'capacity' => 2,
                         'status' => $available ? 'Available' : 'Occupied',

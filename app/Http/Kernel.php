@@ -3,28 +3,28 @@
 namespace App\Http;
 
 use App\Http\Middleware\AdminMiddleware;
+use App\Http\Middleware\Authenticate;
 use App\Http\Middleware\EnsureCaretaker;
 use App\Http\Middleware\EnsureOsas;
+use App\Http\Middleware\RedirectIfAuthenticated;
+use App\Http\Middleware\VerifyCsrfToken;
+use Illuminate\Auth\Middleware\AuthenticateWithBasicAuth;
+use Illuminate\Auth\Middleware\EnsureEmailIsVerified;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
 use Illuminate\Foundation\Http\Middleware\ConvertEmptyStringsToNull;
+use Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance;
 use Illuminate\Foundation\Http\Middleware\TrimStrings;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Middleware\HandleCors;
 use Illuminate\Http\Middleware\TrustHosts;
 use Illuminate\Http\Middleware\TrustProxies;
+use Illuminate\Http\Middleware\ValidatePostSize;
+use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
-use Illuminate\Foundation\Http\Middleware\PreventRequestsDuringMaintenance;
-use Illuminate\Http\Middleware\ValidatePostSize;
-use App\Http\Middleware\Authenticate;
-use App\Http\Middleware\RedirectIfAuthenticated;
-use App\Http\Middleware\VerifyCsrfToken;
-use Illuminate\Routing\Middleware\SubstituteBindings;
-use Illuminate\Auth\Middleware\EnsureEmailIsVerified;
-use Illuminate\Auth\Middleware\AuthenticateWithBasicAuth;
 
 class Kernel extends HttpKernel
 {

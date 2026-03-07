@@ -15,7 +15,7 @@ class BoardingHouseMapController extends Controller
     {
         abort_unless($request->user() && $request->user()->isAdmin(), 403);
 
-        $cacheKey = 'map:admin:' . md5(json_encode($request->query(), JSON_UNESCAPED_UNICODE));
+        $cacheKey = 'map:admin:'.md5(json_encode($request->query(), JSON_UNESCAPED_UNICODE));
         $payload = Cache::remember($cacheKey, now()->addSeconds(45), fn () => $this->buildPayload($request, true));
 
         return response()->json($payload);
@@ -25,7 +25,7 @@ class BoardingHouseMapController extends Controller
     {
         abort_unless($request->user(), 403);
 
-        $cacheKey = 'map:user:' . md5(json_encode($request->query(), JSON_UNESCAPED_UNICODE));
+        $cacheKey = 'map:user:'.md5(json_encode($request->query(), JSON_UNESCAPED_UNICODE));
         $payload = Cache::remember($cacheKey, now()->addSeconds(45), fn () => $this->buildPayload($request, false));
 
         return response()->json($payload);

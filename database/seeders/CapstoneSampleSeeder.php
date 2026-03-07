@@ -52,8 +52,8 @@ class CapstoneSampleSeeder extends Seeder
 
                     Room::create([
                         'boarding_house_id' => $house->id,
-                        'room_no' => 'R-' . str_pad((string) $i, 2, '0', STR_PAD_LEFT),
-                        'name' => 'Room ' . $i,
+                        'room_no' => 'R-'.str_pad((string) $i, 2, '0', STR_PAD_LEFT),
+                        'name' => 'Room '.$i,
                         'price' => rand(1500, 5500),
                         'capacity' => $capacity,
                         'available_slots' => $slots,

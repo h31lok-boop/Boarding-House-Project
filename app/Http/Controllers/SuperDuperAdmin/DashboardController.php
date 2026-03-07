@@ -70,8 +70,8 @@ class DashboardController extends Controller
 
                 if ($minPrice !== null && $maxPrice !== null) {
                     $priceRange = $minPrice == $maxPrice
-                        ? 'PHP ' . number_format((float) $minPrice, 2)
-                        : 'PHP ' . number_format((float) $minPrice, 2) . ' - PHP ' . number_format((float) $maxPrice, 2);
+                        ? 'PHP '.number_format((float) $minPrice, 2)
+                        : 'PHP '.number_format((float) $minPrice, 2).' - PHP '.number_format((float) $maxPrice, 2);
                 } else {
                     $priceRange = 'N/A';
                 }

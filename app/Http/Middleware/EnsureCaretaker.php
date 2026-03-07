@@ -14,6 +14,7 @@ class EnsureCaretaker
         $hasRole = $user && (method_exists($user, 'hasRole') && $user->hasRole('caretaker'));
         $legacy = $user && strtolower($user->role ?? '') === 'caretaker';
         abort_unless($hasRole || $legacy, 403);
+
         return $next($request);
     }
 }

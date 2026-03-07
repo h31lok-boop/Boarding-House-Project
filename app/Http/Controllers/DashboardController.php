@@ -81,10 +81,10 @@ class DashboardController extends Controller
         ];
 
         return view('admin.dashboard', [
-            'roleStats'   => $roleStats,
+            'roleStats' => $roleStats,
             'recentUsers' => $recentUsers,
-            'allUsers'    => $allUsers,
-            'totals'      => $totals,
+            'allUsers' => $allUsers,
+            'totals' => $totals,
         ]);
     }
 
@@ -717,6 +717,7 @@ class DashboardController extends Controller
                     }
 
                     $paymentDate = $payment['paid_date'] ?? $payment['due_date'];
+
                     return $paymentDate && $paymentDate->between($monthStart, $monthEnd);
                 })
                 ->sum('amount');
@@ -808,6 +809,7 @@ class DashboardController extends Controller
                         }
 
                         $paymentDate = $payment['paid_date'] ?? $payment['due_date'];
+
                         return $paymentDate && $paymentDate->lte($rangeEnd);
                     })
                     ->sum('amount');
@@ -821,6 +823,7 @@ class DashboardController extends Controller
                         }
 
                         $paymentDate = $payment['paid_date'] ?? $payment['due_date'];
+
                         return $paymentDate && $paymentDate->between($rangeStart, $rangeEnd);
                     })
                     ->sum('amount'), 2);
@@ -834,12 +837,14 @@ class DashboardController extends Controller
             if (! $tenant->is_active || ! $isMoveInCovered || $monthlyAmount <= 0) {
                 $balanceTrend[] = 0;
                 $paymentsMadeTrend[] = 0;
+
                 continue;
             }
 
             if ($offset === 0) {
                 $balanceTrend[] = round($outstandingBalance, 2);
                 $paymentsMadeTrend[] = round(max($monthlyAmount - $outstandingBalance, 0), 2);
+
                 continue;
             }
 
@@ -1895,6 +1900,7 @@ class DashboardController extends Controller
             ->get(['name', 'monthly_payment'])
             ->mapWithKeys(function (BoardingHouse $house) {
                 $key = strtolower(trim((string) $house->name));
+
                 return [$key => $this->parseMoneyToFloat($house->monthly_payment)];
             })
             ->all();
@@ -1972,6 +1978,7 @@ class DashboardController extends Controller
             ->get(['name', 'monthly_payment'])
             ->mapWithKeys(function (BoardingHouse $house) {
                 $key = strtolower(trim((string) $house->name));
+
                 return [$key => $this->parseMoneyToFloat($house->monthly_payment)];
             })
             ->all();
@@ -2004,6 +2011,7 @@ class DashboardController extends Controller
             if ($today->lte($dueDate->copy()->addDays(7))) {
                 $dueCount++;
                 $dueAmount += $rent;
+
                 continue;
             }
 
@@ -2038,11 +2046,13 @@ class DashboardController extends Controller
             $status = strtolower(trim((string) ($row->status ?? '')));
             if (in_array($status, $resolvedStatuses, true)) {
                 $resolved++;
+
                 continue;
             }
 
             if ($status === '' || in_array($status, $openStatuses, true)) {
                 $open++;
+
                 continue;
             }
 
@@ -2076,12 +2086,14 @@ class DashboardController extends Controller
     private function formatPercentChange(float $value): string
     {
         $prefix = $value >= 0 ? '+' : '';
+
         return $prefix.number_format($value, 1).'%';
     }
 
     private function formatPointsChange(float $value): string
     {
         $prefix = $value >= 0 ? '+' : '';
+
         return $prefix.number_format($value, 1).' pts';
     }
 

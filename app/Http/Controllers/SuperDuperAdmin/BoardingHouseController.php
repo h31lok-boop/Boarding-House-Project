@@ -246,6 +246,7 @@ class BoardingHouseController extends Controller
 
         if ($names->isEmpty()) {
             $boardingHouse->amenities()->sync([]);
+
             return;
         }
 
@@ -306,7 +307,7 @@ class BoardingHouseController extends Controller
         return (int) DB::table('owner_profiles')->insertGetId([
             'user_id' => $userId,
             'valid_id_type' => 'other',
-            'valid_id_number' => 'AUTO-' . $userId,
+            'valid_id_number' => 'AUTO-'.$userId,
             'valid_id_file' => 'auto-generated.txt',
             'verification_status' => 'pending',
             'created_at' => now(),

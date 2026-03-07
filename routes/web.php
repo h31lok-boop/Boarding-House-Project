@@ -1,23 +1,22 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Admin\BoardingHousePolicyController;
 use App\Http\Controllers\AdminController;
-use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\BoardingHouseApplicationController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Map\BoardingHouseMapController;
+use App\Http\Controllers\Owner\OwnerListingController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\SuperDuperAdmin\BoardingHouseController as SuperDuperAdminBoardingHouseController;
 use App\Http\Controllers\SuperDuperAdmin\DashboardController as SuperDuperAdminDashboardController;
-use App\Http\Controllers\Map\BoardingHouseMapController;
+use App\Http\Controllers\Tenant\TenantPageController;
 use App\Http\Controllers\User\BoardingHouseBrowseController;
 use App\Http\Controllers\User\FavoriteController;
 use App\Http\Controllers\User\InquiryController;
 use App\Http\Controllers\User\ReservationController;
-use App\Models\BoardingHouse;
-use App\Models\Room;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Lang;
+use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
@@ -31,7 +30,7 @@ Route::middleware('guest')->get('/auth', function () {
 
 // Standard Breeze Auth Routes
 Route::middleware(['auth', 'verified'])->group(function () {
-    
+
     // Dashboard: Redirects to the Admin Dashboard
     Route::get('/dashboard', function () {
         $user = Auth::user();
@@ -84,35 +83,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Owner Dashboard (role-gated)
     Route::get('/owner/dashboard', [DashboardController::class, 'owner'])->name('owner.dashboard');
     Route::get('/owner/maintenance', [DashboardController::class, 'ownerMaintenance'])->name('owner.maintenance');
-    Route::get('/owner/rooms', function () {
-        $user = Auth::user();
-        abort_unless($user && $user->isOwner(), 403);
-        $rooms = Room::with('boardingHouse')->orderByDesc('created_at')->get();
-        $boardingHouses = BoardingHouse::orderBy('name')->get();
-        return view('owner.rooms', compact('rooms', 'boardingHouses'));
-    })->name('owner.rooms');
-    Route::get('/owner/boarding-houses', function () {
-        $user = Auth::user();
-        abort_unless($user && $user->isOwner(), 403);
-        $houses = BoardingHouse::orderByDesc('created_at')->get();
-        return view('owner.boarding-houses', compact('houses'));
-    })->name('owner.boarding-houses');
+    Route::get('/owner/rooms', [OwnerListingController::class, 'rooms'])->name('owner.rooms');
+    Route::get('/owner/boarding-houses', [OwnerListingController::class, 'boardingHouses'])->name('owner.boarding-houses');
 
     // Tenant Dashboard (role-gated)
-    Route::get('/tenant/dashboard', function () {
-        $user = Auth::user();
-        abort_unless($user && $user->isTenant(), 403);
-        return view('tenant.dashboard');
-    })->name('tenant.dashboard');
+    Route::get('/tenant/dashboard', [DashboardController::class, 'tenant'])->name('tenant.dashboard');
 
-    Route::get('/tenant/bh-policies', function () {
-        $user = Auth::user();
-        abort_unless($user && $user->isTenant(), 403);
-
-        $policyCategories = Lang::get('boarding_house_policies.categories', []);
-
-        return view('tenant.bh-policies', compact('policyCategories'));
-    })->name('tenant.bh-policies');
+    Route::get('/tenant/bh-policies', [TenantPageController::class, 'bhPolicies'])->name('tenant.bh-policies');
 
     Route::prefix('tenant')->name('tenant.')->group(function () {
         Route::get('/boarding-houses', [BoardingHouseBrowseController::class, 'index'])->name('boarding-houses');

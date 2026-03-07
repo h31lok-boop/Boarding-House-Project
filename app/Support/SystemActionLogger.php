@@ -27,6 +27,7 @@ class SystemActionLogger
 
         if (Schema::hasTable('system_action_logs')) {
             DB::table('system_action_logs')->insert($payload);
+
             return;
         }
 

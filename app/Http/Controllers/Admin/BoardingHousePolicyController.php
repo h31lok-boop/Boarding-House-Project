@@ -40,14 +40,14 @@ class BoardingHousePolicyController extends Controller
                 ->withInput();
         }
 
-        if (!is_array($categories)) {
+        if (! is_array($categories)) {
             return back()
                 ->withErrors(['categories_json' => 'The top-level structure must be an array of categories.'])
                 ->withInput();
         }
 
         $directory = resource_path("lang/$locale");
-        if (!File::exists($directory)) {
+        if (! File::exists($directory)) {
             File::makeDirectory($directory, 0755, true);
         }
 

@@ -14,10 +14,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(\App\Http\Middleware\ForceUtf8ResponseHeaders::class);
 
         $middleware->alias([
-            'admin'     => \App\Http\Middleware\AdminMiddleware::class,
+            'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'superduperadmin' => \App\Http\Middleware\EnsureSuperDuperAdmin::class,
             'caretaker' => \App\Http\Middleware\EnsureCaretaker::class,
-            'osas'      => \App\Http\Middleware\EnsureOsas::class,
+            'osas' => \App\Http\Middleware\EnsureOsas::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

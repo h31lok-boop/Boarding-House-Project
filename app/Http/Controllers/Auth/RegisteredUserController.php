@@ -9,7 +9,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
 use Spatie\Permission\Models\Role;
@@ -48,25 +47,17 @@ class RegisteredUserController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'phone' => $request->phone,
+            'contact_number' => $request->phone,
             'institution_name' => $request->institution_name,
             'move_in_date' => $request->move_in_date,
             'password' => $hashedPassword,
+            'password_hash' => $hashedPassword,
             'is_active' => true,
+            'status' => 'active',
             'email_verified_at' => now(),
         ];
 
-        // Keep compatibility with both legacy and current schemas.
-        if (Schema::hasColumn('users', 'contact_number')) {
-            $attributes['contact_number'] = $request->phone;
-        }
-        if (Schema::hasColumn('users', 'password_hash')) {
-            $attributes['password_hash'] = $hashedPassword;
-        }
-        if (Schema::hasColumn('users', 'status')) {
-            $attributes['status'] = 'active';
-        }
-
-        $user = new User();
+        $user = new User;
         $user->forceFill($attributes);
         $user->save();
 

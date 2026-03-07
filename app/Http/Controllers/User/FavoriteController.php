@@ -5,8 +5,8 @@ namespace App\Http\Controllers\User;
 use App\Http\Controllers\Controller;
 use App\Models\BoardingHouse;
 use App\Models\Favorite;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class FavoriteController extends Controller
 {
@@ -68,7 +68,7 @@ class FavoriteController extends Controller
             'school_company' => 'GeoBoard Academy',
             'course_or_position' => 'Student',
             'valid_id_type' => 'other',
-            'valid_id_number' => 'AUTO-TENANT-' . $userId,
+            'valid_id_number' => 'AUTO-TENANT-'.$userId,
             'valid_id_file' => 'auto-generated.txt',
             'emergency_contact_name' => 'Emergency Contact',
             'emergency_contact_number' => '+630000000000',

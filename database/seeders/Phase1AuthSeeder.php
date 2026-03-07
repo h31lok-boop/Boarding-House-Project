@@ -11,6 +11,8 @@ class Phase1AuthSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->ensureSafeSeedPasswordUsage();
+
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
         foreach (['superduperadmin', 'admin', 'manager', 'owner', 'tenant', 'user'] as $roleName) {
@@ -21,10 +23,12 @@ class Phase1AuthSeeder extends Seeder
         }
 
         $super = User::firstOrNew(['email' => 'superduperadmin@geoboard.com']);
+        $password = $this->seedPasswordFor('superduperadmin');
+        $hashedPassword = Hash::make($password);
         $super->forceFill([
             'name' => 'Super Duper Admin',
-            'password' => Hash::make('SuperDuper123!'),
-            'password_hash' => Hash::make('SuperDuper123!'),
+            'password' => $hashedPassword,
+            'password_hash' => $hashedPassword,
             'role' => 'superduperadmin',
             'is_active' => true,
             'status' => 'active',
@@ -32,5 +36,30 @@ class Phase1AuthSeeder extends Seeder
         ])->save();
 
         $super->syncRoles(['superduperadmin']);
+    }
+
+    private function seedPasswordFor(string $role): string
+    {
+        $roleKey = 'SEED_PASSWORD_'.strtoupper($role);
+        $password = (string) env($roleKey, '');
+        if ($password !== '') {
+            return $password;
+        }
+
+        return (string) env('SEED_DEFAULT_PASSWORD', 'ChangeThisPassword123!');
+    }
+
+    private function ensureSafeSeedPasswordUsage(): void
+    {
+        if (! app()->environment('production')) {
+            return;
+        }
+
+        $default = (string) env('SEED_DEFAULT_PASSWORD', 'ChangeThisPassword123!');
+        if ($default === 'ChangeThisPassword123!') {
+            throw new \RuntimeException(
+                'Refusing to seed default credentials in production. Set SEED_DEFAULT_PASSWORD or SEED_PASSWORD_* values.'
+            );
+        }
     }
 }

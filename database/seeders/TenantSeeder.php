@@ -19,7 +19,7 @@ class TenantSeeder extends Seeder
         // Pin all seeded tenants to the first boarding house so occupancy is visible.
         $targetHouseId = $boardingHouses->first()->id;
 
-        $roomNumbers = collect(range(101, 199))->map(fn ($n) => 'R' . $n);
+        $roomNumbers = collect(range(101, 199))->map(fn ($n) => 'R'.$n);
 
         User::factory()
             ->count(8)

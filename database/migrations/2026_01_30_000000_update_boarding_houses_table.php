@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         // Ensure table exists before altering
-        if (!Schema::hasTable('boarding_houses')) {
+        if (! Schema::hasTable('boarding_houses')) {
             Schema::create('boarding_houses', function (Blueprint $table) {
                 $table->id();
                 $table->string('name')->default('Boarding House');
@@ -19,23 +19,24 @@ return new class extends Migration
                 $table->boolean('is_active')->default(true);
                 $table->timestamps();
             });
+
             return;
         }
 
         Schema::table('boarding_houses', function (Blueprint $table) {
-            if (!Schema::hasColumn('boarding_houses', 'name')) {
+            if (! Schema::hasColumn('boarding_houses', 'name')) {
                 $table->string('name')->default('Boarding House');
             }
-            if (!Schema::hasColumn('boarding_houses', 'address')) {
+            if (! Schema::hasColumn('boarding_houses', 'address')) {
                 $table->string('address')->nullable();
             }
-            if (!Schema::hasColumn('boarding_houses', 'description')) {
+            if (! Schema::hasColumn('boarding_houses', 'description')) {
                 $table->text('description')->nullable();
             }
-            if (!Schema::hasColumn('boarding_houses', 'capacity')) {
+            if (! Schema::hasColumn('boarding_houses', 'capacity')) {
                 $table->unsignedInteger('capacity')->default(1);
             }
-            if (!Schema::hasColumn('boarding_houses', 'is_active')) {
+            if (! Schema::hasColumn('boarding_houses', 'is_active')) {
                 $table->boolean('is_active')->default(true);
             }
         });

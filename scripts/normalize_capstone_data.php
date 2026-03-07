@@ -5,7 +5,7 @@ declare(strict_types=1);
 
 use Dotenv\Dotenv;
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__.'/../vendor/autoload.php';
 
 $projectRoot = dirname(__DIR__);
 Dotenv::createImmutable($projectRoot)->safeLoad();
@@ -45,4 +45,4 @@ foreach ($updates as $sql) {
     $db->query($sql);
 }
 
-echo "Data normalization finished for {$database}" . PHP_EOL;
+echo "Data normalization finished for {$database}".PHP_EOL;

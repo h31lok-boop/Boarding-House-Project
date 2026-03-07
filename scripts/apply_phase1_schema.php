@@ -5,7 +5,7 @@ declare(strict_types=1);
 
 use Dotenv\Dotenv;
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__.'/../vendor/autoload.php';
 
 $projectRoot = dirname(__DIR__);
 Dotenv::createImmutable($projectRoot)->safeLoad();
@@ -20,11 +20,11 @@ mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 $db = new mysqli($host, $user, $pass, $database, $port);
 $db->set_charset('utf8mb4');
 
-echo "Applying Phase 1 schema patch to {$database}..." . PHP_EOL;
+echo "Applying Phase 1 schema patch to {$database}...".PHP_EOL;
 
 runQuery(
     $db,
-    "CREATE TABLE IF NOT EXISTS `boarding_house_images` (
+    'CREATE TABLE IF NOT EXISTS `boarding_house_images` (
         `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
         `boarding_house_id` BIGINT UNSIGNED NOT NULL,
         `image_path` VARCHAR(500) NOT NULL,
@@ -36,7 +36,7 @@ runQuery(
         PRIMARY KEY (`id`),
         INDEX `idx_bh_images_house` (`boarding_house_id`),
         INDEX `idx_bh_images_primary` (`boarding_house_id`, `is_primary`)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci',
     'ensure boarding_house_images table'
 );
 
@@ -174,18 +174,19 @@ if (tableExists($db, 'users') && tableExists($db, 'approvals')) {
     );
 }
 
-echo 'Phase 1 schema patch completed.' . PHP_EOL;
+echo 'Phase 1 schema patch completed.'.PHP_EOL;
 
 function runQuery(mysqli $db, string $sql, string $label): void
 {
     $db->query($sql);
-    echo "OK: {$label}" . PHP_EOL;
+    echo "OK: {$label}".PHP_EOL;
 }
 
 function fetchOne(mysqli $db, string $sql): array
 {
     $result = $db->query($sql);
     $row = $result->fetch_assoc();
+
     return $row ?: [];
 }
 
@@ -199,6 +200,7 @@ function tableExists(mysqli $db, string $table): bool
          WHERE TABLE_SCHEMA = DATABASE()
            AND TABLE_NAME = '{$table}'"
     );
+
     return ((int) ($row['c'] ?? 0)) > 0;
 }
 
@@ -214,6 +216,7 @@ function columnExists(mysqli $db, string $table, string $column): bool
            AND TABLE_NAME = '{$table}'
            AND COLUMN_NAME = '{$column}'"
     );
+
     return ((int) ($row['c'] ?? 0)) > 0;
 }
 
@@ -242,6 +245,7 @@ function constraintExists(mysqli $db, string $table, string $constraint): bool
            AND TABLE_NAME = '{$table}'
            AND CONSTRAINT_NAME = '{$constraint}'"
     );
+
     return ((int) ($row['c'] ?? 0)) > 0;
 }
 

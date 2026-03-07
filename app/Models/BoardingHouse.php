@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Schema;
 class BoardingHouse extends Model
 {
     use HasFactory;
+
     private static array $schemaColumnCache = [];
 
     protected $fillable = [
