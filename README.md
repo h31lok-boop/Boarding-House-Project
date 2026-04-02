@@ -1,72 +1,44 @@
-# Boarding House Project (GeoBoard)
+﻿# Boarding House Project
 
-Laravel 12 application for boarding house management, geotagged listings, and role-based operations (`superduperadmin`, `admin`, `owner`, `tenant`, `caretaker`, `osas`).
+Boarding House Project is a Laravel web application for managing boarding-house listings, tenant interactions, owner operations, and administrative review workflows.
 
-## Stack
+## Core Modules
 
-- PHP `8.2+`
-- Laravel `12`
-- MySQL (default local setup)
-- Vite + Tailwind CSS
-- Pest/PHPUnit for tests
+- Boarding-house listing and room management
+- Owner, tenant, and admin dashboards
+- Reservations, bookings, inquiries, and favorites
+- Reviews, incidents, and payment-related flows
+- Accreditation, validation, and application review
+- Location-aware browsing and map-based discovery
 
-## Quick Start
+## Tech Stack
 
-1. Install dependencies:
-   ```bash
-   composer install
-   npm install
-   ```
-2. Create env:
-   ```bash
-   cp .env.example .env
-   php artisan key:generate
-   ```
-3. Configure DB values in `.env`.
-4. Migrate + seed:
-   ```bash
-   php artisan migrate:fresh --seed
-   ```
-5. Build assets:
-   ```bash
-   npm run build
-   ```
-6. Start app:
-   ```bash
-   php artisan serve
-   ```
+- Laravel and PHP
+- Blade templates for role-based pages
+- Eloquent models for properties, rooms, reservations, tenants, reviews, and compliance records
+- Database configured through `.env`
+- Frontend assets managed through Node tooling
 
-## Development Commands
+## Project Structure
 
-- Run backend tests:
-  ```bash
-  php artisan test
-  ```
-- Run code style checks:
-  ```bash
-  vendor/bin/pint --test
-  ```
-- Build frontend:
-  ```bash
-  npm run build
-  ```
+- `app/Http/Controllers` contains admin, owner, tenant, listing, inquiry, and reservation logic
+- `app/Models` includes `BoardingHouse`, `Room`, `Reservation`, `Review`, `TenantProfile`, and validation-related entities
+- `resources/views` contains public, admin, and tenant-facing pages
+- `routes/web.php` defines browsing, dashboard, and management routes
 
-## Seeder Password Safety
+## Getting Started
 
-Seeders read credentials from env:
-
-- `SEED_DEFAULT_PASSWORD`
-- `SEED_PASSWORD_SUPERDUPERADMIN`
-- `SEED_PASSWORD_ADMIN`
-- `SEED_PASSWORD_OWNER`
-- `SEED_PASSWORD_MANAGER`
-- `SEED_PASSWORD_TENANT`
-- `SEED_PASSWORD_USER`
-
-In production, seeders refuse to run with the fallback default password.
+1. Install PHP, Composer, Node.js, and a database server.
+2. Run `composer install`.
+3. Create a `.env` file from `.env.example`.
+4. Configure the application and database values in `.env`.
+5. Run `php artisan key:generate`.
+6. Run `php artisan migrate`.
+7. Run `npm install`.
+8. Run `npm run dev`.
+9. Start the application with `php artisan serve`.
 
 ## Notes
 
-- Feature tests disable Vite through the base test case (`withoutVite()`), so tests do not require pre-built frontend assets.
-- CI runs `npm run build`, Pint, and tests.
-- Use `php artisan migrate:fresh --seed` when syncing schema after pulling migration changes.
+- This project includes multiple user-facing flows, so role setup and seeded data may be useful during local testing.
+- Check map-related controllers if external location or geocoding services are required.
