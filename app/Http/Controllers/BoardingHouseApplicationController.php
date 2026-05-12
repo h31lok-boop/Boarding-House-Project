@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BoardingHouse;
 use App\Models\BoardingHouseApplication;
+use App\Models\Inquiry;
 use Illuminate\Http\Request;
 
 class BoardingHouseApplicationController extends Controller
@@ -48,17 +49,23 @@ class BoardingHouseApplicationController extends Controller
     }
 
     /**
-     * Admin view of applications.
+     * Admin view of applications and inquiries.
      */
     public function index()
     {
         $this->authorizeAdmin();
 
+        // Fetch applications
         $applications = BoardingHouseApplication::with(['user', 'boardingHouse'])
             ->latest()
             ->paginate(15);
 
-        return view('admin.boarding-houses.applications', compact('applications'));
+        // Fetch inquiries - treat them as applications
+        $inquiries = Inquiry::with(['user', 'boardingHouse'])
+            ->latest()
+            ->paginate(15);
+
+        return view('admin.boarding-houses.applications', compact('applications', 'inquiries'));
     }
 
     public function approve(BoardingHouseApplication $application)

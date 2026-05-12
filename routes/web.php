@@ -78,11 +78,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/boarding-house-applications', [BoardingHouseApplicationController::class, 'index'])->name('applications.index');
         Route::post('/boarding-house-applications/{application}/approve', [BoardingHouseApplicationController::class, 'approve'])->name('applications.approve');
         Route::post('/boarding-house-applications/{application}/reject', [BoardingHouseApplicationController::class, 'reject'])->name('applications.reject');
+
+        Route::get('/inquiries', [InquiryController::class, 'index'])->name('inquiries.index');
+        Route::get('/inquiries/{inquiry}', [InquiryController::class, 'show'])->name('inquiries.show');
+        Route::put('/inquiries/{inquiry}', [InquiryController::class, 'update'])->name('inquiries.update');
     });
 
     // Owner Dashboard (role-gated)
     Route::get('/owner/dashboard', [DashboardController::class, 'owner'])->name('owner.dashboard');
     Route::get('/owner/maintenance', [DashboardController::class, 'ownerMaintenance'])->name('owner.maintenance');
+    Route::get('/owner/inquiries', [InquiryController::class, 'index'])->name('owner.inquiries.index');
+    Route::get('/owner/inquiries/{inquiry}', [InquiryController::class, 'show'])->name('owner.inquiries.show');
+    Route::put('/owner/inquiries/{inquiry}', [InquiryController::class, 'update'])->name('owner.inquiries.update');
     Route::get('/owner/rooms', [OwnerListingController::class, 'rooms'])->name('owner.rooms');
     Route::get('/owner/boarding-houses', [OwnerListingController::class, 'boardingHouses'])->name('owner.boarding-houses');
 
@@ -150,6 +157,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('/reports', [\App\Http\Controllers\CaretakerController::class, 'reports'])->name('reports.index');
         Route::post('/reports/generate', [\App\Http\Controllers\CaretakerController::class, 'reportsGenerate'])->name('reports.generate');
+
+        Route::get('/inquiries', [InquiryController::class, 'index'])->name('inquiries.index');
+        Route::get('/inquiries/{inquiry}', [InquiryController::class, 'show'])->name('inquiries.show');
+        Route::put('/inquiries/{inquiry}', [InquiryController::class, 'update'])->name('inquiries.update');
 
         Route::get('/settings', [\App\Http\Controllers\CaretakerController::class, 'settings'])->name('settings');
     });
