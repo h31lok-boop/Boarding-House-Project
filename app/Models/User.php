@@ -162,14 +162,17 @@ class User extends Authenticatable
             }
 
             // Admin must win over any default/tenant assignment.
-            if ($roleNames->contains('admin')) {
+            if ($roleNames->contains('admin') || $roleNames->contains('owner')) {
                 return 'admin.dashboard';
             }
 
+<<<<<<< Updated upstream
             if ($roleNames->contains('owner')) {
                 return 'owner.dashboard';
             }
 
+=======
+>>>>>>> Stashed changes
             if ($roleNames->contains('tenant') || $roleNames->contains('user')) {
                 return 'user.dashboard';
             }
@@ -179,6 +182,7 @@ class User extends Authenticatable
             return 'superduperadmin.dashboard';
         }
 
+<<<<<<< Updated upstream
         if ($legacyRole === 'admin') {
             return 'admin.dashboard';
         }
@@ -187,6 +191,12 @@ class User extends Authenticatable
             return 'owner.dashboard';
         }
 
+=======
+        if (in_array($legacyRole, ['admin', 'owner'], true)) {
+            return 'admin.dashboard';
+        }
+
+>>>>>>> Stashed changes
         if (in_array($legacyRole, ['tenant', 'user'], true)) {
             return 'user.dashboard';
         }

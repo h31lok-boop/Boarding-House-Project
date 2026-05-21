@@ -49,7 +49,11 @@
         ['label' => 'Compliance Status', 'value' => 'Approved'],
     ];
 
+<<<<<<< Updated upstream
     $verification = ['Email Verified', 'Phone Verified', 'Owner Verified'];
+=======
+    $verification = ['Email Verified', 'Phone Verified', 'Admin Verified'];
+>>>>>>> Stashed changes
 @endphp
 
 <div
@@ -64,7 +68,11 @@
     @if ($showPageHeader)
         <section class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
+<<<<<<< Updated upstream
                 <h1 class="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Owner Profile</h1>
+=======
+                <h1 class="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Admin Profile</h1>
+>>>>>>> Stashed changes
                 <p class="mt-1 text-sm text-slate-600 sm:text-base">Manage your personal, business, and account information.</p>
             </div>
             <div class="flex flex-wrap items-center gap-3">
@@ -79,7 +87,11 @@
                     <span class="flex h-10 w-10 items-center justify-center rounded-full bg-blue-700 text-xs font-bold text-white">JD</span>
                     <span class="leading-tight">
                         <span class="block text-sm font-semibold text-slate-950">Juan Dela Cruz</span>
+<<<<<<< Updated upstream
                         <span class="block text-xs text-slate-500">Owner</span>
+=======
+                        <span class="block text-xs text-slate-500">Admin</span>
+>>>>>>> Stashed changes
                     </span>
                     <span class="text-slate-500">{!! $uiIcon('chevron-down', 'h-4 w-4') !!}</span>
                 </button>
@@ -96,7 +108,11 @@
                         <h2 class="text-2xl font-bold text-slate-950">Juan Dela Cruz</h2>
                         <span class="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200">Active</span>
                     </div>
+<<<<<<< Updated upstream
                     <p class="mt-1 text-sm font-semibold text-slate-500">Owner</p>
+=======
+                    <p class="mt-1 text-sm font-semibold text-slate-500">Admin</p>
+>>>>>>> Stashed changes
                     <p class="mt-2 max-w-2xl text-sm text-slate-600">Manage profile details, business defaults, verification status, and account security for the DSSC Boarding House System.</p>
                 </div>
             </div>

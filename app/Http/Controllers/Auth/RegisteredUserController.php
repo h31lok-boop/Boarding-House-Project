@@ -88,8 +88,13 @@ class RegisteredUserController extends Controller
         Auth::guard('web')->login($user);
         $request->session()->regenerate();
 
+<<<<<<< Updated upstream
         return redirect(route('tenant.dashboard', absolute: false))
             ->with('status', 'Your tenant account has been created.');
+=======
+        return redirect(route('user.dashboard', absolute: false))
+            ->with('status', 'Your user account has been created.');
+>>>>>>> Stashed changes
     }
 
     /**
@@ -316,7 +321,11 @@ class RegisteredUserController extends Controller
 
         return redirect()
             ->route('login')
+<<<<<<< Updated upstream
             ->with('status', 'Your owner account has been submitted for review.');
+=======
+            ->with('status', 'Your admin account has been submitted for review.');
+>>>>>>> Stashed changes
     }
 
     private function storeMapOwner(Request $request): RedirectResponse
@@ -444,7 +453,11 @@ class RegisteredUserController extends Controller
 
         return redirect()
             ->route('login')
+<<<<<<< Updated upstream
             ->with('status', 'Owner registration submitted for review.');
+=======
+            ->with('status', 'Admin registration submitted for review.');
+>>>>>>> Stashed changes
     }
 
     private function storeQuickOwner(Request $request): RedirectResponse
@@ -542,8 +555,13 @@ class RegisteredUserController extends Controller
         Auth::guard('web')->login($user);
         $request->session()->regenerate();
 
+<<<<<<< Updated upstream
         return redirect(route('owner.dashboard', absolute: false))
             ->with('status', 'Your owner account has been submitted for review.');
+=======
+        return redirect(route('admin.dashboard', absolute: false))
+            ->with('status', 'Your admin account has been submitted for review.');
+>>>>>>> Stashed changes
     }
 
     private function storeQuickOwnerRegistrationDocuments(Request $request, User $user, BoardingHouse $boardingHouse, string $ownerIdPath, string $photoPath): void
@@ -553,13 +571,21 @@ class RegisteredUserController extends Controller
         }
 
         $documents = [
+<<<<<<< Updated upstream
             ['label' => 'Valid ID of Owner', 'path' => $ownerIdPath],
+=======
+            ['label' => 'Valid ID of Admin', 'path' => $ownerIdPath],
+>>>>>>> Stashed changes
             ['label' => 'Photo of Boarding House 1', 'path' => $photoPath],
         ];
 
         foreach ($request->file('supporting_documents', []) as $index => $document) {
             $documents[] = [
+<<<<<<< Updated upstream
                 'label' => 'Owner Supporting Document '.($index + 1),
+=======
+                'label' => 'Admin Supporting Document '.($index + 1),
+>>>>>>> Stashed changes
                 'path' => $document->store("owner-registrations/{$user->id}/documents", 'public'),
             ];
         }
@@ -642,7 +668,11 @@ class RegisteredUserController extends Controller
         }
 
         $documents = [
+<<<<<<< Updated upstream
             'valid_id' => ['label' => 'Valid ID of Owner', 'path' => $validIdPath],
+=======
+            'valid_id' => ['label' => 'Valid ID of Admin', 'path' => $validIdPath],
+>>>>>>> Stashed changes
             'business_permit' => ['label' => 'Business Permit'],
             'fire_safety_certificate' => ['label' => 'Fire Safety Certificate'],
             'sanitary_permit' => ['label' => 'Sanitary Permit'],

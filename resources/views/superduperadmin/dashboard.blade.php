@@ -63,7 +63,11 @@
     ];
 
     $actions = [
+<<<<<<< Updated upstream
         ['label' => 'Create Listing', 'href' => $r('superduperadmin.boarding-houses.create'), 'icon' => 'plus', 'tone' => 'blue'],
+=======
+        ['label' => 'Add New Listing', 'href' => $r('superduperadmin.boarding-houses.index').'?modal=add', 'icon' => 'plus', 'tone' => 'blue'],
+>>>>>>> Stashed changes
         ['label' => 'Update Availability', 'href' => $r('superduperadmin.rooms').'?focus=availability', 'icon' => 'check', 'tone' => 'green'],
         ['label' => 'View Inquiries', 'href' => $r('superduperadmin.inquiries'), 'icon' => 'chat', 'tone' => 'purple'],
         ['label' => 'Submit OSAS Requirements', 'href' => $r('superduperadmin.compliance').'?modal=submit', 'icon' => 'document', 'tone' => 'orange'],
@@ -110,7 +114,11 @@
 
         <section class="mt-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
+<<<<<<< Updated upstream
                 <h1 class="text-2xl font-bold tracking-tight text-slate-900">Owner Workspace</h1>
+=======
+                <h1 class="text-2xl font-bold tracking-tight text-slate-900">Dashboard</h1>
+>>>>>>> Stashed changes
                 <p class="mt-1 text-sm text-slate-500">Welcome back, Juan! Here's what's happening with your properties.</p>
             </div>
             <button type="button" class="inline-flex items-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 sm:self-auto">

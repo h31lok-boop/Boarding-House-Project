@@ -374,7 +374,10 @@ class AdminController extends Controller
         $ids = collect([$owner->id])
             ->merge(User::query()->whereIn('boarding_house_id', $houseIds)->pluck('id'))
             ->merge(BoardingHouseApplication::query()->whereIn('boarding_house_id', $houseIds)->pluck('user_id'))
+<<<<<<< Updated upstream
             ->merge(ValidationTask::query()->whereIn('boarding_house_id', $houseIds)->pluck('validator_id'))
+=======
+>>>>>>> Stashed changes
             ->map(fn ($id) => (int) $id)
             ->filter(fn ($id) => $id > 0)
             ->unique()
