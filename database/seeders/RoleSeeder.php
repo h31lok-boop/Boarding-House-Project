@@ -16,7 +16,7 @@ class RoleSeeder extends Seeder
         Role::query()->delete();
         Permission::query()->delete();
 
-        collect(['admin', 'tenant', 'caretaker', 'osas'])
+        collect(['admin', 'user', 'owner', 'tenant'])
             ->each(fn ($name) => Role::create(['name' => $name, 'guard_name' => 'web']));
     }
 }

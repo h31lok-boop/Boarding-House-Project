@@ -1,4 +1,14 @@
 <section class="space-y-6">
+    @php
+        if (request()->routeIs('superduperadmin.profile*')) {
+            $deleteProfileRoute = 'superduperadmin.profile.destroy';
+        } elseif (request()->routeIs('owner.profile*')) {
+            $deleteProfileRoute = 'owner.profile.destroy';
+        } else {
+            $deleteProfileRoute = 'profile.destroy';
+        }
+    @endphp
+
     <header>
         <h2 class="text-lg font-medium text-gray-900">
             {{ __('Delete Account') }}
@@ -15,7 +25,7 @@
     >{{ __('Delete Account') }}</x-danger-button>
 
     <x-modal name="confirm-user-deletion" :show="$errors->userDeletion->isNotEmpty()" focusable>
-        <form method="post" action="{{ route('profile.destroy') }}" class="p-6">
+        <form method="post" action="{{ route($deleteProfileRoute) }}" class="p-6">
             @csrf
             @method('delete')
 

@@ -17,6 +17,7 @@ class Room extends Model
     protected $casts = [
         'price' => 'decimal:2',
         'capacity' => 'integer',
+        'occupied_slots' => 'integer',
         'available_slots' => 'integer',
     ];
 
@@ -64,6 +65,11 @@ class Room extends Model
     public function reservations()
     {
         return $this->hasMany(Reservation::class);
+    }
+
+    public function incidents()
+    {
+        return $this->hasMany(Incident::class);
     }
 
     public function tenants()

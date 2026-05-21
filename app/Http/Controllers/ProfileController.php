@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\OwnerProfile;
+use App\Support\OwnerActivityService;
 use App\Http\Requests\ProfileUpdateRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -12,6 +14,19 @@ use Illuminate\View\View;
 
 class ProfileController extends Controller
 {
+    private function editRouteName(Request $request): string
+    {
+        if ($request->routeIs('superduperadmin.profile*')) {
+            return 'superduperadmin.profile';
+        }
+
+        if ($request->routeIs('owner.profile*')) {
+            return 'owner.profile';
+        }
+
+        return 'profile.edit';
+    }
+
     /**
      * Display the user's profile form.
      */
@@ -33,6 +48,8 @@ class ProfileController extends Controller
         $user->fill([
             'name' => $validated['name'],
             'email' => $validated['email'],
+            'phone' => $validated['phone'] ?? null,
+            'contact_number' => $validated['phone'] ?? null,
         ]);
 
         if ($user->isDirty('email')) {
@@ -51,9 +68,28 @@ class ProfileController extends Controller
             $user->profile_image = $request->file('profile_image')->store('profile-images', 'public');
         }
 
+        if ($user->isOwner()) {
+            OwnerProfile::updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'company_name' => $validated['company_name'] ?? null,
+                    'address' => $validated['address'] ?? null,
+                    'business_permit_number' => $validated['business_permit_number'] ?? null,
+                    'valid_id_type' => $validated['valid_id_type'] ?: 'other',
+                    'valid_id_number' => $validated['valid_id_number'] ?: ('PENDING-'.$user->id),
+                    'valid_id_file' => $user->ownerProfile?->valid_id_file ?: 'pending-upload.txt',
+                    'verification_status' => $user->ownerProfile?->verification_status ?: 'pending',
+                ]
+            );
+        }
+
         $user->save();
 
-        return Redirect::route('profile.edit')->with('status', 'profile-updated');
+        OwnerActivityService::audit($user->id, 'profile_updated', 'Owner profile information updated.', [
+            'route' => $request->route()?->getName(),
+        ]);
+
+        return Redirect::route($this->editRouteName($request))->with('status', 'profile-updated');
     }
 
     /**

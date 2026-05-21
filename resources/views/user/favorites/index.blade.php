@@ -3,8 +3,8 @@
     <div class="space-y-6">
         <div class="ui-card p-4 flex items-center justify-between gap-4 flex-wrap">
             <div>
-                <h2 class="text-xl font-semibold">My Favorites</h2>
-                <p class="text-sm ui-muted">Saved boarding houses for quick access.</p>
+                <h2 class="text-xl font-semibold">Saved Listings</h2>
+                <p class="text-sm ui-muted">Your favorite boarding houses in one shortlist.</p>
             </div>
             <a href="{{ route('user.boarding-houses.index') }}" class="px-4 py-2 rounded-lg border ui-border text-sm">Browse More</a>
         </div>

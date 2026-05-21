@@ -2,7 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BoardingHouseApplication;
 use App\Models\BoardingHouse;
+use App\Models\Inquiry;
+use App\Models\Notice;
+use App\Models\Reservation;
+use App\Models\Review;
 use App\Models\Room;
 use App\Models\User;
 use Carbon\Carbon;
@@ -24,25 +29,11 @@ class DashboardController extends Controller
                 'pill' => 'bg-indigo-100 text-indigo-700',
             ],
             'tenant' => [
-                'label' => 'Tenants',
+                'label' => 'Users',
                 'chip' => 'bg-emerald-600 text-emerald-50',
                 'tone' => 'from-emerald-50 to-white',
                 'border' => 'border-emerald-100',
                 'pill' => 'bg-emerald-100 text-emerald-700',
-            ],
-            'caretaker' => [
-                'label' => 'Caretakers',
-                'chip' => 'bg-amber-600 text-amber-50',
-                'tone' => 'from-amber-50 to-white',
-                'border' => 'border-amber-100',
-                'pill' => 'bg-amber-100 text-amber-800',
-            ],
-            'osas' => [
-                'label' => 'OSAS',
-                'chip' => 'bg-purple-600 text-purple-50',
-                'tone' => 'from-purple-50 to-white',
-                'border' => 'border-purple-100',
-                'pill' => 'bg-purple-100 text-purple-800',
             ],
         ];
 
@@ -575,8 +566,8 @@ class DashboardController extends Controller
         $houseName = trim((string) ($tenant->institution_name ?? ''));
         $roomNumber = trim((string) ($tenant->room_number ?? ''));
 
-        $boardingHouse = null;
-        if ($houseName !== '') {
+        $boardingHouse = $tenant->boardingHouse;
+        if (! $boardingHouse && $houseName !== '') {
             $boardingHouse = BoardingHouse::query()
                 ->whereRaw('LOWER(name) = ?', [strtolower($houseName)])
                 ->first();
@@ -946,18 +937,75 @@ class DashboardController extends Controller
             ],
         ];
 
+        $reservationHistory = Reservation::query()
+            ->with([
+                'boardingHouse:id,name',
+                'room',
+                'processedBy:id,name',
+                'booking:id,reservation_id,status,start_date,end_date',
+            ])
+            ->where('user_id', $tenant->id)
+            ->latest()
+            ->take(8)
+            ->get();
+
+        $inquiryHistory = Inquiry::query()
+            ->with([
+                'boardingHouse:id,name',
+                'respondedBy:id,name',
+            ])
+            ->where('user_id', $tenant->id)
+            ->latest()
+            ->take(8)
+            ->get();
+
+        $applicationHistory = BoardingHouseApplication::query()
+            ->with('boardingHouse:id,name')
+            ->where('user_id', $tenant->id)
+            ->latest()
+            ->take(8)
+            ->get();
+
+        $reviewHistory = Schema::hasTable('reviews')
+            ? Review::query()
+                ->with('boardingHouse:id,name')
+                ->where('user_id', $tenant->id)
+                ->latest()
+                ->take(6)
+                ->get()
+            : collect();
+
+        $messageCount = $inquiryHistory
+            ->filter(fn ($inquiry) => filled($inquiry->response_message))
+            ->count();
+
+        $notificationCount = count($alerts)
+            + $applicationHistory->filter(fn ($application) => strtolower((string) $application->status) === 'pending')->count()
+            + $reservationHistory->filter(fn ($reservation) => strtolower((string) $reservation->status) === 'pending')->count();
+
+        $notices = Schema::hasTable('notices')
+            ? Notice::query()->latest()->take(5)->get(['id', 'title', 'scheduled_at', 'audience'])
+            : collect();
+
         return [
             'tenantKpiCards' => $kpiCards,
             'bookingInfo' => $bookingInfo,
             'paymentStatus' => $paymentStatus,
             'billingBreakdown' => $billingBreakdown,
             'alerts' => $alerts,
+            'applicationHistory' => $applicationHistory,
+            'inquiryHistory' => $inquiryHistory,
+            'reviewHistory' => $reviewHistory,
+            'messageCount' => $messageCount,
+            'notificationCount' => $notificationCount,
             'openTicketCount' => $openTicketCount,
+            'notices' => $notices,
             'paymentChart' => [
                 'labels' => $chartLabels,
                 'balance_trend' => $balanceTrend,
                 'payments_made' => $paymentsMadeTrend,
             ],
+            'reservationHistory' => $reservationHistory,
         ];
     }
 

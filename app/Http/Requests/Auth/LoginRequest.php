@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Support\LoginSecurityChallenge;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
@@ -28,7 +29,16 @@ class LoginRequest extends FormRequest
     {
         return [
             'email' => ['required', 'string', 'email'],
-            'password' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:8'],
+            'security_answer' => ['required', 'string', 'max:20'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'password.min' => 'Password must be at least 8 characters long.',
+            'security_answer.required' => 'Please answer the security check.',
         ];
     }
 
@@ -41,11 +51,21 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        if (! LoginSecurityChallenge::verify($this->session(), $this->input('security_answer'))) {
             RateLimiter::hit($this->throttleKey());
+            LoginSecurityChallenge::regenerate($this->session());
 
             throw ValidationException::withMessages([
-                'email' => trans('auth.failed'),
+                'security_answer' => 'The security answer is incorrect. Please try the new question.',
+            ]);
+        }
+
+        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+            RateLimiter::hit($this->throttleKey());
+            LoginSecurityChallenge::regenerate($this->session());
+
+            throw ValidationException::withMessages([
+                'password' => 'Incorrect email or password. Please try again.',
             ]);
         }
 

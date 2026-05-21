@@ -10,14 +10,14 @@
         if ($routeName) {
             if (str_starts_with($routeName, 'admin.')) {
                 $routeTitle = 'Admin Dashboard';
+            } elseif ($routeName === 'owner.profile') {
+                $routeTitle = 'Admin Profile';
             } elseif (str_starts_with($routeName, 'owner.')) {
-                $routeTitle = 'Owner Dashboard';
-            } elseif (str_starts_with($routeName, 'caretaker.')) {
-                $routeTitle = 'Caretaker Dashboard';
-            } elseif (str_starts_with($routeName, 'osas.')) {
-                $routeTitle = 'OSAS Dashboard';
+                $routeTitle = 'Admin Dashboard';
             } elseif (str_starts_with($routeName, 'tenant.')) {
-                $routeTitle = 'Tenant Dashboard';
+                $routeTitle = 'User Dashboard';
+            } elseif (str_starts_with($routeName, 'user.')) {
+                $routeTitle = 'User Dashboard';
             } elseif ($routeName === 'profile.edit') {
                 $routeTitle = 'Profile';
             }
@@ -30,37 +30,24 @@
         if ($user && method_exists($user, 'hasRole') && $user->hasRole('admin')) {
             $roleTitle = 'Admin Dashboard';
         } elseif ($legacyRole === 'owner') {
-            $roleTitle = 'Owner Dashboard';
+            $roleTitle = 'Admin Dashboard';
         } elseif ($legacyRole === 'admin') {
             $roleTitle = 'Admin Dashboard';
-        } elseif ($legacyRole === 'caretaker') {
-            $roleTitle = 'Caretaker Dashboard';
-        } elseif ($legacyRole === 'osas') {
-            $roleTitle = 'OSAS Dashboard';
         } elseif ($legacyRole === 'tenant') {
-            $roleTitle = 'Tenant Dashboard';
+            $roleTitle = 'User Dashboard';
+        } elseif ($legacyRole === 'user') {
+            $roleTitle = 'User Dashboard';
         } elseif ($user && method_exists($user, 'hasRole')) {
-            if ($user->hasRole('caretaker')) {
-                $roleTitle = 'Caretaker Dashboard';
-            } elseif ($user->hasRole('osas')) {
-                $roleTitle = 'OSAS Dashboard';
-            } elseif ($user->hasRole('tenant')) {
-                $roleTitle = 'Tenant Dashboard';
+            if ($user->hasRole('tenant') || $user->hasRole('user')) {
+                $roleTitle = 'User Dashboard';
             }
         }
 
         $pageTitle = $title ?? $routeTitle ?? $roleTitle ?? config('app.name', 'Dashboard');
     @endphp
     <title>{{ $pageTitle }}</title>
+    <x-theme-init />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <script>
-        (function () {
-            const stored = localStorage.getItem('theme');
-            if (stored) {
-                document.documentElement.setAttribute('data-theme', stored);
-            }
-        })();
-    </script>
 </head>
 <body class="min-h-screen ui-bg overflow-x-hidden">
     {{ $slot }}

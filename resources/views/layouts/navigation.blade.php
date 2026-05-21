@@ -14,12 +14,17 @@
 
         if (auth()->check()) {
             $user = auth()->user();
-            $isAdmin = strtolower($user->role ?? '') === 'admin' || strtolower($user->role ?? '') === 'owner' || (method_exists($user, 'hasRole') && $user->hasRole('admin'));
+            $isAdmin = strtolower($user->role ?? '') === 'admin' || (method_exists($user, 'hasRole') && $user->hasRole('admin'));
             if ($isAdmin) {
                 $navLinks[] = ['label' => 'User Management', 'route' => 'admin.users', 'icon' => 'USR', 'active' => 'admin.users*'];
                 $navLinks[] = ['label' => 'Boarding Houses', 'route' => 'admin.boarding-houses.index', 'icon' => 'BHS', 'active' => 'admin.boarding-houses.*'];
                 $navLinks[] = ['label' => 'Applications', 'route' => 'admin.applications.index', 'icon' => 'APP', 'active' => 'admin.applications.*'];
                 $navLinks[] = ['label' => 'Tenant History', 'route' => 'admin.tenant-history', 'icon' => 'HIS', 'active' => 'admin.tenant-history'];
+            } elseif ($user->isOwner()) {
+                $navLinks[] = ['label' => 'Listings', 'route' => 'owner.boarding-houses', 'icon' => 'BHS', 'active' => 'owner.boarding-houses*'];
+                $navLinks[] = ['label' => 'Rooms', 'route' => 'owner.rooms', 'icon' => 'RM', 'active' => 'owner.rooms*'];
+                $navLinks[] = ['label' => 'Inquiries', 'route' => 'owner.inquiries.index', 'icon' => 'INQ', 'active' => 'owner.inquiries.*'];
+                $navLinks[] = ['label' => 'Bookings', 'route' => 'owner.bookings.index', 'icon' => 'BKG', 'active' => 'owner.bookings.*'];
             } elseif ($user->isTenant()) {
                 $navLinks[] = ['label' => 'Boarding Houses', 'route' => 'tenant.boarding-houses', 'icon' => 'BHS', 'active' => 'tenant.boarding-houses'];
             }
@@ -65,10 +70,7 @@
 
     <div class="px-4 py-4 border-t ui-border">
         <div class="mb-3">
-            <button type="button" class="theme-toggle" data-theme-toggle>
-                <span>Theme:</span>
-                <span data-theme-label>Light</span>
-            </button>
+            <x-theme-toggle class="theme-toggle w-full justify-center" show-label prefix="Theme:" />
         </div>
         <div class="space-y-1 text-sm font-medium">
             <a href="{{ route('profile.edit') }}" class="flex items-center gap-2 px-3 py-2 rounded-lg text-[color:var(--muted)] hover:bg-[color:var(--surface-2)] hover:text-[color:var(--text)]">

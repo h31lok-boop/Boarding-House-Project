@@ -17,11 +17,15 @@ class Reservation extends Model
         'check_out_date',
         'status',
         'notes',
+        'owner_notes',
+        'processed_at',
+        'processed_by',
     ];
 
     protected $casts = [
         'check_in_date' => 'date',
         'check_out_date' => 'date',
+        'processed_at' => 'datetime',
     ];
 
     public function user()
@@ -37,5 +41,15 @@ class Reservation extends Model
     public function room()
     {
         return $this->belongsTo(Room::class);
+    }
+
+    public function booking()
+    {
+        return $this->hasOne(Booking::class);
+    }
+
+    public function processedBy()
+    {
+        return $this->belongsTo(User::class, 'processed_by');
     }
 }

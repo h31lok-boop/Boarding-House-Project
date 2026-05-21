@@ -13,6 +13,7 @@ class Incident extends Model
 
     protected $casts = [
         'reported_at' => 'datetime',
+        'responded_at' => 'datetime',
     ];
 
     public function room()
@@ -23,5 +24,10 @@ class Incident extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function respondedBy()
+    {
+        return $this->belongsTo(User::class, 'responded_by');
     }
 }

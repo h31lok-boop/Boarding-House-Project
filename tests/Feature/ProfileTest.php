@@ -12,6 +12,28 @@ test('profile page is displayed', function () {
     $response->assertOk();
 });
 
+test('tenant profile displays tenant dashboard content', function () {
+    $user = User::factory()->create([
+        'name' => 'Hazel Sabando',
+        'email' => 'hazel@example.com',
+        'phone' => '0919201483',
+        'role' => 'tenant',
+        'is_active' => true,
+    ]);
+
+    $this
+        ->actingAs($user)
+        ->get('/profile')
+        ->assertOk()
+        ->assertSee('Tenant Profile')
+        ->assertSee('Manage your DSSC Boarding profile')
+        ->assertSee('Personal Information')
+        ->assertSee('Account Security')
+        ->assertSee('Profile Summary')
+        ->assertSee('Hazel Sabando')
+        ->assertDontSee('Profile Information');
+});
+
 test('profile information can be updated', function () {
     $user = User::factory()->create();
 

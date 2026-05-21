@@ -1,26 +1,31 @@
-<x-app-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">Maintenance</h2>
-    </x-slot>
-
-    <div class="bg-white shadow-sm sm:rounded-lg border border-gray-100 p-6">
-        <h3 class="text-base font-semibold text-gray-900">Request Summary</h3>
-        @if($hasMaintenanceModule)
-            <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                    <p class="text-sm text-amber-700">Open Requests</p>
-                    <p class="mt-1 text-2xl font-bold text-amber-900">{{ number_format($openRequestsCount) }}</p>
-                </div>
-                <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-                    <p class="text-sm text-emerald-700">Resolved Requests</p>
-                    <p class="mt-1 text-2xl font-bold text-emerald-900">{{ number_format($resolvedRequestsCount) }}</p>
-                </div>
+<x-layouts.caretaker>
+    <x-owner.shell>
+        <x-slot name="header">
+            <div>
+                <h1 class="text-xl font-semibold text-slate-900">Maintenance Overview</h1>
+                <p class="text-sm ui-muted">Track open and resolved maintenance requests connected to your listings.</p>
             </div>
-            <p class="mt-4 text-sm text-gray-500">Detailed request management can be added here.</p>
-        @else
-            <p class="mt-3 text-sm text-gray-500">
-                Maintenance module is not configured yet. Create a <code>maintenance_requests</code> table to enable tracking.
-            </p>
-        @endif
-    </div>
-</x-app-layout>
+        </x-slot>
+
+        <div class="grid gap-4 md:grid-cols-2">
+            <div class="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                <p class="text-sm font-medium text-amber-700">Open Requests</p>
+                <p class="mt-2 text-3xl font-bold text-amber-900">{{ number_format($openRequestsCount) }}</p>
+            </div>
+            <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+                <p class="text-sm font-medium text-emerald-700">Resolved Requests</p>
+                <p class="mt-2 text-3xl font-bold text-emerald-900">{{ number_format($resolvedRequestsCount) }}</p>
+            </div>
+        </div>
+
+        <div class="ui-card rounded-2xl p-5">
+            @if($hasMaintenanceModule)
+                <h2 class="text-lg font-semibold text-slate-900">Module Status</h2>
+                <p class="mt-2 text-sm ui-muted">Maintenance tracking is enabled. Detailed assignment and resolution workflows can be added on top of the current request summary.</p>
+            @else
+                <h2 class="text-lg font-semibold text-slate-900">Module Status</h2>
+                <p class="mt-2 text-sm ui-muted">Maintenance tracking is not configured yet. Create a <code>maintenance_requests</code> table to enable request-level records.</p>
+            @endif
+        </div>
+    </x-owner.shell>
+</x-layouts.caretaker>

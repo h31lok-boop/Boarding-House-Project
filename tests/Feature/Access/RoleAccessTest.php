@@ -34,19 +34,29 @@ test('owner routes are restricted to owners only', function () {
     $tenant = User::factory()->create([
         'role' => 'tenant',
         'is_active' => true,
+        'email_verified_at' => now(),
     ]);
 
     $owner = User::factory()->create([
         'role' => 'owner',
         'is_active' => true,
+        'email_verified_at' => now(),
     ]);
 
     $this->actingAs($tenant)
         ->get(route('owner.rooms'))
         ->assertForbidden();
 
+    $this->actingAs($tenant)
+        ->get(route('owner.profile'))
+        ->assertForbidden();
+
     $this->actingAs($owner)
         ->get(route('owner.rooms'))
+        ->assertOk();
+
+    $this->actingAs($owner)
+        ->get(route('owner.profile'))
         ->assertOk();
 });
 

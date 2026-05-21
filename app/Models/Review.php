@@ -14,6 +14,7 @@ class Review extends Model
         'boarding_house_id',
         'rating',
         'comment',
+        'status',
     ];
 
     public function user()

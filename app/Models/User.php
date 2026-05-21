@@ -19,6 +19,7 @@ class User extends Authenticatable
         'password',
         'role',
         'phone',
+        'contact_number',
         'profile_image',
         'notify_payment_reminders',
         'notify_booking_updates',
@@ -53,7 +54,8 @@ class User extends Authenticatable
     public function isAdmin()
     {
         return $this->isSuperDuperAdmin()
-            || in_array($this->role, ['admin', 'owner'], true);
+            || in_array(strtolower((string) $this->role), ['admin', 'owner'], true)
+            || (method_exists($this, 'hasRole') && ($this->hasRole('admin') || $this->hasRole('owner')));
     }
 
     public function isSuperDuperAdmin(): bool
@@ -72,7 +74,8 @@ class User extends Authenticatable
 
     public function isOwner()
     {
-        return $this->role === 'owner';
+        return in_array(strtolower((string) $this->role), ['owner', 'admin'], true)
+            || (method_exists($this, 'hasRole') && ($this->hasRole('owner') || $this->hasRole('admin')));
     }
 
     public function isManager()
@@ -82,7 +85,8 @@ class User extends Authenticatable
 
     public function isTenant()
     {
-        return $this->role === 'tenant';
+        return in_array(strtolower((string) $this->role), ['tenant', 'user'], true)
+            || (method_exists($this, 'hasRole') && ($this->hasRole('tenant') || $this->hasRole('user')));
     }
 
     public function boardingHouse()
@@ -93,6 +97,21 @@ class User extends Authenticatable
     public function ownedBoardingHouses()
     {
         return $this->hasMany(\App\Models\BoardingHouse::class, 'owner_id');
+    }
+
+    public function ownerProfile()
+    {
+        return $this->hasOne(\App\Models\OwnerProfile::class);
+    }
+
+    public function notifications()
+    {
+        return $this->hasMany(\App\Models\OwnerNotification::class);
+    }
+
+    public function auditLogs()
+    {
+        return $this->hasMany(\App\Models\AuditLog::class);
     }
 
     public function boardingHouseApplications()
@@ -126,14 +145,6 @@ class User extends Authenticatable
     }
 
     /**
-     * Validation tasks assigned to this validator (OSAS).
-     */
-    public function validationTasks()
-    {
-        return $this->hasMany(\App\Models\ValidationTask::class, 'validator_id');
-    }
-
-    /**
      * Determine the dashboard route name that matches the user's role.
      *
      * Supports legacy role columns (case-insensitive) and Spatie roles
@@ -142,14 +153,6 @@ class User extends Authenticatable
     public function dashboardRouteName(): string
     {
         $legacyRole = $this->role ? strtolower($this->role) : null;
-
-        if ($legacyRole === 'owner') {
-            return 'admin.dashboard';
-        }
-
-        if ($legacyRole === 'tenant') {
-            return 'tenant.dashboard';
-        }
 
         if (method_exists($this, 'getRoleNames')) {
             $roleNames = $this->getRoleNames()->map(fn ($name) => strtolower($name));
@@ -163,16 +166,12 @@ class User extends Authenticatable
                 return 'admin.dashboard';
             }
 
-            if ($roleNames->contains('tenant')) {
-                return 'tenant.dashboard';
+            if ($roleNames->contains('owner')) {
+                return 'owner.dashboard';
             }
 
-            if ($roleNames->contains('caretaker')) {
-                return 'caretaker.dashboard';
-            }
-
-            if ($roleNames->contains('osas')) {
-                return 'osas.dashboard';
+            if ($roleNames->contains('tenant') || $roleNames->contains('user')) {
+                return 'user.dashboard';
             }
         }
 
@@ -180,16 +179,16 @@ class User extends Authenticatable
             return 'superduperadmin.dashboard';
         }
 
-        if ($legacyRole === 'admin' || $legacyRole === 'owner') {
+        if ($legacyRole === 'admin') {
             return 'admin.dashboard';
         }
 
-        if ($legacyRole === 'caretaker') {
-            return 'caretaker.dashboard';
+        if ($legacyRole === 'owner') {
+            return 'owner.dashboard';
         }
 
-        if ($legacyRole === 'osas') {
-            return 'osas.dashboard';
+        if (in_array($legacyRole, ['tenant', 'user'], true)) {
+            return 'user.dashboard';
         }
 
         return 'admin.dashboard';

@@ -1,27 +1,50 @@
-<x-guest-layout>
-    <div class="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div class="w-full max-w-4xl bg-white rounded-2xl shadow-lg border border-gray-100 p-10">
-            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
-                <div>
-                    <p class="text-sm uppercase tracking-[0.3em] text-gray-400">Authentication</p>
-                    <h1 class="text-2xl font-semibold text-gray-900">Welcome back</h1>
-                    <p class="text-sm text-gray-500">Choose how you want to continue.</p>
-                </div>
-                <a href="{{ url('/') }}" class="text-sm text-indigo-600 hover:text-indigo-800 font-semibold">← Back to home</a>
+<x-auth.shell
+    title="Authentication | DSSC Boarding House System"
+    form-title="Welcome Back"
+    subtitle="Choose how you want to continue."
+    panel-headline="Account Access"
+    panel-description="Use your DSSC Boarding account to access tenant, owner, and system workspaces."
+>
+    <div class="grid gap-3">
+        <a href="{{ route('login') }}" class="landing-card block p-5 transition hover:border-blue-200 hover:bg-blue-50/60">
+            <div class="flex items-center gap-3">
+                <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-sm font-black text-blue-700">IN</span>
+                <span>
+                    <span class="block font-black text-slate-950">Login</span>
+                    <span class="block text-sm font-semibold text-slate-500">Access your existing account.</span>
+                </span>
             </div>
+            <span class="mt-4 inline-flex text-sm font-black text-blue-700">Continue to login</span>
+        </a>
 
-            <div class="grid grid-cols-1 gap-6">
-                <a href="{{ route('login') }}" class="group block rounded-xl border border-gray-200 hover:border-indigo-200 shadow-sm hover:shadow-md transition bg-white p-6">
-                    <div class="flex items-center gap-3">
-                        <div class="w-12 h-12 rounded-full bg-indigo-50 text-indigo-700 grid place-items-center text-xl font-bold">IN</div>
-                        <div>
-                            <h2 class="text-lg font-semibold text-gray-900">Login</h2>
-                            <p class="text-sm text-gray-500">Access your existing account.</p>
-                        </div>
-                    </div>
-                    <div class="mt-4 text-sm font-semibold text-indigo-600 group-hover:text-indigo-700">Continue to login →</div>
-                </a>
-            </div>
-        </div>
+        @if (Route::has('register'))
+            <a href="{{ route('register') }}" class="landing-card block p-5 transition hover:border-emerald-200 hover:bg-emerald-50/60">
+                <div class="flex items-center gap-3">
+                    <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-100 text-sm font-black text-emerald-700">UP</span>
+                    <span>
+                        <span class="block font-black text-slate-950">Create Account</span>
+                        <span class="block text-sm font-semibold text-slate-500">Register as a tenant or owner.</span>
+                    </span>
+                </div>
+                <span class="mt-4 inline-flex text-sm font-black text-emerald-700">Continue to register</span>
+            </a>
+        @endif
+
+        @if (Route::has('register.owner'))
+            <a href="{{ route('register.owner') }}" class="landing-card block p-5 transition hover:border-blue-200 hover:bg-blue-50/60">
+                <div class="flex items-center gap-3">
+                    <span class="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-sm font-black text-blue-700">BH</span>
+                    <span>
+                        <span class="block font-black text-slate-950">Owner Registration</span>
+                        <span class="block text-sm font-semibold text-slate-500">Submit your boarding house for OSAS review.</span>
+                    </span>
+                </div>
+                <span class="mt-4 inline-flex text-sm font-black text-blue-700">Register as owner</span>
+            </a>
+        @endif
     </div>
-</x-guest-layout>
+
+    <div class="auth-footer-links">
+        <p><a class="auth-secondary-link" href="{{ url('/') }}">Back to Homepage</a></p>
+    </div>
+</x-auth.shell>

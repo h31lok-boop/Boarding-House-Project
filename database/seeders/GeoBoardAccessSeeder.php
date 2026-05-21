@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Role;
 
 class GeoBoardAccessSeeder extends Seeder
@@ -16,31 +17,82 @@ class GeoBoardAccessSeeder extends Seeder
 
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
-        $roles = ['superduperadmin', 'admin', 'owner', 'manager', 'tenant', 'user', 'caretaker', 'osas'];
-        foreach ($roles as $roleName) {
+        $this->ensureRoles();
+
+        $accountsByEmail = [];
+        foreach ($this->canonicalAccountDefinitions() as $definition) {
+            $account = $this->upsertUser(
+                $definition['name'],
+                $definition['email'],
+                $this->seedPasswordFromKeys($definition['password_env_keys'], $definition['default_password']),
+                $definition['role'],
+                $definition['contact_number'],
+            );
+
+            $roleAssignments = array_values(array_unique(array_merge(
+                [$definition['role']],
+                $definition['extra_roles'] ?? []
+            )));
+            $account->syncRoles($roleAssignments);
+            $accountsByEmail[$definition['email']] = $account;
+        }
+
+        $ownerAccount = $accountsByEmail['owner@example.com'];
+        $tenantAccount = $accountsByEmail['tenant@example.com'];
+        $this->ensureOwnerProfile($ownerAccount->id, $ownerAccount->id, 'Super Admin Property Office');
+        $this->ensureTenantProfile($tenantAccount->id, $ownerAccount->id, 'Student Housing');
+
+        $keepUserIds = array_values(array_map(
+            static fn (User $account) => (int) $account->id,
+            $accountsByEmail
+        ));
+        $canonicalEmails = array_keys($accountsByEmail);
+
+        $this->reassignReferencesBeforeCleanup((int) $ownerAccount->id, $keepUserIds);
+        $this->removeNonCanonicalUsers($canonicalEmails);
+    }
+
+    private function ensureRoles(): void
+    {
+        $allowedRoles = ['superduperadmin', 'admin', 'owner', 'tenant', 'user'];
+
+        Role::query()
+            ->where('guard_name', 'web')
+            ->whereNotIn('name', $allowedRoles)
+            ->delete();
+
+        foreach ($allowedRoles as $roleName) {
             Role::firstOrCreate([
                 'name' => $roleName,
                 'guard_name' => 'web',
             ]);
         }
+    }
 
-        $super = $this->upsertUser('Super Duper Admin', 'superduperadmin@geoboard.com', $this->seedPasswordFor('superduperadmin'), 'superduperadmin', '09170000001');
-        $admin = $this->upsertUser('System Administrator', 'admin@geoboard.com', $this->seedPasswordFor('admin'), 'admin', '09170000002');
-        $owner = $this->upsertUser('Boarding Owner One', 'owner1@geoboard.com', $this->seedPasswordFor('owner'), 'owner', '09170000003');
-        $manager = $this->upsertUser('Boarding Manager One', 'manager1@geoboard.com', $this->seedPasswordFor('manager'), 'manager', '09170000004');
-        $tenant = $this->upsertUser('Tenant User One', 'tenant1@geoboard.com', $this->seedPasswordFor('tenant'), 'tenant', '09170000005');
-        $user = $this->upsertUser('Regular User One', 'user1@geoboard.com', $this->seedPasswordFor('user'), 'user', '09170000006');
-
-        foreach ([$super, $admin, $owner, $manager, $tenant, $user] as $account) {
-            $account->syncRoles([$account->role]);
-        }
-
-        $this->ensureOwnerProfile($owner->id, $admin->id, 'Owner One Realty');
-        $this->ensureOwnerProfile($manager->id, $admin->id, 'Manager One Holdings');
-        $this->ensureOwnerProfile($super->id, $admin->id, 'GeoBoard Super Office');
-
-        $this->ensureTenantProfile($tenant->id, $admin->id, 'Davao Student College');
-        $this->ensureTenantProfile($user->id, $admin->id, 'GeoBoard Community');
+    /**
+     * @return array<int, array{name: string, email: string, role: string, extra_roles?: array<int, string>, contact_number: string, default_password: string, password_env_keys: array<int, string>}>
+     */
+    private function canonicalAccountDefinitions(): array
+    {
+        return [
+            [
+                'name' => 'Admin',
+                'email' => 'owner@example.com',
+                'role' => 'owner',
+                'extra_roles' => ['superduperadmin'],
+                'contact_number' => '09170000001',
+                'default_password' => 'owner1234',
+                'password_env_keys' => ['SEED_PASSWORD_OWNER'],
+            ],
+            [
+                'name' => 'User',
+                'email' => 'tenant@example.com',
+                'role' => 'tenant',
+                'contact_number' => '09170000003',
+                'default_password' => 'tenant1234',
+                'password_env_keys' => ['SEED_PASSWORD_TENANT', 'SEED_PASSWORD_USER'],
+            ],
+        ];
     }
 
     private function upsertUser(string $name, string $email, string $password, string $role, string $contactNumber): User
@@ -57,6 +109,8 @@ class GeoBoardAccessSeeder extends Seeder
             'contact_number' => $contactNumber,
             'status' => 'active',
             'is_active' => true,
+            'is_archived' => false,
+            'archived_at' => null,
             'email_verified_at' => now(),
         ])->save();
 
@@ -105,15 +159,55 @@ class GeoBoardAccessSeeder extends Seeder
         );
     }
 
-    private function seedPasswordFor(string $role): string
+    private function reassignReferencesBeforeCleanup(int $ownerId, array $keepUserIds): void
     {
-        $roleKey = 'SEED_PASSWORD_'.strtoupper($role);
-        $password = (string) env($roleKey, '');
-        if ($password !== '') {
-            return $password;
+        if (Schema::hasTable('boarding_houses') && Schema::hasColumn('boarding_houses', 'owner_id')) {
+            DB::table('boarding_houses')
+                ->whereNotNull('owner_id')
+                ->whereNotIn('owner_id', $keepUserIds)
+                ->update(['owner_id' => $ownerId]);
         }
 
-        return (string) env('SEED_DEFAULT_PASSWORD', 'ChangeThisPassword123!');
+        if (Schema::hasTable('owner_profiles') && Schema::hasColumn('owner_profiles', 'verified_by')) {
+            DB::table('owner_profiles')
+                ->whereNotNull('verified_by')
+                ->whereNotIn('verified_by', $keepUserIds)
+                ->update(['verified_by' => $ownerId]);
+        }
+
+        if (Schema::hasTable('tenant_profiles') && Schema::hasColumn('tenant_profiles', 'verified_by')) {
+            DB::table('tenant_profiles')
+                ->whereNotNull('verified_by')
+                ->whereNotIn('verified_by', $keepUserIds)
+                ->update(['verified_by' => $ownerId]);
+        }
+
+        if (Schema::hasTable('approvals') && Schema::hasColumn('approvals', 'reviewer_id')) {
+            DB::table('approvals')
+                ->whereNotNull('reviewer_id')
+                ->whereNotIn('reviewer_id', $keepUserIds)
+                ->update(['reviewer_id' => $ownerId]);
+        }
+
+    }
+
+    private function removeNonCanonicalUsers(array $canonicalEmails): void
+    {
+        User::query()
+            ->whereNotIn('email', $canonicalEmails)
+            ->delete();
+    }
+
+    private function seedPasswordFromKeys(array $keys, string $default): string
+    {
+        foreach ($keys as $key) {
+            $password = (string) env($key, '');
+            if ($password !== '') {
+                return $password;
+            }
+        }
+
+        return $default;
     }
 
     private function ensureSafeSeedPasswordUsage(): void
@@ -122,10 +216,18 @@ class GeoBoardAccessSeeder extends Seeder
             return;
         }
 
-        $default = (string) env('SEED_DEFAULT_PASSWORD', 'ChangeThisPassword123!');
-        if ($default === 'ChangeThisPassword123!') {
+        $requiredKeys = ['SEED_PASSWORD_OWNER', 'SEED_PASSWORD_TENANT'];
+        foreach ($requiredKeys as $key) {
+            if ((string) env($key, '') === '') {
+                throw new \RuntimeException(
+                    'Refusing to seed role credentials in production. Set SEED_PASSWORD_OWNER and SEED_PASSWORD_TENANT.'
+                );
+            }
+        }
+
+        if ((string) env('SEED_DEFAULT_PASSWORD', '') !== '') {
             throw new \RuntimeException(
-                'Refusing to seed default credentials in production. Set SEED_DEFAULT_PASSWORD or SEED_PASSWORD_* values.'
+                'SEED_DEFAULT_PASSWORD is no longer used by GeoBoardAccessSeeder. Use explicit SEED_PASSWORD_* role keys.'
             );
         }
     }

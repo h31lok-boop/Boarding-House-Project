@@ -1,6 +1,6 @@
 # Boarding House Project (GeoBoard)
 
-Laravel 12 application for boarding house management, geotagged listings, and role-based operations (`superduperadmin`, `admin`, `owner`, `tenant`, `caretaker`, `osas`).
+Laravel 12 application for boarding house management, geotagged listings, and role-based operations (`owner`, `caretaker`, `tenant`, `osas`).
 
 ## Stack
 
@@ -55,15 +55,19 @@ Laravel 12 application for boarding house management, geotagged listings, and ro
 
 Seeders read credentials from env:
 
-- `SEED_DEFAULT_PASSWORD`
-- `SEED_PASSWORD_SUPERDUPERADMIN`
-- `SEED_PASSWORD_ADMIN`
 - `SEED_PASSWORD_OWNER`
-- `SEED_PASSWORD_MANAGER`
+- `SEED_PASSWORD_CARETAKER`
 - `SEED_PASSWORD_TENANT`
-- `SEED_PASSWORD_USER`
+- `SEED_PASSWORD_OSAS`
 
-In production, seeders refuse to run with the fallback default password.
+Default local credentials after seeding:
+
+- `owner` / `owner123` (Owner / Super Admin)
+- `caretaker` / `caretaker123` (Caretaker / Admin)
+- `tenant` / `tenant123` (Tenant / User)
+- `osas` / `osas123` (OSAS / Validator)
+
+In production, seeding refuses to run unless all four role password env keys are set.
 
 ## Notes
 

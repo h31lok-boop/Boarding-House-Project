@@ -17,6 +17,8 @@ class Inquiry extends Model
         'user_id',
         'boarding_house_id',
         'message',
+        'response_message',
+        'responded_by',
         'status',
         'priority',
         'replied_at',
@@ -34,5 +36,10 @@ class Inquiry extends Model
     public function boardingHouse()
     {
         return $this->belongsTo(BoardingHouse::class);
+    }
+
+    public function respondedBy()
+    {
+        return $this->belongsTo(User::class, 'responded_by');
     }
 }

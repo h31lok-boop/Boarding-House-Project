@@ -1,1103 +1,607 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StaySafe Finder | Comfort & Community</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        :root {
-            --primary: #ff7e5f;
-            --secondary: #feb47b;
-            --dark: #333;
-            --light: #f9f9f9;
-            --shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-        }
-
-        body {
-            line-height: 1.6;
-            color: var(--dark);
-            overflow-x: hidden;
-            background-color: #f5f5f5;
-        }
-
-        .container {
-            width: 90%;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-
-        /* Header & Navigation */
-        header {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            z-index: 1000;
-            padding: 20px 0;
-            transition: all 0.5s ease;
-        }
-
-        header.scrolled {
-            background-color: rgba(255, 255, 255, 0.95);
-            padding: 15px 0;
-            box-shadow: var(--shadow);
-        }
-
-        .nav-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: var(--primary);
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-        }
-
-        .logo i {
-            margin-right: 10px;
-            font-size: 2rem;
-        }
-
-        .logo span {
-            color: var(--dark);
-        }
-
-        .nav-links {
-            display: flex;
-            list-style: none;
-        }
-
-        .nav-links li {
-            margin-left: 30px;
-        }
-
-        .nav-links a {
-            text-decoration: none;
-            color: var(--dark);
-            font-weight: 500;
-            transition: color 0.3s ease;
-            position: relative;
-        }
-
-        .nav-links a:hover {
-            color: var(--primary);
-        }
-
-        .nav-links a::after {
-            content: '';
-            position: absolute;
-            bottom: -5px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background-color: var(--primary);
-            transition: width 0.3s ease;
-        }
-
-        .nav-links a:hover::after {
-            width: 100%;
-        }
-
-        .book-btn,
-        .auth-btn {
-            background: linear-gradient(to right, var(--primary), var(--secondary));
-            color: white;
-            border: none;
-            padding: 10px 25px;
-            border-radius: 30px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            text-decoration: none;
-            white-space: nowrap;
-        }
-
-        .book-btn:hover,
-        .auth-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 7px 15px rgba(255, 126, 95, 0.3);
-        }
-
-        .nav-links a.auth-btn::after {
-            display: none;
-        }
-
-        .nav-links a.auth-btn,
-        .nav-links a.auth-btn:hover {
-            color: white;
-            font-weight: 600;
-        }
-
-        .mobile-menu-btn {
-            display: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: var(--dark);
-        }
-
-        /* Hero Section */
-        .hero {
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80');
-            background-size: cover;
-            background-position: center;
-            color: white;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .hero-content {
-            max-width: 800px;
-            margin: 0 auto;
-            opacity: 0;
-            transform: translateY(30px);
-            animation: fadeUp 1s ease forwards;
-        }
-
-        .hero h1 {
-            font-size: 3.5rem;
-            margin-bottom: 20px;
-            line-height: 1.2;
-        }
-
-        .hero p {
-            font-size: 1.2rem;
-            margin-bottom: 30px;
-            opacity: 0.9;
-        }
-
-        .hero-btns {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            flex-wrap: wrap;
-        }
-
-        .cta-btn {
-            padding: 15px 35px;
-            border-radius: 30px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 1rem;
-        }
-
-        .cta-primary {
-            background: linear-gradient(to right, var(--primary), var(--secondary));
-            color: white;
-            border: none;
-        }
-
-        .cta-secondary {
-            background: transparent;
-            color: white;
-            border: 2px solid white;
-        }
-
-        .cta-primary:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-        }
-
-        .cta-secondary:hover {
-            background: rgba(255, 255, 255, 0.1);
-            transform: translateY(-5px);
-        }
-
-        /* Features Section */
-        .section-title {
-            text-align: center;
-            margin-bottom: 50px;
-        }
-
-        .section-title h2 {
-            font-size: 2.5rem;
-            color: var(--dark);
-            margin-bottom: 15px;
-            position: relative;
-            display: inline-block;
-        }
-
-        .section-title h2::after {
-            content: '';
-            position: absolute;
-            bottom: -10px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 70px;
-            height: 4px;
-            background: linear-gradient(to right, var(--primary), var(--secondary));
-        }
-
-        .section-title p {
-            color: #666;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        .features {
-            padding: 100px 0;
-            background-color: white;
-        }
-
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 30px;
-        }
-
-        .feature-card {
-            background: white;
-            border-radius: 10px;
-            padding: 40px 30px;
-            text-align: center;
-            box-shadow: var(--shadow);
-            transition: transform 0.5s ease, box-shadow 0.5s ease;
-            opacity: 0;
-            transform: translateY(30px);
-        }
-
-        .feature-card.animated {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .feature-card:hover {
-            transform: translateY(-15px);
-            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
-        }
-
-        .feature-icon {
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 25px;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 2rem;
-        }
-
-        .feature-card h3 {
-            font-size: 1.5rem;
-            margin-bottom: 15px;
-            color: var(--dark);
-        }
-
-        .feature-card p {
-            color: #666;
-        }
-
-        /* Gallery Section */
-        .gallery {
-            padding: 100px 0;
-            background-color: #f9f9f9;
-        }
-
-        .gallery-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
-        }
-
-        .gallery-item {
-            height: 250px;
-            border-radius: 10px;
-            overflow: hidden;
-            position: relative;
-            cursor: pointer;
-            opacity: 0;
-            transform: scale(0.9);
-            transition: transform 0.5s ease, opacity 0.5s ease;
-        }
-
-        .gallery-item.animated {
-            opacity: 1;
-            transform: scale(1);
-        }
-
-        .gallery-item img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: transform 0.5s ease;
-        }
-
-        .gallery-item:hover img {
-            transform: scale(1.1);
-        }
-
-        .gallery-overlay {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
-            padding: 20px;
-            color: white;
-            transform: translateY(100%);
-            transition: transform 0.5s ease;
-        }
-
-        .gallery-item:hover .gallery-overlay {
-            transform: translateY(0);
-        }
-
-        /* Testimonials */
-        .testimonials {
-            padding: 100px 0;
-            background-color: white;
-        }
-
-        .testimonial-slider {
-            max-width: 800px;
-            margin: 0 auto;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .testimonial {
-            background: #f9f9f9;
-            border-radius: 10px;
-            padding: 40px;
-            text-align: center;
-            box-shadow: var(--shadow);
-            display: none;
-            animation: fadeIn 1s ease;
-        }
-
-        .testimonial.active {
-            display: block;
-        }
-
-        .testimonial-content {
-            font-size: 1.2rem;
-            font-style: italic;
-            margin-bottom: 30px;
-            color: #555;
-        }
-
-        .testimonial-author {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .author-img {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            overflow: hidden;
-            margin-right: 15px;
-        }
-
-        .author-img img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .author-info h4 {
-            font-size: 1.1rem;
-            color: var(--dark);
-        }
-
-        .author-info p {
-            color: #777;
-            font-size: 0.9rem;
-        }
-
-        .slider-controls {
-            display: flex;
-            justify-content: center;
-            margin-top: 30px;
-        }
-
-        .slider-dot {
-            width: 12px;
-            height: 12px;
-            background-color: #ddd;
-            border-radius: 50%;
-            margin: 0 5px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
-
-        .slider-dot.active {
-            background-color: var(--primary);
-        }
-
-        /* Contact Section */
-        .contact {
-            padding: 100px 0;
-            background: linear-gradient(to right, var(--primary), var(--secondary));
-            color: white;
-        }
-
-        .contact-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 50px;
-        }
-
-        .contact-info h3 {
-            font-size: 1.8rem;
-            margin-bottom: 20px;
-        }
-
-        .contact-info p {
-            margin-bottom: 30px;
-            opacity: 0.9;
-        }
-
-        .contact-details {
-            margin-top: 30px;
-        }
-
-        .contact-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .contact-item i {
-            font-size: 1.2rem;
-            margin-right: 15px;
-            width: 40px;
-            height: 40px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .contact-form input,
-        .contact-form textarea {
-            width: 100%;
-            padding: 15px;
-            margin-bottom: 20px;
-            border: none;
-            border-radius: 5px;
-            background: rgba(255, 255, 255, 0.9);
-            font-size: 1rem;
-        }
-
-        .contact-form textarea {
-            min-height: 150px;
-            resize: vertical;
-        }
-
-        /* Footer */
-        footer {
-            background-color: var(--dark);
-            color: white;
-            padding: 60px 0 30px;
-        }
-
-        .footer-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 40px;
-            margin-bottom: 40px;
-        }
-
-        .footer-col h3 {
-            font-size: 1.3rem;
-            margin-bottom: 25px;
-            color: var(--primary);
-        }
-
-        .footer-col p {
-            opacity: 0.8;
-            margin-bottom: 20px;
-        }
-
-        .social-links {
-            display: flex;
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .social-links a {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 40px;
-            height: 40px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-            color: white;
-            text-decoration: none;
-            transition: all 0.3s ease;
-        }
-
-        .social-links a:hover {
-            background: var(--primary);
-            transform: translateY(-5px);
-        }
-
-        .footer-links {
-            list-style: none;
-        }
-
-        .footer-links li {
-            margin-bottom: 12px;
-        }
-
-        .footer-links a {
-            color: rgba(255, 255, 255, 0.8);
-            text-decoration: none;
-            transition: color 0.3s ease;
-        }
-
-        .footer-links a:hover {
-            color: var(--primary);
-        }
-
-        .copyright {
-            text-align: center;
-            padding-top: 30px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            opacity: 0.7;
-            font-size: 0.9rem;
-        }
-
-        /* Animations */
-        @keyframes fadeUp {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-            to {
-                opacity: 1;
-            }
-        }
-
-        /* Responsive Styles */
-        @media (max-width: 992px) {
-            .hero h1 {
-                font-size: 2.8rem;
-            }
-            
-            .features-grid,
-            .gallery-container {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        @media (max-width: 768px) {
-            .mobile-menu-btn {
-                display: block;
-            }
-            
-            .nav-links {
-                position: fixed;
-                top: 80px;
-                left: -100%;
-                width: 100%;
-                flex-direction: column;
-                background-color: white;
-                padding: 30px;
-                box-shadow: var(--shadow);
-                transition: left 0.5s ease;
-            }
-            
-            .nav-links.active {
-                left: 0;
-            }
-            
-            .nav-links li {
-                margin: 15px 0;
-            }
-            
-            .hero h1 {
-                font-size: 2.2rem;
-            }
-            
-            .hero-btns {
-                flex-direction: column;
-                align-items: center;
-            }
-            
-            .features-grid,
-            .gallery-container {
-                grid-template-columns: 1fr;
-            }
-            
-            .section-title h2 {
-                font-size: 2rem;
-            }
-        }
-
-        /* Scroll Animation Classes */
-        .animate-on-scroll {
-            opacity: 0;
-            transform: translateY(30px);
-            transition: opacity 0.8s ease, transform 0.8s ease;
-        }
-
-        .animate-on-scroll.animated {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    </style>
+    <title>DSSC Boarding House System</title>
+    <x-theme-init />
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body>
-    <!-- Header & Navigation -->
-    <header id="header">
-        <div class="container nav-container">
-            <a href="#" class="logo">
-                <i class="fas fa-home"></i>
-                StaySafe<span>Finder</span>
-            </a>
-            
-            <div class="mobile-menu-btn" id="mobile-menu-btn">
-                <i class="fas fa-bars"></i>
-            </div>
-            
-            <ul class="nav-links" id="nav-links">
-                <li><a href="#home">Home</a></li>
-                <li><a href="#features">Features</a></li>
-                <li><a href="#gallery">Gallery</a></li>
-                <li><a href="#testimonials">Testimonials</a></li>
-                <li><a href="#contact">Contact</a></li>
-                <li>
-                    <a class="auth-btn" href="{{ route('auth.choice') }}">
-                        <i class="fas fa-sign-in-alt"></i> Sign In
+<body class="landing-page min-h-screen overflow-x-hidden">
+@php
+    $r = fn (string $name, array $params = [], ?string $fallback = null) => \Illuminate\Support\Facades\Route::has($name)
+        ? route($name, $params)
+        : ($fallback ?? '#');
+
+    $loginUrl = \Illuminate\Support\Facades\Route::has('login')
+        ? route('login')
+        : $r('auth.choice', [], '#contact');
+    $registerUrl = \Illuminate\Support\Facades\Route::has('register') ? route('register') : null;
+    $browseUrl = $r('tenant.boarding-houses', [], $r('user.boarding-houses.index', [], '#listings'));
+
+    $navItems = [
+        ['label' => 'Home', 'href' => '#home'],
+        ['label' => 'Features', 'href' => '#features'],
+        ['label' => 'Listings', 'href' => '#listings'],
+        ['label' => 'Gallery', 'href' => '#gallery'],
+        ['label' => 'Testimonials', 'href' => '#testimonials'],
+        ['label' => 'Contact', 'href' => '#contact'],
+    ];
+
+    $features = [
+        ['title' => 'Verified Boarding Houses', 'description' => 'Browse listings reviewed for student-friendly stay requirements.', 'tone' => 'blue', 'icon' => 'shield'],
+        ['title' => 'Easy Search', 'description' => 'Filter by location, price, amenities, and room availability.', 'tone' => 'purple', 'icon' => 'search'],
+        ['title' => 'Safe & Secure', 'description' => 'Find places with clear owner details and safety information.', 'tone' => 'emerald', 'icon' => 'lock'],
+        ['title' => 'Direct Inquiry', 'description' => 'Send questions to owners before applying or reserving.', 'tone' => 'orange', 'icon' => 'message'],
+        ['title' => 'Room Availability', 'description' => 'Check available rooms, bed spaces, and status updates.', 'tone' => 'teal', 'icon' => 'calendar'],
+        ['title' => 'Student Friendly', 'description' => 'Designed around DSSC students looking for reliable housing.', 'tone' => 'sky', 'icon' => 'users'],
+    ];
+
+    $listings = [
+        [
+            'name' => 'MetroNest Boarding Hub',
+            'location' => 'Purok 5, Goma, Digos City',
+            'price' => 'PHP 6,000 to PHP 7,200/month',
+            'rating' => '4.8',
+            'status' => 'Available',
+            'amenities' => ['WiFi', 'Study Area', 'CCTV'],
+            'image' => 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=900&q=80',
+        ],
+        [
+            'name' => 'Casa Digos Boarding Stay',
+            'location' => 'Purok 6, Igpit, Digos City',
+            'price' => 'PHP 3,500 to PHP 4,700/month',
+            'rating' => '4.6',
+            'status' => 'Available',
+            'amenities' => ['Kitchen', 'Laundry', 'Parking'],
+            'image' => 'https://images.unsplash.com/photo-1560185007-c5ca9d2c014d?auto=format&fit=crop&w=900&q=80',
+        ],
+        [
+            'name' => 'Sunrise Student Boarding House',
+            'location' => 'Purok 1, Aplaya, Digos City',
+            'price' => 'PHP 2,800 to PHP 4,000/month',
+            'rating' => '4.7',
+            'status' => 'Few slots left',
+            'amenities' => ['Near Campus', 'Water', 'Security'],
+            'image' => 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=900&q=80',
+        ],
+    ];
+
+    $steps = [
+        ['title' => 'Search', 'description' => 'Find listings near your school, workplace, or preferred barangay.'],
+        ['title' => 'Compare', 'description' => 'Review prices, amenities, ratings, and room availability.'],
+        ['title' => 'Inquire', 'description' => 'Message owners and ask about rules, schedules, and requirements.'],
+        ['title' => 'Move In', 'description' => 'Reserve a room and track your application from your dashboard.'],
+    ];
+
+    $gallery = [
+        ['src' => 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=900&q=80', 'label' => 'Clean shared rooms'],
+        ['src' => 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=900&q=80', 'label' => 'Private bed spaces'],
+        ['src' => 'https://images.unsplash.com/photo-1554995207-c18c203602cb?auto=format&fit=crop&w=900&q=80', 'label' => 'Common study areas'],
+        ['src' => 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=900&q=80', 'label' => 'Shared kitchen access'],
+    ];
+
+    $testimonials = [
+        ['initials' => 'MS', 'name' => 'Maria Santos', 'rating' => '5.0', 'comment' => 'The system helped me compare locations quickly and contact the owner before reserving.'],
+        ['initials' => 'JR', 'name' => 'John Reyes', 'rating' => '4.9', 'comment' => 'Saved listings and clear room details made it easier to choose a boarding house.'],
+        ['initials' => 'AL', 'name' => 'Ana Lopez', 'rating' => '4.8', 'comment' => 'I liked seeing availability and safety details before sending my application.'],
+    ];
+
+    $icon = function (string $name, string $class = 'h-5 w-5') {
+        $icons = [
+            'home' => '<svg class="'.$class.'" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 11.5 12 5l8 6.5V20a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1v-8.5Z"/></svg>',
+            'shield' => '<svg class="'.$class.'" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3 5 6v5.5c0 4.2 2.7 7.9 7 9.5 4.3-1.6 7-5.3 7-9.5V6l-7-3Z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m8.5 12 2.3 2.3 4.7-5"/></svg>',
+            'search' => '<svg class="'.$class.'" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7" stroke-width="1.8"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m20 20-3.5-3.5"/></svg>',
+            'lock' => '<svg class="'.$class.'" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="5" y="10" width="14" height="10" rx="2" stroke-width="1.8"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 10V8a4 4 0 1 1 8 0v2"/></svg>',
+            'message' => '<svg class="'.$class.'" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 6.5A2.5 2.5 0 0 1 7.5 4h9A2.5 2.5 0 0 1 19 6.5v6A2.5 2.5 0 0 1 16.5 15H9l-4 3V6.5Z"/></svg>',
+            'calendar' => '<svg class="'.$class.'" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="4" y="5" width="16" height="15" rx="2" stroke-width="1.8"/><path stroke-linecap="round" stroke-width="1.8" d="M8 3v4M16 3v4M7 11h10"/></svg>',
+            'users' => '<svg class="'.$class.'" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="9" cy="8" r="3.5" stroke-width="1.8"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3.5 20a5.5 5.5 0 0 1 11 0"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 11a3 3 0 1 0 0-6M17 20h3.5a4.5 4.5 0 0 0-5-4.5"/></svg>',
+            'star' => '<svg class="'.$class.'" viewBox="0 0 20 20" fill="currentColor"><path d="m10 1.5 2.5 5.2 5.7.8-4.1 4 1 5.7-5.1-2.7-5.1 2.7 1-5.7-4.1-4 5.7-.8L10 1.5Z"/></svg>',
+            'arrow' => '<svg class="'.$class.'" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 12h14M13 6l6 6-6 6"/></svg>',
+            'menu' => '<svg class="'.$class.'" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-width="1.8" d="M4 7h16M4 12h16M4 17h16"/></svg>',
+            'x' => '<svg class="'.$class.'" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M6 6l12 12M18 6 6 18"/></svg>',
+            'sun' => '<svg class="'.$class.'" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="4" stroke-width="1.8"/><path stroke-linecap="round" stroke-width="1.8" d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+            'moon' => '<svg class="'.$class.'" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M21 14.4A7.5 7.5 0 0 1 9.6 3 9 9 0 1 0 21 14.4Z"/></svg>',
+            'heart' => '<svg class="'.$class.'" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m12 20-1.8-1.7C5.8 14.3 3 11.7 3 8.5A4.5 4.5 0 0 1 7.5 4c1.7 0 3.3.8 4.5 2.1A6 6 0 0 1 16.5 4 4.5 4.5 0 0 1 21 8.5c0 3.2-2.8 5.8-7.2 9.8L12 20Z"/></svg>',
+        ];
+
+        return $icons[$name] ?? $icons['home'];
+    };
+@endphp
+
+<header class="sticky top-0 z-50 px-4 py-3 sm:px-6 lg:px-8">
+    <div class="landing-nav mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">
+        <a href="#home" class="flex min-w-0 items-center gap-3">
+            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-slate-950 text-white">
+                {!! $icon('home', 'h-5 w-5') !!}
+            </span>
+            <span class="min-w-0 leading-tight">
+                <span class="block truncate text-sm font-extrabold tracking-wide text-slate-950">DSSC BOARDING</span>
+                <span class="block truncate text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">HOUSE SYSTEM</span>
+            </span>
+        </a>
+
+        <nav class="hidden items-center gap-1 lg:flex">
+            @foreach ($navItems as $item)
+                <a href="{{ $item['href'] }}" class="rounded-xl px-3.5 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-100 hover:text-slate-950">{{ $item['label'] }}</a>
+            @endforeach
+        </nav>
+
+        <div class="hidden items-center gap-2 lg:flex">
+            <x-theme-toggle class="landing-icon-button" />
+            <a href="{{ $loginUrl }}" class="landing-button landing-button-secondary">Sign In</a>
+            @if ($registerUrl)
+                <a href="{{ $registerUrl }}" class="landing-button landing-button-primary">Register</a>
+            @endif
+        </div>
+
+        <button type="button" id="landing-menu-button" class="landing-icon-button lg:hidden" aria-label="Open navigation" aria-expanded="false">
+            <span data-menu-open>{!! $icon('menu', 'h-5 w-5') !!}</span>
+            <span data-menu-close class="hidden">{!! $icon('x', 'h-5 w-5') !!}</span>
+        </button>
+    </div>
+
+    <div id="landing-mobile-menu" class="landing-nav mx-auto mt-3 hidden max-w-7xl p-3 lg:hidden">
+        <nav class="grid gap-1">
+            @foreach ($navItems as $item)
+                <a href="{{ $item['href'] }}" class="rounded-xl px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-100">{{ $item['label'] }}</a>
+            @endforeach
+        </nav>
+        <div class="mt-3 grid gap-2 border-t border-slate-200 pt-3 sm:grid-cols-3">
+            <x-theme-toggle class="landing-button landing-button-secondary justify-center" show-label prefix="Theme:" />
+            <a href="{{ $loginUrl }}" class="landing-button landing-button-secondary justify-center">Sign In</a>
+            @if ($registerUrl)
+                <a href="{{ $registerUrl }}" class="landing-button landing-button-primary justify-center">Register</a>
+            @endif
+        </div>
+    </div>
+</header>
+
+<main>
+    <section id="home" class="px-4 pb-14 pt-6 sm:px-6 lg:px-8 lg:pb-20">
+        <div class="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)] lg:items-center">
+            <div class="space-y-7">
+                <span class="inline-flex w-fit items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700">
+                    <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                    Now accepting reservations for 2026
+                </span>
+
+                <div class="space-y-4">
+                    <h1 class="max-w-3xl text-4xl font-black tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
+                        Find Your Perfect Boarding House
+                    </h1>
+                    <p class="max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
+                        Browse safe, verified, and student-friendly boarding houses near your school or workplace.
+                    </p>
+                </div>
+
+                <div class="flex flex-col gap-3 sm:flex-row">
+                    <a href="{{ $browseUrl }}" class="landing-button landing-button-primary justify-center px-6 py-3">
+                        Browse Listings
+                        {!! $icon('arrow', 'h-4 w-4') !!}
                     </a>
-                </li>
+                    <a href="{{ $loginUrl }}" class="landing-button landing-button-secondary justify-center px-6 py-3">Sign In</a>
+                </div>
 
-            </ul>
-        </div>
-    </header>
-
-    <!-- Hero Section -->
-    <section class="hero" id="home">
-        <div class="container hero-content">
-            <h1>Welcome to StaySafe Finder</h1>
-            <p>Experience comfortable living in a friendly community. Our boarding house offers modern amenities, a safe environment, and a home-like atmosphere for students and professionals.</p>
-            <div class="hero-btns">
-                <button class="cta-btn cta-primary">Start Booking</button>
+                <div class="grid gap-3 sm:grid-cols-3">
+                    @foreach ([['value' => '500+', 'label' => 'Happy Residents'], ['value' => '98%', 'label' => 'Satisfaction'], ['value' => '15+', 'label' => 'Years Experience']] as $stat)
+                        <article class="landing-card p-4">
+                            <p class="text-2xl font-black text-slate-950">{{ $stat['value'] }}</p>
+                            <p class="mt-1 text-sm font-semibold text-slate-500">{{ $stat['label'] }}</p>
+                        </article>
+                    @endforeach
+                </div>
             </div>
-        </div>
-    </section>
 
-    <!-- Features Section -->
-    <section class="features" id="features">
-        <div class="container">
-            <div class="section-title">
-                <h2>Why Choose Our Boarding House</h2>
-                <p>We provide everything you need for a comfortable and convenient stay away from home.</p>
-            </div>
-            
-            <div class="features-grid">
-                <div class="feature-card animate-on-scroll">
-                    <div class="feature-icon">
-                        <i class="fas fa-wifi"></i>
+            <div class="landing-hero-media">
+                <img src="https://images.unsplash.com/photo-1560185007-5f0bb1866cab?auto=format&fit=crop&w=1200&q=85" alt="Modern boarding house room" class="h-full min-h-[360px] w-full rounded-2xl object-cover shadow-2xl">
+                <article class="landing-card absolute bottom-4 left-4 right-4 p-4 sm:left-auto sm:w-80">
+                    <div class="flex gap-3">
+                        <img src="{{ $listings[0]['image'] }}" alt="MetroNest Boarding Hub" class="h-20 w-24 shrink-0 rounded-xl object-cover">
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-sm font-black text-slate-950">MetroNest Boarding Hub</p>
+                            <p class="mt-1 text-xs font-semibold text-slate-500">Purok 5, Goma</p>
+                            <div class="mt-2 flex items-center justify-between gap-2">
+                                <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-700">Available</span>
+                                <span class="inline-flex items-center gap-1 text-sm font-bold text-amber-600">{!! $icon('star', 'h-4 w-4') !!} 4.8</span>
+                            </div>
+                        </div>
                     </div>
-                    <h3>High-Speed Internet</h3>
-                    <p>Stay connected with our reliable high-speed WiFi available throughout the property.</p>
-                </div>
-                
-                <div class="feature-card animate-on-scroll">
-                    <div class="feature-icon">
-                        <i class="fas fa-utensils"></i>
-                    </div>
-                    <h3>Home-Cooked Meals</h3>
-                    <p>Enjoy nutritious and delicious home-cooked meals prepared with care and hygiene.</p>
-                </div>
-                
-                <div class="feature-card animate-on-scroll">
-                    <div class="feature-icon">
-                        <i class="fas fa-shield-alt"></i>
-                    </div>
-                    <h3>24/7 Security</h3>
-                    <p>Your safety is our priority with CCTV surveillance and security personnel on duty.</p>
-                </div>
-                
-                <div class="feature-card animate-on-scroll">
-                    <div class="feature-icon">
-                        <i class="fas fa-tint"></i>
-                    </div>
-                    <h3>Laundry Service</h3>
-                    <p>Regular laundry services to keep your clothes clean and fresh without any hassle.</p>
-                </div>
-                
-                <div class="feature-card animate-on-scroll">
-                    <div class="feature-icon">
-                        <i class="fas fa-car"></i>
-                    </div>
-                    <h3>Parking Space</h3>
-                    <p>Secure parking area available for residents with personal vehicles.</p>
-                </div>
-                
-                <div class="feature-card animate-on-scroll">
-                    <div class="feature-icon">
-                        <i class="fas fa-users"></i>
-                    </div>
-                    <h3>Community Events</h3>
-                    <p>Regular community gatherings and events to foster friendships and networking.</p>
-                </div>
+                </article>
             </div>
         </div>
     </section>
 
-    <!-- Gallery Section -->
-    <section class="gallery" id="gallery">
-        <div class="container">
-            <div class="section-title">
-                <h2>Our Boarding House Gallery</h2>
-                <p>Take a look at our comfortable rooms and common areas designed for your convenience.</p>
+    <section id="features" class="landing-section">
+        <div class="landing-section-header">
+            <span class="landing-eyebrow">Features</span>
+            <h2>Why Choose DSSC Boarding?</h2>
+            <p>Everything tenants and owners need in one consistent boarding house system.</p>
+        </div>
+
+        <div class="mx-auto grid max-w-7xl gap-4 px-4 sm:grid-cols-2 sm:px-6 lg:grid-cols-3 lg:px-8">
+            @foreach ($features as $feature)
+                <article class="landing-card p-5">
+                    <span class="landing-feature-icon landing-feature-{{ $feature['tone'] }}">
+                        {!! $icon($feature['icon'], 'h-6 w-6') !!}
+                    </span>
+                    <h3 class="mt-5 text-lg font-black text-slate-950">{{ $feature['title'] }}</h3>
+                    <p class="mt-2 text-sm leading-6 text-slate-600">{{ $feature['description'] }}</p>
+                </article>
+            @endforeach
+        </div>
+    </section>
+
+    <section id="listings" class="landing-section bg-white/60">
+        <div class="landing-section-header">
+            <span class="landing-eyebrow">Featured Listings</span>
+            <h2>Boarding Houses Near You</h2>
+            <p>Preview popular listings using the same card style tenants see inside their dashboard.</p>
+        </div>
+
+        <div class="mx-auto grid max-w-7xl gap-5 px-4 sm:px-6 lg:grid-cols-3 lg:px-8">
+            @foreach ($listings as $listing)
+                <article class="landing-card overflow-hidden">
+                    <img src="{{ $listing['image'] }}" alt="{{ $listing['name'] }}" class="h-48 w-full object-cover">
+                    <div class="space-y-4 p-5">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <h3 class="text-lg font-black text-slate-950">{{ $listing['name'] }}</h3>
+                                <p class="mt-1 text-sm font-semibold text-slate-500">{{ $listing['location'] }}</p>
+                            </div>
+                            <button type="button" class="landing-icon-button shrink-0" aria-label="Save {{ $listing['name'] }}">
+                                {!! $icon('heart', 'h-5 w-5') !!}
+                            </button>
+                        </div>
+
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700">{{ $listing['status'] }}</span>
+                            <span class="inline-flex items-center gap-1 text-sm font-bold text-amber-600">{!! $icon('star', 'h-4 w-4') !!} {{ $listing['rating'] }}</span>
+                        </div>
+
+                        <p class="text-sm font-black text-slate-800">{{ $listing['price'] }}</p>
+
+                        <div class="flex flex-wrap gap-2">
+                            @foreach ($listing['amenities'] as $amenity)
+                                <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600">{{ $amenity }}</span>
+                            @endforeach
+                        </div>
+
+                        <a href="{{ $browseUrl }}?q={{ urlencode($listing['name']) }}" class="landing-button landing-button-primary w-full justify-center">View Details</a>
+                    </div>
+                </article>
+            @endforeach
+        </div>
+    </section>
+
+    <section class="landing-section">
+        <div class="landing-section-header">
+            <span class="landing-eyebrow">How It Works</span>
+            <h2>From Search To Move In</h2>
+            <p>Simple steps for finding and managing a boarding house application.</p>
+        </div>
+
+        <div class="mx-auto grid max-w-7xl gap-4 px-4 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:px-8">
+            @foreach ($steps as $index => $step)
+                <article class="landing-card p-5">
+                    <span class="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-700 text-sm font-black text-white">{{ $index + 1 }}</span>
+                    <h3 class="mt-5 text-lg font-black text-slate-950">{{ $step['title'] }}</h3>
+                    <p class="mt-2 text-sm leading-6 text-slate-600">{{ $step['description'] }}</p>
+                </article>
+            @endforeach
+        </div>
+    </section>
+
+    <section id="gallery" class="landing-section landing-gallery-section animate-on-scroll fade-up bg-white/60">
+        <div class="landing-section-header">
+            <span class="landing-eyebrow animate-on-scroll scale-in" style="--animation-delay: 100ms;">Gallery</span>
+            <h2 class="animate-on-scroll fade-up" style="--animation-delay: 200ms;">Clean, Student-Friendly Spaces</h2>
+            <p class="animate-on-scroll fade-up" style="--animation-delay: 300ms;">Rounded image cards keep the public page aligned with the dashboard design.</p>
+        </div>
+
+        <div class="mx-auto grid max-w-7xl gap-4 px-4 sm:grid-cols-2 sm:px-6 lg:grid-cols-4 lg:px-8">
+            @foreach ($gallery as $item)
+                <button
+                    type="button"
+                    class="landing-card landing-gallery-card animate-on-scroll stagger-card overflow-hidden text-left"
+                    style="--animation-delay: {{ ($loop->iteration) * 100 }}ms;"
+                    data-gallery-index="{{ $loop->index }}"
+                    aria-label="View {{ $item['label'] }}"
+                >
+                    <span class="landing-gallery-image">
+                        <img src="{{ $item['src'] }}" alt="{{ $item['label'] }}" class="h-56 w-full object-cover">
+                        <span class="landing-gallery-overlay">
+                            <span class="landing-gallery-view">
+                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" />
+                                    <circle cx="12" cy="12" r="3" stroke-width="1.8" />
+                                </svg>
+                                View Photo
+                            </span>
+                        </span>
+                    </span>
+                    <span class="block p-4 text-sm font-bold text-slate-700">{{ $item['label'] }}</span>
+                </button>
+            @endforeach
+        </div>
+    </section>
+
+    <div id="gallery-modal" class="landing-gallery-modal hidden" role="dialog" aria-modal="true" aria-labelledby="gallery-modal-title">
+        <div class="landing-gallery-modal-panel">
+            <button type="button" id="gallery-modal-close" class="landing-gallery-modal-close" aria-label="Close image preview">
+                {!! $icon('x', 'h-5 w-5') !!}
+            </button>
+
+            <button type="button" id="gallery-modal-prev" class="landing-gallery-modal-arrow landing-gallery-modal-prev" aria-label="Previous image">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m15 18-6-6 6-6" />
+                </svg>
+            </button>
+
+            <img id="gallery-modal-image" src="" alt="" class="landing-gallery-modal-image">
+
+            <button type="button" id="gallery-modal-next" class="landing-gallery-modal-arrow landing-gallery-modal-next" aria-label="Next image">
+                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m9 18 6-6-6-6" />
+                </svg>
+            </button>
+
+            <div class="landing-gallery-modal-caption">
+                <h3 id="gallery-modal-title"></h3>
             </div>
-            
-            <div class="gallery-container">
-                <div class="gallery-item animate-on-scroll">
-                    <img src="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=958&q=80" alt="Single Room">
-                    <div class="gallery-overlay">
-                        <h3>Cozy Single Room</h3>
+        </div>
+    </div>
+
+    <section id="testimonials" class="landing-section">
+        <div class="landing-section-header">
+            <span class="landing-eyebrow">Testimonials</span>
+            <h2>Trusted By Students</h2>
+            <p>Review cards use the same clean structure as the account dashboards.</p>
+        </div>
+
+        <div class="mx-auto grid max-w-7xl gap-5 px-4 sm:px-6 lg:grid-cols-3 lg:px-8">
+            @foreach ($testimonials as $testimonial)
+                <article class="landing-card p-5">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <span class="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-sm font-black text-blue-700">{{ $testimonial['initials'] }}</span>
+                            <div>
+                                <h3 class="font-black text-slate-950">{{ $testimonial['name'] }}</h3>
+                                <span class="mt-1 inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-700">Verified Tenant</span>
+                            </div>
+                        </div>
+                        <span class="inline-flex items-center gap-1 text-sm font-black text-amber-600">{!! $icon('star', 'h-4 w-4') !!} {{ $testimonial['rating'] }}</span>
                     </div>
-                </div>
-                
-                <div class="gallery-item animate-on-scroll">
-                    <img src="https://images.unsplash.com/photo-1555854877-bab0e564b8d5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1169&q=80" alt="Common Area">
-                    <div class="gallery-overlay">
-                        <h3>Spacious Common Area</h3>
-                    </div>
-                </div>
-                
-                <div class="gallery-item animate-on-scroll">
-                    <img src="https://images.unsplash.com/photo-1613977257363-707ba9348227?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80" alt="Study Room">
-                    <div class="gallery-overlay">
-                        <h3>Quiet Study Room</h3>
-                    </div>
-                </div>
-                
-                <div class="gallery-item animate-on-scroll">
-                    <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1074&q=80" alt="Kitchen">
-                    <div class="gallery-overlay">
-                        <h3>Fully Equipped Kitchen</h3>
-                    </div>
-                </div>
+                    <p class="mt-5 text-sm leading-6 text-slate-600">{{ $testimonial['comment'] }}</p>
+                </article>
+            @endforeach
+        </div>
+    </section>
+
+    <section class="px-4 py-8 sm:px-6 lg:px-8">
+        <div class="landing-cta mx-auto flex max-w-7xl flex-col gap-5 rounded-2xl p-6 text-white shadow-2xl sm:p-8 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+                <h2 class="text-2xl font-black sm:text-3xl">Ready to find your next boarding house?</h2>
+                <p class="mt-2 max-w-2xl text-sm leading-6 text-white/75">Create an account or browse listings to start comparing safe, verified options.</p>
+            </div>
+            <div class="flex flex-col gap-3 sm:flex-row">
+                <a href="{{ $browseUrl }}" class="landing-button bg-white text-blue-800 hover:bg-slate-100">Browse Listings</a>
+                @if ($registerUrl)
+                    <a href="{{ $registerUrl }}" class="landing-button bg-emerald-500 text-white hover:bg-emerald-600">Create Account</a>
+                @endif
             </div>
         </div>
     </section>
 
-    <!-- Testimonials Section -->
-    <section class="testimonials" id="testimonials">
-        <div class="container">
-            <div class="section-title">
-                <h2>What Our Residents Say</h2>
-                <p>Hear from our residents about their experience living at StaySafe Finder.</p>
-            </div>
-            
-            <div class="testimonial-slider">
-                <div class="testimonial active">
-                    <div class="testimonial-content">
-                        "I've been living here for 2 years and it feels like home. The environment is friendly, the food is great, and the location is perfect for my university."
-                    </div>
-                    <div class="testimonial-author">
-                        <div class="author-img">
-                            <img src="https://randomuser.me/api/portraits/women/32.jpg" alt="Sarah Johnson">
-                        </div>
-                        <div class="author-info">
-                            <h4>Sarah Johnson</h4>
-                            <p>Medical Student, Resident for 2 years</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="testimonial">
-                    <div class="testimonial-content">
-                        "As a working professional, I appreciate the quiet study areas and reliable internet. The boarding house is clean, safe, and well-managed."
-                    </div>
-                    <div class="testimonial-author">
-                        <div class="author-img">
-                            <img src="https://randomuser.me/api/portraits/men/54.jpg" alt="Michael Chen">
-                        </div>
-                        <div class="author-info">
-                            <h4>Michael Chen</h4>
-                            <p>Software Engineer, Resident for 1 year</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="testimonial">
-                    <div class="testimonial-content">
-                        "The community events helped me make friends quickly when I moved to the city. The rooms are comfortable and the staff is always helpful."
-                    </div>
-                    <div class="testimonial-author">
-                        <div class="author-img">
-                            <img src="https://randomuser.me/api/portraits/women/67.jpg" alt="Priya Sharma">
-                        </div>
-                        <div class="author-info">
-                            <h4>Priya Sharma</h4>
-                            <p>Business Student, Resident for 8 months</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="slider-controls">
-                    <div class="slider-dot active" data-slide="0"></div>
-                    <div class="slider-dot" data-slide="1"></div>
-                    <div class="slider-dot" data-slide="2"></div>
+    <section id="contact" class="landing-section">
+        <div class="mx-auto grid max-w-7xl gap-6 px-4 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8">
+            <div>
+                <span class="landing-eyebrow">Contact</span>
+                <h2 class="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-4xl">Need help finding a boarding house?</h2>
+                <p class="mt-4 text-sm leading-6 text-slate-600 sm:text-base">Send a message to DSSC Boarding support for questions about listings, reservations, or account access.</p>
+                <div class="mt-6 space-y-3 text-sm font-semibold text-slate-600">
+                    <p>DSSC Boarding House System</p>
+                    <p>Digos City, Davao del Sur</p>
+                    <p>support@dsscboarding.local</p>
                 </div>
             </div>
+
+            <form id="landing-contact-form" class="landing-card space-y-4 p-5 sm:p-6">
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <label class="block">
+                        <span class="text-sm font-bold text-slate-700">Full Name</span>
+                        <input type="text" name="name" required class="landing-input mt-2" placeholder="Juan Student">
+                    </label>
+                    <label class="block">
+                        <span class="text-sm font-bold text-slate-700">Email Address</span>
+                        <input type="email" name="email" required class="landing-input mt-2" placeholder="juan@example.com">
+                    </label>
+                </div>
+                <label class="block">
+                    <span class="text-sm font-bold text-slate-700">Message</span>
+                    <textarea name="message" required rows="5" class="landing-input mt-2 resize-none" placeholder="Tell us what you need help with."></textarea>
+                </label>
+                <p id="landing-contact-status" class="hidden rounded-xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">Message sent. Support will review your request.</p>
+                <button type="submit" class="landing-button landing-button-primary w-full justify-center py-3">Send Message</button>
+            </form>
         </div>
     </section>
+</main>
 
-    <!-- Contact Section -->
-    <section class="contact" id="contact">
-        <div class="container contact-container">
-            <div class="contact-info">
-                <h3>Get In Touch</h3>
-                <p>Have questions or want to schedule a visit? Contact us today to learn more about availability and pricing.</p>
-                
-                <div class="contact-details">
-                    <div class="contact-item">
-                        <i class="fas fa-map-marker-alt"></i>
-                        <div>
-                            <h4>Our Location</h4>
-                            <p>123 Sunshine Avenue, Greenfield City</p>
-                        </div>
-                    </div>
-                    
-                    <div class="contact-item">
-                        <i class="fas fa-phone-alt"></i>
-                        <div>
-                            <h4>Phone Number</h4>
-                            <p>(123) 456-7890</p>
-                        </div>
-                    </div>
-                    
-                    <div class="contact-item">
-                        <i class="fas fa-envelope"></i>
-                        <div>
-                            <h4>Email Address</h4>
-                            <p>info@staysafefinder.com</p>
-                        </div>
-                    </div>
+<footer class="landing-footer mt-10">
+    <div class="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-2 lg:grid-cols-4 lg:px-8">
+        <div>
+            <div class="flex items-center gap-3">
+                <span class="flex h-11 w-11 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white">{!! $icon('home', 'h-5 w-5') !!}</span>
+                <div>
+                    <p class="font-black">DSSC Boarding</p>
+                    <p class="text-xs font-bold uppercase tracking-[0.18em] text-white/55">House System</p>
                 </div>
             </div>
-            
-            <div class="contact-form">
-                <form id="inquiry-form">
-                    <input type="text" placeholder="Your Name" required>
-                    <input type="email" placeholder="Your Email" required>
-                    <input type="tel" placeholder="Phone Number">
-                    <textarea placeholder="Your Message" required></textarea>
-                    <button type="submit" class="cta-btn cta-primary">Send Message</button>
-                </form>
+            <p class="mt-4 text-sm leading-6 text-white/65">A clean public entry point for tenants, owners, and boarding house support workflows.</p>
+        </div>
+
+        <div>
+            <h3 class="font-black">Quick Links</h3>
+            <div class="mt-4 grid gap-2 text-sm text-white/65">
+                @foreach ($navItems as $item)
+                    <a href="{{ $item['href'] }}" class="hover:text-white">{{ $item['label'] }}</a>
+                @endforeach
             </div>
         </div>
-    </section>
 
-    <!-- Footer -->
-    <footer>
-        <div class="container">
-            <div class="footer-container">
-                <div class="footer-col">
-                    <h3>StaySafe Finder</h3>
-                    <p>Providing comfortable, safe, and affordable boarding solutions for students and professionals since 2010.</p>
-                    <div class="social-links">
-                        <a href="#"><i class="fab fa-facebook-f"></i></a>
-                        <a href="#"><i class="fab fa-twitter"></i></a>
-                        <a href="#"><i class="fab fa-instagram"></i></a>
-                        <a href="#"><i class="fab fa-linkedin-in"></i></a>
-                    </div>
-                </div>
-                
-                <div class="footer-col">
-                    <h3>Quick Links</h3>
-                    <ul class="footer-links">
-                        <li><a href="#home">Home</a></li>
-                        <li><a href="#features">Features</a></li>
-                        <li><a href="#gallery">Gallery</a></li>
-                        <li><a href="#testimonials">Testimonials</a></li>
-                        <li><a href="#contact">Contact</a></li>
-                    </ul>
-                </div>
-                
-                <div class="footer-col">
-                    <h3>Our Services</h3>
-                    <ul class="footer-links">
-                        <li><a href="#">Accommodation</a></li>
-                        <li><a href="#">Meal Plans</a></li>
-                        <li><a href="#">Laundry Service</a></li>
-                        <li><a href="#">Study Facilities</a></li>
-                        <li><a href="#">Security</a></li>
-                    </ul>
-                </div>
-                
-                <div class="footer-col">
-                    <h3>Newsletter</h3>
-                    <p>Subscribe to our newsletter for updates on availability and special offers.</p>
-                    <form id="newsletter-form">
-                        <input type="email" placeholder="Your Email" required>
-                        <button type="submit" class="book-btn">Subscribe</button>
-                    </form>
-                </div>
-            </div>
-            
-            <div class="copyright">
-                <p>&copy; 2023 StaySafe Finder. All rights reserved.</p>
+        <div>
+            <h3 class="font-black">Account Links</h3>
+            <div class="mt-4 grid gap-2 text-sm text-white/65">
+                <a href="{{ $loginUrl }}" class="hover:text-white">Sign In</a>
+                @if ($registerUrl)
+                    <a href="{{ $registerUrl }}" class="hover:text-white">Create Account</a>
+                @endif
+                <a href="{{ $browseUrl }}" class="hover:text-white">Browse Listings</a>
             </div>
         </div>
-    </footer>
 
-    <script>
-        // Mobile Menu Toggle
-        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
-        const navLinks = document.getElementById('nav-links');
-        
-        mobileMenuBtn.addEventListener('click', () => {
-            navLinks.classList.toggle('active');
-            mobileMenuBtn.querySelector('i').classList.toggle('fa-bars');
-            mobileMenuBtn.querySelector('i').classList.toggle('fa-times');
+        <div>
+            <h3 class="font-black">Support</h3>
+            <div class="mt-4 grid gap-2 text-sm text-white/65">
+                <a href="#contact" class="hover:text-white">Contact Support</a>
+                <a href="#features" class="hover:text-white">How It Works</a>
+                <a href="#listings" class="hover:text-white">Featured Listings</a>
+            </div>
+        </div>
+    </div>
+    <div class="border-t border-white/10 px-4 py-5 text-center text-sm font-semibold text-white/50">
+        &copy; 2026 DSSC Boarding House System. All rights reserved.
+    </div>
+</footer>
+
+<script>
+    const menuButton = document.getElementById('landing-menu-button');
+    const mobileMenu = document.getElementById('landing-mobile-menu');
+    const openIcon = document.querySelector('[data-menu-open]');
+    const closeIcon = document.querySelector('[data-menu-close]');
+    const contactForm = document.getElementById('landing-contact-form');
+    const contactStatus = document.getElementById('landing-contact-status');
+    const galleryItems = @json($gallery);
+    const animatedItems = document.querySelectorAll('.animate-on-scroll');
+    const galleryCards = document.querySelectorAll('[data-gallery-index]');
+    const galleryModal = document.getElementById('gallery-modal');
+    const galleryModalImage = document.getElementById('gallery-modal-image');
+    const galleryModalTitle = document.getElementById('gallery-modal-title');
+    const galleryModalClose = document.getElementById('gallery-modal-close');
+    const galleryModalPrev = document.getElementById('gallery-modal-prev');
+    const galleryModalNext = document.getElementById('gallery-modal-next');
+    let activeGalleryIndex = 0;
+
+    menuButton?.addEventListener('click', () => {
+        const isOpen = ! mobileMenu.classList.contains('hidden');
+        mobileMenu.classList.toggle('hidden', isOpen);
+        openIcon.classList.toggle('hidden', ! isOpen);
+        closeIcon.classList.toggle('hidden', isOpen);
+        menuButton.setAttribute('aria-expanded', String(! isOpen));
+    });
+
+    document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
+        anchor.addEventListener('click', () => {
+            mobileMenu?.classList.add('hidden');
+            openIcon?.classList.remove('hidden');
+            closeIcon?.classList.add('hidden');
+            menuButton?.setAttribute('aria-expanded', 'false');
         });
-        
-        // Close mobile menu when clicking on a link
-        document.querySelectorAll('.nav-links a').forEach(link => {
-            link.addEventListener('click', () => {
-                navLinks.classList.remove('active');
-                mobileMenuBtn.querySelector('i').classList.add('fa-bars');
-                mobileMenuBtn.querySelector('i').classList.remove('fa-times');
-            });
-        });
-        
-        // Header scroll effect
-        window.addEventListener('scroll', () => {
-            const header = document.getElementById('header');
-            if (window.scrollY > 100) {
-                header.classList.add('scrolled');
-            } else {
-                header.classList.remove('scrolled');
-            }
-        });
-        
-        // Testimonial slider
-        const testimonialDots = document.querySelectorAll('.slider-dot');
-        const testimonials = document.querySelectorAll('.testimonial');
-        let currentSlide = 0;
-        
-        function showSlide(slideIndex) {
-            testimonials.forEach(testimonial => {
-                testimonial.classList.remove('active');
-            });
-            
-            testimonialDots.forEach(dot => {
-                dot.classList.remove('active');
-            });
-            
-            testimonials[slideIndex].classList.add('active');
-            testimonialDots[slideIndex].classList.add('active');
-            currentSlide = slideIndex;
-        }
-        
-        testimonialDots.forEach(dot => {
-            dot.addEventListener('click', () => {
-                const slideIndex = parseInt(dot.getAttribute('data-slide'));
-                showSlide(slideIndex);
-            });
-        });
-        
-        // Auto slide testimonials
-        setInterval(() => {
-            currentSlide = (currentSlide + 1) % testimonials.length;
-            showSlide(currentSlide);
-        }, 5000);
-        
-        // Scroll animation
-        function checkScroll() {
-            const elements = document.querySelectorAll('.animate-on-scroll');
-            
-            elements.forEach(element => {
-                const elementPosition = element.getBoundingClientRect().top;
-                const screenPosition = window.innerHeight / 1.2;
-                
-                if (elementPosition < screenPosition) {
-                    element.classList.add('animated');
+    });
+
+    if ('IntersectionObserver' in window) {
+        const animationObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach((entry) => {
+                if (! entry.isIntersecting) {
+                    return;
                 }
+
+                entry.target.classList.add('is-visible');
+                observer.unobserve(entry.target);
             });
+        }, {
+            threshold: 0.16,
+            rootMargin: '0px 0px -8% 0px',
+        });
+
+        animatedItems.forEach((item) => animationObserver.observe(item));
+    } else {
+        animatedItems.forEach((item) => item.classList.add('is-visible'));
+    }
+
+    function renderGalleryModal(index) {
+        if (! galleryItems.length || ! galleryModal || ! galleryModalImage || ! galleryModalTitle) {
+            return;
         }
-        
-        window.addEventListener('scroll', checkScroll);
-        window.addEventListener('load', checkScroll);
-        
-        // Form submission
-        document.getElementById('inquiry-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            alert('Thank you for your inquiry! We will get back to you within 24 hours.');
-            this.reset();
+
+        activeGalleryIndex = (index + galleryItems.length) % galleryItems.length;
+        const item = galleryItems[activeGalleryIndex];
+        galleryModalImage.src = item.src;
+        galleryModalImage.alt = item.label;
+        galleryModalTitle.textContent = item.label;
+    }
+
+    function openGalleryModal(index) {
+        renderGalleryModal(index);
+        galleryModal?.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        galleryModalClose?.focus();
+    }
+
+    function closeGalleryModal() {
+        galleryModal?.classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+
+    galleryCards.forEach((card) => {
+        card.addEventListener('click', () => {
+            openGalleryModal(Number(card.dataset.galleryIndex || 0));
         });
-        
-        document.getElementById('newsletter-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            alert('Thank you for subscribing to our newsletter!');
-            this.reset();
-        });
-        
-        // Book Now button
-        document.querySelectorAll('.book-btn').forEach(button => {
-            button.addEventListener('click', () => {
-                document.getElementById('contact').scrollIntoView({ behavior: 'smooth' });
-            });
-        });
-        
-        // CTA buttons
-        document.querySelector('.cta-primary').addEventListener('click', () => {
-            document.getElementById('features').scrollIntoView({ behavior: 'smooth' });
-        });
-        
-        document.querySelector('.cta-secondary').addEventListener('click', () => {
-            document.getElementById('contact').scrollIntoView({ behavior: 'smooth' });
-        });
-        
-        // Smooth scrolling for navigation links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function(e) {
-                e.preventDefault();
-                
-                const targetId = this.getAttribute('href');
-                if (targetId === '#') return;
-                
-                const targetElement = document.querySelector(targetId);
-                if (targetElement) {
-                    window.scrollTo({
-                        top: targetElement.offsetTop - 80,
-                        behavior: 'smooth'
-                    });
-                }
-            });
-        });
-    </script>
+    });
+
+    galleryModalClose?.addEventListener('click', closeGalleryModal);
+    galleryModalPrev?.addEventListener('click', () => renderGalleryModal(activeGalleryIndex - 1));
+    galleryModalNext?.addEventListener('click', () => renderGalleryModal(activeGalleryIndex + 1));
+    galleryModal?.addEventListener('click', (event) => {
+        if (event.target === galleryModal) {
+            closeGalleryModal();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (galleryModal?.classList.contains('hidden')) {
+            return;
+        }
+
+        if (event.key === 'Escape') {
+            closeGalleryModal();
+        }
+
+        if (event.key === 'ArrowLeft') {
+            renderGalleryModal(activeGalleryIndex - 1);
+        }
+
+        if (event.key === 'ArrowRight') {
+            renderGalleryModal(activeGalleryIndex + 1);
+        }
+    });
+
+    contactForm?.addEventListener('submit', (event) => {
+        event.preventDefault();
+
+        if (! contactForm.checkValidity()) {
+            contactForm.reportValidity();
+            return;
+        }
+
+        contactStatus.classList.remove('hidden');
+        contactForm.reset();
+
+        window.setTimeout(() => {
+            contactStatus.classList.add('hidden');
+        }, 3500);
+    });
+</script>
 </body>
 </html>

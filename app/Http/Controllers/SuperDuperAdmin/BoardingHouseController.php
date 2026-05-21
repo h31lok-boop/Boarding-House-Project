@@ -68,7 +68,7 @@ class BoardingHouseController extends Controller
         }
 
         return redirect()
-            ->route('superduperadmin.dashboard')
+            ->route('superduperadmin.boarding-houses.index')
             ->with('success', 'Boarding house saved with geotagged location.');
     }
 
@@ -136,7 +136,7 @@ class BoardingHouseController extends Controller
             throw $e;
         }
 
-        return redirect()->route('superduperadmin.dashboard')->with('success', 'Boarding house updated.');
+        return redirect()->route('superduperadmin.boarding-houses.index')->with('success', 'Boarding house updated.');
     }
 
     public function destroy(BoardingHouse $boardingHouse): RedirectResponse
@@ -149,7 +149,7 @@ class BoardingHouseController extends Controller
             'name' => $name,
         ]);
 
-        return redirect()->route('superduperadmin.dashboard')->with('success', 'Boarding house deleted.');
+        return redirect()->route('superduperadmin.boarding-houses.index')->with('success', 'Boarding house deleted.');
     }
 
     public function approve(Request $request, BoardingHouse $boardingHouse): RedirectResponse
@@ -176,7 +176,7 @@ class BoardingHouseController extends Controller
             'status' => 'approved',
         ]);
 
-        return redirect()->route('superduperadmin.dashboard')->with('success', 'Boarding house approved.');
+        return redirect()->route('superduperadmin.boarding-houses.index')->with('success', 'Boarding house approved.');
     }
 
     public function reject(Request $request, BoardingHouse $boardingHouse): RedirectResponse
@@ -208,7 +208,7 @@ class BoardingHouseController extends Controller
             'remarks' => $validated['remarks'] ?? null,
         ]);
 
-        return redirect()->route('superduperadmin.dashboard')->with('success', 'Boarding house rejected.');
+        return redirect()->route('superduperadmin.boarding-houses.index')->with('success', 'Boarding house rejected.');
     }
 
     private function validated(Request $request, bool $updating = false): array

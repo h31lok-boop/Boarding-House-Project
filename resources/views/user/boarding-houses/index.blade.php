@@ -1,18 +1,34 @@
 <x-layouts.caretaker>
 <x-tenant.shell>
-    <div class="space-y-6">
-        <div class="ui-card p-4">
-            <div class="flex items-center justify-between gap-4 flex-wrap">
-                <div>
-                    <h2 class="text-xl font-semibold">Find Boarding Houses Near You</h2>
-                    <p class="text-sm ui-muted">Map, filters, prices, specs, and nearest prediction.</p>
+    @php
+        $r = fn ($name, $params = [], $fallback = null) => \Illuminate\Support\Facades\Route::has($name)
+            ? route($name, $params)
+            : ($fallback ?? url()->current());
+
+        $browseIndexUrl = $r('tenant.boarding-houses', [], route('user.boarding-houses.index'));
+        $compareUrl = $r('tenant.boarding-houses.compare', [], route('user.boarding-houses.compare'));
+        $savedListingsUrl = $r('tenant.saved-listings', [], route('user.favorites.index'));
+        $resultCount = method_exists($houses, 'total') ? $houses->total() : $houses->count();
+    @endphp
+
+    <div class="tenant-listings-page space-y-5">
+        <section class="tenant-card overflow-hidden">
+            <div class="flex flex-col gap-4 px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
+                <div class="min-w-0">
+                    <div class="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-emerald-700 ring-1 ring-emerald-100">
+                        Browse Listings
+                    </div>
+                    <h1 class="mt-3 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Find Boarding Houses Near You</h1>
+                    <p class="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
+                        Compare rooms, prices, amenities, and distance from your reference point.
+                    </p>
                 </div>
-                <div class="flex gap-2">
-                    <a href="{{ route('user.favorites.index') }}" class="px-4 py-2 rounded-lg border ui-border text-sm hover:bg-[color:var(--surface-2)]">My Favorites</a>
-                    <button type="button" id="useMyLocation" class="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700">Use My Location</button>
+                <div class="flex flex-wrap gap-2">
+                    <a href="{{ $savedListingsUrl }}" class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">My Favorites</a>
+                    <button type="button" id="useMyLocation" class="inline-flex items-center justify-center rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700">Use My Location</button>
                 </div>
             </div>
-        </div>
+        </section>
 
         @if(session('success'))
             <div class="px-4 py-3 rounded-lg bg-emerald-50 text-emerald-700 text-sm">{{ session('success') }}</div>
@@ -22,131 +38,210 @@
         @endif
 
         @if($nearMe && $nearestHouse)
-            <div class="ui-card p-4 border border-emerald-300">
-                <h3 class="font-semibold text-emerald-700">Nearest Boarding House Prediction</h3>
-                <p class="text-sm mt-1">
-                    <span class="font-semibold">{{ $nearestHouse->name }}</span>
-                    is currently the nearest result at
-                    <span class="font-semibold">{{ number_format((float) $nearestHouse->distance_km, 2) }} km</span>.
-                </p>
-                <a class="inline-block mt-2 text-sm text-indigo-600" href="{{ route('user.boarding-houses.show', $nearestHouse) }}">View Details</a>
+            <div class="tenant-card border-emerald-200 bg-emerald-50/70 p-4">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h3 class="font-bold text-emerald-800">Nearest match</h3>
+                        <p class="mt-1 text-sm text-emerald-700">
+                            <span class="font-semibold">{{ $nearestHouse->name }}</span>
+                            is {{ number_format((float) $nearestHouse->distance_km, 2) }} km from your reference point.
+                        </p>
+                    </div>
+                    <a class="inline-flex w-fit rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700" href="{{ route('user.boarding-houses.show', $nearestHouse) }}">View Details</a>
+                </div>
             </div>
         @endif
 
-        <form id="browseFilterForm" method="GET" action="{{ route('user.boarding-houses.index') }}" class="ui-card p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
-            <input type="text" name="q" value="{{ request('q') }}" placeholder="Name, address, keyword" class="ui-input text-sm lg:col-span-2">
-            <input type="number" step="0.01" min="0" name="min_price" value="{{ request('min_price') }}" placeholder="Min Price" class="ui-input text-sm">
-            <input type="number" step="0.01" min="0" name="max_price" value="{{ request('max_price') }}" placeholder="Max Price" class="ui-input text-sm">
-            <input type="number" step="0.000001" id="latField" name="lat" value="{{ request('lat', $referencePoint['lat']) }}" placeholder="Reference Lat" class="ui-input text-sm">
-            <input type="number" step="0.000001" id="lngField" name="lng" value="{{ request('lng', $referencePoint['lng']) }}" placeholder="Reference Lng" class="ui-input text-sm">
+        <section class="tenant-card p-5">
+            <form id="browseFilterForm" method="GET" action="{{ $browseIndexUrl }}" class="space-y-5">
+                <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
+                    <label class="xl:col-span-2">
+                        <span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">Keyword</span>
+                        <input type="text" name="q" value="{{ request('q') }}" placeholder="Name, address, keyword" class="tenant-filter-control">
+                    </label>
 
-            <select name="city_id" id="citySelect" class="ui-input text-sm">
-                <option value="">All Cities</option>
-                @foreach($cities as $city)
-                    <option value="{{ $city->id }}" @selected((int) request('city_id') === $city->id)>{{ $city->city_name }}</option>
-                @endforeach
-            </select>
+                    <label>
+                        <span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">Min Price</span>
+                        <input type="number" step="0.01" min="0" name="min_price" value="{{ request('min_price') }}" placeholder="PHP" class="tenant-filter-control">
+                    </label>
 
-            <select name="barangay_id" id="barangaySelect" class="ui-input text-sm">
-                <option value="">All Barangays</option>
-                @foreach($barangays as $barangay)
-                    <option value="{{ $barangay->id }}" data-city="{{ $barangay->city_id }}" @selected((int) request('barangay_id') === $barangay->id)>
-                        {{ $barangay->barangay_name }}
-                    </option>
-                @endforeach
-            </select>
+                    <label>
+                        <span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">Max Price</span>
+                        <input type="number" step="0.01" min="0" name="max_price" value="{{ request('max_price') }}" placeholder="PHP" class="tenant-filter-control">
+                    </label>
 
-            <div class="lg:col-span-6">
-                <label class="text-xs ui-muted">Amenities</label>
-                <div class="mt-2 flex flex-wrap gap-2">
-                    @foreach($amenities as $amenity)
-                        <label class="inline-flex items-center gap-2 text-xs px-2 py-1 rounded-md border ui-border">
-                            <input type="checkbox" name="amenities[]" value="{{ $amenity->id }}" @checked(in_array($amenity->id, (array) request('amenities', [])))>
-                            <span>{{ $amenity->name }}</span>
+                    <label>
+                        <span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">Latitude</span>
+                        <input type="number" step="0.000001" id="latField" name="lat" value="{{ request('lat', $referencePoint['lat']) }}" placeholder="Reference Lat" class="tenant-filter-control">
+                    </label>
+
+                    <label>
+                        <span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">Longitude</span>
+                        <input type="number" step="0.000001" id="lngField" name="lng" value="{{ request('lng', $referencePoint['lng']) }}" placeholder="Reference Lng" class="tenant-filter-control">
+                    </label>
+
+                    <label>
+                        <span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">City</span>
+                        <select name="city_id" id="citySelect" class="tenant-filter-control">
+                            <option value="">All Cities</option>
+                            @foreach($cities as $city)
+                                <option value="{{ $city->id }}" @selected((int) request('city_id') === $city->id)>{{ $city->city_name }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+
+                    <label>
+                        <span class="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-500">Barangay</span>
+                        <select name="barangay_id" id="barangaySelect" class="tenant-filter-control">
+                            <option value="">All Barangays</option>
+                            @foreach($barangays as $barangay)
+                                <option value="{{ $barangay->id }}" data-city="{{ $barangay->city_id }}" @selected((int) request('barangay_id') === $barangay->id)>
+                                    {{ $barangay->barangay_name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </label>
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between gap-3">
+                        <h2 class="text-sm font-bold text-slate-800">Amenities</h2>
+                        <p class="text-xs font-medium text-slate-500">{{ count((array) request('amenities', [])) }} selected</p>
+                    </div>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        @foreach($amenities as $amenity)
+                            @php $checked = in_array($amenity->id, (array) request('amenities', [])); @endphp
+                            <label class="tenant-amenity-chip {{ $checked ? 'is-selected' : '' }}">
+                                <input class="sr-only" type="checkbox" name="amenities[]" value="{{ $amenity->id }}" @checked($checked)>
+                                <span class="tenant-amenity-box"></span>
+                                <span>{{ $amenity->name }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-3 border-t border-slate-200 pt-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div class="flex flex-wrap gap-3">
+                        <label class="tenant-toggle-chip">
+                            <input type="checkbox" name="available_only" value="1" @checked(request()->boolean('available_only'))>
+                            <span>Available rooms only</span>
                         </label>
-                    @endforeach
+
+                        <label class="tenant-toggle-chip">
+                            <input type="checkbox" id="nearMeCheckbox" name="near_me" value="1" @checked($nearMe)>
+                            <span>Sort by nearest to me</span>
+                        </label>
+                    </div>
+
+                    <div class="flex justify-end gap-2">
+                        <a href="{{ $browseIndexUrl }}" class="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">Reset</a>
+                        <button type="submit" class="inline-flex items-center justify-center rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-700">Apply Filters</button>
+                    </div>
+                </div>
+            </form>
+        </section>
+
+        <section class="space-y-5">
+            <div class="tenant-card overflow-hidden">
+                <div class="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-950">Map View</h2>
+                        <p class="mt-1 text-sm text-slate-500">Click or drag the marker to update your reference point.</p>
+                    </div>
+                    <span class="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">Ref: {{ $referencePoint['lat'] }}, {{ $referencePoint['lng'] }}</span>
+                </div>
+                <div class="p-4">
+                    <div id="browseMap" class="tenant-listings-map w-full overflow-hidden rounded-xl border border-slate-200"></div>
                 </div>
             </div>
 
-            <label class="inline-flex items-center gap-2 text-sm">
-                <input type="checkbox" name="available_only" value="1" @checked(request()->boolean('available_only'))>
-                <span>Available rooms only</span>
-            </label>
+            <div class="tenant-card min-w-0 overflow-hidden">
+                <form id="compareListingsForm" method="GET" action="{{ $compareUrl }}"></form>
+                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-950">Results</h2>
+                        <p class="text-sm text-slate-500">{{ number_format($resultCount) }} boarding {{ \Illuminate\Support\Str::plural('house', $resultCount) }} found</p>
+                    </div>
+                    <button type="submit" form="compareListingsForm" class="inline-flex items-center justify-center rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-amber-600">Compare Selected</button>
+                </div>
 
-            <label class="inline-flex items-center gap-2 text-sm">
-                <input type="checkbox" id="nearMeCheckbox" name="near_me" value="1" @checked($nearMe)>
-                <span>Sort by nearest to me</span>
-            </label>
+                <input form="compareListingsForm" type="hidden" name="lat" value="{{ request('lat', $referencePoint['lat']) }}">
+                <input form="compareListingsForm" type="hidden" name="lng" value="{{ request('lng', $referencePoint['lng']) }}">
 
-            <div class="lg:col-span-4 flex items-center justify-end gap-2">
-                <a href="{{ route('user.boarding-houses.index') }}" class="px-3 py-2 rounded-lg border ui-border text-sm">Reset</a>
-                <button type="submit" class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700">Apply Filters</button>
-            </div>
-        </form>
+                <div class="p-4">
+                    <div class="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                        @forelse($houses as $house)
+                            @php
+                                $rating = $house->reviews_avg_rating ? number_format($house->reviews_avg_rating, 1) : 'N/A';
+                                $image = $house->images->first()?->image_path ? asset('storage/'.$house->images->first()->image_path) : null;
+                                $availableRooms = max((int)($house->available_rooms ?? 0), (int)($house->available_rooms_count ?? 0), (int)($house->room_categories_available_rooms_sum ?? 0));
+                                $amenityList = $house->amenities->pluck('name')->take(3);
+                            @endphp
+                            <article class="tenant-listing-card">
+                                <div class="tenant-listing-image">
+                                    @if($image)
+                                        <img src="{{ $image }}" alt="{{ $house->name }}">
+                                    @else
+                                        <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-600 to-emerald-500 text-white">
+                                            <svg class="h-9 w-9" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 11.5 12 5l8 6.5V20H4v-8.5Z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 20v-5h6v5" />
+                                            </svg>
+                                        </div>
+                                    @endif
+                                    <span class="tenant-listing-status">{{ $availableRooms > 0 ? $availableRooms.' rooms' : 'Limited' }}</span>
+                                </div>
 
-        <div class="ui-card p-4">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="font-semibold">Map View</h3>
-                <p class="text-xs ui-muted">Reference: {{ $referencePoint['lat'] }}, {{ $referencePoint['lng'] }}</p>
-            </div>
-            <p class="text-xs ui-muted mb-2">Click the map or drag the reference marker to geotag your location for nearest results.</p>
-            <div id="browseMap" class="w-full rounded-lg border ui-border" style="height: 380px;"></div>
-        </div>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-start justify-between gap-3">
+                                        <div class="min-w-0">
+                                            <h3 class="truncate text-base font-bold text-slate-950">{{ $house->name }}</h3>
+                                            <p class="tenant-listing-address mt-1 text-sm leading-5 text-slate-500">{{ $house->address }}</p>
+                                        </div>
+                                        <label class="tenant-compare-check">
+                                            <input form="compareListingsForm" type="checkbox" name="ids[]" value="{{ $house->id }}">
+                                            <span>Compare</span>
+                                        </label>
+                                    </div>
 
-        <form method="GET" action="{{ route('user.boarding-houses.compare') }}" class="space-y-4">
-            <div class="flex items-center justify-between">
-                <h3 class="font-semibold">Results</h3>
-                <button type="submit" class="px-4 py-2 rounded-lg bg-amber-500 text-white text-sm hover:bg-amber-600">Compare Selected</button>
-            </div>
+                                    <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
+                                        <div class="rounded-xl bg-slate-50 p-3">
+                                            <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Price</p>
+                                            <p class="mt-1 font-bold text-slate-950">{{ $house->display_price !== null ? 'PHP '.number_format((float) $house->display_price, 0) : 'N/A' }}</p>
+                                        </div>
+                                        <div class="rounded-xl bg-slate-50 p-3">
+                                            <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Distance</p>
+                                            <p class="mt-1 font-bold text-slate-950">{{ $house->distance_km !== null ? $house->distance_km.' km' : 'N/A' }}</p>
+                                        </div>
+                                    </div>
 
-            <input type="hidden" name="lat" value="{{ request('lat', $referencePoint['lat']) }}">
-            <input type="hidden" name="lng" value="{{ request('lng', $referencePoint['lng']) }}">
+                                    <div class="mt-3 flex flex-wrap gap-2">
+                                        @forelse($amenityList as $amenityName)
+                                            <span class="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">{{ $amenityName }}</span>
+                                        @empty
+                                            <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">No amenities listed</span>
+                                        @endforelse
+                                        <span class="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">Rating: {{ $rating }}</span>
+                                    </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                @forelse($houses as $house)
-                    @php
-                        $rating = $house->reviews_avg_rating ? number_format($house->reviews_avg_rating, 1) : 'N/A';
-                        $image = $house->images->first()?->image_path ? asset('storage/'.$house->images->first()->image_path) : null;
-                    @endphp
-                    <div class="ui-card p-4 space-y-3">
-                        @if($image)
-                            <img src="{{ $image }}" alt="{{ $house->name }}" class="w-full h-36 object-cover rounded-lg border ui-border">
-                        @endif
-
-                        <div class="flex items-start justify-between gap-2">
-                            <div>
-                                <h4 class="font-semibold">{{ $house->name }}</h4>
-                                <p class="text-xs ui-muted">{{ $house->address }}</p>
+                                    <div class="mt-4 flex flex-wrap gap-2">
+                                        <a href="{{ route('user.boarding-houses.show', $house) }}" class="inline-flex flex-1 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">View Details</a>
+                                        <form method="POST" action="{{ route('user.favorites.store', $house) }}" class="flex-1">
+                                            @csrf
+                                            <button type="submit" class="inline-flex w-full items-center justify-center rounded-xl bg-blue-700 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800">Save</button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </article>
+                        @empty
+                            <div class="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-sm text-slate-500">
+                                No boarding houses match the current filters.
                             </div>
-                            <label class="inline-flex items-center gap-2 text-xs">
-                                <input type="checkbox" name="ids[]" value="{{ $house->id }}">
-                                Compare
-                            </label>
-                        </div>
-
-                        <div class="text-sm space-y-1">
-                            <p>Price: <span class="font-semibold">{{ $house->display_price !== null ? 'PHP '.number_format((float) $house->display_price, 2) : 'N/A' }}</span></p>
-                            <p>Distance: <span class="font-semibold">{{ $house->distance_km !== null ? $house->distance_km.' km' : 'N/A' }}</span></p>
-                            <p>Amenities: <span class="font-semibold">{{ $house->amenities->pluck('name')->take(3)->join(', ') ?: 'None' }}</span></p>
-                            <p>Available Rooms: <span class="font-semibold">{{ max((int)($house->available_rooms ?? 0), (int)($house->available_rooms_count ?? 0), (int)($house->room_categories_available_rooms_sum ?? 0)) }}</span></p>
-                            <p>Rating: <span class="font-semibold">{{ $rating }}</span></p>
-                        </div>
-
-                        <div class="flex gap-2">
-                            <a href="{{ route('user.boarding-houses.show', $house) }}" class="px-3 py-2 rounded-lg border ui-border text-xs">View Details</a>
-                            <form method="POST" action="{{ route('user.favorites.store', $house) }}">
-                                @csrf
-                                <button type="submit" class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-xs">Favorite</button>
-                            </form>
-                        </div>
-                    </div>
-                @empty
-                    <div class="ui-card p-5 md:col-span-2 xl:col-span-3 text-sm ui-muted">
-                        No boarding houses match the current filters.
-                    </div>
-                @endforelse
+                        @endforelse
+                </div>
             </div>
-        </form>
+            </div>
+        </section>
 
         <div>
             {{ $houses->links() }}

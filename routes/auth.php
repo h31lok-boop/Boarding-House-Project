@@ -12,6 +12,15 @@ use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
+    Route::get('register/owner', [RegisteredUserController::class, 'createOwner'])
+        ->name('register.owner');
+
+    Route::post('register/owner', [RegisteredUserController::class, 'storeOwner'])
+        ->name('register.owner.store');
+
+    Route::post('register/tenant', [RegisteredUserController::class, 'storeTenant'])
+        ->name('register.tenant.store');
+
     Route::get('register', [RegisteredUserController::class, 'create'])
         ->name('register');
 

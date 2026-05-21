@@ -12,6 +12,7 @@ class OwnerProfile extends Model
     protected $fillable = [
         'user_id',
         'company_name',
+        'address',
         'business_permit_number',
         'valid_id_type',
         'valid_id_number',
@@ -24,5 +25,10 @@ class OwnerProfile extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function boardingHouses()
+    {
+        return $this->hasMany(BoardingHouse::class, 'owner_profile_id');
     }
 }

@@ -4,8 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\BoardingHouse;
 use App\Models\BoardingHouseApplication;
-use App\Models\Inquiry;
+use App\Support\TenantOccupancyManager;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class BoardingHouseApplicationController extends Controller
 {
@@ -49,35 +50,39 @@ class BoardingHouseApplicationController extends Controller
     }
 
     /**
-     * Admin view of applications and inquiries.
+     * Admin view of applications.
      */
     public function index()
     {
         $this->authorizeAdmin();
 
-        // Fetch applications
         $applications = BoardingHouseApplication::with(['user', 'boardingHouse'])
             ->latest()
             ->paginate(15);
 
-        // Fetch inquiries - treat them as applications
-        $inquiries = Inquiry::with(['user', 'boardingHouse'])
-            ->latest()
-            ->paginate(15);
-
-        return view('admin.boarding-houses.applications', compact('applications', 'inquiries'));
+        return view('admin.boarding-houses.applications', compact('applications'));
     }
 
-    public function approve(BoardingHouseApplication $application)
+    public function approve(BoardingHouseApplication $application, TenantOccupancyManager $occupancyManager)
     {
         $this->authorizeAdmin();
 
-        $application->update(['status' => 'approved']);
-        $application->user->update([
-            'boarding_house_id' => $application->boarding_house_id,
-            'is_active' => true,
-            'move_in_date' => $application->user->move_in_date ?? now(),
-        ]);
+        DB::transaction(function () use ($application, $occupancyManager) {
+            $application->update(['status' => 'approved']);
+
+            $occupancyManager->assign(
+                $application->user,
+                $application->boardingHouse,
+                null,
+                $application->user->move_in_date ?? now()
+            );
+
+            BoardingHouseApplication::query()
+                ->where('user_id', $application->user_id)
+                ->whereKeyNot($application->id)
+                ->where('status', 'pending')
+                ->update(['status' => 'rejected']);
+        });
 
         return redirect()->route('admin.boarding-houses.index')
             ->with('success', 'Application approved and tenant assigned.');

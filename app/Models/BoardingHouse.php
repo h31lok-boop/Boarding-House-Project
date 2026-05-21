@@ -20,12 +20,15 @@ class BoardingHouse extends Model
         'full_address',
         'latitude',
         'longitude',
+        'landmark',
         'region_id',
         'province_id',
         'city_id',
         'barangay_id',
         'description',
         'house_rules',
+        'room_types',
+        'safety_features',
         'landlord_info',
         'contact_name',
         'contact_number',
@@ -203,6 +206,11 @@ class BoardingHouse extends Model
         return $this->belongsToMany(Amenity::class, 'boarding_house_amenities')->withTimestamps();
     }
 
+    public function approvals()
+    {
+        return $this->hasMany(Approval::class)->latest('reviewed_at');
+    }
+
     public function images()
     {
         return $this->hasMany(BoardingHouseImage::class)->orderBy('is_primary', 'desc')->orderBy('sort_order');
@@ -226,6 +234,16 @@ class BoardingHouse extends Model
     public function reviews()
     {
         return $this->hasMany(Review::class);
+    }
+
+    public function accreditation()
+    {
+        return $this->hasOne(Accreditation::class);
+    }
+
+    public function complianceRequirements()
+    {
+        return $this->hasMany(ComplianceRequirement::class)->latest('submission_date');
     }
 
     public function payments()

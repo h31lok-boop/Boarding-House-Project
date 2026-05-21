@@ -2,7 +2,7 @@
 
 @section('content')
 <div class="container">
-  <h2>Edit Admin</h2>
+  <h2>Edit Caretaker</h2>
   <form action="{{ route('admins.update', $admin->id) }}" method="POST">
     @csrf
     @method('PUT')

@@ -1,410 +1,84 @@
-{{-- resources/views/auth/login.blade.php --}}
-<!DOCTYPE html>
-<html lang="en" data-theme="light">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login | Sunshine Boarding House</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <script>
-        (function () {
-            const stored = localStorage.getItem('theme');
-            if (stored) {
-                document.documentElement.setAttribute('data-theme', stored);
-            }
-        })();
-    </script>
-    <style>
-        :root {
-            --primary: var(--brand-500);
-            --secondary: var(--accent-500);
-            --dark: var(--text);
-            --light: var(--surface);
-            --shadow: var(--shadow);
-        }
+<x-auth.shell
+    title="Sign In | DSSC Boarding House System"
+    form-title="Sign In"
+    subtitle="Access your DSSC Boarding account to manage your listings, rooms, and inquiries."
+    panel-headline="Welcome Back"
+    panel-description="Access your DSSC Boarding account to manage listings, rooms, inquiries, reservations, and compliance."
+>
+    @if (session('status'))
+        <div class="auth-alert auth-alert-success mb-4">
+            {{ session('status') }}
+        </div>
+    @endif
 
-        body {
-            background: radial-gradient(circle at top, var(--surface) 0%, var(--bg) 60%, var(--surface-2) 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
+    <form method="POST" action="{{ route('login') }}" data-auth-submit data-login-form>
+        @csrf
 
-        .login-container {
-            display: flex;
-            width: 100%;
-            max-width: 1000px;
-            min-height: 600px;
-            background: var(--surface);
-            border-radius: 20px;
-            overflow: hidden;
-            box-shadow: var(--shadow);
-        }
+        <div class="auth-field">
+            <label for="email">Email Address</label>
+            <div class="auth-input-wrap @error('email') is-invalid @enderror">
+                <span class="shrink-0 text-slate-400">
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6.5h16v11H4z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m5 8 7 5 7-5" />
+                    </svg>
+                </span>
+                <input id="email" type="email" name="email" value="{{ old('email') }}" required autofocus autocomplete="username" placeholder="Enter your email">
+            </div>
+            @error('email')
+                <p class="auth-error">{{ $message }}</p>
+            @enderror
+        </div>
 
-        .login-left {
-            flex: 1;
-            background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.7)), 
-                        url('https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&auto=format&fit=crop&w=1170&q=80');
-            background-size: cover;
-            background-position: center;
-            color: white;
-            padding: 50px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
+        <div class="auth-field">
+            <label for="password">Password</label>
+            <div class="auth-input-wrap @error('password') is-invalid @enderror">
+                <span class="shrink-0 text-slate-400">
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <rect x="5" y="10" width="14" height="10" rx="2" stroke-width="1.8" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 10V8a4 4 0 1 1 8 0v2" />
+                    </svg>
+                </span>
+                <input id="password" type="password" name="password" required minlength="8" autocomplete="current-password" placeholder="Enter your password">
+                <button type="button" class="auth-password-toggle" data-auth-password-toggle="password">Show</button>
+            </div>
+            @error('password')
+                <p class="auth-error">{{ $message }}</p>
+            @enderror
+        </div>
 
-        .login-right {
-            flex: 1;
-            padding: 50px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
+        <div class="auth-field">
+            <label for="security_answer">Security Check</label>
+            <p class="mb-2 text-sm font-medium text-slate-500">{{ $securityQuestion ?? 'Answer the security question.' }}</p>
+            <div class="auth-input-wrap @error('security_answer') is-invalid @enderror">
+                <span class="shrink-0 text-slate-400">
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3.75 19 6v5.25c0 4.2-2.8 7.7-7 9-4.2-1.3-7-4.8-7-9V6l7-2.25Z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m9 12 2 2 4-5" />
+                    </svg>
+                </span>
+                <input id="security_answer" type="text" name="security_answer" required inputmode="numeric" autocomplete="off" placeholder="Enter your answer">
+            </div>
+            @error('security_answer')
+                <p class="auth-error">{{ $message }}</p>
+            @enderror
+        </div>
 
-        .theme-toggle-auth {
-            position: absolute;
-            top: 24px;
-            right: 24px;
-        }
+        <div class="mt-3 text-right text-sm">
+            @if (Route::has('password.request'))
+                <a class="auth-secondary-link auth-small-link" href="{{ route('password.request') }}">Forgot password?</a>
+            @endif
+        </div>
 
-        .logo {
-            display: flex;
-            align-items: center;
-            margin-bottom: 30px;
-            color: var(--primary);
-            font-size: 1.8rem;
-            font-weight: 700;
-        }
-
-        .logo i {
-            margin-right: 10px;
-            font-size: 2rem;
-        }
-
-        .logo span {
-            color: var(--dark);
-        }
-
-        .welcome-text h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            color: white;
-        }
-
-        .welcome-text p {
-            font-size: 1.1rem;
-            opacity: 0.9;
-        }
-
-        .login-form h2 {
-            font-size: 2rem;
-            margin-bottom: 10px;
-            color: var(--dark);
-        }
-
-        .login-subtitle {
-            color: #666;
-            margin-bottom: 30px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: var(--dark);
-        }
-
-        .input-with-icon {
-            position: relative;
-        }
-
-        .input-with-icon i {
-            position: absolute;
-            left: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #999;
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 15px 15px 15px 45px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            font-size: 1rem;
-            transition: all 0.3s ease;
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(255, 126, 95, 0.1);
-        }
-
-        .remember-forgot {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-        }
-
-        .remember-me {
-            display: flex;
-            align-items: center;
-        }
-
-        .remember-me input {
-            margin-right: 8px;
-        }
-
-        .forgot-password {
-            color: var(--primary);
-            text-decoration: none;
-            font-weight: 500;
-        }
-
-        .forgot-password:hover {
-            text-decoration: underline;
-        }
-
-        .btn-login {
-            width: 100%;
-            padding: 15px;
-            background: linear-gradient(to right, var(--primary), var(--secondary));
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .btn-login:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 20px rgba(255, 126, 95, 0.3);
-        }
-
-        .btn-login:active {
-            transform: translateY(-1px);
-        }
-
-        .login-footer {
-            margin-top: 30px;
-            text-align: center;
-            color: #666;
-        }
-
-        .login-footer a {
-            color: var(--primary);
-            text-decoration: none;
-            font-weight: 500;
-        }
-
-        .login-footer a:hover {
-            text-decoration: underline;
-        }
-
-        .role-selector {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-
-        .role-btn {
-            flex: 1;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            background: white;
-            cursor: pointer;
-            text-align: center;
-            transition: all 0.3s ease;
-            font-weight: 500;
-        }
-
-        .role-btn.active {
-            border-color: var(--primary);
-            background: rgba(255, 126, 95, 0.1);
-            color: var(--primary);
-        }
-
-        .alert {
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .alert-danger {
-            background: #fee;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-        }
-
-        .alert-success {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-        }
-
-        .alert i {
-            font-size: 1.2rem;
-        }
-
-        .demo-credentials {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 15px;
-            margin-top: 20px;
-            font-size: 0.9rem;
-        }
-
-        .demo-credentials h4 {
-            margin-bottom: 10px;
-            color: var(--dark);
-        }
-
-        .demo-account {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
-        }
-
-        @media (max-width: 768px) {
-            .login-container {
-                flex-direction: column;
-                max-width: 95%;
-                margin: 20px;
-            }
-            
-            .login-left {
-                padding: 30px;
-            }
-            
-            .login-right {
-                padding: 30px;
-            }
-        }
-    </style>
-</head>
-<body>
-    <div class="login-container">
-        <button type="button" class="theme-toggle theme-toggle-auth" data-theme-toggle>
-            <span>Theme:</span>
-            <span data-theme-label>Light</span>
+        <button type="submit" class="auth-primary-button mt-5" data-auth-submit-button data-loading-text="Signing in...">
+            Sign In
         </button>
-        <!-- Left Side - Branding -->
-        <div class="login-left">
-            <div class="logo">
-                <i class="fas fa-home"></i>
-                Sunshine<span>Boarding</span>
-            </div>
-            <div class="welcome-text">
-                <h1>Welcome Back!</h1>
-                <p>Access your boarding house account to manage your stay, payments, and community activities.</p>
-            </div>
-            <div class="features">
-                <h3 style="margin-top: 40px; margin-bottom: 15px;">Features:</h3>
-                <ul style="list-style: none;">
-                    <li style="margin-bottom: 10px;"><i class="fas fa-check" style="margin-right: 10px;"></i> Room Management</li>
-                    <li style="margin-bottom: 10px;"><i class="fas fa-check" style="margin-right: 10px;"></i> Payment Tracking</li>
-                    <li style="margin-bottom: 10px;"><i class="fas fa-check" style="margin-right: 10px;"></i> Maintenance Requests</li>
-                    <li style="margin-bottom: 10px;"><i class="fas fa-check" style="margin-right: 10px;"></i> Community Events</li>
-                </ul>
-            </div>
-        </div>
+    </form>
 
-        <!-- Right Side - Login Form -->
-        <div class="login-right">
-            <div class="login-form">
-                <h2>Sign In</h2>
-                <p class="login-subtitle">Enter your credentials to access your account</p>
-
-                <!-- Session Status -->
-                @if (session('status'))
-                    <div class="alert alert-success">
-                        <i class="fas fa-check-circle"></i> {{ session('status') }}
-                    </div>
-                @endif
-
-                <!-- Validation Errors -->
-                @if ($errors->any())
-                    <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <div>
-                            @foreach ($errors->all() as $error)
-                                <div>{{ $error }}</div>
-                            @endforeach
-                        </div>
-                    </div>
-                @endif
-
-                <form method="POST" action="{{ route('login') }}">
-                    @csrf
-
-                    <div class="form-group">
-                        <label for="email">Email Address</label>
-                        <div class="input-with-icon">
-                            <i class="fas fa-envelope"></i>
-                            <input id="email" class="form-control" type="email" name="email" 
-                                   value="{{ old('email') }}" required autofocus placeholder="Enter your email">
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="password">Password</label>
-                        <div class="input-with-icon">
-                            <i class="fas fa-lock"></i>
-                            <input id="password" class="form-control" type="password" 
-                                   name="password" required autocomplete="current-password" placeholder="Enter your password">
-                        </div>
-                    </div>
-
-                    <div class="remember-forgot">
-                        <label class="remember-me">
-                            <input type="checkbox" name="remember">
-                            <span>Remember me</span>
-                        </label>
-                        @if (Route::has('password.request'))
-                            <a class="forgot-password" href="{{ route('password.request') }}">
-                                Forgot password?
-                            </a>
-                        @endif
-                    </div>
-
-                    <button type="submit" class="btn-login">
-                        <i class="fas fa-sign-in-alt" style="margin-right: 8px;"></i> Sign In
-                    </button>
-                </form>
-
-                <div class="login-footer">
-                    <p>Need an account? <a href="{{ route('register') }}">Register here</a></p>
-                    <p style="margin-top: 10px;">
-                        <a href="{{ url('/') }}">← Back to Homepage</a>
-                    </p>
-                </div>
-            </div>
-        </div>
+    <div class="auth-footer-links">
+        @if (Route::has('register'))
+            <p>Need an account? <a class="auth-secondary-link" href="{{ route('register') }}">Register here</a></p>
+        @endif
+        <p><a class="auth-secondary-link" href="{{ url('/') }}">Back to Homepage</a></p>
     </div>
-
-    <script>
-        // Form submission animation
-        document.querySelector('form').addEventListener('submit', function(e) {
-            const submitBtn = this.querySelector('.btn-login');
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing in...';
-            submitBtn.disabled = true;
-        });
-    </script>
-</body>
-</html>
+</x-auth.shell>

@@ -15,6 +15,13 @@
         if ($gallery->isEmpty() && $fallbackImages->isNotEmpty()) {
             $gallery = $fallbackImages;
         }
+        $latestReservation = auth()->check()
+            ? \App\Models\Reservation::query()
+                ->where('user_id', auth()->id())
+                ->where('boarding_house_id', $house->id)
+                ->latest()
+                ->first()
+            : null;
     @endphp
 
     <div class="space-y-6">
@@ -183,6 +190,15 @@
                         <textarea name="notes" rows="3" class="ui-input text-sm" placeholder="Optional notes">{{ old('notes') }}</textarea>
                         <button type="submit" class="w-full px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm">Submit Reservation</button>
                     </form>
+                    @if($latestReservation)
+                        <div class="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+                            <p class="font-semibold text-slate-900">Latest Request Status</p>
+                            <p class="mt-1 capitalize">{{ $latestReservation->status }}</p>
+                            @if($latestReservation->owner_notes)
+                                <p class="mt-2 text-xs ui-muted">{{ $latestReservation->owner_notes }}</p>
+                            @endif
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>

@@ -4,8 +4,7 @@ namespace App\Http;
 
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\Authenticate;
-use App\Http\Middleware\EnsureCaretaker;
-use App\Http\Middleware\EnsureOsas;
+use App\Http\Middleware\EnsureOwner;
 use App\Http\Middleware\RedirectIfAuthenticated;
 use App\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Auth\Middleware\AuthenticateWithBasicAuth;
@@ -72,7 +71,6 @@ class Kernel extends HttpKernel
         'guest' => RedirectIfAuthenticated::class,
         'verified' => EnsureEmailIsVerified::class,
         'admin' => AdminMiddleware::class,
-        'caretaker' => EnsureCaretaker::class,
-        'osas' => EnsureOsas::class,
+        'owner' => EnsureOwner::class,
     ];
 }

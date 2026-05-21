@@ -9,11 +9,109 @@ use App\Models\CityMunicipality;
 use App\Models\Province;
 use App\Models\Region;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 class DashboardController extends Controller
 {
     public function index(Request $request)
+    {
+        return view('superduperadmin.dashboard', [
+            ...$this->overviewData(),
+            'recentBoardingHouses' => $this->filteredBoardingHouseQuery($request)
+                ->orderByDesc('boarding_houses.created_at')
+                ->limit(5)
+                ->get(),
+        ]);
+    }
+
+    public function map(Request $request)
+    {
+        $mapHouses = $this->mappedListings($this->filteredBoardingHouseQuery($request));
+
+        return view('superduperadmin.map', [
+            ...$this->overviewData(),
+            'statusKeys' => $this->statusKeys(),
+            'mapHouses' => $mapHouses,
+            'mappedCount' => $mapHouses->count(),
+        ]);
+    }
+
+    public function create(Request $request)
+    {
+        $mapHouses = $this->mappedListings($this->filteredBoardingHouseQuery($request));
+
+        return view('superduperadmin.boarding-houses.create', [
+            ...$this->overviewData(),
+            ...$this->formReferenceData(),
+            'statusKeys' => $this->statusKeys(),
+            'mapHouses' => $mapHouses,
+        ]);
+    }
+
+    public function table(Request $request)
+    {
+        return view('superduperadmin.boarding-houses.index', [
+            ...$this->overviewData(),
+            'statusKeys' => $this->statusKeys(),
+            'boardingHouses' => $this->filteredBoardingHouseQuery($request)
+                ->orderByDesc('boarding_houses.created_at')
+                ->paginate(12)
+                ->withQueryString(),
+        ]);
+    }
+
+    public function rooms()
+    {
+        return view('superduperadmin.rooms.index', [
+            ...$this->overviewData(),
+        ]);
+    }
+
+    public function inquiries()
+    {
+        return view('superduperadmin.inquiries.index', [
+            ...$this->overviewData(),
+        ]);
+    }
+
+    public function messages()
+    {
+        return view('superduperadmin.messages.index', [
+            ...$this->overviewData(),
+        ]);
+    }
+
+    public function compliance()
+    {
+        return view('superduperadmin.compliance.index', [
+            ...$this->overviewData(),
+        ]);
+    }
+
+    public function reviews()
+    {
+        return view('superduperadmin.reviews.index', [
+            ...$this->overviewData(),
+        ]);
+    }
+
+    public function reports()
+    {
+        return view('superduperadmin.reports.index', [
+            ...$this->overviewData(),
+        ]);
+    }
+
+    public function settings()
+    {
+        return view('superduperadmin.settings.index', [
+            ...$this->overviewData(),
+        ]);
+    }
+
+    private function filteredBoardingHouseQuery(Request $request): Builder
     {
         $query = BoardingHouse::query()
             ->with([
@@ -49,12 +147,12 @@ class DashboardController extends Controller
             });
         }
 
-        $tableHouses = (clone $query)
-            ->orderByDesc('boarding_houses.created_at')
-            ->paginate(12)
-            ->withQueryString();
+        return $query;
+    }
 
-        $mapHouses = (clone $query)
+    private function mappedListings(Builder $query): Collection
+    {
+        return (clone $query)
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
             ->get()
@@ -94,28 +192,38 @@ class DashboardController extends Controller
                 ];
             })
             ->values();
+    }
 
-        $ownersAndManagers = User::query()
-            ->whereIn('role', ['owner', 'manager', 'superduperadmin', 'admin'])
-            ->orderBy('name')
-            ->get(['id', 'name', 'email', 'role']);
-
-        $regions = Region::query()->orderBy('region_name')->get(['id', 'region_name']);
-        $provinces = Province::query()->orderBy('province_name')->get(['id', 'province_name', 'region_id']);
-        $cities = CityMunicipality::query()->orderBy('city_name')->get(['id', 'city_name', 'province_id']);
-        $barangays = Barangay::query()->orderBy('barangay_name')->get(['id', 'barangay_name', 'city_id', 'latitude', 'longitude']);
-
-        return view('superduperadmin.dashboard', [
+    private function overviewData(): array
+    {
+        return [
             'totalUsers' => User::count(),
             'totalBoardingHouses' => BoardingHouse::count(),
             'pendingBoardingHouses' => BoardingHouse::whereIn('status', ['pending', 'draft'])->count(),
-            'boardingHouses' => $tableHouses,
-            'mapHouses' => $mapHouses,
-            'ownersAndManagers' => $ownersAndManagers,
-            'regions' => $regions,
-            'provinces' => $provinces,
-            'cities' => $cities,
-            'barangays' => $barangays,
-        ]);
+        ];
+    }
+
+    private function formReferenceData(): array
+    {
+        return [
+            'ownersAndManagers' => User::query()
+                ->where(function ($query) {
+                    $query->whereIn('role', ['owner', 'manager', 'superduperadmin', 'admin'])
+                        ->orWhereHas('roles', function ($roleQuery) {
+                            $roleQuery->whereIn('name', ['owner', 'manager', 'superduperadmin', 'admin']);
+                        });
+                })
+                ->orderBy('name')
+                ->get(['id', 'name', 'email', 'role']),
+            'regions' => Region::query()->orderBy('region_name')->get(['id', 'region_name']),
+            'provinces' => Province::query()->orderBy('province_name')->get(['id', 'province_name', 'region_id']),
+            'cities' => CityMunicipality::query()->orderBy('city_name')->get(['id', 'city_name', 'province_id']),
+            'barangays' => Barangay::query()->orderBy('barangay_name')->get(['id', 'barangay_name', 'city_id', 'latitude', 'longitude']),
+        ];
+    }
+
+    private function statusKeys(): array
+    {
+        return ['draft', 'pending', 'approved', 'rejected', 'suspended', 'closed'];
     }
 }

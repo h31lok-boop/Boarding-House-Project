@@ -5,9 +5,14 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\BoardingHouseApplicationController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Map\BoardingHouseMapController;
-use App\Http\Controllers\Owner\OwnerListingController;
+use App\Http\Controllers\Owner\OwnerBoardingHouseController;
+use App\Http\Controllers\Owner\OwnerBookingController;
+use App\Http\Controllers\Owner\OwnerComplianceController;
+use App\Http\Controllers\Owner\OwnerDashboardController;
+use App\Http\Controllers\Owner\OwnerFeedbackController;
+use App\Http\Controllers\Owner\OwnerInquiryController;
+use App\Http\Controllers\Owner\OwnerRoomController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\RoomController;
 use App\Http\Controllers\SuperDuperAdmin\BoardingHouseController as SuperDuperAdminBoardingHouseController;
 use App\Http\Controllers\SuperDuperAdmin\DashboardController as SuperDuperAdminDashboardController;
 use App\Http\Controllers\Tenant\TenantPageController;
@@ -43,6 +48,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // SuperDuperAdmin area
     Route::prefix('superduperadmin')->name('superduperadmin.')->middleware('superduperadmin')->group(function () {
         Route::get('/dashboard', [SuperDuperAdminDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/map', [SuperDuperAdminDashboardController::class, 'map'])->name('map');
+        Route::get('/profile', [ProfileController::class, 'edit'])->name('profile');
+        Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+        Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+        Route::get('/rooms', [SuperDuperAdminDashboardController::class, 'rooms'])->name('rooms');
+        Route::get('/inquiries', [SuperDuperAdminDashboardController::class, 'inquiries'])->name('inquiries');
+        Route::get('/messages', [SuperDuperAdminDashboardController::class, 'messages'])->name('messages');
+        Route::get('/compliance', [SuperDuperAdminDashboardController::class, 'compliance'])->name('compliance');
+        Route::get('/reviews', [SuperDuperAdminDashboardController::class, 'reviews'])->name('reviews');
+        Route::get('/reports', [SuperDuperAdminDashboardController::class, 'reports'])->name('reports');
+        Route::get('/settings', [SuperDuperAdminDashboardController::class, 'settings'])->name('settings');
+        Route::get('/users', [AdminController::class, 'users'])->name('users');
+        Route::get('/users/{user}/edit', [AdminController::class, 'editUser'])->name('users.edit');
+        Route::put('/users/{user}', [AdminController::class, 'updateUser'])->name('users.update');
+        Route::put('/users/{user}/role', [AdminController::class, 'updateUserRole'])->name('users.role');
+        Route::put('/users/{user}/archive', [AdminController::class, 'archiveUser'])->name('users.archive');
+        Route::put('/users/{user}/restore', [AdminController::class, 'restoreUser'])->name('users.restore');
+        Route::delete('/users/{user}', [AdminController::class, 'destroyUser'])->name('users.destroy');
+        Route::get('/boarding-houses', [SuperDuperAdminDashboardController::class, 'table'])->name('boarding-houses.index');
+        Route::get('/boarding-houses/create', [SuperDuperAdminDashboardController::class, 'create'])->name('boarding-houses.create');
         Route::post('/boarding-houses', [SuperDuperAdminBoardingHouseController::class, 'store'])->name('boarding-houses.store');
         Route::get('/boarding-houses/{boardingHouse}/edit', [SuperDuperAdminBoardingHouseController::class, 'edit'])->name('boarding-houses.edit');
         Route::put('/boarding-houses/{boardingHouse}', [SuperDuperAdminBoardingHouseController::class, 'update'])->name('boarding-houses.update');
@@ -59,9 +84,47 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('user.boarding-houses');
     });
 
-    // Admin-only area
+    // Admin area (Owner accounts are now presented as Admin accounts)
     Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
-        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+        Route::get('/dashboard', [OwnerDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/profile', [ProfileController::class, 'edit'])->name('profile');
+        Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+        Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+        Route::get('/listings', [OwnerBoardingHouseController::class, 'index'])->name('listings');
+        Route::get('/listings/create', [OwnerBoardingHouseController::class, 'create'])->name('listings.create');
+        Route::post('/listings', [OwnerBoardingHouseController::class, 'store'])->name('listings.store');
+        Route::get('/listings/{boardingHouse}/edit', [OwnerBoardingHouseController::class, 'edit'])->name('listings.edit');
+        Route::put('/listings/{boardingHouse}', [OwnerBoardingHouseController::class, 'update'])->name('listings.update');
+        Route::delete('/listings/{boardingHouse}', [OwnerBoardingHouseController::class, 'destroy'])->name('listings.destroy');
+
+        Route::get('/boarding-houses', [OwnerBoardingHouseController::class, 'index'])->name('boarding-houses.index');
+        Route::get('/boarding-houses/create', [OwnerBoardingHouseController::class, 'create'])->name('boarding-houses.create');
+        Route::post('/boarding-houses', [OwnerBoardingHouseController::class, 'store'])->name('boarding-houses.store');
+        Route::get('/boarding-houses/{boardingHouse}/edit', [OwnerBoardingHouseController::class, 'edit'])->name('boarding-houses.edit');
+        Route::put('/boarding-houses/{boardingHouse}', [OwnerBoardingHouseController::class, 'update'])->name('boarding-houses.update');
+        Route::delete('/boarding-houses/{boardingHouse}', [OwnerBoardingHouseController::class, 'destroy'])->name('boarding-houses.destroy');
+
+        Route::get('/rooms', [OwnerRoomController::class, 'index'])->name('rooms');
+        Route::post('/rooms', [OwnerRoomController::class, 'store'])->name('rooms.store');
+        Route::get('/rooms/{room}/edit', [OwnerRoomController::class, 'edit'])->name('rooms.edit');
+        Route::put('/rooms/{room}', [OwnerRoomController::class, 'update'])->name('rooms.update');
+        Route::delete('/rooms/{room}', [OwnerRoomController::class, 'destroy'])->name('rooms.destroy');
+
+        Route::get('/inquiries', [OwnerInquiryController::class, 'index'])->name('inquiries.index');
+        Route::patch('/inquiries/{inquiry}', [OwnerInquiryController::class, 'update'])->name('inquiries.update');
+        Route::get('/messages', [OwnerDashboardController::class, 'messages'])->name('messages');
+
+        Route::get('/bookings', [OwnerBookingController::class, 'index'])->name('bookings.index');
+        Route::patch('/reservations/{reservation}', [OwnerBookingController::class, 'updateReservation'])->name('reservations.update');
+        Route::patch('/bookings/{booking}', [OwnerBookingController::class, 'updateBooking'])->name('bookings.update');
+
+        Route::get('/reviews', [OwnerFeedbackController::class, 'index'])->name('reviews');
+        Route::get('/feedback', [OwnerFeedbackController::class, 'index'])->name('feedback.index');
+        Route::get('/compliance', [OwnerComplianceController::class, 'index'])->name('compliance.index');
+        Route::get('/reports', [OwnerDashboardController::class, 'reports'])->name('reports');
+        Route::get('/settings', [OwnerDashboardController::class, 'settings'])->name('settings');
+
         Route::get('/users', [AdminController::class, 'users'])->name('users');
         Route::get('/tenant-history', [AdminController::class, 'tenantHistory'])->name('tenant-history');
         Route::get('/users/{user}/edit', [AdminController::class, 'editUser'])->name('users.edit');
@@ -70,30 +133,60 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/users/{user}/archive', [AdminController::class, 'archiveUser'])->name('users.archive');
         Route::put('/users/{user}/restore', [AdminController::class, 'restoreUser'])->name('users.restore');
         Route::delete('/users/{user}', [AdminController::class, 'destroyUser'])->name('users.destroy');
-        Route::resource('/boarding-houses', \App\Http\Controllers\BoardingHouseController::class)->names('boarding-houses');
-        Route::resource('/rooms', RoomController::class)->only(['store', 'update', 'destroy'])->names('rooms');
         Route::get('/boarding-house-policies', [BoardingHousePolicyController::class, 'index'])->name('boarding-house-policies.index');
         Route::post('/boarding-house-policies', [BoardingHousePolicyController::class, 'update'])->name('boarding-house-policies.update');
 
         Route::get('/boarding-house-applications', [BoardingHouseApplicationController::class, 'index'])->name('applications.index');
         Route::post('/boarding-house-applications/{application}/approve', [BoardingHouseApplicationController::class, 'approve'])->name('applications.approve');
         Route::post('/boarding-house-applications/{application}/reject', [BoardingHouseApplicationController::class, 'reject'])->name('applications.reject');
-
-        Route::get('/inquiries', [InquiryController::class, 'index'])->name('inquiries.index');
-        Route::get('/inquiries/{inquiry}', [InquiryController::class, 'show'])->name('inquiries.show');
-        Route::put('/inquiries/{inquiry}', [InquiryController::class, 'update'])->name('inquiries.update');
     });
 
-    // Owner Dashboard (role-gated)
-    Route::get('/owner/dashboard', [DashboardController::class, 'owner'])->name('owner.dashboard');
-    Route::get('/owner/maintenance', [DashboardController::class, 'ownerMaintenance'])->name('owner.maintenance');
-    Route::get('/owner/inquiries', [InquiryController::class, 'index'])->name('owner.inquiries.index');
-    Route::get('/owner/inquiries/{inquiry}', [InquiryController::class, 'show'])->name('owner.inquiries.show');
-    Route::put('/owner/inquiries/{inquiry}', [InquiryController::class, 'update'])->name('owner.inquiries.update');
-    Route::get('/owner/rooms', [OwnerListingController::class, 'rooms'])->name('owner.rooms');
-    Route::get('/owner/boarding-houses', [OwnerListingController::class, 'boardingHouses'])->name('owner.boarding-houses');
+    // Owner area
+    Route::prefix('owner')->name('owner.')->middleware('owner')->group(function () {
+        Route::get('/dashboard', [OwnerDashboardController::class, 'index'])->name('dashboard');
+        Route::get('/maintenance', [DashboardController::class, 'ownerMaintenance'])->name('maintenance');
+        Route::get('/profile', [ProfileController::class, 'edit'])->name('profile');
+        Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+        Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+        Route::get('/users', [AdminController::class, 'users'])->name('users');
+        Route::get('/users/{user}/edit', [AdminController::class, 'editUser'])->name('users.edit');
+        Route::put('/users/{user}', [AdminController::class, 'updateUser'])->name('users.update');
+        Route::put('/users/{user}/archive', [AdminController::class, 'archiveUser'])->name('users.archive');
+        Route::put('/users/{user}/restore', [AdminController::class, 'restoreUser'])->name('users.restore');
+        Route::delete('/users/{user}', [AdminController::class, 'destroyUser'])->name('users.destroy');
+        Route::get('/tenant-history', [AdminController::class, 'tenantHistory'])->name('tenant-history');
 
-    // Tenant Dashboard (role-gated)
+        Route::get('/boarding-houses', [OwnerBoardingHouseController::class, 'index'])->name('boarding-houses');
+        Route::get('/boarding-houses/create', [OwnerBoardingHouseController::class, 'create'])->name('boarding-houses.create');
+        Route::post('/boarding-houses', [OwnerBoardingHouseController::class, 'store'])->name('boarding-houses.store');
+        Route::get('/boarding-houses/{boardingHouse}/edit', [OwnerBoardingHouseController::class, 'edit'])->name('boarding-houses.edit');
+        Route::put('/boarding-houses/{boardingHouse}', [OwnerBoardingHouseController::class, 'update'])->name('boarding-houses.update');
+        Route::delete('/boarding-houses/{boardingHouse}', [OwnerBoardingHouseController::class, 'destroy'])->name('boarding-houses.destroy');
+
+        Route::get('/rooms', [OwnerRoomController::class, 'index'])->name('rooms');
+        Route::post('/rooms', [OwnerRoomController::class, 'store'])->name('rooms.store');
+        Route::get('/rooms/{room}/edit', [OwnerRoomController::class, 'edit'])->name('rooms.edit');
+        Route::put('/rooms/{room}', [OwnerRoomController::class, 'update'])->name('rooms.update');
+        Route::delete('/rooms/{room}', [OwnerRoomController::class, 'destroy'])->name('rooms.destroy');
+
+        Route::get('/inquiries', [OwnerInquiryController::class, 'index'])->name('inquiries.index');
+        Route::patch('/inquiries/{inquiry}', [OwnerInquiryController::class, 'update'])->name('inquiries.update');
+        Route::get('/messages', [OwnerDashboardController::class, 'messages'])->name('messages');
+
+        Route::get('/bookings', [OwnerBookingController::class, 'index'])->name('bookings.index');
+        Route::patch('/reservations/{reservation}', [OwnerBookingController::class, 'updateReservation'])->name('reservations.update');
+        Route::patch('/bookings/{booking}', [OwnerBookingController::class, 'updateBooking'])->name('bookings.update');
+
+        Route::get('/feedback', [OwnerFeedbackController::class, 'index'])->name('feedback.index');
+        Route::get('/compliance', [OwnerComplianceController::class, 'index'])->name('compliance.index');
+        Route::get('/reports', [OwnerDashboardController::class, 'reports'])->name('reports');
+        Route::get('/settings', [OwnerDashboardController::class, 'settings'])->name('settings');
+    });
+
+    // User Dashboard (legacy tenant routes remain as compatibility aliases)
+    Route::get('/user/dashboard', [DashboardController::class, 'tenant'])->name('user.dashboard');
+
+    // Tenant Dashboard (legacy role-gated URL)
     Route::get('/tenant/dashboard', [DashboardController::class, 'tenant'])->name('tenant.dashboard');
 
     Route::get('/tenant/bh-policies', [TenantPageController::class, 'bhPolicies'])->name('tenant.bh-policies');
@@ -101,12 +194,30 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('tenant')->name('tenant.')->group(function () {
         Route::get('/boarding-houses', [BoardingHouseBrowseController::class, 'index'])->name('boarding-houses');
         Route::get('/boarding-houses/compare', [BoardingHouseBrowseController::class, 'compare'])->name('boarding-houses.compare');
+        Route::get('/applications', [TenantPageController::class, 'applications'])->name('applications');
+        Route::get('/reservations', [TenantPageController::class, 'reservations'])->name('reservations');
+        Route::get('/saved-listings', [FavoriteController::class, 'index'])->name('saved-listings');
+        Route::get('/messages', [TenantPageController::class, 'messages'])->name('messages');
+        Route::get('/notifications', [TenantPageController::class, 'notifications'])->name('notifications');
+        Route::get('/reviews', [TenantPageController::class, 'reviews'])->name('reviews');
+        Route::post('/reviews', [TenantPageController::class, 'storeReview'])->name('reviews.store');
+        Route::get('/settings', [TenantPageController::class, 'settings'])->name('settings');
     });
 
     Route::prefix('user')->name('user.')->group(function () {
+        Route::get('/browse-listings', [BoardingHouseBrowseController::class, 'index'])->name('browse-listings');
         Route::get('/boarding-houses', [BoardingHouseBrowseController::class, 'index'])->name('boarding-houses.index');
         Route::get('/boarding-houses/compare', [BoardingHouseBrowseController::class, 'compare'])->name('boarding-houses.compare');
         Route::get('/boarding-houses/{boardingHouse}', [BoardingHouseBrowseController::class, 'show'])->name('boarding-houses.show');
+
+        Route::get('/applications', [TenantPageController::class, 'applications'])->name('applications');
+        Route::get('/bookings', [TenantPageController::class, 'reservations'])->name('bookings');
+        Route::get('/reservations', [TenantPageController::class, 'reservations'])->name('reservations');
+        Route::get('/messages', [TenantPageController::class, 'messages'])->name('messages');
+        Route::get('/notifications', [TenantPageController::class, 'notifications'])->name('notifications');
+        Route::get('/reviews', [TenantPageController::class, 'reviews'])->name('reviews');
+        Route::post('/reviews', [TenantPageController::class, 'storeReview'])->name('reviews.store');
+        Route::get('/settings', [TenantPageController::class, 'settings'])->name('settings');
 
         Route::get('/favorites', [FavoriteController::class, 'index'])->name('favorites.index');
         Route::post('/favorites/{boardingHouse}', [FavoriteController::class, 'store'])->middleware('throttle:30,1')->name('favorites.store');
@@ -119,86 +230,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/boarding-houses/{boarding_house}/apply', [BoardingHouseApplicationController::class, 'store'])->name('tenant.boarding-houses.apply');
     Route::post('/boarding-houses/apply', [BoardingHouseApplicationController::class, 'storeFromSelect'])->name('tenant.boarding-houses.apply.select');
 
-    // Caretaker Dashboard (role-gated)
-    Route::prefix('caretaker')->name('caretaker.')->middleware('caretaker')->group(function () {
-        Route::get('/dashboard', [\App\Http\Controllers\CaretakerController::class, 'dashboard'])->name('dashboard');
-        Route::get('/tenants', [\App\Http\Controllers\CaretakerController::class, 'tenants'])->name('tenants.index');
-        Route::get('/tenants/{id}', [\App\Http\Controllers\CaretakerController::class, 'tenantShow'])->name('tenants.show');
-        Route::post('/tenants/{id}/checkin', [\App\Http\Controllers\CaretakerController::class, 'tenantCheckin'])->name('tenants.checkin');
-        Route::post('/tenants/{id}/checkout', [\App\Http\Controllers\CaretakerController::class, 'tenantCheckout'])->name('tenants.checkout');
-        Route::post('/tenants/{id}', [\App\Http\Controllers\CaretakerController::class, 'tenantUpdate'])->name('tenants.update');
-
-        Route::get('/bookings', [\App\Http\Controllers\CaretakerController::class, 'bookings'])->name('bookings.index');
-        Route::get('/bookings/{id}', [\App\Http\Controllers\CaretakerController::class, 'bookingShow'])->name('bookings.show');
-        Route::post('/bookings/{id}/processing', [\App\Http\Controllers\CaretakerController::class, 'bookingProcess'])->name('bookings.process');
-        Route::post('/bookings/{id}/confirm', [\App\Http\Controllers\CaretakerController::class, 'bookingConfirm'])->name('bookings.confirm');
-        Route::post('/bookings/{id}/cancel', [\App\Http\Controllers\CaretakerController::class, 'bookingCancel'])->name('bookings.cancel');
-        Route::post('/bookings/{id}/extend', [\App\Http\Controllers\CaretakerController::class, 'bookingExtend'])->name('bookings.extend');
-        Route::get('/bookings/availability', [\App\Http\Controllers\CaretakerController::class, 'bookingAvailability'])->name('bookings.availability');
-
-        Route::get('/rooms', [\App\Http\Controllers\CaretakerController::class, 'rooms'])->name('rooms.index');
-        Route::get('/rooms/availability', [\App\Http\Controllers\CaretakerController::class, 'roomsAvailability'])->name('rooms.availability');
-        Route::post('/rooms/{id}/status', [\App\Http\Controllers\CaretakerController::class, 'roomStatus'])->name('rooms.status');
-        Route::post('/rooms/{id}', [\App\Http\Controllers\CaretakerController::class, 'roomUpdate'])->name('rooms.update');
-
-        Route::get('/maintenance', [\App\Http\Controllers\CaretakerController::class, 'maintenance'])->name('maintenance.index');
-        Route::get('/maintenance/{id}', [\App\Http\Controllers\CaretakerController::class, 'maintenanceShow'])->name('maintenance.show');
-        Route::post('/maintenance/{id}/update', [\App\Http\Controllers\CaretakerController::class, 'maintenanceUpdate'])->name('maintenance.update');
-        Route::post('/maintenance/{id}/priority', [\App\Http\Controllers\CaretakerController::class, 'maintenancePriority'])->name('maintenance.priority');
-        Route::post('/maintenance/{id}/resolve', [\App\Http\Controllers\CaretakerController::class, 'maintenanceResolve'])->name('maintenance.resolve');
-
-        Route::get('/incidents', [\App\Http\Controllers\CaretakerController::class, 'incidents'])->name('incidents.index');
-        Route::get('/incidents/{id}', [\App\Http\Controllers\CaretakerController::class, 'incidentShow'])->name('incidents.show');
-        Route::post('/incidents/{id}/update', [\App\Http\Controllers\CaretakerController::class, 'incidentUpdate'])->name('incidents.update');
-        Route::post('/incidents/{id}/resolve', [\App\Http\Controllers\CaretakerController::class, 'incidentResolve'])->name('incidents.resolve');
-
-        Route::get('/notices', [\App\Http\Controllers\CaretakerController::class, 'notices'])->name('notices.index');
-        Route::post('/notices', [\App\Http\Controllers\CaretakerController::class, 'noticesStore'])->name('notices.store');
-
-        Route::get('/reports', [\App\Http\Controllers\CaretakerController::class, 'reports'])->name('reports.index');
-        Route::post('/reports/generate', [\App\Http\Controllers\CaretakerController::class, 'reportsGenerate'])->name('reports.generate');
-
-        Route::get('/inquiries', [InquiryController::class, 'index'])->name('inquiries.index');
-        Route::get('/inquiries/{inquiry}', [InquiryController::class, 'show'])->name('inquiries.show');
-        Route::put('/inquiries/{inquiry}', [InquiryController::class, 'update'])->name('inquiries.update');
-
-        Route::get('/settings', [\App\Http\Controllers\CaretakerController::class, 'settings'])->name('settings');
-    });
-
-    // OSAS Dashboard (role-gated)
-    Route::prefix('osas')->name('osas.')->middleware('osas')->group(function () {
-        Route::get('/dashboard', [\App\Http\Controllers\OsasController::class, 'dashboard'])->name('dashboard');
-        Route::get('/validators', [\App\Http\Controllers\OsasController::class, 'validators'])->name('validators.index');
-        Route::post('/validators/{id}/toggle', [\App\Http\Controllers\OsasController::class, 'validatorToggle'])->name('validators.toggle');
-        Route::get('/validators/{id}', [\App\Http\Controllers\OsasController::class, 'validatorShow'])->name('validators.show');
-        Route::post('/validators/{id}/assign-task', [\App\Http\Controllers\OsasController::class, 'assignTask'])->name('validators.assign');
-
-        Route::get('/workbench', [\App\Http\Controllers\OsasController::class, 'workbench'])->name('workbench');
-        Route::get('/validations/{id}', [\App\Http\Controllers\OsasController::class, 'validationShow'])->name('validations.show');
-        Route::post('/validations/{id}/start', [\App\Http\Controllers\OsasController::class, 'validationStart'])->name('validations.start');
-        Route::post('/validations/{id}/save', [\App\Http\Controllers\OsasController::class, 'validationSave'])->name('validations.save');
-        Route::post('/validations/{id}/submit', [\App\Http\Controllers\OsasController::class, 'validationSubmit'])->name('validations.submit');
-        Route::post('/validations/{id}/evidence', [\App\Http\Controllers\OsasController::class, 'validationEvidence'])->name('validations.evidence');
-        Route::post('/validations/{id}/finding', [\App\Http\Controllers\OsasController::class, 'validationFinding'])->name('validations.finding');
-
-        Route::get('/accreditation', [\App\Http\Controllers\OsasController::class, 'accreditation'])->name('accreditation');
-        Route::post('/accreditation/{id}/approve', [\App\Http\Controllers\OsasController::class, 'accreditApprove'])->name('accreditation.approve');
-        Route::post('/accreditation/{id}/suspend', [\App\Http\Controllers\OsasController::class, 'accreditSuspend'])->name('accreditation.suspend');
-        Route::post('/accreditation/{id}/reinstate', [\App\Http\Controllers\OsasController::class, 'accreditReinstate'])->name('accreditation.reinstate');
-
-        Route::get('/reports', [\App\Http\Controllers\OsasController::class, 'reports'])->name('reports');
-        Route::post('/reports/export', [\App\Http\Controllers\OsasController::class, 'reportsExport'])->name('reports.export');
-
-        Route::get('/settings', [\App\Http\Controllers\OsasController::class, 'settings'])->name('settings');
-    });
-
     // Profile Management
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     // Admin CRUD Resource (Single definition)
-    Route::resource('admins', AdminController::class);
+    Route::resource('admins', AdminController::class)->middleware('admin');
 });
 
 require __DIR__.'/auth.php';

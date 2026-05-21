@@ -1,4 +1,14 @@
 <section>
+    @php
+        if (request()->routeIs('superduperadmin.profile*')) {
+            $updateProfileRoute = 'superduperadmin.profile.update';
+        } elseif (request()->routeIs('owner.profile*')) {
+            $updateProfileRoute = 'owner.profile.update';
+        } else {
+            $updateProfileRoute = 'profile.update';
+        }
+    @endphp
+
     <header>
         <h2 class="text-lg font-medium text-gray-900">
             {{ __('Profile Information') }}
@@ -13,7 +23,7 @@
         @csrf
     </form>
 
-    <form method="post" action="{{ route('profile.update') }}" enctype="multipart/form-data" class="mt-6 space-y-6">
+    <form method="post" action="{{ route($updateProfileRoute) }}" enctype="multipart/form-data" class="mt-6 space-y-6">
         @csrf
         @method('patch')
 
@@ -59,6 +69,60 @@
                 </div>
             @endif
         </div>
+
+        <div>
+            <x-input-label for="phone" :value="__('Phone')" />
+            <x-text-input id="phone" name="phone" type="text" class="mt-1 block w-full" :value="old('phone', $user->phone)" autocomplete="tel" />
+            <x-input-error class="mt-2" :messages="$errors->get('phone')" />
+        </div>
+
+        @if ($user->isOwner())
+            @php
+                $ownerProfile = $user->ownerProfile;
+            @endphp
+
+            <div class="rounded-2xl border border-amber-100 bg-amber-50/70 p-4">
+                <h3 class="text-sm font-semibold text-slate-900">Owner Profile</h3>
+                <p class="mt-1 text-xs text-slate-600">
+                    Keep your owner and verification details updated for listing review and OSAS compliance.
+                </p>
+            </div>
+
+            <div>
+                <x-input-label for="company_name" :value="__('Company / Business Name')" />
+                <x-text-input id="company_name" name="company_name" type="text" class="mt-1 block w-full" :value="old('company_name', $ownerProfile?->company_name)" />
+                <x-input-error class="mt-2" :messages="$errors->get('company_name')" />
+            </div>
+
+            <div>
+                <x-input-label for="address" :value="__('Address')" />
+                <textarea id="address" name="address" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('address', $ownerProfile?->address) }}</textarea>
+                <x-input-error class="mt-2" :messages="$errors->get('address')" />
+            </div>
+
+            <div>
+                <x-input-label for="business_permit_number" :value="__('Business Permit Number')" />
+                <x-text-input id="business_permit_number" name="business_permit_number" type="text" class="mt-1 block w-full" :value="old('business_permit_number', $ownerProfile?->business_permit_number)" />
+                <x-input-error class="mt-2" :messages="$errors->get('business_permit_number')" />
+            </div>
+
+            <div>
+                <x-input-label for="valid_id_type" :value="__('Valid ID Type')" />
+                <x-text-input id="valid_id_type" name="valid_id_type" type="text" class="mt-1 block w-full" :value="old('valid_id_type', $ownerProfile?->valid_id_type)" />
+                <x-input-error class="mt-2" :messages="$errors->get('valid_id_type')" />
+            </div>
+
+            <div>
+                <x-input-label for="valid_id_number" :value="__('Valid ID Number')" />
+                <x-text-input id="valid_id_number" name="valid_id_number" type="text" class="mt-1 block w-full" :value="old('valid_id_number', $ownerProfile?->valid_id_number)" />
+                <x-input-error class="mt-2" :messages="$errors->get('valid_id_number')" />
+            </div>
+
+            <div class="text-xs text-slate-600">
+                Verification status:
+                <span class="font-semibold capitalize">{{ $ownerProfile?->verification_status ?? 'pending' }}</span>
+            </div>
+        @endif
 
         <div class="flex items-center gap-4">
             <x-primary-button>{{ __('Save') }}</x-primary-button>

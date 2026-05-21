@@ -34,7 +34,7 @@
                     <button class="h-9 w-9 rounded-full ui-surface border ui-border flex items-center justify-center shadow">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     </button>
-                    <button type="button" class="theme-toggle" data-theme-toggle><span>Theme:</span> <span data-theme-label>Light</span></button>
+                    <x-theme-toggle class="theme-toggle" show-label prefix="Theme:" />
                     <div class="relative" x-data="{ open: false, confirm: false }">
                         <button @click="open = !open" class="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-[color:var(--surface-2)]">
                             <div class="h-9 w-9 rounded-full bg-gradient-to-br from-orange-500 via-rose-500 to-amber-400 text-white flex items-center justify-center text-xs font-semibold">

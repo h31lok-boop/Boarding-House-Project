@@ -1,318 +1,362 @@
-<?php if (isset($component)) { $__componentOriginal26723e7569d950d41cabbb4f5db8c6fb = $component; } ?>
-<?php if (isset($attributes)) { $__attributesOriginal26723e7569d950d41cabbb4f5db8c6fb = $attributes; } ?>
-<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.layouts.caretaker','data' => []] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
-<?php $component->withName('layouts.caretaker'); ?>
+<?php
+    $workspace = request()->routeIs('superduperadmin.*')
+        ? 'superduperadmin'
+        : (request()->routeIs('owner.*') ? 'owner' : 'admin');
+    $usersIndexRoute = match ($workspace) {
+        'superduperadmin' => 'superduperadmin.users',
+        'owner' => 'owner.users',
+        default => 'admin.users',
+    };
+    $usersEditRoute = match ($workspace) {
+        'superduperadmin' => 'superduperadmin.users.edit',
+        'owner' => 'owner.users.edit',
+        default => 'admin.users.edit',
+    };
+    $usersArchiveRoute = match ($workspace) {
+        'superduperadmin' => 'superduperadmin.users.archive',
+        'owner' => 'owner.users.archive',
+        default => 'admin.users.archive',
+    };
+    $usersRestoreRoute = match ($workspace) {
+        'superduperadmin' => 'superduperadmin.users.restore',
+        'owner' => 'owner.users.restore',
+        default => 'admin.users.restore',
+    };
+    $usersDestroyRoute = match ($workspace) {
+        'superduperadmin' => 'superduperadmin.users.destroy',
+        'owner' => 'owner.users.destroy',
+        default => 'admin.users.destroy',
+    };
+    $dashboardRoute = match ($workspace) {
+        'superduperadmin' => 'superduperadmin.dashboard',
+        'owner' => 'owner.dashboard',
+        default => 'admin.dashboard',
+    };
+    $workspaceSubtitle = match ($workspace) {
+        'superduperadmin', 'owner' => 'Account roles, activity state, and archived records inside the same Owner workspace.',
+        default => 'Account roles, activity state, and archived records inside the same Caretaker workspace.',
+    };
+    $profileRoleLabel = in_array($workspace, ['superduperadmin', 'owner'], true) ? 'Owner' : 'Admin / Caretaker';
+
+    $roleLabels = [
+        'owner' => 'Owner',
+        'caretaker' => 'Caretaker',
+        'tenant' => 'Tenant/Student',
+        'student' => 'Tenant/Student',
+        'user' => 'Tenant/Student',
+        'osas' => 'OSAS',
+        'validator' => 'OSAS',
+        'admin' => 'Caretaker',
+        'manager' => 'Caretaker',
+        'superduperadmin' => 'Owner',
+    ];
+
+    $roleTone = [
+        'owner' => 'bg-orange-100 text-orange-700 border-orange-200',
+        'superduperadmin' => 'bg-orange-100 text-orange-700 border-orange-200',
+        'caretaker' => 'bg-blue-100 text-blue-700 border-blue-200',
+        'manager' => 'bg-blue-100 text-blue-700 border-blue-200',
+        'admin' => 'bg-blue-100 text-blue-700 border-blue-200',
+        'tenant' => 'bg-emerald-100 text-emerald-700 border-emerald-200',
+        'student' => 'bg-emerald-100 text-emerald-700 border-emerald-200',
+        'user' => 'bg-emerald-100 text-emerald-700 border-emerald-200',
+        'osas' => 'bg-amber-100 text-amber-700 border-amber-200',
+        'validator' => 'bg-amber-100 text-amber-700 border-amber-200',
+    ];
+
+    $resolveRoleKey = function ($user): string {
+        return strtolower((string) ($user->roles->pluck('name')->first() ?? $user->role ?? 'tenant'));
+    };
+
+    $resolveRoleLabel = function ($user) use ($resolveRoleKey, $roleLabels): string {
+        $key = $resolveRoleKey($user);
+        return $roleLabels[$key] ?? ucfirst($key);
+    };
+?>
+
+<?php if (isset($component)) { $__componentOriginal389c6c7326277510c33cc8ff1022a5f7 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginal389c6c7326277510c33cc8ff1022a5f7 = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.admin.workspace-shell','data' => ['workspace' => $workspace,'title' => 'Manage Users','subtitle' => $workspaceSubtitle,'profileRoleLabel' => $profileRoleLabel,'active' => 'users']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('admin.workspace-shell'); ?>
 <?php if ($component->shouldRender()): ?>
 <?php $__env->startComponent($component->resolveView(), $component->data()); ?>
 <?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
 <?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
 <?php endif; ?>
-<?php $component->withAttributes([]); ?>
-<?php if (isset($component)) { $__componentOriginal7e50b16d05ad2bc9d4e29c45255ff8ab = $component; } ?>
-<?php if (isset($attributes)) { $__attributesOriginal7e50b16d05ad2bc9d4e29c45255ff8ab = $attributes; } ?>
-<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.admin.shell','data' => []] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
-<?php $component->withName('admin.shell'); ?>
-<?php if ($component->shouldRender()): ?>
-<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
-<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
-<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
-<?php endif; ?>
-<?php $component->withAttributes([]); ?>
-  <div class="ui-card p-4 mb-6">
-    <h2 class="font-semibold text-xl leading-tight">User Management</h2>
-  </div>
+<?php $component->withAttributes(['workspace' => \Illuminate\View\Compilers\BladeCompiler::sanitizeComponentAttribute($workspace),'title' => 'Manage Users','subtitle' => \Illuminate\View\Compilers\BladeCompiler::sanitizeComponentAttribute($workspaceSubtitle),'profile-role-label' => \Illuminate\View\Compilers\BladeCompiler::sanitizeComponentAttribute($profileRoleLabel),'active' => 'users']); ?>
+     <?php $__env->slot('actions', null, []); ?> 
+        <a href="<?php echo e(route($dashboardRoute)); ?>" class="inline-flex h-10 items-center justify-center rounded-xl border ui-border bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--text)] no-underline transition hover:bg-[color:var(--surface-2)]">
+            Dashboard
+        </a>
+        <button id="openArchiveModal" type="button" class="inline-flex h-10 items-center justify-center rounded-xl border ui-border bg-[color:var(--surface)] px-4 text-sm font-semibold text-[color:var(--text)] transition hover:bg-[color:var(--surface-2)]">
+            Archived Users
+        </button>
+     <?php $__env->endSlot(); ?>
 
-  
+    <style>
+        .user-table { width: 100%; min-width: 58rem; border-collapse: separate; border-spacing: 0; }
+        .user-table thead th { background: var(--surface-2); color: var(--muted); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.95rem 1.25rem; text-align: left; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+        .user-table tbody td { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+        .user-table tbody tr:hover { background: rgba(255, 247, 240, 0.72); }
+        [data-theme='dark'] .user-table tbody tr:hover { background: rgba(255, 255, 255, 0.03); }
+    </style>
 
-  <div class="space-y-6">
-      <?php if(session('success')): ?>
-        <div class="mb-4 px-4 py-3 rounded-lg bg-emerald-50 text-emerald-700">
-          <?php echo e(session('success')); ?>
+    <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
+        <section class="rounded-[1.5rem] border ui-border bg-[color:var(--surface)]/90 p-5 shadow-[0_18px_36px_rgba(26,18,15,0.08)]">
+            <div class="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                <div>
+                    <h2 class="text-lg font-semibold text-[color:var(--text)]">User Directory</h2>
+                    <p class="mt-1 text-sm ui-muted">Readable roles, compact actions, and cleaner spacing across active and archived accounts.</p>
+                </div>
 
-        </div>
-      <?php endif; ?>
-
-      <div class="ui-card overflow-hidden">
-        <div class="p-5 border-b ui-border space-y-3">
-          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 class="text-lg font-semibold ">All Users</h3>
-              <span class="text-sm ui-muted">Admin can change roles</span>
+                <form method="GET" class="grid gap-2 sm:grid-cols-[minmax(220px,1fr)_auto_auto]">
+                    <select name="role" class="h-11 rounded-xl border ui-border bg-[color:var(--surface)] px-3 text-sm text-[color:var(--text)]">
+                        <option value="">All Roles</option>
+                        <?php $__currentLoopData = $roles; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $role): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                            <option value="<?php echo e($role); ?>" <?php if(request('role') === $role): echo 'selected'; endif; ?>><?php echo e($roleLabels[strtolower($role)] ?? ucfirst($role)); ?></option>
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                    </select>
+                    <button type="submit" class="sa-button-secondary">Apply</button>
+                    <a href="<?php echo e(route($usersIndexRoute)); ?>" class="sa-button-ghost">Reset</a>
+                </form>
             </div>
-            <button id="openArchiveModal" class="text-sm ui-muted " type="button" title="View archived users">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 7h18M5 7v11c0 .828.672 1.5 1.5 1.5h11c.828 0 1.5-.672 1.5-1.5V7M9 7v-3h6v3" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10 12h4m-2-2v4" />
-              </svg>
-            </button>
-          </div>
-          <form method="GET" class="flex flex-col sm:flex-row sm:items-center gap-3">
-            <label class="text-sm ui-muted flex items-center gap-2">
-              <span>Filter by role:</span>
-              <select name="role" class="border rounded-lg px-3 py-2 text-sm">
-                <option value="">All</option>
-                <?php $__currentLoopData = $roles; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $role): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                  <option value="<?php echo e($role); ?>" <?php if(request('role') === $role): echo 'selected'; endif; ?>><?php echo e(ucfirst($role)); ?></option>
-                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
-              </select>
-            </label>
-            <div class="flex gap-2">
-              <button type="submit" class="bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-indigo-700">Apply</button>
-              <a href="<?php echo e(route('admin.users')); ?>" class="px-3 py-2 rounded-lg text-sm border hover:bg-[color:var(--surface-2)]">Reset</a>
+
+            <div class="overflow-x-auto">
+                <table class="user-table">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th class="text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php $__empty_1 = true; $__currentLoopData = $users; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $user): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                            <?php
+                                $roleKey = $resolveRoleKey($user);
+                                $roleLabel = $resolveRoleLabel($user);
+                                $roleBadge = $roleTone[$roleKey] ?? 'bg-slate-100 text-slate-700 border-slate-200';
+                                $statusBadge = $user->is_active
+                                    ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                                    : 'bg-slate-100 text-slate-600 border-slate-200';
+                            ?>
+                            <tr>
+                                <td>
+                                    <div class="flex items-center gap-3">
+                                        <span class="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-100 text-xs font-bold text-orange-700"><?php echo e(strtoupper(substr($user->name, 0, 1))); ?></span>
+                                        <div>
+                                            <p class="font-semibold text-[color:var(--text)]"><?php echo e($user->name); ?></p>
+                                            <p class="mt-1 text-xs ui-muted">ID #<?php echo e($user->id); ?></p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="text-sm text-[color:var(--text)]"><?php echo e($user->email); ?></td>
+                                <td>
+                                    <span class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold <?php echo e($roleBadge); ?>">
+                                        <?php echo e($roleLabel); ?>
+
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold <?php echo e($statusBadge); ?>">
+                                        <?php echo e($user->is_active ? 'Active' : 'Inactive'); ?>
+
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="flex justify-end gap-2">
+                                        <button
+                                            type="button"
+                                            class="view-user-btn inline-flex h-9 w-9 items-center justify-center rounded-xl border border-orange-200 bg-orange-50 text-orange-700"
+                                            title="View user"
+                                            data-name="<?php echo e($user->name); ?>"
+                                            data-email="<?php echo e($user->email); ?>"
+                                            data-phone="<?php echo e($user->phone ?? 'N/A'); ?>"
+                                            data-role="<?php echo e($roleLabel); ?>"
+                                            data-status="<?php echo e($user->is_active ? 'Active' : 'Inactive'); ?>">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6S2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
+                                        </button>
+                                        <a href="<?php echo e(route($usersEditRoute, $user)); ?>" class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-amber-200 bg-amber-50 text-amber-700" title="Edit user">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4"><path d="m16.862 4.487 2.651 2.651-10.11 10.11-3.362.711.711-3.362 10.11-10.11Z"/><path d="M13.75 7.6 16.4 10.25"/></svg>
+                                        </a>
+                                        <form action="<?php echo e(route($usersArchiveRoute, $user)); ?>" method="POST">
+                                            <?php echo csrf_field(); ?>
+                                            <?php echo method_field('PUT'); ?>
+                                            <button type="submit" onclick="return confirm('Archive this user instead of deleting?')" class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-700" title="Archive user">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="h-4 w-4"><path d="M6.75 7h10.5M10 10v6m4-6v6M9 7V5.75A1.75 1.75 0 0 1 10.75 4h2.5A1.75 1.75 0 0 1 15 5.75V7m-8.25 0h10.5l-.6 11.2a1.5 1.5 0 0 1-1.497 1.3H9.347a1.5 1.5 0 0 1-1.497-1.3L7.25 7Z"/></svg>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                            <tr>
+                                <td colspan="5" class="px-5 py-12 text-center text-sm ui-muted">No users found for the selected filter.</td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
             </div>
-          </form>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="min-w-full text-sm">
-            <thead class="ui-surface-2 border-b ui-border uppercase text-xs ui-muted">
-              <tr>
-                <th class="px-5 py-3 text-left">Name</th>
-                <th class="px-5 py-3 text-left">Email</th>
-                <th class="px-5 py-3 text-left">Current Role</th>
-                <th class="px-5 py-3 text-right">Status</th>
-                <th class="px-5 py-3 text-left">Action</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-              <?php $__currentLoopData = $users; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $user): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                <tr class="hover:bg-[color:var(--surface-2)]">
-                  <td class="px-5 py-3 font-medium "><?php echo e($user->name); ?></td>
-                  <td class="px-5 py-3 ui-muted"><?php echo e($user->email); ?></td>
-                  <td class="px-5 py-3">
-                    <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
-                      <?php echo e($user->roles->pluck('name')->first() ?? $user->role ?? 'tenant'); ?>
 
-                    </span>
-                  </td>
-                  <td class="px-5 py-3 text-right text-emerald-600 font-semibold">
-                    <?php echo e($user->is_active ? 'Active' : 'Inactive'); ?>
+            <div class="px-1 pt-4">
+                <?php echo e($users->withQueryString()->links()); ?>
 
-                  </td>
-                  <td class="px-5 py-3">
-                    <div class="flex items-center gap-2">
-                      <button type="button"
-                        class="inline-flex items-center justify-center w-9 h-9 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 view-user-btn"
-                        title="View"
-                        data-name="<?php echo e($user->name); ?>"
-                        data-email="<?php echo e($user->email); ?>"
-                        data-phone="<?php echo e($user->phone ?? '—'); ?>"
-                        data-role="<?php echo e($user->roles->pluck('name')->first() ?? $user->role ?? 'tenant'); ?>"
-                        data-status="<?php echo e($user->is_active ? 'Active' : 'Inactive'); ?>">
-                        <span class="sr-only">View</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6S2.5 12 2.5 12Z" />
-                          <circle cx="12" cy="12" r="3" fill="currentColor" />
-                        </svg>
-                      </button>
-                      <form action="<?php echo e(route('admin.users.archive', $user)); ?>" method="POST" class="inline">
-                        <?php echo csrf_field(); ?>
-                        <?php echo method_field('PUT'); ?>
-                        <button type="submit" onclick="return confirm('Archive this user instead of deleting?')" class="inline-flex items-center justify-center w-9 h-9 rounded-full bg-rose-50 text-rose-600 hover:bg-rose-100" title="Archive">
-                          <span class="sr-only">Archive</span>
-                          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M6.75 7h10.5M10 10v6m4-6v6M9 7V5.75A1.75 1.75 0 0 1 10.75 4h2.5A1.75 1.75 0 0 1 15 5.75V7m-8.25 0h10.5l-.6 11.2a1.5 1.5 0 0 1-1.497 1.3H9.347a1.5 1.5 0 0 1-1.497-1.3L7.25 7Z" />
-                          </svg>
-                        </button>
-                      </form>
-                      <a href="<?php echo e(route('admin.users.edit', $user)); ?>" class="inline-flex items-center justify-center w-9 h-9 rounded-full bg-amber-50 text-amber-600 hover:bg-amber-100" title="Edit">
-                        <span class="sr-only">Edit</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m16.862 4.487 2.651 2.651-10.11 10.11-3.362.711.711-3.362 10.11-10.11Z" />
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13.75 7.6 16.4 10.25" />
-                        </svg>
-                      </a>
+            </div>
+        </section>
+
+        <aside class="space-y-5">
+            <section class="rounded-[1.5rem] border ui-border bg-[color:var(--surface)]/90 p-5 shadow-[0_18px_36px_rgba(26,18,15,0.08)]">
+                <p class="text-xs font-semibold uppercase tracking-[0.18em] ui-muted">Summary</p>
+                <div class="mt-4 space-y-3">
+                    <div class="flex items-center justify-between rounded-2xl bg-[color:var(--surface-2)] px-4 py-3">
+                        <span class="text-sm ui-muted">Active Records</span>
+                        <span class="text-lg font-bold text-[color:var(--text)]"><?php echo e(number_format($activeUsersCount)); ?></span>
                     </div>
-                  </td>
-                </tr>
-              <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
-            </tbody>
-          </table>
-        </div>
-        <div class="p-4">
-          <?php echo e($users->links()); ?>
+                    <div class="flex items-center justify-between rounded-2xl bg-[color:var(--surface-2)] px-4 py-3">
+                        <span class="text-sm ui-muted">Archived</span>
+                        <span class="text-lg font-bold text-[color:var(--text)]"><?php echo e(number_format($archivedUsersCount)); ?></span>
+                    </div>
+                </div>
+            </section>
 
-</div>
+            <section class="rounded-[1.5rem] border ui-border bg-[color:var(--surface)]/90 p-5 shadow-[0_18px_36px_rgba(26,18,15,0.08)]">
+                <h3 class="text-lg font-semibold text-[color:var(--text)]">Role Labels</h3>
+                <div class="mt-4 flex flex-wrap gap-2">
+                    <span class="inline-flex items-center rounded-full border border-orange-200 bg-orange-100 px-3 py-1.5 text-xs font-semibold text-orange-700">Owner</span>
+                    <span class="inline-flex items-center rounded-full border border-blue-200 bg-blue-100 px-3 py-1.5 text-xs font-semibold text-blue-700">Caretaker</span>
+                    <span class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700">Tenant/Student</span>
+                    <span class="inline-flex items-center rounded-full border border-amber-200 bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700">OSAS</span>
+                </div>
+            </section>
+        </aside>
     </div>
-  </div>
 
-  <div id="userModal" class="fixed inset-0 bg-black/30 backdrop-blur-sm hidden items-center justify-center z-50">
-    <div class="ui-surface rounded-md shadow-xl w-[min(95vw,560px)] max-w-[560px] mx-4 max-h-[85vh] overflow-y-auto">
-      <div class="px-8 py-6 border-b ui-border flex items-center justify-between">
-        <h3 class="text-xl font-semibold ">User Details</h3>
-        <button id="closeUserModal" class="ui-muted ui-muted text-2xl leading-none" aria-label="Close">×</button>
-      </div>
-      <div class="px-8 py-6 space-y-5 text-base">
-        <div class="grid grid-cols-[auto,1fr] items-center gap-6">
-          <span class="ui-muted font-medium">Name</span>
-          <span id="modalName" class="font-semibold "></span>
+    <div id="userModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/35 p-4 backdrop-blur-sm">
+        <div class="w-[min(95vw,560px)] rounded-[1.5rem] border ui-border bg-[color:var(--surface)] shadow-2xl">
+            <div class="flex items-center justify-between border-b ui-border px-6 py-4">
+                <h3 class="text-lg font-semibold text-[color:var(--text)]">User Details</h3>
+                <button id="closeUserModal" class="text-2xl leading-none ui-muted" aria-label="Close">&times;</button>
+            </div>
+            <div class="space-y-4 px-6 py-5 text-sm">
+                <div class="grid grid-cols-[120px_1fr] gap-4"><span class="ui-muted">Name</span><span id="modalName" class="font-semibold text-[color:var(--text)]"></span></div>
+                <div class="grid grid-cols-[120px_1fr] gap-4"><span class="ui-muted">Email</span><span id="modalEmail"></span></div>
+                <div class="grid grid-cols-[120px_1fr] gap-4"><span class="ui-muted">Phone</span><span id="modalPhone"></span></div>
+                <div class="grid grid-cols-[120px_1fr] gap-4"><span class="ui-muted">Role</span><span id="modalRole"></span></div>
+                <div class="grid grid-cols-[120px_1fr] gap-4"><span class="ui-muted">Status</span><span id="modalStatus"></span></div>
+            </div>
+            <div class="flex justify-end border-t ui-border px-6 py-4">
+                <button id="closeUserModalFooter" class="sa-button-secondary">Close</button>
+            </div>
         </div>
-        <div class="grid grid-cols-[auto,1fr] items-center gap-6">
-          <span class="ui-muted font-medium">Email</span>
-          <span id="modalEmail" class="font-medium "></span>
-        </div>
-        <div class="grid grid-cols-[auto,1fr] items-center gap-6">
-          <span class="ui-muted font-medium">Phone</span>
-          <span id="modalPhone" class=""></span>
-        </div>
-        <div class="grid grid-cols-[auto,1fr] items-center gap-6">
-          <span class="ui-muted font-medium">Role</span>
-          <span id="modalRole" class=""></span>
-        </div>
-        <div class="grid grid-cols-[auto,1fr] items-center gap-6">
-          <span class="ui-muted font-medium">Status</span>
-          <span id="modalStatus" class=""></span>
-        </div>
-      </div>
-      <div class="px-8 py-6 border-t ui-border flex justify-end">
-        <button id="closeUserModalFooter" class="px-5 py-2.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 text-base font-semibold">Close</button>
-      </div>
     </div>
-  </div>
 
-  <div id="archiveModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-50">
-    <div class="ui-surface rounded-md shadow-xl w-[min(95vw,720px)] max-w-[720px] mx-4 max-h-[90vh] overflow-y-auto">
-      <div class="px-6 py-4 border-b ui-border flex items-center justify-between">
-        <h3 class="text-lg font-semibold ">Archived Users</h3>
-        <button id="closeArchiveModal" class="ui-muted ui-muted text-2xl leading-none" aria-label="Close">×</button>
-      </div>
-      <div class="px-6 py-5 space-y-4 text-sm">
-        <?php if($archivedUsers->count()): ?>
-          <div class="overflow-x-auto">
-            <table class="min-w-full text-sm">
-              <thead class="ui-surface-2 border-b ui-border uppercase text-xs ui-muted">
-                <tr>
-                  <th class="px-4 py-3 text-left">Name</th>
-                  <th class="px-4 py-3 text-left">Email</th>
-                  <th class="px-4 py-3 text-left">Role</th>
-                  <th class="px-4 py-3 text-left">Status</th>
-                  <th class="px-4 py-3 text-left">Archived</th>
-                  <th class="px-4 py-3 text-left">Actions</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-100 ">
-                <?php $__currentLoopData = $archivedUsers; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $archivedUser): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                  <tr class="hover:bg-[color:var(--surface-2)]">
-                    <td class="px-4 py-3 font-medium "><?php echo e($archivedUser->name); ?></td>
-                    <td class="px-4 py-3 ui-muted"><?php echo e($archivedUser->email); ?></td>
-                    <td class="px-4 py-3">
-                      <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
-                        <?php echo e($archivedUser->roles->pluck('name')->first() ?? $archivedUser->role ?? 'tenant'); ?>
-
-                      </span>
-                    </td>
-                    <td class="px-4 py-3">
-                      <span class="font-semibold text-xs uppercase tracking-wide text-emerald-600">
-                        <?php echo e($archivedUser->is_active ? 'Active' : 'Inactive'); ?>
-
-                      </span>
-                    </td>
-                    <td class="px-4 py-3 text-sm ui-muted">
-                      <?php echo e($archivedUser->archived_at ? $archivedUser->archived_at->format('M j, Y') : 'Unknown'); ?>
-
-                    </td>
-                    <td class="px-4 py-3">
-                      <div class="flex flex-wrap gap-2">
-                        <form action="<?php echo e(route('admin.users.restore', $archivedUser)); ?>" method="POST" class="inline">
-                          <?php echo csrf_field(); ?>
-                          <?php echo method_field('PUT'); ?>
-                          <button type="submit" class="px-3 py-1 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 text-xs font-semibold uppercase tracking-wide bg-emerald-100">
-                            Restore
-                          </button>
-                        </form>
-                        <form action="<?php echo e(route('admin.users.destroy', $archivedUser)); ?>" method="POST" class="inline">
-                          <?php echo csrf_field(); ?>
-                          <?php echo method_field('DELETE'); ?>
-                          <button type="submit" onclick="return confirm('Delete permanently? This cannot be undone.')" class="px-3 py-1 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 text-xs font-semibold uppercase tracking-wide bg-rose-100">
-                            Delete
-                          </button>
-                        </form>
-                      </div>
-                    </td>
-                  </tr>
-                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
-              </tbody>
-            </table>
-          </div>
-          <div class="pt-4">
-            <?php echo e($archivedUsers->withQueryString()->links()); ?>
-
-          </div>
-        <?php else: ?>
-          <div class="text-sm ui-muted">
-            No archived users yet.
-          </div>
-        <?php endif; ?>
-      </div>
+    <div id="archiveModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/35 p-4 backdrop-blur-sm">
+        <div class="max-h-[90vh] w-[min(96vw,860px)] overflow-y-auto rounded-[1.5rem] border ui-border bg-[color:var(--surface)] shadow-2xl">
+            <div class="flex items-center justify-between border-b ui-border px-6 py-4">
+                <h3 class="text-lg font-semibold text-[color:var(--text)]">Archived Users</h3>
+                <button id="closeArchiveModal" class="text-2xl leading-none ui-muted" aria-label="Close">&times;</button>
+            </div>
+            <div class="px-6 py-5">
+                <?php if($archivedUsers->count()): ?>
+                    <div class="overflow-x-auto">
+                        <table class="user-table min-w-[720px]">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Status</th>
+                                    <th>Archived</th>
+                                    <th class="text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php $__currentLoopData = $archivedUsers; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $archivedUser): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                                    <?php
+                                        $archivedRoleKey = $resolveRoleKey($archivedUser);
+                                        $archivedRoleLabel = $resolveRoleLabel($archivedUser);
+                                        $archivedRoleBadge = $roleTone[$archivedRoleKey] ?? 'bg-slate-100 text-slate-700 border-slate-200';
+                                        $archivedStatusBadge = $archivedUser->is_active ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200';
+                                    ?>
+                                    <tr>
+                                        <td class="font-medium text-[color:var(--text)]"><?php echo e($archivedUser->name); ?></td>
+                                        <td class="text-sm text-[color:var(--text)]"><?php echo e($archivedUser->email); ?></td>
+                                        <td><span class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold <?php echo e($archivedRoleBadge); ?>"><?php echo e($archivedRoleLabel); ?></span></td>
+                                        <td><span class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold <?php echo e($archivedStatusBadge); ?>"><?php echo e($archivedUser->is_active ? 'Active' : 'Inactive'); ?></span></td>
+                                        <td class="text-sm ui-muted"><?php echo e($archivedUser->archived_at ? $archivedUser->archived_at->format('M j, Y') : 'Unknown'); ?></td>
+                                        <td>
+                                            <div class="flex justify-end gap-2">
+                                                <form action="<?php echo e(route($usersRestoreRoute, $archivedUser)); ?>" method="POST">
+                                                    <?php echo csrf_field(); ?>
+                                                    <?php echo method_field('PUT'); ?>
+                                                    <button type="submit" class="sa-button-secondary">Restore</button>
+                                                </form>
+                                                <form action="<?php echo e(route($usersDestroyRoute, $archivedUser)); ?>" method="POST">
+                                                    <?php echo csrf_field(); ?>
+                                                    <?php echo method_field('DELETE'); ?>
+                                                    <button type="submit" onclick="return confirm('Delete permanently? This cannot be undone.')" class="sa-button-danger">Delete</button>
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pt-4"><?php echo e($archivedUsers->withQueryString()->links()); ?></div>
+                <?php else: ?>
+                    <div class="rounded-[1.25rem] border border-dashed ui-border bg-[color:var(--surface-2)]/60 px-6 py-10 text-center text-sm ui-muted">No archived users yet.</div>
+                <?php endif; ?>
+            </div>
+        </div>
     </div>
-  </div>
 
-<script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const modal = document.getElementById('userModal');
-    const closeBtns = [document.getElementById('closeUserModal'), document.getElementById('closeUserModalFooter')];
-    const archiveModal = document.getElementById('archiveModal');
-    const archiveTrigger = document.getElementById('openArchiveModal');
-    const archiveClose = document.getElementById('closeArchiveModal');
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const modal = document.getElementById('userModal');
+            const archiveModal = document.getElementById('archiveModal');
+            const openArchive = document.getElementById('openArchiveModal');
 
-    document.querySelectorAll('.view-user-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.getElementById('modalName').textContent = btn.dataset.name ?? '';
-        document.getElementById('modalEmail').textContent = btn.dataset.email ?? '';
-        document.getElementById('modalPhone').textContent = btn.dataset.phone ?? '—';
-        document.getElementById('modalRole').textContent = btn.dataset.role ?? '';
-        document.getElementById('modalStatus').textContent = btn.dataset.status ?? '';
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-      });
-    });
+            const toggleModal = (element, open) => {
+                element.classList.toggle('hidden', !open);
+                element.classList.toggle('flex', open);
+            };
 
-    const closeModal = () => {
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
-    };
+            document.querySelectorAll('.view-user-btn').forEach((button) => {
+                button.addEventListener('click', () => {
+                    document.getElementById('modalName').textContent = button.dataset.name || '';
+                    document.getElementById('modalEmail').textContent = button.dataset.email || '';
+                    document.getElementById('modalPhone').textContent = button.dataset.phone || 'N/A';
+                    document.getElementById('modalRole').textContent = button.dataset.role || '';
+                    document.getElementById('modalStatus').textContent = button.dataset.status || '';
+                    toggleModal(modal, true);
+                });
+            });
 
-    const isOverlay = (target, overlay) => target === overlay;
+            ['closeUserModal', 'closeUserModalFooter'].forEach((id) => {
+                document.getElementById(id)?.addEventListener('click', () => toggleModal(modal, false));
+            });
 
-    closeBtns.forEach(btn => btn.addEventListener('click', closeModal));
-    modal.addEventListener('click', (e) => {
-      if (isOverlay(e.target, modal)) closeModal();
-    });
+            document.getElementById('closeArchiveModal')?.addEventListener('click', () => toggleModal(archiveModal, false));
+            openArchive?.addEventListener('click', () => toggleModal(archiveModal, true));
 
-    const openArchive = () => {
-      archiveModal.classList.remove('hidden');
-      archiveModal.classList.add('flex');
-    };
-
-    const closeArchive = () => {
-      archiveModal.classList.add('hidden');
-      archiveModal.classList.remove('flex');
-    };
-
-    archiveTrigger?.addEventListener('click', openArchive);
-    archiveClose?.addEventListener('click', closeArchive);
-    archiveModal.addEventListener('click', (e) => {
-      if (isOverlay(e.target, archiveModal)) closeArchive();
-    });
-  });
-</script>
+            [modal, archiveModal].forEach((element) => {
+                element?.addEventListener('click', (event) => {
+                    if (event.target === element) toggleModal(element, false);
+                });
+            });
+        });
+    </script>
  <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>
-<?php if (isset($__attributesOriginal7e50b16d05ad2bc9d4e29c45255ff8ab)): ?>
-<?php $attributes = $__attributesOriginal7e50b16d05ad2bc9d4e29c45255ff8ab; ?>
-<?php unset($__attributesOriginal7e50b16d05ad2bc9d4e29c45255ff8ab); ?>
+<?php if (isset($__attributesOriginal389c6c7326277510c33cc8ff1022a5f7)): ?>
+<?php $attributes = $__attributesOriginal389c6c7326277510c33cc8ff1022a5f7; ?>
+<?php unset($__attributesOriginal389c6c7326277510c33cc8ff1022a5f7); ?>
 <?php endif; ?>
-<?php if (isset($__componentOriginal7e50b16d05ad2bc9d4e29c45255ff8ab)): ?>
-<?php $component = $__componentOriginal7e50b16d05ad2bc9d4e29c45255ff8ab; ?>
-<?php unset($__componentOriginal7e50b16d05ad2bc9d4e29c45255ff8ab); ?>
-<?php endif; ?>
- <?php echo $__env->renderComponent(); ?>
-<?php endif; ?>
-<?php if (isset($__attributesOriginal26723e7569d950d41cabbb4f5db8c6fb)): ?>
-<?php $attributes = $__attributesOriginal26723e7569d950d41cabbb4f5db8c6fb; ?>
-<?php unset($__attributesOriginal26723e7569d950d41cabbb4f5db8c6fb); ?>
-<?php endif; ?>
-<?php if (isset($__componentOriginal26723e7569d950d41cabbb4f5db8c6fb)): ?>
-<?php $component = $__componentOriginal26723e7569d950d41cabbb4f5db8c6fb; ?>
-<?php unset($__componentOriginal26723e7569d950d41cabbb4f5db8c6fb); ?>
+<?php if (isset($__componentOriginal389c6c7326277510c33cc8ff1022a5f7)): ?>
+<?php $component = $__componentOriginal389c6c7326277510c33cc8ff1022a5f7; ?>
+<?php unset($__componentOriginal389c6c7326277510c33cc8ff1022a5f7); ?>
 <?php endif; ?>
 <?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views/admin/users.blade.php ENDPATH**/ ?>

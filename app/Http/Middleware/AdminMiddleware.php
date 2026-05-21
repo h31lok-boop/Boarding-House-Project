@@ -19,10 +19,10 @@ class AdminMiddleware
             return redirect()->route('login');
         }
 
-        // Prefer Spatie roles when available, fall back to legacy column.
-        $isAdminRole = method_exists($user, 'hasRole') && $user->hasRole('admin');
+        // Owner accounts are presented as Admin accounts in the application UI.
+        $isAdminRole = method_exists($user, 'hasRole') && ($user->hasRole('admin') || $user->hasRole('owner'));
         $isSuperRole = method_exists($user, 'hasRole') && $user->hasRole('superduperadmin');
-        $isLegacyAdmin = $user->role === 'admin' || $user->role === 'owner';
+        $isLegacyAdmin = in_array(strtolower((string) $user->role), ['admin', 'owner'], true);
         $isLegacySuper = strtolower((string) $user->role) === 'superduperadmin';
 
         if (! $isAdminRole && ! $isLegacyAdmin && ! $isSuperRole && ! $isLegacySuper) {

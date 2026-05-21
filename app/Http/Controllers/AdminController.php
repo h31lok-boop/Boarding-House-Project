@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Admin;
+use App\Models\BoardingHouse;
+use App\Models\BoardingHouseApplication;
 use App\Models\User;
+use App\Models\ValidationTask;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -11,7 +14,7 @@ class AdminController extends Controller
 {
     public function __construct()
     {
-        $this->middleware(['auth', 'admin']);
+        $this->middleware('auth');
     }
 
     /**
@@ -107,32 +110,37 @@ class AdminController extends Controller
     /**
      * User management list (admin can promote/demote roles)
      */
-    public function users()
+    public function users(Request $request)
     {
-        $roles = ['admin', 'tenant', 'caretaker', 'osas'];
-        $filterRole = request('role');
+        $roles = $this->availableRolesFor($request);
+        $filterRole = (string) $request->query('role', '');
+        $scopeUserIds = $this->shouldScopeUsersToOwnerWorkspace($request->user())
+            ? $this->resolveOwnerWorkspaceUserIds($request->user())
+            : [];
 
-        $users = User::query()
+        $usersQuery = User::query()
+            ->with('roles')
             ->where('is_archived', false)
-            ->when($filterRole, function ($query) use ($filterRole) {
-                $query->where(function ($q) use ($filterRole) {
-                    $q->where(function ($roleQuery) use ($filterRole) {
-                        // legacy column (owner counts as admin)
-                        if ($filterRole === 'admin') {
-                            $roleQuery->whereIn('role', ['admin', 'owner']);
-                        } else {
-                            $roleQuery->where('role', $filterRole);
-                        }
-                    })->orWhereHas('roles', function ($roleQuery) use ($filterRole) {
-                        // spatie roles
-                        $roleQuery->where('name', $filterRole);
-                    });
-                });
-            })
+            ->when($scopeUserIds !== [], fn ($query) => $query->whereIn('id', $scopeUserIds));
+
+        $archivedUsersQuery = User::query()
+            ->with('roles')
+            ->where('is_archived', true)
+            ->when($scopeUserIds !== [], fn ($query) => $query->whereIn('id', $scopeUserIds));
+
+        if ($filterRole !== '') {
+            $this->applyUserRoleFilter($usersQuery, $filterRole);
+            $this->applyUserRoleFilter($archivedUsersQuery, $filterRole);
+        }
+
+        $activeUsersCount = (clone $usersQuery)->count();
+        $archivedUsersCount = (clone $archivedUsersQuery)->count();
+
+        $users = $usersQuery
             ->orderBy('created_at', 'desc')
             ->paginate(15);
 
-        $archivedUsers = User::where('is_archived', true)
+        $archivedUsers = $archivedUsersQuery
             ->orderByDesc('archived_at')
             ->orderByDesc('created_at')
             ->paginate(10, ['*'], 'archived_page');
@@ -140,9 +148,10 @@ class AdminController extends Controller
         // Keep filter when paginating
         if ($filterRole) {
             $users->appends(['role' => $filterRole]);
+            $archivedUsers->appends(['role' => $filterRole]);
         }
 
-        return view('admin.users', compact('users', 'roles', 'archivedUsers'));
+        return view('admin.users', compact('users', 'roles', 'archivedUsers', 'activeUsersCount', 'archivedUsersCount'));
     }
 
     /**
@@ -150,8 +159,10 @@ class AdminController extends Controller
      */
     public function updateUserRole(Request $request, User $user)
     {
+        $this->authorizeManagedUserAccess($request, $user);
+
         $request->validate([
-            'role' => ['required', 'in:admin,tenant,caretaker,osas'],
+            'role' => ['required', 'in:'.implode(',', $this->availableRolesFor($request))],
         ]);
 
         // legacy column
@@ -163,22 +174,24 @@ class AdminController extends Controller
             $user->syncRoles([$request->role]);
         }
 
-        return redirect()->route('admin.users')->with('success', 'User role updated.');
+        return redirect()->route($this->usersIndexRouteName($request))->with('success', 'User role updated.');
     }
 
     /**
      * Edit a single user (role & basic info)
      */
-    public function editUser(User $user)
+    public function editUser(Request $request, User $user)
     {
-        $roles = ['admin', 'tenant', 'caretaker', 'osas'];
+        $this->authorizeManagedUserAccess($request, $user);
+        $roles = $this->availableRolesFor($request);
 
         return view('admin.user-edit', compact('user', 'roles'));
     }
 
     public function updateUser(Request $request, User $user)
     {
-        $roles = ['admin', 'tenant', 'caretaker', 'osas'];
+        $this->authorizeManagedUserAccess($request, $user);
+        $roles = $this->availableRolesFor($request);
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -200,25 +213,29 @@ class AdminController extends Controller
             $user->syncRoles([$validated['role']]);
         }
 
-        return redirect()->route('admin.users')->with('success', 'User updated.');
+        return redirect()->route($this->usersIndexRouteName($request))->with('success', 'User updated.');
     }
 
     /**
      * Delete a user (admin-only)
      */
-    public function destroyUser(User $user)
+    public function destroyUser(Request $request, User $user)
     {
+        $this->authorizeManagedUserAccess($request, $user);
+
         if (auth()->id() === $user->id) {
             return back()->with('error', 'You cannot delete your own account.');
         }
 
         $user->delete();
 
-        return redirect()->route('admin.users')->with('success', 'User deleted.');
+        return redirect()->route($this->usersIndexRouteName($request))->with('success', 'User deleted.');
     }
 
-    public function archiveUser(User $user)
+    public function archiveUser(Request $request, User $user)
     {
+        $this->authorizeManagedUserAccess($request, $user);
+
         if (auth()->id() === $user->id) {
             return back()->with('error', 'You cannot archive your own account.');
         }
@@ -229,41 +246,141 @@ class AdminController extends Controller
             'is_active' => false,
         ]);
 
-        return redirect()->route('admin.users')->with('success', 'User archived.');
+        return redirect()->route($this->usersIndexRouteName($request))->with('success', 'User archived.');
     }
 
-    public function restoreUser(User $user)
+    public function restoreUser(Request $request, User $user)
     {
+        $this->authorizeManagedUserAccess($request, $user);
+
         $user->update([
             'is_archived' => false,
             'archived_at' => null,
             'is_active' => true,
         ]);
 
-        return redirect()->route('admin.users')->with('success', 'User restored.');
+        return redirect()->route($this->usersIndexRouteName($request))->with('success', 'User restored.');
     }
 
     /**
      * Show tenant history (ongoing vs past) with basic payment placeholder.
      */
-    public function tenantHistory()
+    public function tenantHistory(Request $request)
     {
-        $ongoing = User::with('boardingHouse')
+        $scopeUserIds = $this->shouldScopeUsersToOwnerWorkspace($request->user())
+            ? $this->resolveOwnerWorkspaceUserIds($request->user())
+            : [];
+
+        $tenantQuery = User::with('boardingHouse')
             ->where(function ($q) {
                 $q->where('role', 'tenant')->orWhereHas('roles', fn ($r) => $r->where('name', 'tenant'));
             })
+            ->when($scopeUserIds !== [], fn ($query) => $query->whereIn('id', $scopeUserIds));
+
+        $ongoing = (clone $tenantQuery)
             ->where('is_active', true)
             ->orderByDesc('move_in_date')
             ->get(['id', 'name', 'email', 'boarding_house_id', 'room_number', 'move_in_date', 'is_active']);
 
-        $past = User::with('boardingHouse')
-            ->where(function ($q) {
-                $q->where('role', 'tenant')->orWhereHas('roles', fn ($r) => $r->where('name', 'tenant'));
-            })
+        $past = (clone $tenantQuery)
             ->where('is_active', false)
             ->orderByDesc('move_in_date')
             ->get(['id', 'name', 'email', 'boarding_house_id', 'room_number', 'move_in_date', 'is_active']);
 
         return view('admin.tenant-history', compact('ongoing', 'past'));
+    }
+
+    /**
+     * @param  \Illuminate\Database\Eloquent\Builder<User>  $query
+     */
+    private function applyUserRoleFilter($query, string $filterRole): void
+    {
+        $roleCandidates = match (strtolower($filterRole)) {
+            'tenant' => ['tenant', 'student', 'user'],
+            'admin' => ['admin', 'owner'],
+            default => [strtolower($filterRole)],
+        };
+
+        $query->where(function ($outer) use ($roleCandidates) {
+            $outer->where(function ($roleQuery) use ($roleCandidates) {
+                foreach ($roleCandidates as $index => $candidate) {
+                    $method = $index === 0 ? 'whereRaw' : 'orWhereRaw';
+                    $roleQuery->{$method}('LOWER(role) = ?', [$candidate]);
+                }
+            })->orWhereHas('roles', function ($roleQuery) use ($roleCandidates) {
+                $roleQuery->where(function ($nested) use ($roleCandidates) {
+                    foreach ($roleCandidates as $index => $candidate) {
+                        $method = $index === 0 ? 'whereRaw' : 'orWhereRaw';
+                        $nested->{$method}('LOWER(name) = ?', [$candidate]);
+                    }
+                });
+            });
+        });
+    }
+
+    private function shouldScopeUsersToOwnerWorkspace(?User $user): bool
+    {
+        return $user !== null && $user->isOwner();
+    }
+
+    private function availableRolesFor(Request $request): array
+    {
+        if ($request->user()?->isSuperDuperAdmin()) {
+            return ['admin', 'tenant'];
+        }
+
+        return ['tenant'];
+    }
+
+    private function usersIndexRouteName(Request $request): string
+    {
+        if ($request->routeIs('superduperadmin.*')) {
+            return 'superduperadmin.users';
+        }
+
+        if ($request->routeIs('owner.*')) {
+            return 'owner.users';
+        }
+
+        return 'admin.users';
+    }
+
+    private function authorizeManagedUserAccess(Request $request, User $managedUser): void
+    {
+        if (! $this->shouldScopeUsersToOwnerWorkspace($request->user())) {
+            return;
+        }
+
+        abort_unless(
+            in_array((int) $managedUser->id, $this->resolveOwnerWorkspaceUserIds($request->user()), true),
+            403
+        );
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function resolveOwnerWorkspaceUserIds(User $owner): array
+    {
+        $houseIds = BoardingHouse::query()
+            ->where('owner_id', $owner->id)
+            ->pluck('id')
+            ->all();
+
+        if ($houseIds === []) {
+            return [$owner->id];
+        }
+
+        $ids = collect([$owner->id])
+            ->merge(User::query()->whereIn('boarding_house_id', $houseIds)->pluck('id'))
+            ->merge(BoardingHouseApplication::query()->whereIn('boarding_house_id', $houseIds)->pluck('user_id'))
+            ->merge(ValidationTask::query()->whereIn('boarding_house_id', $houseIds)->pluck('validator_id'))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn ($id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+
+        return $ids;
     }
 }

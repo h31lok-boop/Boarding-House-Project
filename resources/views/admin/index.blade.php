@@ -1,7 +1,7 @@
 <x-layouts.caretaker>
 <x-admin.shell>
   <div class="ui-card p-4 mb-6">
-    <h2 class="font-semibold text-xl leading-tight">Admins</h2>
+    <h2 class="font-semibold text-xl leading-tight">Caretakers</h2>
   </div>
 
   
@@ -9,7 +9,7 @@
   <div class="py-12">
     <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
 
-      <a href="{{ route('admins.create') }}" class="px-4 py-2 bg-blue-500 text-white rounded mb-4 inline-block">Add Admin</a>
+      <a href="{{ route('admins.create') }}" class="px-4 py-2 bg-blue-500 text-white rounded mb-4 inline-block">Add Caretaker</a>
 
       @if(session('success'))
         <div class="text-green-500 mb-4">{{ session('success') }}</div>

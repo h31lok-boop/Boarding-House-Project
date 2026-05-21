@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
+use App\Models\Booking;
 use App\Models\BoardingHouse;
 use App\Models\Reservation;
 use Illuminate\Http\Request;
@@ -36,7 +37,7 @@ class ReservationController extends Controller
             }
         }
 
-        Reservation::create([
+        $reservation = Reservation::create([
             'user_id' => $request->user()->id,
             'boarding_house_id' => $boardingHouse->id,
             'room_id' => $data['room_id'] ?? null,
@@ -45,6 +46,18 @@ class ReservationController extends Controller
             'notes' => isset($data['notes']) ? strip_tags(trim((string) $data['notes'])) : null,
             'status' => 'pending',
         ]);
+
+        Booking::updateOrCreate(
+            ['reservation_id' => $reservation->id],
+            [
+                'room_id' => $reservation->room_id,
+                'user_id' => $reservation->user_id,
+                'status' => 'Pending',
+                'start_date' => $reservation->check_in_date,
+                'end_date' => $reservation->check_out_date,
+                'notes' => $reservation->notes,
+            ]
+        );
 
         return back()->with('success', 'Reservation request submitted.');
     }
