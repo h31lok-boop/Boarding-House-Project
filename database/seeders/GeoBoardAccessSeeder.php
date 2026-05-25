@@ -30,8 +30,10 @@ class GeoBoardAccessSeeder extends Seeder
         $manager = $this->upsertUser('Boarding Manager One', 'manager1@geoboard.com', $this->seedPasswordFor('manager'), 'manager', '09170000004');
         $tenant = $this->upsertUser('Tenant User One', 'tenant1@geoboard.com', $this->seedPasswordFor('tenant'), 'tenant', '09170000005');
         $user = $this->upsertUser('Regular User One', 'user1@geoboard.com', $this->seedPasswordFor('user'), 'user', '09170000006');
+        $caretaker = $this->upsertUser('Caretaker User One', 'caretaker1@geoboard.com', $this->seedPasswordFor('caretaker'), 'caretaker', '09170000007');
+        $osas = $this->upsertUser('OSAS User One', 'osas1@geoboard.com', $this->seedPasswordFor('osas'), 'osas', '09170000008');
 
-        foreach ([$super, $admin, $owner, $manager, $tenant, $user] as $account) {
+        foreach ([$super, $admin, $owner, $manager, $tenant, $user, $caretaker, $osas] as $account) {
             $account->syncRoles([$account->role]);
         }
 

@@ -75,6 +75,16 @@
         ];
     @endphp
 
+        @php
+        $totalMatchRequests = \App\Models\RoommateMatchRequest::count();
+        $pendingMatchRequests = \App\Models\RoommateMatchRequest::where('status', 'pending')->count();
+        $acceptedMatchRequests = \App\Models\RoommateMatchRequest::where('status', 'accepted')->count();
+        $declinedMatchRequests = \App\Models\RoommateMatchRequest::where('status', 'declined')->count();
+        $matchAcceptanceRate = $totalMatchRequests > 0
+            ? round(($acceptedMatchRequests / $totalMatchRequests) * 100, 1).'%'
+            : '0.0%';
+    @endphp
+
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
             @foreach ($metrics as $metric)
                 <div class="ui-card p-5">
@@ -124,6 +134,29 @@
             </div>
         </div>
 
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div class="ui-card p-5">
+                <p class="text-sm ui-muted">Total Match Requests</p>
+                <p class="mt-2 text-2xl font-bold">{{ $totalMatchRequests }}</p>
+                <p class="mt-1 text-xs ui-muted">All roommate requests submitted by tenants</p>
+            </div>
+            <div class="ui-card p-5">
+                <p class="text-sm ui-muted">Pending Match Requests</p>
+                <p class="mt-2 text-2xl font-bold">{{ $pendingMatchRequests }}</p>
+                <p class="mt-1 text-xs ui-muted">Requests still waiting for a response</p>
+            </div>
+            <div class="ui-card p-5">
+                <p class="text-sm ui-muted">Accepted Matches</p>
+                <p class="mt-2 text-2xl font-bold">{{ $acceptedMatchRequests }}</p>
+                <p class="mt-1 text-xs ui-muted">Confirmed roommate pairings</p>
+            </div>
+            <div class="ui-card p-5">
+                <p class="text-sm ui-muted">Acceptance Rate</p>
+                <p class="mt-2 text-2xl font-bold">{{ $matchAcceptanceRate }}</p>
+                <p class="mt-1 text-xs ui-muted">Accepted vs total match requests</p>
+            </div>
+        </div>
+
     <div class="ui-card p-6">
       <div class="flex items-center justify-between mb-3">
         <div>
@@ -165,6 +198,10 @@
             <a href="{{ $r('admin.boarding-houses.create') }}" class="block px-3 py-2 rounded-lg ui-surface-2 bg-[color:var(--surface)]">Add Geotagged House</a>
             <a href="{{ $r('admin.applications.index') }}" class="block px-3 py-2 rounded-lg ui-surface-2 bg-[color:var(--surface)]">Applications</a>
             <a href="{{ $r('admin.tenant-history') }}" class="block px-3 py-2 rounded-lg ui-surface-2 bg-[color:var(--surface)]">Tenant History</a>
+            <div class="px-3 py-2 rounded-lg ui-surface-2 bg-[color:var(--surface)]">
+              <p class="font-medium">Matchmaking Snapshot</p>
+              <p class="mt-1 text-xs ui-muted">{{ $acceptedMatchRequests }} accepted, {{ $pendingMatchRequests }} pending, {{ $declinedMatchRequests }} declined.</p>
+            </div>
           </div>
         </div>
       </div>

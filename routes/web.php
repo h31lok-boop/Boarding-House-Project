@@ -10,6 +10,9 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\SuperDuperAdmin\BoardingHouseController as SuperDuperAdminBoardingHouseController;
 use App\Http\Controllers\SuperDuperAdmin\DashboardController as SuperDuperAdminDashboardController;
+use App\Http\Controllers\Tenant\TenantMatchController;
+use App\Http\Controllers\Tenant\TenantMatchProfileController;
+use App\Http\Controllers\Tenant\RoommateMatchRequestController;
 use App\Http\Controllers\Tenant\TenantPageController;
 use App\Http\Controllers\User\BoardingHouseBrowseController;
 use App\Http\Controllers\User\FavoriteController;
@@ -90,10 +93,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/tenant/dashboard', [DashboardController::class, 'tenant'])->name('tenant.dashboard');
 
     Route::get('/tenant/bh-policies', [TenantPageController::class, 'bhPolicies'])->name('tenant.bh-policies');
+    Route::get('/tenant/account', [\App\Http\Controllers\TenantAccountController::class, 'show'])->name('tenant.account');
+    Route::put('/tenant/account', [\App\Http\Controllers\TenantAccountController::class, 'update'])->name('tenant.account.update');
 
     Route::prefix('tenant')->name('tenant.')->group(function () {
         Route::get('/boarding-houses', [BoardingHouseBrowseController::class, 'index'])->name('boarding-houses');
         Route::get('/boarding-houses/compare', [BoardingHouseBrowseController::class, 'compare'])->name('boarding-houses.compare');
+        Route::get('/matches', [TenantMatchController::class, 'index'])->name('matches.index');
+        Route::get('/matches/{candidate}', [TenantMatchController::class, 'show'])->name('matches.show');
+        Route::get('/matches/{candidate}/explain', [TenantMatchController::class, 'explain'])->name('matches.explain');
+        Route::get('/match-requests', [RoommateMatchRequestController::class, 'index'])->name('match-requests.index');
+        Route::post('/matches/{candidate}/requests', [RoommateMatchRequestController::class, 'store'])->name('matches.requests.store');
+        Route::post('/match-requests/{matchRequest}/accept', [RoommateMatchRequestController::class, 'accept'])->name('match-requests.accept');
+        Route::post('/match-requests/{matchRequest}/decline', [RoommateMatchRequestController::class, 'decline'])->name('match-requests.decline');
+        Route::post('/match-requests/{matchRequest}/cancel', [RoommateMatchRequestController::class, 'cancel'])->name('match-requests.cancel');
+        Route::get('/match-profile', [TenantMatchProfileController::class, 'edit'])->name('match-profile.edit');
+        Route::put('/match-profile', [TenantMatchProfileController::class, 'update'])->name('match-profile.update');
     });
 
     Route::prefix('user')->name('user.')->group(function () {

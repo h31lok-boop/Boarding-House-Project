@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\TenantMatchProfile;
+use App\Models\TenantProfile;
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
@@ -60,6 +62,25 @@ class RegisteredUserController extends Controller
         $user = new User;
         $user->forceFill($attributes);
         $user->save();
+
+        TenantProfile::firstOrCreate(
+            ['user_id' => $user->id],
+            [
+                'school_company' => $request->institution_name ?: 'Not provided',
+                'course_or_position' => null,
+                'valid_id_type' => 'pending',
+                'valid_id_number' => 'PENDING-'.$user->id,
+                'valid_id_file' => 'pending',
+                'emergency_contact_name' => 'Not provided',
+                'emergency_contact_number' => 'N/A',
+                'preferred_language' => 'english',
+            ]
+        );
+
+        TenantMatchProfile::firstOrCreate(
+            ['user_id' => $user->id],
+            ['gender_preference' => 'no_preference']
+        );
 
         // sync Spatie role
         if (method_exists($user, 'assignRole')) {

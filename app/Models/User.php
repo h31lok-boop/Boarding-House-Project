@@ -72,7 +72,8 @@ class User extends Authenticatable
 
     public function isOwner()
     {
-        return $this->role === 'owner';
+        return strtolower((string) $this->role) === 'owner'
+            || (method_exists($this, 'hasRole') && $this->hasRole('owner'));
     }
 
     public function isManager()
@@ -82,12 +83,23 @@ class User extends Authenticatable
 
     public function isTenant()
     {
-        return $this->role === 'tenant';
+        return strtolower((string) $this->role) === 'tenant'
+            || (method_exists($this, 'hasRole') && $this->hasRole('tenant'));
     }
 
     public function boardingHouse()
     {
         return $this->belongsTo(\App\Models\BoardingHouse::class);
+    }
+
+    public function tenantProfile()
+    {
+        return $this->hasOne(\App\Models\TenantProfile::class);
+    }
+
+    public function tenantMatchProfile()
+    {
+        return $this->hasOne(\App\Models\TenantMatchProfile::class);
     }
 
     public function ownedBoardingHouses()
@@ -125,6 +137,16 @@ class User extends Authenticatable
         return $this->hasMany(\App\Models\Tenant::class);
     }
 
+    public function sentRoommateMatchRequests()
+    {
+        return $this->hasMany(\App\Models\RoommateMatchRequest::class, 'sender_id');
+    }
+
+    public function receivedRoommateMatchRequests()
+    {
+        return $this->hasMany(\App\Models\RoommateMatchRequest::class, 'recipient_id');
+    }
+
     /**
      * Validation tasks assigned to this validator (OSAS).
      */
@@ -142,10 +164,6 @@ class User extends Authenticatable
     public function dashboardRouteName(): string
     {
         $legacyRole = $this->role ? strtolower($this->role) : null;
-
-        if ($legacyRole === 'owner') {
-            return 'admin.dashboard';
-        }
 
         if ($legacyRole === 'tenant') {
             return 'tenant.dashboard';
@@ -180,8 +198,12 @@ class User extends Authenticatable
             return 'superduperadmin.dashboard';
         }
 
-        if ($legacyRole === 'admin' || $legacyRole === 'owner') {
+        if ($legacyRole === 'admin') {
             return 'admin.dashboard';
+        }
+
+        if ($legacyRole === 'owner') {
+            return 'owner.dashboard';
         }
 
         if ($legacyRole === 'caretaker') {

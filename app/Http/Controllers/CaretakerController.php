@@ -101,7 +101,13 @@ class CaretakerController extends Controller
     {
         $today = Carbon::today();
         $tenants = User::query()
-            ->where('role', 'tenant')
+            ->with('boardingHouse:id,name,price,monthly_payment')
+            ->where(function ($query) {
+                $query->whereRaw('LOWER(role) = ?', ['tenant'])
+                    ->orWhereHas('roles', function ($roleQuery) {
+                        $roleQuery->whereRaw('LOWER(name) = ?', ['tenant']);
+                    });
+            })
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($user) use ($today) {
@@ -110,11 +116,6 @@ class CaretakerController extends Controller
                 $dueDay = max(1, min($anchorDay, $today->daysInMonth));
                 $dueDate = $today->copy()->day($dueDay);
                 $diff = $today->diffInDays($dueDate, false);
-                $normalizedName = strtolower(trim($user->name));
-                $forceOverdue = in_array($normalizedName, ['jayson', 'jay', 'jay ababon'], true);
-                if ($forceOverdue) {
-                    $diff = -2;
-                }
 
                 $daysLate = $diff < 0 ? abs($diff) : 0;
                 if ($diff < 0) {
@@ -134,7 +135,7 @@ class CaretakerController extends Controller
                     $isOverdue = false;
                 }
 
-                $rentAmount = $user->id % 2 === 0 ? 1500 : 1000;
+                $rentAmount = (float) ($user->boardingHouse?->effective_price ?? 0);
                 $age = $user->date_of_birth ? $user->date_of_birth->age : null;
                 $ageLabel = $age ? '('.$age.')' : '';
                 $occupancyLabel = $user->is_active ? 'Checked-in' : 'Inactive';

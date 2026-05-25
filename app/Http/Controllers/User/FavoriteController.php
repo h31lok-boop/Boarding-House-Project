@@ -5,14 +5,14 @@ namespace App\Http\Controllers\User;
 use App\Http\Controllers\Controller;
 use App\Models\BoardingHouse;
 use App\Models\Favorite;
+use App\Models\TenantProfile;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class FavoriteController extends Controller
 {
     public function index(Request $request)
     {
-        $tenantProfileId = $this->resolveTenantProfileId((int) $request->user()->id);
+        $tenantProfileId = $this->resolveTenantProfileId($request);
 
         $favorites = Favorite::query()
             ->with([
@@ -32,7 +32,7 @@ class FavoriteController extends Controller
 
     public function store(Request $request, BoardingHouse $boardingHouse)
     {
-        $tenantProfileId = $this->resolveTenantProfileId((int) $request->user()->id);
+        $tenantProfileId = $this->resolveTenantProfileId($request);
 
         Favorite::firstOrCreate([
             'tenant_profile_id' => $tenantProfileId,
@@ -46,7 +46,7 @@ class FavoriteController extends Controller
 
     public function destroy(Request $request, BoardingHouse $boardingHouse)
     {
-        $tenantProfileId = $this->resolveTenantProfileId((int) $request->user()->id);
+        $tenantProfileId = $this->resolveTenantProfileId($request);
 
         Favorite::query()
             ->where('tenant_profile_id', $tenantProfileId)
@@ -56,26 +56,18 @@ class FavoriteController extends Controller
         return back()->with('success', 'Removed from favorites.');
     }
 
-    private function resolveTenantProfileId(int $userId): int
+    private function resolveTenantProfileId(Request $request): int
     {
-        $existing = DB::table('tenant_profiles')->where('user_id', $userId)->value('id');
-        if ($existing) {
-            return (int) $existing;
-        }
+        $user = $request->user();
 
-        return (int) DB::table('tenant_profiles')->insertGetId([
-            'user_id' => $userId,
-            'school_company' => 'GeoBoard Academy',
-            'course_or_position' => 'Student',
-            'valid_id_type' => 'other',
-            'valid_id_number' => 'AUTO-TENANT-'.$userId,
-            'valid_id_file' => 'auto-generated.txt',
-            'emergency_contact_name' => 'Emergency Contact',
-            'emergency_contact_number' => '+630000000000',
-            'id_verified' => 0,
-            'preferred_language' => 'english',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        abort_unless($user && $user->isTenant(), 403);
+
+        $profileId = TenantProfile::query()
+            ->where('user_id', $user->id)
+            ->value('id');
+
+        abort_if(! $profileId, 409, 'Tenant profile is required before using favorites.');
+
+        return (int) $profileId;
     }
 }

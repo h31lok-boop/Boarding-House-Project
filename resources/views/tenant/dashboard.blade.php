@@ -46,6 +46,19 @@
 
     $notices = \App\Models\Notice::latest()->take(5)->get();
 
+    $pendingIncomingMatchRequests = \App\Models\RoommateMatchRequest::where('recipient_id', $tenant->id)
+      ->where('status', 'pending')
+      ->count();
+
+    $pendingOutgoingMatchRequests = \App\Models\RoommateMatchRequest::where('sender_id', $tenant->id)
+      ->where('status', 'pending')
+      ->count();
+
+    $acceptedMatchRequests = \App\Models\RoommateMatchRequest::where(function ($query) use ($tenant) {
+      $query->where('sender_id', $tenant->id)
+        ->orWhere('recipient_id', $tenant->id);
+    })->where('status', 'accepted')->count();
+
     $metrics = [
 
       ['label' => 'Boarding House', 'value' => $house->name ?? 'Not assigned', 'icon' => 'home'],
@@ -55,6 +68,8 @@
       ['label' => 'Move-in', 'value' => optional($tenant->move_in_date)->format('M d, Y') ?? 'TBD', 'icon' => 'pin'],
 
       ['label' => 'Status', 'value' => $tenant->is_active ? 'Active' : 'Pending', 'icon' => $tenant->is_active ? 'check' : 'pending'],
+
+      ['label' => 'Pending Requests', 'value' => $pendingIncomingMatchRequests + $pendingOutgoingMatchRequests, 'icon' => 'pending'],
 
     ];
 
@@ -194,6 +209,63 @@
 
     </div>
 
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2 ui-card">
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-semibold">Roommate Match Status</h3>
+              <p class="text-sm ui-muted">Live snapshot of your current matchmaking activity</p>
+            </div>
+            <a href="{{ route('tenant.match-requests.index') }}" class="px-3 py-2 rounded-lg border ui-border text-sm">Open Requests</a>
+          </div>
+          <div class="grid gap-4 md:grid-cols-3">
+            <div class="rounded-xl border ui-border p-4">
+              <p class="text-xs uppercase tracking-wide ui-muted">Incoming Pending</p>
+              <p class="mt-2 text-2xl font-semibold">{{ $pendingIncomingMatchRequests }}</p>
+              <p class="mt-1 text-xs ui-muted">Requests waiting for your response.</p>
+            </div>
+            <div class="rounded-xl border ui-border p-4">
+              <p class="text-xs uppercase tracking-wide ui-muted">Outgoing Pending</p>
+              <p class="mt-2 text-2xl font-semibold">{{ $pendingOutgoingMatchRequests }}</p>
+              <p class="mt-1 text-xs ui-muted">Requests you sent and are still waiting on.</p>
+            </div>
+            <div class="rounded-xl border ui-border p-4">
+              <p class="text-xs uppercase tracking-wide ui-muted">Accepted Matches</p>
+              <p class="mt-2 text-2xl font-semibold">{{ $acceptedMatchRequests }}</p>
+              <p class="mt-1 text-xs ui-muted">Confirmed roommate pairings so far.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ui-card">
+        <div class="p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-semibold">Next Match Step</h3>
+              <p class="text-sm ui-muted">Suggested based on your request state</p>
+            </div>
+          </div>
+          <div class="space-y-3 text-sm">
+            @if ($pendingIncomingMatchRequests > 0)
+              <p class="font-medium">You have roommate requests waiting.</p>
+              <p class="ui-muted">Review them first so good candidates do not go stale.</p>
+              <a href="{{ route('tenant.match-requests.index') }}" class="inline-flex px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm">Review Requests</a>
+            @elseif ($acceptedMatchRequests > 0)
+              <p class="font-medium">You already have accepted roommate matches.</p>
+              <p class="ui-muted">Compare accepted candidates and decide who to coordinate with next.</p>
+              <a href="{{ route('tenant.matches.index') }}" class="inline-flex px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm">View Matches</a>
+            @else
+              <p class="font-medium">You have not confirmed a roommate yet.</p>
+              <p class="ui-muted">Review your ranked candidates and send a request to your best fit.</p>
+              <a href="{{ route('tenant.matches.index') }}" class="inline-flex px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm">Find Roommates</a>
+            @endif
+          </div>
+        </div>
+      </div>
+    </div>
+
 
 
     <div class="ui-card overflow-hidden">
@@ -275,4 +347,3 @@
 </x-tenant.shell>
 
 </x-layouts.caretaker>
-
