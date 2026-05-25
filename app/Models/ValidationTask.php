@@ -5,30 +5,25 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Review extends Model
+class ValidationTask extends Model
 {
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
+        'validator_id',
         'boarding_house_id',
-        'rating',
-        'comment',
         'status',
-        'owner_reply',
-        'owner_replied_at',
-        'reported_reason',
-        'reported_at',
+        'scheduled_at',
+        'priority',
     ];
 
     protected $casts = [
-        'owner_replied_at' => 'datetime',
-        'reported_at' => 'datetime',
+        'scheduled_at' => 'date',
     ];
 
-    public function user()
+    public function validator()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'validator_id');
     }
 
     public function boardingHouse()

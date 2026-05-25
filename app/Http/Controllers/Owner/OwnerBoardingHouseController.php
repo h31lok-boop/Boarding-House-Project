@@ -15,6 +15,9 @@ class OwnerBoardingHouseController extends OwnerBaseController
 {
     public function index(Request $request): View
     {
+        $search = trim((string) $request->query('q', ''));
+        $status = trim((string) $request->query('status', ''));
+
         $houses = $this->ownerBoardingHousesQuery($request)
             ->with([
                 'amenities:id,name',
@@ -22,6 +25,22 @@ class OwnerBoardingHouseController extends OwnerBaseController
                 'approvals:id,boarding_house_id,remarks,reviewed_at',
                 'accreditation:id,boarding_house_id,status,decision_log',
             ])
+            ->when($status !== '', function ($query) use ($status) {
+                $query->where(function ($nested) use ($status) {
+                    $nested->whereRaw('LOWER(approval_status) = ?', [strtolower($status)])
+                        ->orWhereRaw('LOWER(status) = ?', [strtolower($status)]);
+                });
+            })
+            ->when($search !== '', function ($query) use ($search) {
+                $like = '%'.strtolower($search).'%';
+                $query->where(function ($nested) use ($like) {
+                    $nested->whereRaw('LOWER(name) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(address) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(full_address) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(contact_phone) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(contact_number) LIKE ?', [$like]);
+                });
+            })
             ->withCount([
                 'rooms',
                 'rooms as available_rooms_count' => fn ($query) => $query->where('available_slots', '>', 0),
@@ -29,7 +48,8 @@ class OwnerBoardingHouseController extends OwnerBaseController
                 'reservations',
             ])
             ->latest()
-            ->paginate(10);
+            ->paginate(10)
+            ->withQueryString();
 
         $houses->getCollection()->transform(function (BoardingHouse $house) {
             $house->owner_compliance = $this->complianceSummary($house);
@@ -39,6 +59,10 @@ class OwnerBoardingHouseController extends OwnerBaseController
 
         return view('owner.boarding-houses.index', [
             'houses' => $houses,
+            'filters' => [
+                'q' => $search,
+                'status' => $status,
+            ],
         ]);
     }
 
@@ -82,8 +106,8 @@ class OwnerBoardingHouseController extends OwnerBaseController
                 'monthly_payment' => (string) ($validated['monthly_payment'] ?? $validated['price'] ?? 0),
                 'available_rooms' => 0,
                 'capacity' => 0,
-                'status' => 'pending',
-                'approval_status' => 'pending',
+                'status' => $request->filled('listing_status') ? $this->requestedListingStatus($request) : $house->status,
+                'approval_status' => $request->filled('listing_status') ? $this->requestedListingStatus($request) : $house->approval_status,
                 'is_active' => $request->boolean('is_active', true),
             ]);
 
@@ -91,7 +115,7 @@ class OwnerBoardingHouseController extends OwnerBaseController
             $this->syncMedia($house, $request);
         });
 
-        return redirect()->route('admin.listings')->with('success', 'Boarding house listing created.');
+        return redirect()->route($this->indexRouteName($request))->with('success', 'Boarding house listing created.');
     }
 
     public function edit(Request $request, BoardingHouse $boardingHouse): View
@@ -137,6 +161,8 @@ class OwnerBoardingHouseController extends OwnerBaseController
                 'price' => $validated['price'] ?? $validated['monthly_payment'] ?? $house->price,
                 'monthly_payment' => (string) ($validated['monthly_payment'] ?? $validated['price'] ?? $house->price ?? 0),
                 'is_active' => $request->boolean('is_active', $house->is_active),
+                'status' => $this->requestedListingStatus($request),
+                'approval_status' => $this->requestedListingStatus($request),
             ]);
 
             $this->syncAmenities($house, $validated['amenity_ids'] ?? [], $validated['custom_amenities'] ?? null);
@@ -144,7 +170,20 @@ class OwnerBoardingHouseController extends OwnerBaseController
             $this->syncMedia($house, $request);
         });
 
-        return redirect()->route('admin.listings')->with('success', 'Boarding house listing updated.');
+        return redirect()->route($this->indexRouteName($request))->with('success', 'Boarding house listing updated.');
+    }
+
+    public function submit(Request $request, BoardingHouse $boardingHouse): RedirectResponse
+    {
+        $house = $this->ensureOwnsBoardingHouse($request, $boardingHouse);
+
+        $house->update([
+            'status' => 'pending',
+            'approval_status' => 'pending',
+            'is_active' => true,
+        ]);
+
+        return redirect()->route($this->indexRouteName($request))->with('success', 'Boarding house submitted for approval.');
     }
 
     public function destroy(Request $request, BoardingHouse $boardingHouse): RedirectResponse
@@ -152,7 +191,7 @@ class OwnerBoardingHouseController extends OwnerBaseController
         $house = $this->ensureOwnsBoardingHouse($request, $boardingHouse);
         $house->delete();
 
-        return redirect()->route('admin.listings')->with('success', 'Boarding house listing deleted.');
+        return redirect()->route($this->indexRouteName($request))->with('success', 'Boarding house listing deleted.');
     }
 
     private function validated(Request $request): array
@@ -172,6 +211,7 @@ class OwnerBoardingHouseController extends OwnerBaseController
             'price' => ['nullable', 'numeric', 'min:0'],
             'monthly_payment' => ['nullable', 'numeric', 'min:0'],
             'is_active' => ['nullable', 'boolean'],
+            'listing_status' => ['nullable', 'string', 'in:draft,pending'],
             'amenity_ids' => ['nullable', 'array'],
             'amenity_ids.*' => ['integer', 'exists:amenities,id'],
             'custom_amenities' => ['nullable', 'string', 'max:1000'],
@@ -260,5 +300,23 @@ class OwnerBoardingHouseController extends OwnerBaseController
             ->where('boarding_house_id', $house->id)
             ->whereIn('id', $ids)
             ->delete();
+    }
+
+    private function requestedListingStatus(Request $request): string
+    {
+        return $request->input('listing_status') === 'draft' ? 'draft' : 'pending';
+    }
+
+    private function indexRouteName(Request $request): string
+    {
+        if ($request->routeIs('admin.listings*')) {
+            return 'admin.listings';
+        }
+
+        if ($request->routeIs('admin.boarding-houses*')) {
+            return 'admin.boarding-houses.index';
+        }
+
+        return 'owner.boarding-houses';
     }
 }

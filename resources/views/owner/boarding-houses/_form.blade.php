@@ -7,6 +7,7 @@
     @if (strtoupper($formMethod) !== 'POST')
         @method($formMethod)
     @endif
+    <input type="hidden" name="listing_status" value="pending">
 
     <div class="grid gap-6 lg:grid-cols-2">
         <div class="space-y-4">
@@ -139,7 +140,8 @@
         <button type="submit" class="rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600">
             {{ $submitLabel }}
         </button>
-        <a href="{{ route('admin.listings') }}" class="rounded-xl border ui-border px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-[color:var(--surface-2)]">
+        @php($cancelRoute = request()->routeIs('admin.*') ? route('admin.listings') : route('owner.boarding-houses'))
+        <a href="{{ $cancelRoute }}" class="rounded-xl border ui-border px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-[color:var(--surface-2)]">
             Cancel
         </a>
     </div>

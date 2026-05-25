@@ -30,10 +30,7 @@ class LoginRequest extends FormRequest
         return [
             'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string', 'min:8'],
-<<<<<<< Updated upstream
             'security_answer' => ['required', 'string', 'max:20'],
-=======
->>>>>>> Stashed changes
         ];
     }
 
@@ -41,10 +38,7 @@ class LoginRequest extends FormRequest
     {
         return [
             'password.min' => 'Password must be at least 8 characters long.',
-<<<<<<< Updated upstream
             'security_answer.required' => 'Please answer the security check.',
-=======
->>>>>>> Stashed changes
         ];
     }
 
@@ -62,7 +56,6 @@ class LoginRequest extends FormRequest
             LoginSecurityChallenge::regenerate($this->session());
 
             throw ValidationException::withMessages([
-<<<<<<< Updated upstream
                 'security_answer' => 'The security answer is incorrect. Please try the new question.',
             ]);
         }
@@ -72,8 +65,6 @@ class LoginRequest extends FormRequest
             LoginSecurityChallenge::regenerate($this->session());
 
             throw ValidationException::withMessages([
-=======
->>>>>>> Stashed changes
                 'password' => 'Incorrect email or password. Please try again.',
             ]);
         }

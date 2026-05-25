@@ -22,11 +22,8 @@ test('login screen can be rendered', function () {
         ->assertSee('Access your DSSC Boarding account to manage your listings, rooms, and inquiries.')
         ->assertSee('Email Address')
         ->assertSee('Enter your email')
-<<<<<<< Updated upstream
         ->assertSeeText('Security Check')
         ->assertSeeText(session(LoginSecurityChallenge::QUESTION_KEY))
-=======
->>>>>>> Stashed changes
         ->assertSee('Forgot password?')
         ->assertSee('Register here');
 });
@@ -50,18 +47,12 @@ test('tenants are redirected to their dashboard after login', function () {
 test('owners are redirected to their dashboard after login', function () {
     $user = User::factory()->create(['role' => 'owner']);
 
-<<<<<<< Updated upstream
     $this->get('/login');
 
     $response = $this->post('/login', [
         'email' => $user->email,
         'password' => 'password',
         'security_answer' => currentLoginSecurityAnswer(),
-=======
-    $response = $this->post('/login', [
-        'email' => $user->email,
-        'password' => 'password',
->>>>>>> Stashed changes
     ]);
 
     $this->assertAuthenticated();
@@ -71,11 +62,8 @@ test('owners are redirected to their dashboard after login', function () {
 test('users can not authenticate with invalid password', function () {
     $user = User::factory()->create();
 
-<<<<<<< Updated upstream
     $this->get('/login');
 
-=======
->>>>>>> Stashed changes
     $response = $this->post('/login', [
         'email' => $user->email,
         'password' => 'wrong-password',
@@ -88,7 +76,6 @@ test('users can not authenticate with invalid password', function () {
     $this->assertGuest();
 });
 
-<<<<<<< Updated upstream
 test('users can not authenticate with invalid security answer', function () {
     $user = User::factory()->create();
 
@@ -110,12 +97,6 @@ test('login password must be at least eight characters', function () {
         'email' => 'tenant@example.com',
         'password' => 'short',
         'security_answer' => currentLoginSecurityAnswer(),
-=======
-test('login password must be at least eight characters', function () {
-    $response = $this->post('/login', [
-        'email' => 'tenant@example.com',
-        'password' => 'short',
->>>>>>> Stashed changes
     ]);
 
     $response->assertSessionHasErrors([

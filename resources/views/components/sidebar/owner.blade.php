@@ -3,13 +3,14 @@
         ? route($name, $params)
         : ($fallback ?? url()->current());
 
-    $userName = 'Juan Dela Cruz';
-    $userRole = 'Admin';
-    $initials = 'JD';
-    $profileImage = null;
-    $profileHref = $r('admin.profile', [], $r('owner.profile'));
+    $currentUser = auth()->user();
+    $userName = $currentUser?->name ?: 'Owner';
+    $userRole = $currentUser?->isOwner() ? 'Owner' : 'Admin';
+    $initials = collect(explode(' ', $userName))->map(fn ($part) => substr($part, 0, 1))->take(2)->implode('') ?: 'OW';
+    $profileImage = $currentUser?->profile_image ? asset('storage/'.$currentUser->profile_image) : null;
+    $profileHref = request()->routeIs('owner.*') ? $r('owner.profile') : $r('admin.profile', [], $r('owner.profile'));
     $editProfileHref = $profileHref.'#personal-information';
-    $settingsHref = $r('admin.settings', [], $r('owner.settings', [], $profileHref));
+    $settingsHref = request()->routeIs('owner.*') ? $r('owner.settings', [], $profileHref) : $r('admin.settings', [], $r('owner.settings', [], $profileHref));
     $notificationSettingsHref = $settingsHref.'#notification-preferences';
     $helpSupportHref = $settingsHref.'#help-support';
 
@@ -20,55 +21,55 @@
     $links = [
         [
             'label' => 'Dashboard',
-            'href' => $r('admin.dashboard', [], $r('owner.dashboard')),
+        'href' => request()->routeIs('owner.*') ? $r('owner.dashboard') : $r('admin.dashboard', [], $r('owner.dashboard')),
             'active' => request()->routeIs('admin.dashboard') || request()->routeIs('owner.dashboard'),
             'icon' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M4 11.5 12 4l8 7.5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M7 10v10h10V10"/></svg>',
         ],
         [
             'label' => 'Listings',
-            'href' => $r('admin.listings', [], $r('owner.boarding-houses')),
+            'href' => request()->routeIs('owner.*') ? $r('owner.boarding-houses') : $r('admin.listings', [], $r('owner.boarding-houses')),
             'active' => request()->routeIs('admin.listings*') || request()->routeIs('owner.boarding-houses*'),
             'icon' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M4 19V8.5L12 4l8 4.5V19"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M9 19v-4h6v4"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M8 10h.01M12 10h.01M16 10h.01"/></svg>',
         ],
         [
             'label' => 'Rooms',
-            'href' => $r('admin.rooms', [], $r('owner.rooms')),
+            'href' => request()->routeIs('owner.*') ? $r('owner.rooms') : $r('admin.rooms', [], $r('owner.rooms')),
             'active' => request()->routeIs('admin.rooms*') || request()->routeIs('owner.rooms*'),
             'icon' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M4 11h16v9H4z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M4 11V7a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v4"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M8 20v-3h4v3"/></svg>',
         ],
         [
             'label' => 'Inquiries',
-            'href' => $r('admin.inquiries.index', [], $r('owner.inquiries.index')),
+            'href' => request()->routeIs('owner.*') ? $r('owner.inquiries.index') : $r('admin.inquiries.index', [], $r('owner.inquiries.index')),
             'active' => request()->routeIs('admin.inquiries.*') || request()->routeIs('owner.inquiries.*'),
             'icon' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M6 8h12M6 12h8M4 5h16a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H9l-5 4V6a1 1 0 0 1 1-1Z"/></svg>',
         ],
         [
             'label' => 'Messages',
-            'href' => $r('admin.messages', [], $r('owner.messages', [], $r('admin.inquiries.index'))),
+            'href' => request()->routeIs('owner.*') ? $r('owner.messages') : $r('admin.messages', [], $r('owner.messages', [], $r('admin.inquiries.index'))),
             'active' => request()->routeIs('admin.messages*') || request()->routeIs('owner.messages*'),
             'icon' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M4 5h16a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 20 17H8l-4 4V6.5A1.5 1.5 0 0 1 5.5 5Z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="m7 8 5 4 5-4"/></svg>',
         ],
         [
             'label' => 'Compliance',
-            'href' => $r('admin.compliance.index', [], $r('owner.compliance.index')),
+            'href' => request()->routeIs('owner.*') ? $r('owner.compliance.index') : $r('admin.compliance.index', [], $r('owner.compliance.index')),
             'active' => request()->routeIs('admin.compliance.*') || request()->routeIs('owner.compliance.*'),
             'icon' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M12 3l7 4v5c0 4.5-2.7 7.9-7 9-4.3-1.1-7-4.5-7-9V7l7-4Z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="m9 12 2 2 4-4"/></svg>',
         ],
         [
             'label' => 'Reviews',
-            'href' => $r('admin.reviews', [], $r('owner.feedback.index')),
+            'href' => request()->routeIs('owner.*') ? $r('owner.feedback.index') : $r('admin.reviews', [], $r('owner.feedback.index')),
             'active' => request()->routeIs('admin.reviews*') || request()->routeIs('owner.feedback.*'),
             'icon' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M12 3 14.8 8.6l6.2.9-4.5 4.4 1.1 6.1L12 17l-5.6 3 1.1-6.1L3 9.5l6.2-.9L12 3Z"/></svg>',
         ],
         [
             'label' => 'Reports',
-            'href' => $r('admin.reports', [], $r('owner.reports', [], $r('admin.dashboard'))),
+            'href' => request()->routeIs('owner.*') ? $r('owner.reports') : $r('admin.reports', [], $r('owner.reports', [], $r('admin.dashboard'))),
             'active' => request()->routeIs('admin.reports*') || request()->routeIs('owner.reports*'),
             'icon' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M4 19V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v14"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M8 16v-5m4 5V8m4 8v-3M3 20h18"/></svg>',
         ],
         [
             'label' => 'Settings',
-            'href' => $r('admin.settings', [], $r('owner.settings', [], $r('admin.profile'))),
+            'href' => request()->routeIs('owner.*') ? $r('owner.settings') : $r('admin.settings', [], $r('owner.settings', [], $r('admin.profile'))),
             'active' => request()->routeIs('admin.settings*') || request()->routeIs('admin.profile*') || request()->routeIs('owner.settings*') || request()->routeIs('owner.profile*') || request()->routeIs('profile.*'),
             'icon' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M19.4 15a1.8 1.8 0 0 0 .36 2l.05.05a2.1 2.1 0 0 1-2.97 2.97l-.05-.05a1.8 1.8 0 0 0-2-.36 1.8 1.8 0 0 0-1.09 1.65V21a2.1 2.1 0 0 1-4.2 0v-.08a1.8 1.8 0 0 0-1.09-1.65 1.8 1.8 0 0 0-2 .36l-.05.05a2.1 2.1 0 0 1-2.97-2.97l.05-.05a1.8 1.8 0 0 0 .36-2A1.8 1.8 0 0 0 2.15 13H2a2.1 2.1 0 0 1 0-4.2h.08a1.8 1.8 0 0 0 1.65-1.09 1.8 1.8 0 0 0-.36-2l-.05-.05a2.1 2.1 0 0 1 2.97-2.97l.05.05a1.8 1.8 0 0 0 2 .36A1.8 1.8 0 0 0 9.43 1.45V1.4a2.1 2.1 0 0 1 4.2 0v.08a1.8 1.8 0 0 0 1.09 1.65 1.8 1.8 0 0 0 2-.36l.05-.05a2.1 2.1 0 0 1 2.97 2.97l-.05.05a1.8 1.8 0 0 0-.36 2A1.8 1.8 0 0 0 20.85 8.8H21a2.1 2.1 0 0 1 0 4.2h-.08A1.8 1.8 0 0 0 19.4 15Z"/></svg>',
         ],

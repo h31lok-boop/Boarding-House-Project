@@ -42,10 +42,7 @@
             <div class="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
                 <div class="min-w-0">
                     <h1 class="text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">Settings</h1>
-<<<<<<< Updated upstream
                     <a href="{{ route('tenant.settings', absolute: false) }}" class="sr-only">Settings permalink</a>
-=======
->>>>>>> Stashed changes
                     <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600 sm:text-base">
                         Manage your DSSC Boarding tenant preferences, account access, notifications, and support shortcuts.
                     </p>

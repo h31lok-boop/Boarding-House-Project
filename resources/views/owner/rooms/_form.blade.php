@@ -72,7 +72,8 @@
         <button type="submit" class="rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600">
             {{ $submitLabel }}
         </button>
-        <a href="{{ route('admin.rooms') }}" class="rounded-xl border ui-border px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-[color:var(--surface-2)]">
+        @php($cancelRoute = request()->routeIs('admin.*') ? route('admin.rooms') : route('owner.rooms'))
+        <a href="{{ $cancelRoute }}" class="rounded-xl border ui-border px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-[color:var(--surface-2)]">
             Cancel
         </a>
     </div>

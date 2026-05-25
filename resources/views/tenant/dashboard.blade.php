@@ -154,10 +154,7 @@
             : ($latestReservation?->room?->room_number ? 'Room '.$latestReservation->room->room_number : 'Bed Space Room C-110'),
         'move_in' => $formatLongDate($latestReservation?->check_in_date ?? null),
         'status' => ucfirst((string) ($latestReservation?->status ?? 'Reserved')),
-<<<<<<< Updated upstream
         'note' => filled($latestReservation?->owner_notes) ? $latestReservation->owner_notes : null,
-=======
->>>>>>> Stashed changes
     ];
 
     $notificationRows = [
@@ -315,11 +312,7 @@
                 <article id="application-management-panel" class="tenant-card overflow-hidden">
                     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
                         <div>
-<<<<<<< Updated upstream
                             <h2 class="text-lg font-bold text-slate-950">Application Management</h2>
-=======
-                            <h2 class="text-lg font-bold text-slate-950">My Applications</h2>
->>>>>>> Stashed changes
                             <p class="text-sm text-slate-500">Track application decisions and submitted room preferences.</p>
                         </div>
                         <a href="{{ $applicationsUrl }}" class="text-sm font-bold text-blue-700 hover:text-blue-800">View All</a>
@@ -378,11 +371,7 @@
                 <article id="reservation-management-panel" class="tenant-card p-5">
                     <div class="flex items-start justify-between gap-3">
                         <div>
-<<<<<<< Updated upstream
                             <h2 class="text-lg font-bold text-slate-950">Reservation Management</h2>
-=======
-                            <h2 class="text-lg font-bold text-slate-950">My Reservation</h2>
->>>>>>> Stashed changes
                             <p class="text-sm text-slate-500">Latest reservation status.</p>
                         </div>
                         <span class="inline-flex rounded-full px-3 py-1 text-xs font-bold ring-1 {{ $statusBadge($reservationCard['status']) }}">{{ $reservationCard['status'] }}</span>
@@ -403,15 +392,12 @@
                                 <p class="mt-1 font-semibold text-slate-800">{{ $reservationCard['move_in'] }}</p>
                             </div>
                         </div>
-<<<<<<< Updated upstream
                         @if (! empty($reservationCard['note']))
                             <div>
                                 <p class="text-xs font-bold uppercase tracking-wide text-slate-500">Owner Notes</p>
                                 <p class="mt-1 font-semibold text-slate-800">{{ $reservationCard['note'] }}</p>
                             </div>
                         @endif
-=======
->>>>>>> Stashed changes
                     </div>
 
                     <a href="{{ $reservationsUrl }}" class="mt-5 inline-flex w-full justify-center rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-800">View reservation</a>
@@ -420,11 +406,7 @@
                 <article id="messages-communication-panel" class="tenant-card overflow-hidden">
                     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
                         <div>
-<<<<<<< Updated upstream
                             <h2 class="text-lg font-bold text-slate-950">Messages / Communication</h2>
-=======
-                            <h2 class="text-lg font-bold text-slate-950">Latest Messages</h2>
->>>>>>> Stashed changes
                             <p class="text-sm text-slate-500">Recent owner and support conversations.</p>
                         </div>
                         <a href="{{ $messagesUrl }}" class="text-sm font-bold text-blue-700 hover:text-blue-800">View All</a>

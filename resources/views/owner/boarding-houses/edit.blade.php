@@ -18,7 +18,7 @@
         <div class="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
             <div class="ui-card rounded-2xl p-5">
                 @include('owner.boarding-houses._form', [
-                    'formAction' => route('admin.listings.update', $house),
+                    'formAction' => request()->routeIs('admin.*') ? route('admin.listings.update', $house) : route('owner.boarding-houses.update', $house),
                     'formMethod' => 'PUT',
                     'submitLabel' => 'Update Listing',
                 ])

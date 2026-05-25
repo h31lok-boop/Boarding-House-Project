@@ -96,6 +96,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/listings', [OwnerBoardingHouseController::class, 'store'])->name('listings.store');
         Route::get('/listings/{boardingHouse}/edit', [OwnerBoardingHouseController::class, 'edit'])->name('listings.edit');
         Route::put('/listings/{boardingHouse}', [OwnerBoardingHouseController::class, 'update'])->name('listings.update');
+        Route::post('/listings/{boardingHouse}/submit', [OwnerBoardingHouseController::class, 'submit'])->name('listings.submit');
         Route::delete('/listings/{boardingHouse}', [OwnerBoardingHouseController::class, 'destroy'])->name('listings.destroy');
 
         Route::get('/boarding-houses', [OwnerBoardingHouseController::class, 'index'])->name('boarding-houses.index');
@@ -103,16 +104,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/boarding-houses', [OwnerBoardingHouseController::class, 'store'])->name('boarding-houses.store');
         Route::get('/boarding-houses/{boardingHouse}/edit', [OwnerBoardingHouseController::class, 'edit'])->name('boarding-houses.edit');
         Route::put('/boarding-houses/{boardingHouse}', [OwnerBoardingHouseController::class, 'update'])->name('boarding-houses.update');
+        Route::post('/boarding-houses/{boardingHouse}/submit', [OwnerBoardingHouseController::class, 'submit'])->name('boarding-houses.submit');
         Route::delete('/boarding-houses/{boardingHouse}', [OwnerBoardingHouseController::class, 'destroy'])->name('boarding-houses.destroy');
 
         Route::get('/rooms', [OwnerRoomController::class, 'index'])->name('rooms');
         Route::post('/rooms', [OwnerRoomController::class, 'store'])->name('rooms.store');
         Route::get('/rooms/{room}/edit', [OwnerRoomController::class, 'edit'])->name('rooms.edit');
         Route::put('/rooms/{room}', [OwnerRoomController::class, 'update'])->name('rooms.update');
+        Route::patch('/rooms/{room}/assign', [OwnerRoomController::class, 'assignTenant'])->name('rooms.assign');
         Route::delete('/rooms/{room}', [OwnerRoomController::class, 'destroy'])->name('rooms.destroy');
 
         Route::get('/inquiries', [OwnerInquiryController::class, 'index'])->name('inquiries.index');
         Route::patch('/inquiries/{inquiry}', [OwnerInquiryController::class, 'update'])->name('inquiries.update');
+        Route::post('/inquiries/{inquiry}/reservation', [OwnerInquiryController::class, 'storeReservation'])->name('inquiries.reservation');
+        Route::delete('/inquiries/{inquiry}', [OwnerInquiryController::class, 'destroy'])->name('inquiries.destroy');
         Route::get('/messages', [OwnerDashboardController::class, 'messages'])->name('messages');
 
         Route::get('/bookings', [OwnerBookingController::class, 'index'])->name('bookings.index');
@@ -121,9 +126,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::get('/reviews', [OwnerFeedbackController::class, 'index'])->name('reviews');
         Route::get('/feedback', [OwnerFeedbackController::class, 'index'])->name('feedback.index');
+        Route::patch('/feedback/reviews/{review}', [OwnerFeedbackController::class, 'updateReview'])->name('feedback.reviews.update');
+        Route::patch('/feedback/incidents/{incident}', [OwnerFeedbackController::class, 'updateIncident'])->name('feedback.incidents.update');
         Route::get('/compliance', [OwnerComplianceController::class, 'index'])->name('compliance.index');
+        Route::post('/compliance/documents', [OwnerComplianceController::class, 'store'])->name('compliance.documents.store');
+        Route::put('/compliance/documents/{requirement}', [OwnerComplianceController::class, 'update'])->name('compliance.documents.update');
+        Route::delete('/compliance/documents/{requirement}', [OwnerComplianceController::class, 'destroy'])->name('compliance.documents.destroy');
+        Route::get('/compliance/documents/{requirement}/download', [OwnerComplianceController::class, 'download'])->name('compliance.documents.download');
+        Route::post('/compliance/submit', [OwnerComplianceController::class, 'submitAll'])->name('compliance.submit');
         Route::get('/reports', [OwnerDashboardController::class, 'reports'])->name('reports');
+        Route::get('/reports/export', [OwnerDashboardController::class, 'exportReports'])->name('reports.export');
         Route::get('/settings', [OwnerDashboardController::class, 'settings'])->name('settings');
+        Route::patch('/settings', [OwnerDashboardController::class, 'updateSettings'])->name('settings.update');
 
         Route::get('/users', [AdminController::class, 'users'])->name('users');
         Route::get('/tenant-history', [AdminController::class, 'tenantHistory'])->name('tenant-history');
@@ -145,6 +159,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('owner')->name('owner.')->middleware('owner')->group(function () {
         Route::get('/dashboard', [OwnerDashboardController::class, 'index'])->name('dashboard');
         Route::get('/maintenance', [DashboardController::class, 'ownerMaintenance'])->name('maintenance');
+        Route::patch('/maintenance/{maintenanceRequest}', [DashboardController::class, 'updateOwnerMaintenance'])->name('maintenance.update');
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile');
         Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -161,16 +176,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/boarding-houses', [OwnerBoardingHouseController::class, 'store'])->name('boarding-houses.store');
         Route::get('/boarding-houses/{boardingHouse}/edit', [OwnerBoardingHouseController::class, 'edit'])->name('boarding-houses.edit');
         Route::put('/boarding-houses/{boardingHouse}', [OwnerBoardingHouseController::class, 'update'])->name('boarding-houses.update');
+        Route::post('/boarding-houses/{boardingHouse}/submit', [OwnerBoardingHouseController::class, 'submit'])->name('boarding-houses.submit');
         Route::delete('/boarding-houses/{boardingHouse}', [OwnerBoardingHouseController::class, 'destroy'])->name('boarding-houses.destroy');
 
         Route::get('/rooms', [OwnerRoomController::class, 'index'])->name('rooms');
         Route::post('/rooms', [OwnerRoomController::class, 'store'])->name('rooms.store');
         Route::get('/rooms/{room}/edit', [OwnerRoomController::class, 'edit'])->name('rooms.edit');
         Route::put('/rooms/{room}', [OwnerRoomController::class, 'update'])->name('rooms.update');
+        Route::patch('/rooms/{room}/assign', [OwnerRoomController::class, 'assignTenant'])->name('rooms.assign');
         Route::delete('/rooms/{room}', [OwnerRoomController::class, 'destroy'])->name('rooms.destroy');
 
         Route::get('/inquiries', [OwnerInquiryController::class, 'index'])->name('inquiries.index');
         Route::patch('/inquiries/{inquiry}', [OwnerInquiryController::class, 'update'])->name('inquiries.update');
+        Route::post('/inquiries/{inquiry}/reservation', [OwnerInquiryController::class, 'storeReservation'])->name('inquiries.reservation');
+        Route::delete('/inquiries/{inquiry}', [OwnerInquiryController::class, 'destroy'])->name('inquiries.destroy');
         Route::get('/messages', [OwnerDashboardController::class, 'messages'])->name('messages');
 
         Route::get('/bookings', [OwnerBookingController::class, 'index'])->name('bookings.index');
@@ -178,9 +197,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/bookings/{booking}', [OwnerBookingController::class, 'updateBooking'])->name('bookings.update');
 
         Route::get('/feedback', [OwnerFeedbackController::class, 'index'])->name('feedback.index');
+        Route::patch('/feedback/reviews/{review}', [OwnerFeedbackController::class, 'updateReview'])->name('feedback.reviews.update');
+        Route::patch('/feedback/incidents/{incident}', [OwnerFeedbackController::class, 'updateIncident'])->name('feedback.incidents.update');
         Route::get('/compliance', [OwnerComplianceController::class, 'index'])->name('compliance.index');
+        Route::post('/compliance/documents', [OwnerComplianceController::class, 'store'])->name('compliance.documents.store');
+        Route::put('/compliance/documents/{requirement}', [OwnerComplianceController::class, 'update'])->name('compliance.documents.update');
+        Route::delete('/compliance/documents/{requirement}', [OwnerComplianceController::class, 'destroy'])->name('compliance.documents.destroy');
+        Route::get('/compliance/documents/{requirement}/download', [OwnerComplianceController::class, 'download'])->name('compliance.documents.download');
+        Route::post('/compliance/submit', [OwnerComplianceController::class, 'submitAll'])->name('compliance.submit');
         Route::get('/reports', [OwnerDashboardController::class, 'reports'])->name('reports');
+        Route::get('/reports/export', [OwnerDashboardController::class, 'exportReports'])->name('reports.export');
         Route::get('/settings', [OwnerDashboardController::class, 'settings'])->name('settings');
+        Route::patch('/settings', [OwnerDashboardController::class, 'updateSettings'])->name('settings.update');
     });
 
     // User Dashboard (legacy tenant routes remain as compatibility aliases)

@@ -96,13 +96,9 @@ class OwnerBookingController extends OwnerBaseController
             $this->syncRoomInventoryFromStatusChange($reservation->room, $previousStatus, $nextStatus);
         });
 
-<<<<<<< Updated upstream
         return redirect()
             ->route($request->routeIs('admin.*') ? 'admin.bookings.index' : 'owner.bookings.index')
             ->with('success', 'Reservation updated.');
-=======
-        return redirect()->route('admin.bookings.index')->with('success', 'Reservation updated.');
->>>>>>> Stashed changes
     }
 
     public function updateBooking(Request $request, Booking $booking, TenantOccupancyManager $occupancyManager): RedirectResponse
@@ -153,13 +149,9 @@ class OwnerBookingController extends OwnerBaseController
             $this->syncRoomInventoryFromStatusChange($booking->room, $previousStatus, $nextStatus);
         });
 
-<<<<<<< Updated upstream
         return redirect()
             ->route($request->routeIs('admin.*') ? 'admin.bookings.index' : 'owner.bookings.index')
             ->with('success', 'Booking updated.');
-=======
-        return redirect()->route('admin.bookings.index')->with('success', 'Booking updated.');
->>>>>>> Stashed changes
     }
 
     private function bookingStatusFromReservationStatus(string $status): string

@@ -47,7 +47,6 @@
             @enderror
         </div>
 
-<<<<<<< Updated upstream
         <div class="auth-field">
             <label for="security_answer">Security Check</label>
             <p class="mb-2 text-sm font-medium text-slate-500">{{ $securityQuestion ?? 'Answer the security question.' }}</p>
@@ -71,14 +70,6 @@
             @endif
         </div>
 
-=======
-        <div class="mt-3 text-right text-sm">
-            @if (Route::has('password.request'))
-                <a class="auth-secondary-link auth-small-link" href="{{ route('password.request') }}">Forgot password?</a>
-            @endif
-        </div>
-
->>>>>>> Stashed changes
         <button type="submit" class="auth-primary-button mt-5" data-auth-submit-button data-loading-text="Signing in...">
             Sign In
         </button>

@@ -9,7 +9,7 @@
 
         <div class="ui-card rounded-2xl p-5">
             @include('owner.rooms._form', [
-                'formAction' => route('admin.rooms.update', $room),
+                'formAction' => request()->routeIs('admin.*') ? route('admin.rooms.update', $room) : route('owner.rooms.update', $room),
                 'formMethod' => 'PUT',
                 'submitLabel' => 'Update Room',
             ])

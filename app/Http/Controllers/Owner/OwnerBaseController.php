@@ -5,8 +5,12 @@ namespace App\Http\Controllers\Owner;
 use App\Http\Controllers\Controller;
 use App\Models\BoardingHouse;
 use App\Models\Booking;
+use App\Models\ComplianceRequirement;
+use App\Models\Incident;
 use App\Models\Inquiry;
+use App\Models\MaintenanceRequest;
 use App\Models\Reservation;
+use App\Models\Review;
 use App\Models\Room;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -73,6 +77,44 @@ abstract class OwnerBaseController extends Controller
         );
 
         return $booking;
+    }
+
+    protected function ensureOwnsComplianceRequirement(Request $request, ComplianceRequirement $requirement): ComplianceRequirement
+    {
+        $requirement->loadMissing('boardingHouse');
+        abort_unless($requirement->boardingHouse, 404);
+        $this->ensureOwnsBoardingHouse($request, $requirement->boardingHouse);
+
+        return $requirement;
+    }
+
+    protected function ensureOwnsReview(Request $request, Review $review): Review
+    {
+        abort_unless(in_array((int) $review->boarding_house_id, $this->ownerBoardingHouseIds($request), true), 403);
+
+        return $review;
+    }
+
+    protected function ensureOwnsIncident(Request $request, Incident $incident): Incident
+    {
+        $incident->loadMissing('room.boardingHouse');
+        abort_unless(
+            $incident->room?->boardingHouse && (int) $incident->room->boardingHouse->owner_id === (int) $this->owner($request)->id,
+            403
+        );
+
+        return $incident;
+    }
+
+    protected function ensureOwnsMaintenanceRequest(Request $request, MaintenanceRequest $maintenanceRequest): MaintenanceRequest
+    {
+        $maintenanceRequest->loadMissing('room.boardingHouse');
+        abort_unless(
+            $maintenanceRequest->room?->boardingHouse && (int) $maintenanceRequest->room->boardingHouse->owner_id === (int) $this->owner($request)->id,
+            403
+        );
+
+        return $maintenanceRequest;
     }
 
     protected function resolveOwnerProfileId(User $user): int

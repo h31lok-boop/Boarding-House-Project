@@ -9,7 +9,7 @@
 
         <div class="ui-card rounded-2xl p-5">
             @include('owner.boarding-houses._form', [
-                'formAction' => route('admin.listings.store'),
+                'formAction' => request()->routeIs('admin.*') ? route('admin.listings.store') : route('owner.boarding-houses.store'),
                 'formMethod' => 'POST',
                 'submitLabel' => 'Save Listing',
             ])

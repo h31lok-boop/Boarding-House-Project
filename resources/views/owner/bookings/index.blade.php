@@ -1,5 +1,9 @@
 <x-layouts.caretaker>
     <x-owner.shell>
+        @php
+            $isAdminWorkspace = request()->routeIs('admin.*');
+            $routeName = fn (string $admin, string $owner, $params = []) => route($isAdminWorkspace ? $admin : $owner, $params);
+        @endphp
         <x-slot name="header">
             <div>
                 <h1 class="text-xl font-semibold text-slate-900">Booking / Reservation Management</h1>
@@ -25,9 +29,9 @@
                                     <p class="text-xs ui-muted">
                                         {{ $reservation->boardingHouse?->name ?? 'Listing' }}
                                         @if($reservation->room?->room_no)
-                                            • Room {{ $reservation->room->room_no }}
+                                            | Room {{ $reservation->room->room_no }}
                                         @endif
-                                        • {{ optional($reservation->created_at)->format('M d, Y h:i A') }}
+                                        | {{ optional($reservation->created_at)->format('M d, Y h:i A') }}
                                     </p>
                                     <div class="mt-3 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
                                         <p><span class="font-medium text-slate-900">Check-in:</span> {{ optional($reservation->check_in_date)->format('M d, Y') ?: 'Not set' }}</p>
@@ -36,13 +40,13 @@
                                     <p class="mt-3 text-sm text-slate-700">{{ $reservation->notes ?: 'No tenant notes provided.' }}</p>
                                     @if($reservation->owner_notes)
                                         <div class="mt-3 rounded-2xl bg-slate-50 p-3 text-sm text-slate-700">
-                                            <span class="font-medium text-slate-900">Admin notes:</span> {{ $reservation->owner_notes }}
+                                            <span class="font-medium text-slate-900">Owner notes:</span> {{ $reservation->owner_notes }}
                                         </div>
                                     @endif
                                 </div>
 
                                 <div class="w-full max-w-md rounded-2xl border ui-border p-4">
-                                    <form method="POST" action="{{ route('admin.reservations.update', $reservation) }}" class="space-y-3">
+                                    <form method="POST" action="{{ $routeName('admin.reservations.update', 'owner.reservations.update', $reservation) }}" class="space-y-3">
                                         @csrf
                                         @method('PATCH')
                                         <div>
@@ -54,7 +58,7 @@
                                             </select>
                                         </div>
                                         <div>
-                                            <label class="mb-2 block text-sm font-medium text-slate-700">Admin Notes</label>
+                                            <label class="mb-2 block text-sm font-medium text-slate-700">Owner Notes</label>
                                             <textarea name="owner_notes" rows="4" class="ui-input w-full" placeholder="Reason, confirmation remarks, or follow-up details...">{{ old('owner_notes', $reservation->owner_notes) }}</textarea>
                                         </div>
                                         <button type="submit" class="rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600">
@@ -117,7 +121,7 @@
                                     </td>
                                     <td class="px-3 py-3 text-slate-600">{{ $booking->notes ?: 'No notes.' }}</td>
                                     <td class="px-3 py-3">
-                                        <form method="POST" action="{{ route('admin.bookings.update', $booking) }}" class="space-y-2">
+                                        <form method="POST" action="{{ $routeName('admin.bookings.update', 'owner.bookings.update', $booking) }}" class="space-y-2">
                                             @csrf
                                             @method('PATCH')
                                             <select name="status" class="ui-input w-full">

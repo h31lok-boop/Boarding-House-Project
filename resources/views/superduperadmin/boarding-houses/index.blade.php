@@ -133,11 +133,7 @@
 
 <x-admin.workspace-shell
     workspace="superduperadmin"
-<<<<<<< Updated upstream
     title="All Boarding Houses"
-=======
-    title="My Listings"
->>>>>>> Stashed changes
     subtitle="Manage all boarding house and property listings."
     profile-role-label="Owner"
     active="listings">
@@ -156,7 +152,6 @@
         </button>
     </x-slot>
 
-<<<<<<< Updated upstream
     @if (($boardingHouses ?? collect())->isNotEmpty())
         <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -176,8 +171,6 @@
         </section>
     @endif
 
-=======
->>>>>>> Stashed changes
     <div
         x-data="{
             view: 'table',

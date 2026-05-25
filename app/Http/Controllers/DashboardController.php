@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\BoardingHouseApplication;
 use App\Models\BoardingHouse;
 use App\Models\Inquiry;
+use App\Models\MaintenanceRequest;
 use App\Models\Notice;
 use App\Models\Reservation;
 use App\Models\Review;
@@ -92,13 +93,47 @@ class DashboardController extends Controller
         $user = $request->user();
         abort_unless($user && $user->isOwner(), 403);
 
-        [$openRequestsCount, $resolvedRequestsCount] = $this->computeMaintenanceCounts();
+        $houseIds = BoardingHouse::query()->where('owner_id', $user->id)->pluck('id')->all();
+        $roomIds = Room::query()->whereIn('boarding_house_id', $houseIds)->pluck('id')->all();
+        $maintenanceQuery = MaintenanceRequest::query()
+            ->with(['user:id,name,email', 'room.boardingHouse:id,name'])
+            ->whereIn('room_id', $roomIds ?: [0]);
+
+        $openRequestsCount = (clone $maintenanceQuery)
+            ->whereNotIn('status', ['Resolved', 'Closed', 'resolved', 'closed', 'Completed', 'completed'])
+            ->count();
+        $resolvedRequestsCount = (clone $maintenanceQuery)
+            ->whereIn('status', ['Resolved', 'Closed', 'resolved', 'closed', 'Completed', 'completed'])
+            ->count();
 
         return view('owner.maintenance', [
             'openRequestsCount' => $openRequestsCount,
             'resolvedRequestsCount' => $resolvedRequestsCount,
             'hasMaintenanceModule' => Schema::hasTable('maintenance_requests'),
+            'maintenanceRequests' => $maintenanceQuery->latest()->paginate(10),
         ]);
+    }
+
+    public function updateOwnerMaintenance(Request $request, MaintenanceRequest $maintenanceRequest)
+    {
+        $user = $request->user();
+        abort_unless($user && $user->isOwner(), 403);
+
+        $maintenanceRequest->loadMissing('room.boardingHouse');
+        abort_unless($maintenanceRequest->room?->boardingHouse && (int) $maintenanceRequest->room->boardingHouse->owner_id === (int) $user->id, 403);
+
+        $validated = $request->validate([
+            'status' => ['required', 'in:Open,In Progress,Resolved,Closed'],
+            'description' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $maintenanceRequest->update([
+            'status' => $validated['status'],
+            'description' => $validated['description'] ?? $maintenanceRequest->description,
+            'resolved_at' => in_array($validated['status'], ['Resolved', 'Closed'], true) ? now() : null,
+        ]);
+
+        return redirect()->route('owner.maintenance')->with('success', 'Maintenance request updated.');
     }
 
     public function tenant(Request $request)
