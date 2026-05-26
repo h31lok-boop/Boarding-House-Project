@@ -23,26 +23,12 @@ class DashboardController extends Controller
                 'border' => 'border-indigo-100',
                 'pill' => 'bg-indigo-100 text-indigo-700',
             ],
-            'tenant' => [
-                'label' => 'Tenants',
+            'user' => [
+                'label' => 'Users',
                 'chip' => 'bg-emerald-600 text-emerald-50',
                 'tone' => 'from-emerald-50 to-white',
                 'border' => 'border-emerald-100',
                 'pill' => 'bg-emerald-100 text-emerald-700',
-            ],
-            'caretaker' => [
-                'label' => 'Caretakers',
-                'chip' => 'bg-amber-600 text-amber-50',
-                'tone' => 'from-amber-50 to-white',
-                'border' => 'border-amber-100',
-                'pill' => 'bg-amber-100 text-amber-800',
-            ],
-            'osas' => [
-                'label' => 'OSAS',
-                'chip' => 'bg-purple-600 text-purple-50',
-                'tone' => 'from-purple-50 to-white',
-                'border' => 'border-purple-100',
-                'pill' => 'bg-purple-100 text-purple-800',
             ],
         ];
 
@@ -50,11 +36,6 @@ class DashboardController extends Controller
             $count = User::query()
                 ->where(function ($q) use ($role) {
                     $q->where('role', $role);
-
-                    if ($role === 'admin') {
-                        // legacy owners behave as admins
-                        $q->orWhere('role', 'owner');
-                    }
                 })
                 ->orWhereHas('roles', fn ($q) => $q->where('name', $role))
                 ->distinct('id')
@@ -63,21 +44,31 @@ class DashboardController extends Controller
             return array_merge($meta, ['count' => $count]);
         });
 
+        $visibleRoles = ['admin', 'user'];
+
         $recentUsers = User::query()
             ->with('roles')
+            ->where(function ($query) use ($visibleRoles) {
+                $query->whereIn('role', $visibleRoles)
+                    ->orWhereHas('roles', fn ($roleQuery) => $roleQuery->whereIn('name', $visibleRoles));
+            })
             ->latest()
             ->limit(8)
             ->get(['id', 'name', 'email', 'role', 'is_active', 'created_at']);
 
         $allUsers = User::query()
             ->with('roles')
+            ->where(function ($query) use ($visibleRoles) {
+                $query->whereIn('role', $visibleRoles)
+                    ->orWhereHas('roles', fn ($roleQuery) => $roleQuery->whereIn('name', $visibleRoles));
+            })
             ->latest()
             ->paginate(12, ['id', 'name', 'email', 'role', 'is_active']);
 
         $totals = [
-            'all' => User::count(),
-            'active' => User::where('is_active', true)->count(),
-            'pending' => User::where('is_active', false)->count(),
+            'all' => User::whereIn('role', $visibleRoles)->count(),
+            'active' => User::whereIn('role', $visibleRoles)->where('is_active', true)->count(),
+            'pending' => User::whereIn('role', $visibleRoles)->where('is_active', false)->count(),
         ];
 
         return view('admin.dashboard', [
@@ -90,20 +81,25 @@ class DashboardController extends Controller
 
     public function owner(Request $request)
     {
-        $user = $request->user();
-        abort_unless($user && $user->isOwner(), 403);
+        return $this->adminDashboard($request);
+    }
 
-        return view('owner.dashboard', $this->buildOwnerKpiData());
+    public function adminDashboard(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user && $user->isAdmin(), 403);
+
+        return view('admin.dashboard');
     }
 
     public function ownerMaintenance(Request $request)
     {
         $user = $request->user();
-        abort_unless($user && $user->isOwner(), 403);
+        abort_unless($user && $user->isAdmin(), 403);
 
         [$openRequestsCount, $resolvedRequestsCount] = $this->computeMaintenanceCounts();
 
-        return view('owner.maintenance', [
+        return view('admin.notifications', [
             'openRequestsCount' => $openRequestsCount,
             'resolvedRequestsCount' => $resolvedRequestsCount,
             'hasMaintenanceModule' => Schema::hasTable('maintenance_requests'),
@@ -112,16 +108,21 @@ class DashboardController extends Controller
 
     public function tenant(Request $request)
     {
-        $user = $request->user();
-        abort_unless($user && $user->isTenant(), 403);
+        return $this->userDashboard($request);
+    }
 
-        return view('tenant.dashboard', $this->buildTenantDashboardData($user));
+    public function userDashboard(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user && $user->isUser(), 403);
+
+        return view('user.dashboard', $this->buildTenantDashboardData($user));
     }
 
     public function search(Request $request)
     {
         $user = $request->user();
-        abort_unless($user && $user->isOwner(), 403);
+        abort_unless($user && $user->isAdmin(), 403);
 
         $keyword = trim((string) $request->query('q', ''));
         if ($keyword === '') {
@@ -150,7 +151,7 @@ class DashboardController extends Controller
     public function tenantSearch(Request $request)
     {
         $user = $request->user();
-        abort_unless($user && $user->isTenant(), 403);
+        abort_unless($user && $user->isUser(), 403);
 
         $keyword = trim((string) $request->query('q', ''));
         $radiusKm = (float) $request->query('radius_km', 5);
@@ -378,7 +379,7 @@ class DashboardController extends Controller
                 ),
                 'change_positive' => $totalRooms >= $totalPrev,
                 'subtitle' => 'Tracked room inventory',
-                'href' => route('owner.rooms'),
+                'href' => route('admin.rooms'),
                 'accent' => 'blue',
             ],
             [
@@ -389,7 +390,7 @@ class DashboardController extends Controller
                 ),
                 'change_positive' => $occupiedCount >= $occupiedPrev,
                 'subtitle' => 'Vacant: '.number_format($vacantCount),
-                'href' => route('owner.rooms'),
+                'href' => route('admin.rooms'),
                 'accent' => 'emerald',
             ],
             [
@@ -398,7 +399,7 @@ class DashboardController extends Controller
                 'change' => $this->formatPointsChange($occupancyRate - $occupancyRatePrev),
                 'change_positive' => $occupancyRate >= $occupancyRatePrev,
                 'subtitle' => 'Current utilization rate',
-                'href' => route('owner.rooms', ['occupancy' => 'occupied']),
+                'href' => route('admin.rooms', ['occupancy' => 'occupied']),
                 'accent' => 'indigo',
             ],
             [
@@ -409,7 +410,7 @@ class DashboardController extends Controller
                 ),
                 'change_positive' => $currentMonthRevenue >= $previousMonthRevenue,
                 'subtitle' => 'Estimated current month',
-                'href' => route('owner.boarding-houses'),
+                'href' => route('admin.listings'),
                 'accent' => 'violet',
             ],
         ];
@@ -418,28 +419,28 @@ class DashboardController extends Controller
 
         if ($pendingTenantCount > 0) {
             $agendaItems[] = [
-                'title' => 'Approve pending tenants',
+                'title' => 'Review pending users',
                 'detail' => number_format($pendingTenantCount).' approvals waiting',
                 'date' => $now->format('D, M j'),
-                'href' => route('admin.users', ['status' => 'pending']),
+                'href' => route('admin.inquiries'),
             ];
         }
 
         if ($billingEnabled && $dueThisMonthCount > 0) {
             $agendaItems[] = [
                 'title' => 'Follow up due payments',
-                'detail' => number_format($dueThisMonthCount).' tenants, PHP '.number_format($dueThisMonthAmount, 2),
+                'detail' => number_format($dueThisMonthCount).' users, PHP '.number_format($dueThisMonthAmount, 2),
                 'date' => $now->copy()->endOfMonth()->format('M j'),
-                'href' => route('owner.boarding-houses', ['tab' => 'payments']),
+                'href' => route('admin.listings', ['tab' => 'payments']),
             ];
         }
 
         if ($billingEnabled && $overdueCount > 0) {
             $agendaItems[] = [
                 'title' => 'Resolve overdue balances',
-                'detail' => number_format($overdueCount).' tenants, PHP '.number_format($overdueAmount, 2),
+                'detail' => number_format($overdueCount).' users, PHP '.number_format($overdueAmount, 2),
                 'date' => 'Today',
-                'href' => route('owner.boarding-houses', ['tab' => 'payments']),
+                'href' => route('admin.listings', ['tab' => 'payments']),
             ];
         }
 
@@ -455,9 +456,9 @@ class DashboardController extends Controller
         if ($upcomingMoveOutCount > 0) {
             $agendaItems[] = [
                 'title' => 'Plan upcoming move-outs',
-                'detail' => number_format($upcomingMoveOutCount).' tenants are near renewal/move-out window',
+                'detail' => number_format($upcomingMoveOutCount).' users are near renewal/move-out window',
                 'date' => $now->copy()->addWeeks(2)->format('M j'),
-                'href' => route('admin.users'),
+                'href' => route('admin.reservations'),
             ];
         }
 
@@ -466,7 +467,7 @@ class DashboardController extends Controller
                 'title' => 'Review maintenance queue',
                 'detail' => number_format($openRequestsCount).' open requests',
                 'date' => 'Today',
-                'href' => route('owner.maintenance'),
+                'href' => route('admin.notifications'),
             ];
         }
 
@@ -475,7 +476,7 @@ class DashboardController extends Controller
                 'title' => 'No urgent agenda items',
                 'detail' => 'All tracked queues are currently clear.',
                 'date' => $now->format('D, M j'),
-                'href' => route('owner.dashboard'),
+                'href' => route('admin.dashboard'),
             ];
         }
 
@@ -488,10 +489,10 @@ class DashboardController extends Controller
         $notifications = [];
         foreach ($pendingTenantItems as $tenant) {
             $notifications[] = [
-                'title' => 'Tenant request',
+                'title' => 'User request',
                 'detail' => $tenant->name.' is waiting for approval.',
                 'time' => optional($tenant->created_at)->diffForHumans() ?? 'recently',
-                'href' => route('admin.users', ['status' => 'pending']),
+                'href' => route('admin.inquiries'),
             ];
         }
 
@@ -500,16 +501,16 @@ class DashboardController extends Controller
                 'title' => 'Maintenance update',
                 'detail' => number_format($openRequestsCount).' open maintenance requests in queue.',
                 'time' => 'Today',
-                'href' => route('owner.maintenance'),
+                'href' => route('admin.notifications'),
             ];
         }
 
         if ($billingEnabled && $overdueCount > 0) {
             $notifications[] = [
                 'title' => 'Payment alert',
-                'detail' => number_format($overdueCount).' overdue tenant payments need follow-up.',
+                'detail' => number_format($overdueCount).' overdue user payments need follow-up.',
                 'time' => 'Today',
-                'href' => route('owner.boarding-houses', ['tab' => 'payments']),
+                'href' => route('admin.listings', ['tab' => 'payments']),
             ];
         }
 
@@ -518,25 +519,25 @@ class DashboardController extends Controller
                 'title' => 'Upcoming dues',
                 'detail' => number_format($dueThisMonthCount).' payments are due this month.',
                 'time' => $now->copy()->endOfMonth()->format('M j'),
-                'href' => route('owner.boarding-houses', ['tab' => 'payments']),
+                'href' => route('admin.listings', ['tab' => 'payments']),
             ];
         }
 
         if ($upcomingMoveOutCount > 0) {
             $notifications[] = [
                 'title' => 'Move-out watchlist',
-                'detail' => number_format($upcomingMoveOutCount).' tenants need move-out or renewal confirmation.',
+                'detail' => number_format($upcomingMoveOutCount).' users need move-out or renewal confirmation.',
                 'time' => 'This month',
-                'href' => route('admin.users'),
+                'href' => route('admin.reservations'),
             ];
         }
 
         if (empty($notifications)) {
             $notifications[] = [
                 'title' => 'No new notifications',
-                'detail' => 'No tenant, maintenance, or approval updates right now.',
+                'detail' => 'No user, maintenance, or approval updates right now.',
                 'time' => 'Now',
-                'href' => route('owner.dashboard'),
+                'href' => route('admin.dashboard'),
             ];
         }
 
@@ -853,7 +854,7 @@ class DashboardController extends Controller
         }
 
         $alerts = [];
-        $dashboardRoute = route('tenant.dashboard');
+        $dashboardRoute = route('user.dashboard');
 
         if (! $tenant->is_active) {
             $alerts[] = [
@@ -1117,7 +1118,7 @@ class DashboardController extends Controller
                 'type' => 'booking',
                 'title' => $title,
                 'subtitle' => ! empty($meta) ? implode(' | ', $meta) : 'Booking match for "'.$keyword.'"',
-                'url' => route('owner.boarding-houses', ['booking' => $bookingId ?: null]),
+                'url' => route('admin.listings', ['booking' => $bookingId ?: null]),
             ];
         })->values()->all();
     }
@@ -1250,7 +1251,7 @@ class DashboardController extends Controller
                 'type' => 'payment',
                 'title' => $title,
                 'subtitle' => ! empty($meta) ? implode(' | ', $meta) : 'Payment match for "'.$keyword.'"',
-                'url' => route('owner.boarding-houses', [
+                'url' => route('admin.listings', [
                     'tab' => 'payments',
                     'payment' => $paymentId ?: null,
                     'ref' => $reference !== '' ? $reference : null,
@@ -1386,7 +1387,7 @@ class DashboardController extends Controller
                 'type' => 'ticket',
                 'title' => $title,
                 'subtitle' => ! empty($meta) ? implode(' | ', $meta) : 'Ticket match for "'.$keyword.'"',
-                'url' => route('owner.maintenance', ['ticket' => $ticketId ?: null]),
+                'url' => route('admin.notifications', ['ticket' => $ticketId ?: null]),
             ];
         })->values()->all();
     }
@@ -1533,7 +1534,7 @@ class DashboardController extends Controller
                 'type' => 'booking',
                 'title' => $title,
                 'subtitle' => ! empty($meta) ? implode(' | ', $meta) : 'Booking match for "'.$keyword.'"',
-                'url' => route('tenant.dashboard', ['booking' => $bookingId ?: null]).'#booking-info',
+                'url' => route('user.dashboard', ['booking' => $bookingId ?: null]).'#booking-info',
             ];
         })->values()->all();
     }
@@ -1657,7 +1658,7 @@ class DashboardController extends Controller
                 'type' => 'payment',
                 'title' => $title,
                 'subtitle' => ! empty($meta) ? implode(' | ', $meta) : 'Payment match for "'.$keyword.'"',
-                'url' => route('tenant.dashboard', ['payment' => $paymentId ?: null]).'#billing-breakdown',
+                'url' => route('user.dashboard', ['payment' => $paymentId ?: null]).'#billing-breakdown',
             ];
         })->values()->all();
     }
@@ -1782,7 +1783,7 @@ class DashboardController extends Controller
                 'type' => 'ticket',
                 'title' => $title,
                 'subtitle' => ! empty($meta) ? implode(' | ', $meta) : 'Ticket match for "'.$keyword.'"',
-                'url' => route('tenant.dashboard', ['ticket' => $ticketId ?: null]).'#alerts-panel',
+                'url' => route('user.dashboard', ['ticket' => $ticketId ?: null]).'#alerts-panel',
             ];
         })->values()->all();
     }
@@ -2064,12 +2065,14 @@ class DashboardController extends Controller
 
     private function tenantUsersQuery()
     {
+        $roles = ['user', 'tenant', 'student'];
+
         return User::query()
             ->where('is_archived', false)
-            ->where(function ($query) {
-                $query->whereRaw('LOWER(role) = ?', ['tenant'])
+            ->where(function ($query) use ($roles) {
+                $query->whereIn('role', $roles)
                     ->orWhereHas('roles', function ($roleQuery) {
-                        $roleQuery->whereRaw('LOWER(name) = ?', ['tenant']);
+                        $roleQuery->whereIn('name', ['user', 'tenant', 'student']);
                     });
             });
     }

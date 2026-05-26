@@ -14,14 +14,14 @@
 
         if (auth()->check()) {
             $user = auth()->user();
-            $isAdmin = strtolower($user->role ?? '') === 'admin' || strtolower($user->role ?? '') === 'owner' || (method_exists($user, 'hasRole') && $user->hasRole('admin'));
-            if ($isAdmin) {
-                $navLinks[] = ['label' => 'User Management', 'route' => 'admin.users', 'icon' => 'USR', 'active' => 'admin.users*'];
-                $navLinks[] = ['label' => 'Boarding Houses', 'route' => 'admin.boarding-houses.index', 'icon' => 'BHS', 'active' => 'admin.boarding-houses.*'];
-                $navLinks[] = ['label' => 'Applications', 'route' => 'admin.applications.index', 'icon' => 'APP', 'active' => 'admin.applications.*'];
-                $navLinks[] = ['label' => 'Tenant History', 'route' => 'admin.tenant-history', 'icon' => 'HIS', 'active' => 'admin.tenant-history'];
-            } elseif ($user->isTenant()) {
-                $navLinks[] = ['label' => 'Boarding Houses', 'route' => 'tenant.boarding-houses', 'icon' => 'BHS', 'active' => 'tenant.boarding-houses'];
+            if ($user->isAdmin()) {
+                $navLinks[] = ['label' => 'My Boarding House', 'route' => 'admin.my-boarding-house', 'icon' => 'BHS', 'active' => 'admin.my-boarding-house'];
+                $navLinks[] = ['label' => 'Listings', 'route' => 'admin.listings', 'icon' => 'LST', 'active' => 'admin.listings*'];
+                $navLinks[] = ['label' => 'Rooms', 'route' => 'admin.rooms', 'icon' => 'ROM', 'active' => 'admin.rooms*'];
+            } elseif ($user->isUser()) {
+                $navLinks[] = ['label' => 'Browse Listings', 'route' => 'user.browse', 'icon' => 'BHS', 'active' => 'user.browse*'];
+                $navLinks[] = ['label' => 'Recommendations', 'route' => 'user.recommendations', 'icon' => 'REC', 'active' => 'user.recommendations*'];
+                $navLinks[] = ['label' => 'Reservations', 'route' => 'user.reservations', 'icon' => 'RES', 'active' => 'user.reservations'];
             }
         }
     @endphp

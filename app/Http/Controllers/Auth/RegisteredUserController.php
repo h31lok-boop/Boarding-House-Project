@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\OwnerProfile;
 use App\Models\TenantMatchProfile;
 use App\Models\TenantProfile;
 use App\Models\User;
@@ -35,6 +36,7 @@ class RegisteredUserController extends Controller
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'role' => ['nullable', 'in:admin,user'],
             'phone' => ['nullable', 'string', 'max:30'],
             'institution_name' => ['nullable', 'string', 'max:255'],
             'move_in_date' => ['nullable', 'date'],
@@ -43,9 +45,10 @@ class RegisteredUserController extends Controller
         ]);
 
         $hashedPassword = Hash::make($request->password);
+        $role = $request->input('role', 'user');
 
         $attributes = [
-            'role' => 'tenant',
+            'role' => $role,
             'name' => $request->name,
             'email' => $request->email,
             'phone' => $request->phone,
@@ -63,29 +66,41 @@ class RegisteredUserController extends Controller
         $user->forceFill($attributes);
         $user->save();
 
-        TenantProfile::firstOrCreate(
-            ['user_id' => $user->id],
-            [
-                'school_company' => $request->institution_name ?: 'Not provided',
-                'course_or_position' => null,
-                'valid_id_type' => 'pending',
-                'valid_id_number' => 'PENDING-'.$user->id,
-                'valid_id_file' => 'pending',
-                'emergency_contact_name' => 'Not provided',
-                'emergency_contact_number' => 'N/A',
-                'preferred_language' => 'english',
-            ]
-        );
+        if ($role === 'user') {
+            TenantProfile::firstOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'school_company' => $request->institution_name ?: 'Not provided',
+                    'course_or_position' => null,
+                    'valid_id_type' => 'pending',
+                    'valid_id_number' => 'PENDING-'.$user->id,
+                    'valid_id_file' => 'pending',
+                    'emergency_contact_name' => 'Not provided',
+                    'emergency_contact_number' => 'N/A',
+                    'preferred_language' => 'english',
+                ]
+            );
 
-        TenantMatchProfile::firstOrCreate(
-            ['user_id' => $user->id],
-            ['gender_preference' => 'no_preference']
-        );
+            TenantMatchProfile::firstOrCreate(
+                ['user_id' => $user->id],
+                ['gender_preference' => 'no_preference']
+            );
+        } else {
+            OwnerProfile::firstOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'company_name' => $request->name,
+                    'valid_id_type' => 'pending',
+                    'valid_id_number' => 'PENDING-'.$user->id,
+                    'valid_id_file' => 'pending',
+                    'verification_status' => 'pending',
+                ]
+            );
+        }
 
-        // sync Spatie role
         if (method_exists($user, 'assignRole')) {
-            $tenantRole = Role::findOrCreate('tenant', 'web');
-            $user->syncRoles([$tenantRole]);
+            $spatieRole = Role::findOrCreate($role, 'web');
+            $user->syncRoles([$spatieRole]);
         }
 
         event(new Registered($user));

@@ -18,21 +18,21 @@ test('admin dashboard shows matchmaking analytics cards', function () {
         ->assertSee('Acceptance Rate');
 });
 
-test('tenant dashboard shows roommate match status section', function () {
-    $tenant = User::factory()->create([
-        'role' => 'tenant',
+test('user dashboard shows roommate match status section', function () {
+    $user = User::factory()->create([
+        'role' => 'user',
         'is_active' => true,
         'email_verified_at' => now(),
     ]);
 
     $other = User::factory()->create([
-        'role' => 'tenant',
+        'role' => 'user',
         'is_active' => true,
         'email_verified_at' => now(),
     ]);
 
     TenantMatchProfile::create([
-        'user_id' => $tenant->id,
+        'user_id' => $user->id,
         'gender_preference' => 'no_preference',
         'completed_at' => now(),
     ]);
@@ -45,12 +45,12 @@ test('tenant dashboard shows roommate match status section', function () {
 
     RoommateMatchRequest::create([
         'sender_id' => $other->id,
-        'recipient_id' => $tenant->id,
+        'recipient_id' => $user->id,
         'status' => 'pending',
     ]);
 
-    $this->actingAs($tenant)
-        ->get(route('tenant.dashboard'))
+    $this->actingAs($user)
+        ->get(route('user.dashboard'))
         ->assertOk()
         ->assertSee('Roommate Match Status')
         ->assertSee('Incoming Pending');

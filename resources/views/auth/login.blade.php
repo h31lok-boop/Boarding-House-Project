@@ -262,25 +262,6 @@
             font-size: 1.2rem;
         }
 
-        .demo-credentials {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 15px;
-            margin-top: 20px;
-            font-size: 0.9rem;
-        }
-
-        .demo-credentials h4 {
-            margin-bottom: 10px;
-            color: var(--dark);
-        }
-
-        .demo-account {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
-        }
-
         @media (max-width: 768px) {
             .login-container {
                 flex-direction: column;

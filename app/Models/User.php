@@ -52,39 +52,34 @@ class User extends Authenticatable
 
     public function isAdmin()
     {
-        return $this->isSuperDuperAdmin()
-            || in_array($this->role, ['admin', 'owner'], true);
-    }
-
-    public function isSuperDuperAdmin(): bool
-    {
-        if (strtolower((string) $this->role) === 'superduperadmin') {
-            return true;
-        }
-
-        return method_exists($this, 'hasRole') && $this->hasRole('superduperadmin');
+        return in_array(strtolower((string) $this->role), ['admin', 'owner'], true)
+            || (method_exists($this, 'hasAnyRole') && $this->hasAnyRole(['admin', 'owner']));
     }
 
     public function isResident()
     {
-        return in_array($this->role, ['resident', 'tenant'], true);
+        return $this->isUser();
     }
 
     public function isOwner()
     {
-        return strtolower((string) $this->role) === 'owner'
-            || (method_exists($this, 'hasRole') && $this->hasRole('owner'));
+        return $this->isAdmin();
     }
 
     public function isManager()
     {
-        return $this->isOwner();
+        return $this->isAdmin();
+    }
+
+    public function isUser()
+    {
+        return in_array(strtolower((string) $this->role), ['user', 'tenant', 'student'], true)
+            || (method_exists($this, 'hasAnyRole') && $this->hasAnyRole(['user', 'tenant', 'student']));
     }
 
     public function isTenant()
     {
-        return strtolower((string) $this->role) === 'tenant'
-            || (method_exists($this, 'hasRole') && $this->hasRole('tenant'));
+        return $this->isUser();
     }
 
     public function boardingHouse()
@@ -147,9 +142,6 @@ class User extends Authenticatable
         return $this->hasMany(\App\Models\RoommateMatchRequest::class, 'recipient_id');
     }
 
-    /**
-     * Validation tasks assigned to this validator (OSAS).
-     */
     public function validationTasks()
     {
         return $this->hasMany(\App\Models\ValidationTask::class, 'validator_id');
@@ -165,55 +157,26 @@ class User extends Authenticatable
     {
         $legacyRole = $this->role ? strtolower($this->role) : null;
 
-        if ($legacyRole === 'tenant') {
-            return 'tenant.dashboard';
+        if (in_array($legacyRole, ['user', 'tenant', 'student'], true)) {
+            return 'user.dashboard';
         }
 
         if (method_exists($this, 'getRoleNames')) {
             $roleNames = $this->getRoleNames()->map(fn ($name) => strtolower($name));
 
-            if ($roleNames->contains('superduperadmin')) {
-                return 'superduperadmin.dashboard';
-            }
-
-            // Admin must win over any default/tenant assignment.
-            if ($roleNames->contains('admin')) {
+            if ($roleNames->intersect(['admin', 'owner'])->isNotEmpty()) {
                 return 'admin.dashboard';
             }
 
-            if ($roleNames->contains('tenant')) {
-                return 'tenant.dashboard';
-            }
-
-            if ($roleNames->contains('caretaker')) {
-                return 'caretaker.dashboard';
-            }
-
-            if ($roleNames->contains('osas')) {
-                return 'osas.dashboard';
+            if ($roleNames->intersect(['user', 'tenant', 'student'])->isNotEmpty()) {
+                return 'user.dashboard';
             }
         }
 
-        if ($legacyRole === 'superduperadmin') {
-            return 'superduperadmin.dashboard';
-        }
-
-        if ($legacyRole === 'admin') {
+        if (in_array($legacyRole, ['admin', 'owner'], true)) {
             return 'admin.dashboard';
         }
 
-        if ($legacyRole === 'owner') {
-            return 'owner.dashboard';
-        }
-
-        if ($legacyRole === 'caretaker') {
-            return 'caretaker.dashboard';
-        }
-
-        if ($legacyRole === 'osas') {
-            return 'osas.dashboard';
-        }
-
-        return 'admin.dashboard';
+        return 'user.dashboard';
     }
 }

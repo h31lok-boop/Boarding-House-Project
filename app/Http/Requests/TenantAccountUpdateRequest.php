@@ -12,7 +12,7 @@ class TenantAccountUpdateRequest extends FormRequest
     {
         $user = $this->user();
 
-        return $user && $user->isTenant();
+        return $user && $user->isUser();
     }
 
     /**

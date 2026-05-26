@@ -287,13 +287,11 @@ ALTER TABLE maintenance_requests
 
 INSERT INTO roles (name, guard_name, created_at, updated_at) VALUES
 ('admin', 'web', NOW(), NOW()),
-('tenant', 'web', NOW(), NOW()),
-('caretaker', 'web', NOW(), NOW()),
-('osas', 'web', NOW(), NOW())
+('user', 'web', NOW(), NOW())
 ON DUPLICATE KEY UPDATE updated_at = VALUES(updated_at);
 
 INSERT IGNORE INTO model_has_roles (role_id, model_type, model_id)
 SELECT r.id, 'App\\Models\\User', u.id
 FROM roles r
-JOIN users u ON u.email = 'admin@geoboard.com'
+JOIN users u ON u.email = 'jani@example.com'
 WHERE r.name = 'admin' AND r.guard_name = 'web';

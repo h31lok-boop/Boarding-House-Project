@@ -7,6 +7,7 @@ use App\Models\Amenity;
 use App\Models\Barangay;
 use App\Models\BoardingHouse;
 use App\Models\CityMunicipality;
+use App\Services\BoardingHouseRecommendationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
@@ -16,8 +17,16 @@ class BoardingHouseBrowseController extends Controller
 
     private const DEFAULT_LNG = 125.3550000;
 
+    public function __construct(
+        private readonly BoardingHouseRecommendationService $recommendationService,
+    ) {}
+
     public function index(Request $request)
     {
+        $tenant = $request->user();
+        $tenant?->loadMissing('tenantMatchProfile');
+        $canRecommend = $tenant?->isTenant() && (bool) $tenant->tenantMatchProfile?->completed_at;
+
         $q = trim((string) $request->query('q', ''));
         $minPrice = $this->normalizePrice($request->query('min_price'));
         $maxPrice = $this->normalizePrice($request->query('max_price'));
@@ -56,7 +65,7 @@ class BoardingHouseBrowseController extends Controller
 
         $houses = $housesQuery->paginate(12)->withQueryString();
 
-        $houses->getCollection()->transform(function ($house) use ($refLat, $refLng) {
+        $houses->getCollection()->transform(function ($house) use ($refLat, $refLng, $tenant, $canRecommend) {
             $computedDistance = $this->distanceKm($refLat, $refLng, $house->latitude, $house->longitude);
             $house->distance_km = isset($house->distance_km_calc) && is_numeric($house->distance_km_calc)
                 ? round((float) $house->distance_km_calc, 2)
@@ -69,6 +78,10 @@ class BoardingHouseBrowseController extends Controller
                 (int) ($house->available_rooms_count ?? 0),
                 (int) ($house->room_categories_available_rooms_sum ?? 0),
             );
+
+            if ($canRecommend) {
+                $house->recommendation = $this->recommendationService->score($tenant, $house, $refLat, $refLng);
+            }
 
             return $house;
         });
@@ -88,7 +101,7 @@ class BoardingHouseBrowseController extends Controller
                 'address' => $house->address,
                 'latitude' => (float) $house->latitude,
                 'longitude' => (float) $house->longitude,
-                'url' => route('user.boarding-houses.show', $house),
+                'url' => route('user.browse.show', $house),
                 'price' => $house->rooms->min('price') ?? $house->roomCategories->min('monthly_rate') ?? $house->price,
                 'available_rooms' => max(
                     (int) ($house->available_rooms ?? 0),
@@ -109,7 +122,21 @@ class BoardingHouseBrowseController extends Controller
             $nearestHouse = $houses->getCollection()->sortBy('distance_km')->first();
         }
 
-        return view('user.boarding-houses.index', [
+        $recommendedHouses = collect();
+        if ($canRecommend) {
+            $recommendationCandidates = $this->buildBrowseQuery(
+                $filters,
+                $nearMe ? $providedLat : null,
+                $nearMe ? $providedLng : null,
+                $nearMe
+            )->limit(100)->get();
+
+            $recommendedHouses = $this->recommendationService
+                ->rank($tenant, $recommendationCandidates, $refLat, $refLng)
+                ->take(6);
+        }
+
+        return view('user.browse-listings', [
             'houses' => $houses,
             'amenities' => $amenities,
             'cities' => $cities,
@@ -118,6 +145,7 @@ class BoardingHouseBrowseController extends Controller
             'referencePoint' => ['lat' => $refLat, 'lng' => $refLng],
             'nearMe' => $nearMe,
             'nearestHouse' => $nearestHouse,
+            'recommendedHouses' => $recommendedHouses,
         ]);
     }
 
@@ -141,7 +169,7 @@ class BoardingHouseBrowseController extends Controller
         ])->loadSum('roomCategories as room_categories_available_rooms_sum', 'available_rooms')
             ->loadAvg('reviews', 'rating');
 
-        return view('user.boarding-houses.show', [
+        return view('user.browse-show', [
             'house' => $boardingHouse,
         ]);
     }
@@ -156,7 +184,7 @@ class BoardingHouseBrowseController extends Controller
 
         if ($ids->count() < 2) {
             return redirect()
-                ->route('user.boarding-houses.index')
+                ->route('user.browse')
                 ->with('error', 'Select at least 2 boarding houses to compare.');
         }
 
@@ -187,7 +215,7 @@ class BoardingHouseBrowseController extends Controller
             return $house;
         });
 
-        return view('user.boarding-houses.compare', [
+        return view('user.browse-compare', [
             'houses' => $houses,
             'referencePoint' => ['lat' => $refLat, 'lng' => $refLng],
         ]);

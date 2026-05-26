@@ -20,7 +20,7 @@ test('admin map api returns geotagged boarding houses', function () {
         'approval_status' => 'approved',
     ]);
 
-    $response = $this->actingAs($admin)->getJson(route('map.admin.boarding-houses'));
+    $response = $this->actingAs($admin)->getJson(route('map.admin.listings'));
 
     $response->assertOk()
         ->assertJsonStructure([
@@ -32,8 +32,8 @@ test('admin map api returns geotagged boarding houses', function () {
 });
 
 test('user map api excludes non-approved houses', function () {
-    $tenant = User::factory()->create([
-        'role' => 'tenant',
+    $user = User::factory()->create([
+        'role' => 'user',
         'email_verified_at' => now(),
     ]);
 
@@ -53,7 +53,7 @@ test('user map api excludes non-approved houses', function () {
         'approval_status' => 'pending',
     ]);
 
-    $response = $this->actingAs($tenant)->getJson(route('map.user.boarding-houses'));
+    $response = $this->actingAs($user)->getJson(route('map.user.listings'));
 
     $response->assertOk();
     $names = collect($response->json('data'))->pluck('name');

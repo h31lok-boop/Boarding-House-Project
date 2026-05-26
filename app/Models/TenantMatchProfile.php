@@ -23,6 +23,7 @@ class TenantMatchProfile extends Model
         'pets_preference',
         'internet_usage',
         'hobbies',
+        'preferred_amenity_ids',
         'additional_notes',
         'completed_at',
     ];
@@ -33,6 +34,7 @@ class TenantMatchProfile extends Model
         'cleanliness_level' => 'integer',
         'noise_tolerance' => 'integer',
         'hobbies' => 'array',
+        'preferred_amenity_ids' => 'array',
         'completed_at' => 'datetime',
     ];
 

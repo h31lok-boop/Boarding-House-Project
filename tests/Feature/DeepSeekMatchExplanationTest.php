@@ -3,17 +3,17 @@
 use App\Models\TenantMatchProfile;
 use App\Models\User;
 
-test('tenant can open deepseek explanation page without an api key', function () {
+test('user can open deepseek explanation page without an api key', function () {
     config()->set('services.deepseek.api_key', null);
 
-    $tenant = User::factory()->create([
-        'role' => 'tenant',
+    $user = User::factory()->create([
+        'role' => 'user',
         'is_active' => true,
         'email_verified_at' => now(),
     ]);
 
     TenantMatchProfile::create([
-        'user_id' => $tenant->id,
+        'user_id' => $user->id,
         'budget_min' => 2500,
         'budget_max' => 4500,
         'gender_preference' => 'no_preference',
@@ -31,7 +31,7 @@ test('tenant can open deepseek explanation page without an api key', function ()
 
     $candidate = User::factory()->create([
         'name' => 'DeepSeek Candidate',
-        'role' => 'tenant',
+        'role' => 'user',
         'is_active' => true,
         'email_verified_at' => now(),
     ]);
@@ -53,8 +53,8 @@ test('tenant can open deepseek explanation page without an api key', function ()
         'completed_at' => now(),
     ]);
 
-    $this->actingAs($tenant)
-        ->get(route('tenant.matches.explain', $candidate))
+    $this->actingAs($user)
+        ->get(route('user.recommendations.explain', $candidate))
         ->assertOk()
         ->assertSee('DeepSeek Match Explanation')
         ->assertSee('DeepSeek API key is not configured.');

@@ -17,26 +17,12 @@ class BoardingHouseController extends Controller
 
     public function index()
     {
-        $filterStatus = request('status'); // available | occupied | all/blank
-
-        $houses = BoardingHouse::withCount('tenants')
-            ->when($filterStatus === 'available', function ($q) {
-                $q->having('tenants_count', '<', \DB::raw('capacity'));
-            })
-            ->when($filterStatus === 'occupied', function ($q) {
-                // treat any occupancy (>0) as occupied
-                $q->having('tenants_count', '>', 0);
-            })
-            ->orderBy('created_at', 'desc')
-            ->paginate(10)
-            ->appends(['status' => $filterStatus]);
-
-        return view('admin.boarding-houses.index', compact('houses'));
+        return redirect()->route('admin.listings');
     }
 
     public function create()
     {
-        return view('admin.boarding-houses.create');
+        return redirect()->route('admin.listings');
     }
 
     public function store(Request $request)
@@ -68,7 +54,7 @@ class BoardingHouseController extends Controller
         $data['approval_status'] = $data['approval_status'] ?? 'approved';
         $data = $this->sanitizeBoardingHouseInput($data);
 
-        if ($request->user()?->isOwner() && empty($data['owner_id'])) {
+        if ($request->user()?->isAdmin() && empty($data['owner_id'])) {
             $data['owner_id'] = $request->user()->id;
         }
 
@@ -106,24 +92,22 @@ class BoardingHouseController extends Controller
                     'room_url' => $house->room_image ? Storage::url($house->room_image) : '',
                     'cr_url' => $house->cr_image ? Storage::url($house->cr_image) : '',
                     'kitchen_url' => $house->kitchen_image ? Storage::url($house->kitchen_image) : '',
-                    'update_url' => route('admin.boarding-houses.update', $house),
+                    'update_url' => route('admin.listings.update', $house),
                 ],
             ]);
         }
 
-        return redirect()->route('admin.boarding-houses.index')->with('success', 'Boarding house created.');
+        return redirect()->route('admin.listings')->with('success', 'Boarding house created.');
     }
 
     public function edit(BoardingHouse $boarding_house)
     {
-        return view('admin.boarding-houses.edit', ['house' => $boarding_house]);
+        return redirect()->route('admin.listings');
     }
 
     public function show(BoardingHouse $boarding_house)
     {
-        $boarding_house->loadCount('tenants');
-
-        return view('admin.boarding-houses.show', ['house' => $boarding_house]);
+        return redirect()->route('admin.listings');
     }
 
     public function update(Request $request, BoardingHouse $boarding_house)
@@ -207,12 +191,12 @@ class BoardingHouseController extends Controller
                     'room_url' => $boarding_house->room_image ? Storage::url($boarding_house->room_image) : '',
                     'cr_url' => $boarding_house->cr_image ? Storage::url($boarding_house->cr_image) : '',
                     'kitchen_url' => $boarding_house->kitchen_image ? Storage::url($boarding_house->kitchen_image) : '',
-                    'update_url' => route('admin.boarding-houses.update', $boarding_house),
+                    'update_url' => route('admin.listings.update', $boarding_house),
                 ],
             ]);
         }
 
-        return redirect()->route('admin.boarding-houses.index')->with('success', 'Boarding house updated.');
+        return redirect()->route('admin.listings')->with('success', 'Boarding house updated.');
     }
 
     public function destroy(BoardingHouse $boarding_house)
@@ -225,7 +209,7 @@ class BoardingHouseController extends Controller
             'name' => $name,
         ]);
 
-        return redirect()->route('admin.boarding-houses.index')->with('success', 'Boarding house deleted.');
+        return redirect()->route('admin.listings')->with('success', 'Boarding house deleted.');
     }
 
     private function sanitizeBoardingHouseInput(array $data): array

@@ -10,7 +10,7 @@ test('login screen can be rendered', function () {
 
 test('users are redirected to their role dashboard after login', function () {
     // Capitalized role to confirm case-insensitive matching.
-    $user = User::factory()->create(['role' => 'Tenant']);
+    $user = User::factory()->create(['role' => 'User']);
 
     $response = $this->post('/login', [
         'email' => $user->email,

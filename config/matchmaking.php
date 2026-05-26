@@ -14,4 +14,14 @@ return [
         'internet_usage' => 0.05,
         'hobbies' => 0.05,
     ],
+
+    'boarding_house_weights' => [
+        'budget' => 0.28,
+        'amenities' => 0.22,
+        'distance' => 0.16,
+        'availability' => 0.16,
+        'occupant_compatibility' => 0.18,
+    ],
+
+    'max_recommendation_distance_km' => 8,
 ];

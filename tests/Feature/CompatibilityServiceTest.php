@@ -7,8 +7,8 @@ use App\Services\CompatibilityService;
 test('compatibility service gives higher scores to closer profiles', function () {
     $service = app(CompatibilityService::class);
 
-    $tenant = new User(['id' => 1, 'role' => 'tenant']);
-    $tenant->setRelation('tenantMatchProfile', new TenantMatchProfile([
+    $user = new User(['id' => 1, 'role' => 'user']);
+    $user->setRelation('tenantMatchProfile', new TenantMatchProfile([
         'budget_min' => 2500,
         'budget_max' => 4500,
         'gender_preference' => 'no_preference',
@@ -23,7 +23,7 @@ test('compatibility service gives higher scores to closer profiles', function ()
         'hobbies' => ['reading', 'coding'],
     ]));
 
-    $strongCandidate = new User(['id' => 2, 'role' => 'tenant']);
+    $strongCandidate = new User(['id' => 2, 'role' => 'user']);
     $strongCandidate->setRelation('tenantMatchProfile', new TenantMatchProfile([
         'budget_min' => 2600,
         'budget_max' => 4300,
@@ -39,7 +39,7 @@ test('compatibility service gives higher scores to closer profiles', function ()
         'hobbies' => ['coding', 'reading'],
     ]));
 
-    $weakCandidate = new User(['id' => 3, 'role' => 'tenant']);
+    $weakCandidate = new User(['id' => 3, 'role' => 'user']);
     $weakCandidate->setRelation('tenantMatchProfile', new TenantMatchProfile([
         'budget_min' => 7000,
         'budget_max' => 9000,
@@ -55,8 +55,8 @@ test('compatibility service gives higher scores to closer profiles', function ()
         'hobbies' => ['travel'],
     ]));
 
-    $strong = $service->score($tenant, $strongCandidate);
-    $weak = $service->score($tenant, $weakCandidate);
+    $strong = $service->score($user, $strongCandidate);
+    $weak = $service->score($user, $weakCandidate);
 
     expect($strong['compatibility_percent'])->toBeGreaterThan($weak['compatibility_percent']);
     expect($strong['compatibility_percent'])->toBeGreaterThan(80);

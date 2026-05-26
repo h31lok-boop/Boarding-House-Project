@@ -2,70 +2,46 @@
 
 use App\Models\User;
 
-test('guest is redirected when visiting superduperadmin dashboard', function () {
-    $response = $this->get(route('superduperadmin.dashboard'));
-
-    $response->assertRedirect(route('login'));
-});
-
-test('non superduperadmin receives forbidden on superduperadmin dashboard', function () {
+test('admin dashboard is restricted to admin users', function () {
     $user = User::factory()->create([
-        'role' => 'tenant',
+        'role' => 'user',
         'is_active' => true,
+        'email_verified_at' => now(),
     ]);
 
-    $response = $this->actingAs($user)->get(route('superduperadmin.dashboard'));
-
-    $response->assertForbidden();
-});
-
-test('superduperadmin can access superduperadmin dashboard', function () {
-    $user = User::factory()->create([
-        'role' => 'superduperadmin',
+    $admin = User::factory()->create([
+        'role' => 'admin',
         'is_active' => true,
+        'email_verified_at' => now(),
     ]);
 
-    $response = $this->actingAs($user)->get(route('superduperadmin.dashboard'));
-
-    $response->assertOk();
-});
-
-test('owner routes are restricted to owners only', function () {
-    $tenant = User::factory()->create([
-        'role' => 'tenant',
-        'is_active' => true,
-    ]);
-
-    $owner = User::factory()->create([
-        'role' => 'owner',
-        'is_active' => true,
-    ]);
-
-    $this->actingAs($tenant)
-        ->get(route('owner.rooms'))
+    $this->actingAs($user)
+        ->get(route('admin.dashboard'))
         ->assertForbidden();
 
-    $this->actingAs($owner)
-        ->get(route('owner.rooms'))
+    $this->actingAs($admin)
+        ->get(route('admin.dashboard'))
         ->assertOk();
 });
 
-test('tenant dashboard is restricted to tenant users', function () {
-    $owner = User::factory()->create([
-        'role' => 'owner',
+test('user dashboard is restricted to user accounts', function () {
+    $admin = User::factory()->create([
+        'role' => 'admin',
         'is_active' => true,
+        'email_verified_at' => now(),
     ]);
 
-    $tenant = User::factory()->create([
-        'role' => 'tenant',
+    $user = User::factory()->create([
+        'role' => 'user',
         'is_active' => true,
+        'email_verified_at' => now(),
     ]);
 
-    $this->actingAs($owner)
-        ->get(route('tenant.dashboard'))
+    $this->actingAs($admin)
+        ->get(route('user.dashboard'))
         ->assertForbidden();
 
-    $this->actingAs($tenant)
-        ->get(route('tenant.dashboard'))
+    $this->actingAs($user)
+        ->get(route('user.dashboard'))
         ->assertOk();
 });

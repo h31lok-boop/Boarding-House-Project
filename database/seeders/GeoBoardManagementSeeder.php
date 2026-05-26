@@ -46,8 +46,7 @@ class GeoBoardManagementSeeder extends Seeder
             return;
         }
 
-        $approverId = (int) DB::table('users')->where('role', 'superduperadmin')->value('id')
-            ?: (int) DB::table('users')->where('role', 'admin')->value('id');
+        $approverId = (int) DB::table('users')->where('role', 'admin')->value('id');
 
         $houseTemplates = [
             ['name' => 'Sunrise Student Boarding House', 'price' => 2800, 'available_rooms' => 6, 'description' => 'Budget-friendly, near schools, with quiet study zones and stable internet.'],

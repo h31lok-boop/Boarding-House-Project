@@ -10,8 +10,6 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             GeoBoardWiringSeeder::class,
-            CaretakerSeeder::class,
-            OsasSeeder::class,
         ]);
     }
 }

@@ -11,7 +11,7 @@ class TenantMatchProfileUpdateRequest extends FormRequest
     {
         $user = $this->user();
 
-        return $user && $user->isTenant();
+        return $user && $user->isUser();
     }
 
     public function rules(): array
@@ -53,6 +53,8 @@ class TenantMatchProfileUpdateRequest extends FormRequest
             'internet_usage' => ['required', Rule::in($stringOptions['internet_usage'])],
             'hobbies' => ['nullable', 'array', 'max:6'],
             'hobbies.*' => ['string', Rule::in($hobbyOptions)],
+            'preferred_amenity_ids' => ['nullable', 'array', 'max:10'],
+            'preferred_amenity_ids.*' => ['integer', 'exists:amenities,id'],
             'additional_notes' => ['nullable', 'string', 'max:1000'],
         ];
     }

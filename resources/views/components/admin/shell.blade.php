@@ -1,5 +1,5 @@
 @props([
-    'searchPlaceholder' => 'Search users, houses, bookings...',
+    'searchPlaceholder' => 'Search listings, rooms, bookings...',
 ])
 
 @php
@@ -65,6 +65,32 @@
                     </div>
                 </div>
             </div>
+
+            @isset($header)
+                <div class="ui-card p-4">
+                    {{ $header }}
+                </div>
+            @endisset
+
+            @if (session('success') || session('error') || $errors->any())
+                <div class="space-y-2">
+                    @if (session('success'))
+                        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                            {{ session('success') }}
+                        </div>
+                    @endif
+                    @if (session('error'))
+                        <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                            {{ session('error') }}
+                        </div>
+                    @endif
+                    @if ($errors->any())
+                        <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                            {{ $errors->first() }}
+                        </div>
+                    @endif
+                </div>
+            @endif
 
             {{ $slot }}
         </div>

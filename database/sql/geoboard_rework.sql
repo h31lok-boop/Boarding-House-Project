@@ -481,9 +481,8 @@ INSERT INTO barangays (psgc_code, barangay_code, barangay_name, city_id, latitud
 ('112405001', '112405001', 'Aplaya', (SELECT id FROM cities_municipalities WHERE city_code = '112405'), 6.74900000, 125.35700000),
 ('112405002', '112405002', 'Balabag', (SELECT id FROM cities_municipalities WHERE city_code = '112405'), 6.75200000, 125.35100000);
 
--- password: admin123
 INSERT INTO users (email, password_hash, first_name, last_name, role, status, email_verified_at)
-VALUES ('admin@geoboard.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'System', 'Administrator', 'admin', 'active', NOW());
+VALUES ('jani@example.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Jani', 'Owner', 'admin', 'active', NOW());
 
 INSERT INTO admin_profiles (user_id, employee_id, department, position, access_level)
 VALUES (1, 'ADM001', 'Information Technology', 'System Administrator', 'super_admin');

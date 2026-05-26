@@ -27,6 +27,7 @@ return new class extends Migration
             $table->string('pets_preference', 40)->nullable();
             $table->string('internet_usage', 40)->nullable();
             $table->json('hobbies')->nullable();
+            $table->json('preferred_amenity_ids')->nullable();
             $table->text('additional_notes')->nullable();
             $table->timestamp('completed_at')->nullable();
             $table->timestamps();

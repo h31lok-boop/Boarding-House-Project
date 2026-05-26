@@ -74,23 +74,16 @@ if (columnExists($db, 'users', 'role')) {
     );
 
     $columnType = strtolower((string) ($roleColumn['COLUMN_TYPE'] ?? ''));
-    if (! str_contains($columnType, "'superduperadmin'") || ! str_contains($columnType, "'user'")) {
+    if (! str_contains($columnType, "'admin'") || ! str_contains($columnType, "'user'") || str_contains($columnType, "'tenant'")) {
         runQuery(
             $db,
             "ALTER TABLE `users`
              MODIFY COLUMN `role`
              ENUM(
-                'superduperadmin',
                 'admin',
-                'owner',
-                'manager',
-                'tenant',
-                'user',
-                'caretaker',
-                'osas',
-                'resident'
-             ) NOT NULL DEFAULT 'tenant'",
-            'extend users.role enum for phase1'
+                'user'
+             ) NOT NULL DEFAULT 'user'",
+            'normalize users.role enum for phase1'
         );
     }
 }

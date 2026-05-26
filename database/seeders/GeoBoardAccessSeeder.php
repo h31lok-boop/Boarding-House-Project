@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Role;
 
 class GeoBoardAccessSeeder extends Seeder
@@ -16,33 +17,29 @@ class GeoBoardAccessSeeder extends Seeder
 
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
-        $roles = ['superduperadmin', 'admin', 'owner', 'manager', 'tenant', 'user', 'caretaker', 'osas'];
-        foreach ($roles as $roleName) {
+        foreach (['admin', 'user'] as $roleName) {
             Role::firstOrCreate([
                 'name' => $roleName,
                 'guard_name' => 'web',
             ]);
         }
 
-        $super = $this->upsertUser('Super Duper Admin', 'superduperadmin@geoboard.com', $this->seedPasswordFor('superduperadmin'), 'superduperadmin', '09170000001');
-        $admin = $this->upsertUser('System Administrator', 'admin@geoboard.com', $this->seedPasswordFor('admin'), 'admin', '09170000002');
-        $owner = $this->upsertUser('Boarding Owner One', 'owner1@geoboard.com', $this->seedPasswordFor('owner'), 'owner', '09170000003');
-        $manager = $this->upsertUser('Boarding Manager One', 'manager1@geoboard.com', $this->seedPasswordFor('manager'), 'manager', '09170000004');
-        $tenant = $this->upsertUser('Tenant User One', 'tenant1@geoboard.com', $this->seedPasswordFor('tenant'), 'tenant', '09170000005');
-        $user = $this->upsertUser('Regular User One', 'user1@geoboard.com', $this->seedPasswordFor('user'), 'user', '09170000006');
-        $caretaker = $this->upsertUser('Caretaker User One', 'caretaker1@geoboard.com', $this->seedPasswordFor('caretaker'), 'caretaker', '09170000007');
-        $osas = $this->upsertUser('OSAS User One', 'osas1@geoboard.com', $this->seedPasswordFor('osas'), 'osas', '09170000008');
+        Role::query()
+            ->whereNotIn('name', ['admin', 'user'])
+            ->delete();
 
-        foreach ([$super, $admin, $owner, $manager, $tenant, $user, $caretaker, $osas] as $account) {
+        $admin = $this->upsertUser('Jani', $this->seedEmailFor('jani', 'jani@example.com'), $this->seedPasswordFor('jani'), 'admin', '09170000002');
+        $user = $this->upsertUser('Hazel', $this->seedEmailFor('hazel', 'hazel@example.com'), $this->seedPasswordFor('hazel'), 'user', '09170000006');
+
+        foreach ([$admin, $user] as $account) {
             $account->syncRoles([$account->role]);
         }
 
-        $this->ensureOwnerProfile($owner->id, $admin->id, 'Owner One Realty');
-        $this->ensureOwnerProfile($manager->id, $admin->id, 'Manager One Holdings');
-        $this->ensureOwnerProfile($super->id, $admin->id, 'GeoBoard Super Office');
+        $this->ensureOwnerProfile($admin->id, $admin->id, 'Jani Boarding House Office');
 
-        $this->ensureTenantProfile($tenant->id, $admin->id, 'Davao Student College');
-        $this->ensureTenantProfile($user->id, $admin->id, 'GeoBoard Community');
+        $this->ensureTenantProfile($user->id, $admin->id, 'Student Tenant');
+
+        $this->removeOtherAccounts($admin, $user);
     }
 
     private function upsertUser(string $name, string $email, string $password, string $role, string $contactNumber): User
@@ -107,6 +104,111 @@ class GeoBoardAccessSeeder extends Seeder
         );
     }
 
+    private function removeOtherAccounts(User $admin, User $user): void
+    {
+        $keepIds = [$admin->id, $user->id];
+        $oldIds = User::query()->whereNotIn('id', $keepIds)->pluck('id')->all();
+
+        if ($oldIds === []) {
+            return;
+        }
+
+        $ownerProfileId = Schema::hasTable('owner_profiles')
+            ? (int) DB::table('owner_profiles')->where('user_id', $admin->id)->value('id')
+            : null;
+
+        if (Schema::hasTable('boarding_houses')) {
+            $updates = [
+                'owner_id' => $admin->id,
+                'contact_name' => $admin->name,
+                'contact_number' => $admin->contact_number ?: $admin->phone,
+                'contact_phone' => $admin->contact_number ?: $admin->phone,
+                'updated_at' => now(),
+            ];
+
+            if ($ownerProfileId && Schema::hasColumn('boarding_houses', 'owner_profile_id')) {
+                $updates['owner_profile_id'] = $ownerProfileId;
+            }
+
+            if (Schema::hasColumn('boarding_houses', 'approved_by')) {
+                $updates['approved_by'] = $admin->id;
+            }
+
+            DB::table('boarding_houses')->update($updates);
+        }
+
+        $oldTenantIds = Schema::hasTable('tenants')
+            ? DB::table('tenants')->whereIn('user_id', $oldIds)->pluck('id')->all()
+            : [];
+
+        $this->withoutForeignKeyChecks(function () use ($oldIds, $oldTenantIds, $admin) {
+            foreach ([
+                ['model_has_roles', 'model_id'],
+                ['model_has_permissions', 'model_id'],
+                ['boarding_house_applications', 'user_id'],
+                ['favorites', 'user_id'],
+                ['inquiries', 'user_id'],
+                ['reservations', 'user_id'],
+                ['reviews', 'user_id'],
+                ['tenant_match_profiles', 'user_id'],
+                ['tenant_profiles', 'user_id'],
+                ['owner_profiles', 'user_id'],
+                ['roommate_match_requests', 'sender_id'],
+                ['roommate_match_requests', 'recipient_id'],
+                ['validation_tasks', 'validator_id'],
+                ['validation_evidence', 'uploaded_by'],
+            ] as [$table, $column]) {
+                $this->deleteWhereIn($table, $column, $oldIds);
+            }
+
+            $this->deleteWhereIn('payments', 'tenant_id', $oldTenantIds);
+            $this->deleteWhereIn('tenants', 'user_id', $oldIds);
+
+            $this->updateWhereIn('bookings', 'user_id', $oldIds, ['user_id' => null, 'updated_at' => now()]);
+            $this->updateWhereIn('maintenance_requests', 'user_id', $oldIds, ['user_id' => null, 'updated_at' => now()]);
+            $this->updateWhereIn('incidents', 'user_id', $oldIds, ['user_id' => null, 'updated_at' => now()]);
+            $this->updateWhereIn('notices', 'created_by', $oldIds, ['created_by' => null, 'updated_at' => now()]);
+            $this->updateWhereIn('approvals', 'reviewer_id', $oldIds, ['reviewer_id' => $admin->id, 'updated_at' => now()]);
+
+            User::query()->whereIn('id', $oldIds)->delete();
+        });
+    }
+
+    private function deleteWhereIn(string $table, string $column, array $ids): void
+    {
+        if ($ids === [] || ! Schema::hasTable($table) || ! Schema::hasColumn($table, $column)) {
+            return;
+        }
+
+        DB::table($table)->whereIn($column, $ids)->delete();
+    }
+
+    private function updateWhereIn(string $table, string $column, array $ids, array $values): void
+    {
+        if ($ids === [] || ! Schema::hasTable($table) || ! Schema::hasColumn($table, $column)) {
+            return;
+        }
+
+        DB::table($table)->whereIn($column, $ids)->update($values);
+    }
+
+    private function withoutForeignKeyChecks(callable $callback): void
+    {
+        $isMysql = DB::connection()->getDriverName() === 'mysql';
+
+        if ($isMysql) {
+            DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        }
+
+        try {
+            $callback();
+        } finally {
+            if ($isMysql) {
+                DB::statement('SET FOREIGN_KEY_CHECKS=1');
+            }
+        }
+    }
+
     private function seedPasswordFor(string $role): string
     {
         $roleKey = 'SEED_PASSWORD_'.strtoupper($role);
@@ -115,7 +217,12 @@ class GeoBoardAccessSeeder extends Seeder
             return $password;
         }
 
-        return (string) env('SEED_DEFAULT_PASSWORD', 'ChangeThisPassword123!');
+        return (string) env('SEED_DEFAULT_PASSWORD', 'Password123!');
+    }
+
+    private function seedEmailFor(string $user, string $fallback): string
+    {
+        return (string) env('SEED_EMAIL_'.strtoupper($user), $fallback);
     }
 
     private function ensureSafeSeedPasswordUsage(): void
@@ -124,8 +231,8 @@ class GeoBoardAccessSeeder extends Seeder
             return;
         }
 
-        $default = (string) env('SEED_DEFAULT_PASSWORD', 'ChangeThisPassword123!');
-        if ($default === 'ChangeThisPassword123!') {
+        $default = (string) env('SEED_DEFAULT_PASSWORD', 'Password123!');
+        if ($default === 'Password123!') {
             throw new \RuntimeException(
                 'Refusing to seed default credentials in production. Set SEED_DEFAULT_PASSWORD or SEED_PASSWORD_* values.'
             );

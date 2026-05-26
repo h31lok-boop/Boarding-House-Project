@@ -8,9 +8,6 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AdminMiddleware
 {
-    /**
-     * Ensure the current user is an admin/owner.
-     */
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
@@ -19,13 +16,7 @@ class AdminMiddleware
             return redirect()->route('login');
         }
 
-        // Prefer Spatie roles when available, fall back to legacy column.
-        $isAdminRole = method_exists($user, 'hasRole') && $user->hasRole('admin');
-        $isSuperRole = method_exists($user, 'hasRole') && $user->hasRole('superduperadmin');
-        $isLegacyAdmin = $user->role === 'admin' || $user->role === 'owner';
-        $isLegacySuper = strtolower((string) $user->role) === 'superduperadmin';
-
-        if (! $isAdminRole && ! $isLegacyAdmin && ! $isSuperRole && ! $isLegacySuper) {
+        if (! $user->isAdmin()) {
             abort(403, 'You are not authorized to access this page.');
         }
 

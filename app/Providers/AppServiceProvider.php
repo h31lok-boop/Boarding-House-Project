@@ -22,17 +22,15 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::define('manage-users', function (User $user): bool {
-            return $user->isSuperDuperAdmin() || in_array(strtolower((string) $user->role), ['admin'], true);
+            return $user->isAdmin();
         });
 
         Gate::define('manage-boarding-houses', function (User $user): bool {
-            return $user->isSuperDuperAdmin()
-                || in_array(strtolower((string) $user->role), ['admin', 'owner', 'manager'], true);
+            return $user->isAdmin();
         });
 
         Gate::define('access-map-features', function (User $user): bool {
-            return $user->isSuperDuperAdmin()
-                || in_array(strtolower((string) $user->role), ['admin', 'owner', 'manager', 'tenant', 'user'], true);
+            return $user->isAdmin() || $user->isUser();
         });
     }
 }

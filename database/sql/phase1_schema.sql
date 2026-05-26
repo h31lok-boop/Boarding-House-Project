@@ -11,15 +11,8 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     role ENUM(
-        'superduperadmin',
         'admin',
-        'owner',
-        'manager',
-        'tenant',
-        'user',
-        'caretaker',
-        'osas',
-        'resident'
+        'user'
     ) NOT NULL DEFAULT 'user',
     is_active TINYINT(1) NOT NULL DEFAULT 1,
     remember_token VARCHAR(100) NULL,

@@ -1,41 +1,45 @@
 <?php
 
+use App\Models\Amenity;
 use App\Models\User;
 
-test('tenant can view the match profile form', function () {
-    $tenant = User::factory()->create([
-        'role' => 'tenant',
+test('user can view the match profile form', function () {
+    $user = User::factory()->create([
+        'role' => 'user',
         'is_active' => true,
         'email_verified_at' => now(),
     ]);
 
-    $this->actingAs($tenant)
-        ->get(route('tenant.match-profile.edit'))
+    $this->actingAs($user)
+        ->get(route('user.profile'))
         ->assertOk()
         ->assertSee('Match Profile');
 });
 
-test('non-tenant cannot access the match profile form', function () {
-    $owner = User::factory()->create([
-        'role' => 'owner',
+test('admin cannot access the user match profile form', function () {
+    $admin = User::factory()->create([
+        'role' => 'admin',
         'is_active' => true,
         'email_verified_at' => now(),
     ]);
 
-    $this->actingAs($owner)
-        ->get(route('tenant.match-profile.edit'))
+    $this->actingAs($admin)
+        ->get(route('user.profile'))
         ->assertForbidden();
 });
 
-test('tenant can save matchmaking preferences', function () {
-    $tenant = User::factory()->create([
-        'role' => 'tenant',
+test('user can save matchmaking preferences', function () {
+    $wifi = Amenity::create(['name' => 'Wi-Fi']);
+    $laundry = Amenity::create(['name' => 'Laundry']);
+
+    $user = User::factory()->create([
+        'role' => 'user',
         'is_active' => true,
         'email_verified_at' => now(),
     ]);
 
-    $this->actingAs($tenant)
-        ->put(route('tenant.match-profile.update'), [
+    $this->actingAs($user)
+        ->put(route('user.profile.update'), [
             'budget_min' => 2500,
             'budget_max' => 4500,
             'gender_preference' => 'no_preference',
@@ -48,12 +52,13 @@ test('tenant can save matchmaking preferences', function () {
             'pets_preference' => 'no_pets',
             'internet_usage' => 'heavy',
             'hobbies' => ['reading', 'coding'],
+            'preferred_amenity_ids' => [$wifi->id, $laundry->id],
             'additional_notes' => 'Prefers quiet evenings and shared cleaning routines.',
         ])
-        ->assertRedirect(route('tenant.match-profile.edit'));
+        ->assertRedirect(route('user.profile'));
 
     $this->assertDatabaseHas('tenant_match_profiles', [
-        'user_id' => $tenant->id,
+        'user_id' => $user->id,
         'budget_min' => 2500.00,
         'budget_max' => 4500.00,
         'sleep_schedule' => 'balanced',
@@ -63,12 +68,13 @@ test('tenant can save matchmaking preferences', function () {
         'internet_usage' => 'heavy',
     ]);
 
-    expect($tenant->fresh()->tenantMatchProfile->hobbies)->toBe(['reading', 'coding']);
+    expect($user->fresh()->tenantMatchProfile->hobbies)->toBe(['reading', 'coding']);
+    expect($user->fresh()->tenantMatchProfile->preferred_amenity_ids)->toBe([$wifi->id, $laundry->id]);
 });
 
-test('registration creates a tenant match profile', function () {
+test('registration creates a user match profile', function () {
     $this->post(route('register'), [
-        'name' => 'Match Ready Tenant',
+        'name' => 'Match Ready User',
         'email' => 'match-ready@example.com',
         'phone' => '09179999999',
         'institution_name' => 'DSSC',

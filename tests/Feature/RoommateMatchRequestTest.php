@@ -4,12 +4,12 @@ use App\Models\RoommateMatchRequest;
 use App\Models\TenantMatchProfile;
 use App\Models\User;
 
-function createTenantWithCompletedMatchProfile(string $name, string $email): User
+function createUserWithCompletedMatchProfile(string $name, string $email): User
 {
     $user = User::factory()->create([
         'name' => $name,
         'email' => $email,
-        'role' => 'tenant',
+        'role' => 'user',
         'is_active' => true,
         'email_verified_at' => now(),
     ]);
@@ -34,12 +34,12 @@ function createTenantWithCompletedMatchProfile(string $name, string $email): Use
     return $user;
 }
 
-test('tenant can send a roommate match request', function () {
-    $sender = createTenantWithCompletedMatchProfile('Sender Tenant', 'sender@example.com');
-    $recipient = createTenantWithCompletedMatchProfile('Recipient Tenant', 'recipient@example.com');
+test('user can send a roommate match request', function () {
+    $sender = createUserWithCompletedMatchProfile('Sender User', 'sender@example.com');
+    $recipient = createUserWithCompletedMatchProfile('Recipient User', 'recipient@example.com');
 
     $this->actingAs($sender)
-        ->post(route('tenant.matches.requests.store', $recipient), [
+        ->post(route('user.recommendations.requests.store', $recipient), [
             'message' => 'We look like a strong fit for quiet study nights.',
         ])
         ->assertRedirect();
@@ -52,8 +52,8 @@ test('tenant can send a roommate match request', function () {
 });
 
 test('recipient can accept a roommate match request', function () {
-    $sender = createTenantWithCompletedMatchProfile('Sender Tenant', 'sender2@example.com');
-    $recipient = createTenantWithCompletedMatchProfile('Recipient Tenant', 'recipient2@example.com');
+    $sender = createUserWithCompletedMatchProfile('Sender User', 'sender2@example.com');
+    $recipient = createUserWithCompletedMatchProfile('Recipient User', 'recipient2@example.com');
 
     $request = RoommateMatchRequest::create([
         'sender_id' => $sender->id,
@@ -63,7 +63,7 @@ test('recipient can accept a roommate match request', function () {
     ]);
 
     $this->actingAs($recipient)
-        ->post(route('tenant.match-requests.accept', $request))
+        ->post(route('user.match-requests.accept', $request))
         ->assertRedirect();
 
     expect($request->fresh()->status)->toBe('accepted');
@@ -71,8 +71,8 @@ test('recipient can accept a roommate match request', function () {
 });
 
 test('sender can cancel a pending roommate match request', function () {
-    $sender = createTenantWithCompletedMatchProfile('Sender Tenant', 'sender3@example.com');
-    $recipient = createTenantWithCompletedMatchProfile('Recipient Tenant', 'recipient3@example.com');
+    $sender = createUserWithCompletedMatchProfile('Sender User', 'sender3@example.com');
+    $recipient = createUserWithCompletedMatchProfile('Recipient User', 'recipient3@example.com');
 
     $request = RoommateMatchRequest::create([
         'sender_id' => $sender->id,
@@ -81,7 +81,7 @@ test('sender can cancel a pending roommate match request', function () {
     ]);
 
     $this->actingAs($sender)
-        ->post(route('tenant.match-requests.cancel', $request))
+        ->post(route('user.match-requests.cancel', $request))
         ->assertRedirect();
 
     expect($request->fresh()->status)->toBe('cancelled');

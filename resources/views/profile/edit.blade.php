@@ -1,11 +1,8 @@
-<x-layouts.caretaker>
+<x-layouts.dashboard>
 @php
     $user = auth()->user();
-    $role = $user?->role ? strtolower($user->role) : null;
     $shell = match (true) {
-        $role === 'tenant' => 'tenant.shell',
-        $role === 'caretaker' => 'caretaker.shell',
-        $role === 'osas' => 'osas.shell',
+        $user?->isUser() => 'user.shell',
         default => 'admin.shell',
     };
 @endphp
@@ -35,4 +32,4 @@
         </div>
     </div>
 </x-dynamic-component>
-</x-layouts.caretaker>
+</x-layouts.dashboard>

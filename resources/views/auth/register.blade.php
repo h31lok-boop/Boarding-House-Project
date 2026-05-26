@@ -254,7 +254,7 @@
             font-weight: 600;
         }
 
-        .tenant-only[hidden] {
+        .user-only[hidden] {
             display: none;
         }
 
@@ -268,7 +268,7 @@
         </button>
         <span class="progress-badge">0%</span>
         <h1 class="auth-title">Create Account</h1>
-        <p class="auth-subtitle">Sign up to start as a tenant.</p>
+        <p class="auth-subtitle">Sign up as an admin or student user.</p>
 
         @if ($errors->any())
             <div class="alert">
@@ -283,6 +283,33 @@
         <form method="POST" action="{{ route('register') }}">
             @csrf
             {{-- removed photo upload to streamline sign-up --}}
+
+            @php
+                $selectedRole = old('role', 'user');
+            @endphp
+
+            <div class="role-block">
+                <p class="role-label">Account type</p>
+                <div class="role-options">
+                    <label class="role-option">
+                        <input type="radio" name="role" value="user" @checked($selectedRole === 'user')>
+                        <span class="role-card">
+                            <i class="fas fa-user-graduate"></i>
+                            User
+                        </span>
+                    </label>
+                    <label class="role-option">
+                        <input type="radio" name="role" value="admin" @checked($selectedRole === 'admin')>
+                        <span class="role-card">
+                            <i class="fas fa-building"></i>
+                            Admin
+                        </span>
+                    </label>
+                </div>
+                @error('role')
+                    <span class="field-error">{{ $message }}</span>
+                @enderror
+            </div>
 
             <div class="field">
                 <label for="name">Full Name</label>
@@ -342,11 +369,11 @@
                 </div>
             </div>
 
-            <div class="field tenant-only" data-tenant-only>
+            <div class="field user-only" data-user-only>
                 <label for="institution_name">Institution Name</label>
                 <div class="input-wrap">
                     <i class="fas fa-graduation-cap"></i>
-                    <input id="institution_name" name="institution_name" type="text" list="institution-list" placeholder="Select or enter your institution" value="{{ old('institution_name') }}" data-requires="tenant">
+                    <input id="institution_name" name="institution_name" type="text" list="institution-list" placeholder="Select or enter your institution" value="{{ old('institution_name') }}" data-requires="user">
                     <datalist id="institution-list">
                         <option value="Greenfield University"></option>
                         <option value="Sunshine College"></option>
@@ -359,11 +386,11 @@
                 @enderror
             </div>
 
-            <div class="field tenant-only" data-tenant-only>
+            <div class="field user-only" data-user-only>
                 <label for="move_in_date">Expected Move-in Date</label>
                 <div class="input-wrap">
                     <i class="fas fa-calendar"></i>
-                    <input id="move_in_date" name="move_in_date" type="date" value="{{ old('move_in_date') }}" data-requires="tenant">
+                    <input id="move_in_date" name="move_in_date" type="date" value="{{ old('move_in_date') }}" data-requires="user">
                 </div>
                 @error('move_in_date')
                     <span class="field-error">{{ $message }}</span>
@@ -401,6 +428,26 @@
                 button.innerHTML = isPassword ? '<i class="fas fa-eye-slash"></i>' : '<i class="fas fa-eye"></i>';
             });
         });
+
+        const roleInputs = document.querySelectorAll('input[name="role"]');
+        const userFields = document.querySelectorAll('[data-user-only]');
+        const userRequiredFields = document.querySelectorAll('[data-requires="user"]');
+
+        function syncRoleFields() {
+            const selected = document.querySelector('input[name="role"]:checked')?.value ?? 'user';
+            const isUser = selected === 'user';
+
+            userFields.forEach(field => {
+                field.hidden = !isUser;
+            });
+
+            userRequiredFields.forEach(field => {
+                field.disabled = !isUser;
+            });
+        }
+
+        roleInputs.forEach(input => input.addEventListener('change', syncRoleFields));
+        syncRoleFields();
     </script>
 </body>
 </html>

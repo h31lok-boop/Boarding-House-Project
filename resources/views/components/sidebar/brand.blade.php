@@ -10,11 +10,11 @@
 
 <a href="{{ route($dashRoute) }}" class="flex items-center gap-3 flex-1 min-w-0">
     <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-[#ff7e5f] via-[#feb47b] to-[#ffd1a3] text-white flex items-center justify-center font-black text-lg shadow-lg">
-        SF
+        BM
     </div>
     <div class="leading-tight sidebar-brand-text min-w-0">
-        <p class="text-[11px] uppercase tracking-[0.18em] ui-muted font-semibold">StaySafe</p>
-        <p class="text-lg font-bold">Finder</p>
-        <p class="text-[11px] ui-muted">Comfort &amp; Community</p>
+        <p class="text-[11px] uppercase tracking-[0.18em] ui-muted font-semibold">BoardMatch</p>
+        <p class="text-lg font-bold">Admin</p>
+        <p class="text-[11px] ui-muted">Owner Workspace</p>
     </div>
 </a>

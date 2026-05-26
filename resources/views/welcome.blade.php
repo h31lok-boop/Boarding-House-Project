@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StaySafe Finder | Comfort & Community</title>
+    <title>BoardMatch | Comfort & Community</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -50,6 +50,17 @@
             background-color: rgba(255, 255, 255, 0.95);
             padding: 15px 0;
             box-shadow: var(--shadow);
+        }
+
+        header:not(.scrolled) .logo span,
+        header:not(.scrolled) .nav-links a:not(.auth-btn),
+        header:not(.scrolled) .mobile-menu-btn {
+            color: #fff;
+            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+        }
+
+        header:not(.scrolled) .nav-links a:not(.auth-btn):hover {
+            color: var(--secondary);
         }
 
         .nav-container {
@@ -154,19 +165,43 @@
 
         /* Hero Section */
         .hero {
-            height: 100vh;
+            min-height: 100vh;
             display: flex;
             align-items: center;
-            background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80');
-            background-size: cover;
-            background-position: center;
+            background: #111;
             color: white;
             text-align: center;
             position: relative;
             overflow: hidden;
+            isolation: isolate;
+            padding: 120px 0 80px;
+        }
+
+        .hero::before,
+        .hero::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .hero::before {
+            z-index: 0;
+            background: url('https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80') center/cover no-repeat;
+            filter: brightness(0.64) contrast(1.08) saturate(0.95);
+            transform: scale(1.02);
+        }
+
+        .hero::after {
+            z-index: 1;
+            background:
+                radial-gradient(circle at center, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.62) 78%),
+                linear-gradient(135deg, rgba(10, 10, 12, 0.86) 0%, rgba(12, 12, 14, 0.72) 48%, rgba(10, 10, 12, 0.58) 100%);
         }
 
         .hero-content {
+            position: relative;
+            z-index: 2;
             max-width: 800px;
             margin: 0 auto;
             opacity: 0;
@@ -178,12 +213,17 @@
             font-size: 3.5rem;
             margin-bottom: 20px;
             line-height: 1.2;
+            color: #fff;
+            text-shadow: 0 5px 28px rgba(0, 0, 0, 0.62);
         }
 
         .hero p {
             font-size: 1.2rem;
             margin-bottom: 30px;
-            opacity: 0.9;
+            color: rgba(255, 255, 255, 0.96);
+            font-weight: 500;
+            opacity: 1;
+            text-shadow: 0 3px 18px rgba(0, 0, 0, 0.65);
         }
 
         .hero-btns {
@@ -206,12 +246,14 @@
             background: linear-gradient(to right, var(--primary), var(--secondary));
             color: white;
             border: none;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28), 0 8px 18px rgba(255, 126, 95, 0.28);
         }
 
         .cta-secondary {
-            background: transparent;
+            background: rgba(255, 255, 255, 0.08);
             color: white;
-            border: 2px solid white;
+            border: 2px solid rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(8px);
         }
 
         .cta-primary:hover {
@@ -634,13 +676,31 @@
             .nav-links.active {
                 left: 0;
             }
+
+            header:not(.scrolled) .nav-links.active a:not(.auth-btn) {
+                color: var(--dark);
+                text-shadow: none;
+            }
+
+            header:not(.scrolled) .nav-links.active a:not(.auth-btn):hover {
+                color: var(--primary);
+            }
             
             .nav-links li {
                 margin: 15px 0;
             }
+
+            .hero {
+                min-height: auto;
+                padding: 120px 0 90px;
+            }
             
             .hero h1 {
                 font-size: 2.2rem;
+            }
+
+            .hero p {
+                font-size: 1rem;
             }
             
             .hero-btns {
@@ -677,7 +737,7 @@
         <div class="container nav-container">
             <a href="#" class="logo">
                 <i class="fas fa-home"></i>
-                StaySafe<span>Finder</span>
+                Board<span>Match</span>
             </a>
             
             <div class="mobile-menu-btn" id="mobile-menu-btn">
@@ -703,7 +763,7 @@
     <!-- Hero Section -->
     <section class="hero" id="home">
         <div class="container hero-content">
-            <h1>Welcome to StaySafe Finder</h1>
+            <h1>Welcome to BoardMatch</h1>
             <p>Experience comfortable living in a friendly community. Our boarding house offers modern amenities, a safe environment, and a home-like atmosphere for students and professionals.</p>
             <div class="hero-btns">
                 <button class="cta-btn cta-primary">Start Booking</button>
@@ -816,7 +876,7 @@
         <div class="container">
             <div class="section-title">
                 <h2>What Our Residents Say</h2>
-                <p>Hear from our residents about their experience living at StaySafe Finder.</p>
+                <p>Hear from our residents about their experience living at BoardMatch.</p>
             </div>
             
             <div class="testimonial-slider">
@@ -902,7 +962,7 @@
                         <i class="fas fa-envelope"></i>
                         <div>
                             <h4>Email Address</h4>
-                            <p>info@staysafefinder.com</p>
+                            <p>info@boardmatch.local</p>
                         </div>
                     </div>
                 </div>
@@ -925,7 +985,7 @@
         <div class="container">
             <div class="footer-container">
                 <div class="footer-col">
-                    <h3>StaySafe Finder</h3>
+                    <h3>BoardMatch</h3>
                     <p>Providing comfortable, safe, and affordable boarding solutions for students and professionals since 2010.</p>
                     <div class="social-links">
                         <a href="#"><i class="fab fa-facebook-f"></i></a>
@@ -968,7 +1028,7 @@
             </div>
             
             <div class="copyright">
-                <p>&copy; 2023 StaySafe Finder. All rights reserved.</p>
+                <p>&copy; 2023 BoardMatch. All rights reserved.</p>
             </div>
         </div>
     </footer>

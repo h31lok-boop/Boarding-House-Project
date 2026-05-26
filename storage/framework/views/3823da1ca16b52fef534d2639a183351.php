@@ -1,7 +1,7 @@
-<?php if (isset($component)) { $__componentOriginal26723e7569d950d41cabbb4f5db8c6fb = $component; } ?>
-<?php if (isset($attributes)) { $__attributesOriginal26723e7569d950d41cabbb4f5db8c6fb = $attributes; } ?>
-<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.layouts.caretaker','data' => []] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
-<?php $component->withName('layouts.caretaker'); ?>
+<?php if (isset($component)) { $__componentOriginal1a6cca1fb3b05e19b47840b98800a235 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginal1a6cca1fb3b05e19b47840b98800a235 = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.layouts.dashboard','data' => []] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('layouts.dashboard'); ?>
 <?php if ($component->shouldRender()): ?>
 <?php $__env->startComponent($component->resolveView(), $component->data()); ?>
 <?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
@@ -18,283 +18,151 @@
 <?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
 <?php endif; ?>
 <?php $component->withAttributes([]); ?>
-  <div class="ui-card p-4 mb-6">
-    <h2 class="font-semibold text-xl leading-tight">User Management</h2>
-  </div>
+    <?php
+        $badge = fn ($active) => $active ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-rose-100 text-rose-700 border-rose-200';
+    ?>
 
-  
-
-  <div class="space-y-6">
-      <?php if(session('success')): ?>
-        <div class="mb-4 px-4 py-3 rounded-lg bg-emerald-50 text-emerald-700">
-          <?php echo e(session('success')); ?>
-
-        </div>
-      <?php endif; ?>
-
-      <div class="ui-card overflow-hidden">
-        <div class="p-5 border-b ui-border space-y-3">
-          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h3 class="text-lg font-semibold ">All Users</h3>
-              <span class="text-sm ui-muted">Admin can change roles</span>
+    <div x-data="{ addOpen: false, viewOpen: false, editOpen: false, selected: {} }" class="space-y-6">
+        <div class="ui-card p-6">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                    <p class="text-sm font-semibold uppercase tracking-[0.18em] text-[color:var(--brand-600)]">Management</p>
+                    <h1 class="mt-2 text-2xl font-bold">Users</h1>
+                    <p class="mt-2 text-sm ui-muted">Manage Admin/Owner and Student/Tenant accounts. Only admin and user roles are available.</p>
+                </div>
+                <button type="button" @click="addOpen = true" class="btn-primary">Add User</button>
             </div>
-            <button id="openArchiveModal" class="text-sm ui-muted " type="button" title="View archived users">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 7h18M5 7v11c0 .828.672 1.5 1.5 1.5h11c.828 0 1.5-.672 1.5-1.5V7M9 7v-3h6v3" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M10 12h4m-2-2v4" />
-              </svg>
-            </button>
-          </div>
-          <form method="GET" class="flex flex-col sm:flex-row sm:items-center gap-3">
-            <label class="text-sm ui-muted flex items-center gap-2">
-              <span>Filter by role:</span>
-              <select name="role" class="border rounded-lg px-3 py-2 text-sm">
-                <option value="">All</option>
-                <?php $__currentLoopData = $roles; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $role): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                  <option value="<?php echo e($role); ?>" <?php if(request('role') === $role): echo 'selected'; endif; ?>><?php echo e(ucfirst($role)); ?></option>
-                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
-              </select>
-            </label>
-            <div class="flex gap-2">
-              <button type="submit" class="bg-indigo-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-indigo-700">Apply</button>
-              <a href="<?php echo e(route('admin.users')); ?>" class="px-3 py-2 rounded-lg text-sm border hover:bg-[color:var(--surface-2)]">Reset</a>
+        </div>
+
+        <form method="GET" class="ui-card p-4 grid gap-3 md:grid-cols-[1fr_160px_160px_auto]">
+            <input name="q" value="<?php echo e(request('q')); ?>" class="ui-input text-sm" placeholder="Search name or email">
+            <select name="role" class="ui-input text-sm">
+                <option value="">All roles</option>
+                <option value="admin" <?php if(request('role') === 'admin'): echo 'selected'; endif; ?>>Admin / Owner</option>
+                <option value="user" <?php if(request('role') === 'user'): echo 'selected'; endif; ?>>Student / Tenant</option>
+            </select>
+            <select name="status" class="ui-input text-sm">
+                <option value="">All statuses</option>
+                <option value="active" <?php if(request('status') === 'active'): echo 'selected'; endif; ?>>Active</option>
+                <option value="inactive" <?php if(request('status') === 'inactive'): echo 'selected'; endif; ?>>Inactive</option>
+            </select>
+            <button class="btn-secondary">Filter</button>
+        </form>
+
+        <div class="grid gap-4 sm:grid-cols-2">
+            <div class="ui-card p-5">
+                <p class="text-sm ui-muted">Admin / Owner</p>
+                <p class="mt-2 text-2xl font-bold"><?php echo e($roleCounts['admin'] ?? 0); ?></p>
             </div>
-          </form>
+            <div class="ui-card p-5">
+                <p class="text-sm ui-muted">Student / Tenant</p>
+                <p class="mt-2 text-2xl font-bold"><?php echo e($roleCounts['user'] ?? 0); ?></p>
+            </div>
         </div>
-        <div class="overflow-x-auto">
-          <table class="min-w-full text-sm">
-            <thead class="ui-surface-2 border-b ui-border uppercase text-xs ui-muted">
-              <tr>
-                <th class="px-5 py-3 text-left">Name</th>
-                <th class="px-5 py-3 text-left">Email</th>
-                <th class="px-5 py-3 text-left">Current Role</th>
-                <th class="px-5 py-3 text-right">Status</th>
-                <th class="px-5 py-3 text-left">Action</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-gray-100">
-              <?php $__currentLoopData = $users; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $user): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                <tr class="hover:bg-[color:var(--surface-2)]">
-                  <td class="px-5 py-3 font-medium "><?php echo e($user->name); ?></td>
-                  <td class="px-5 py-3 ui-muted"><?php echo e($user->email); ?></td>
-                  <td class="px-5 py-3">
-                    <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
-                      <?php echo e($user->roles->pluck('name')->first() ?? $user->role ?? 'tenant'); ?>
 
-                    </span>
-                  </td>
-                  <td class="px-5 py-3 text-right text-emerald-600 font-semibold">
-                    <?php echo e($user->is_active ? 'Active' : 'Inactive'); ?>
-
-                  </td>
-                  <td class="px-5 py-3">
-                    <div class="flex items-center gap-2">
-                      <button type="button"
-                        class="inline-flex items-center justify-center w-9 h-9 rounded-full bg-indigo-50 text-indigo-600 hover:bg-indigo-100 view-user-btn"
-                        title="View"
-                        data-name="<?php echo e($user->name); ?>"
-                        data-email="<?php echo e($user->email); ?>"
-                        data-phone="<?php echo e($user->phone ?? '—'); ?>"
-                        data-role="<?php echo e($user->roles->pluck('name')->first() ?? $user->role ?? 'tenant'); ?>"
-                        data-status="<?php echo e($user->is_active ? 'Active' : 'Inactive'); ?>">
-                        <span class="sr-only">View</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6S2.5 12 2.5 12Z" />
-                          <circle cx="12" cy="12" r="3" fill="currentColor" />
-                        </svg>
-                      </button>
-                      <form action="<?php echo e(route('admin.users.archive', $user)); ?>" method="POST" class="inline">
-                        <?php echo csrf_field(); ?>
-                        <?php echo method_field('PUT'); ?>
-                        <button type="submit" onclick="return confirm('Archive this user instead of deleting?')" class="inline-flex items-center justify-center w-9 h-9 rounded-full bg-rose-50 text-rose-600 hover:bg-rose-100" title="Archive">
-                          <span class="sr-only">Archive</span>
-                          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M6.75 7h10.5M10 10v6m4-6v6M9 7V5.75A1.75 1.75 0 0 1 10.75 4h2.5A1.75 1.75 0 0 1 15 5.75V7m-8.25 0h10.5l-.6 11.2a1.5 1.5 0 0 1-1.497 1.3H9.347a1.5 1.5 0 0 1-1.497-1.3L7.25 7Z" />
-                          </svg>
-                        </button>
-                      </form>
-                      <a href="<?php echo e(route('admin.users.edit', $user)); ?>" class="inline-flex items-center justify-center w-9 h-9 rounded-full bg-amber-50 text-amber-600 hover:bg-amber-100" title="Edit">
-                        <span class="sr-only">Edit</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m16.862 4.487 2.651 2.651-10.11 10.11-3.362.711.711-3.362 10.11-10.11Z" />
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13.75 7.6 16.4 10.25" />
-                        </svg>
-                      </a>
-                    </div>
-                  </td>
-                </tr>
-              <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
-            </tbody>
-          </table>
+        <div class="ui-card overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="bg-[color:var(--surface-2)] text-xs uppercase ui-muted">
+                        <tr>
+                            <th class="px-5 py-3 text-left">User</th>
+                            <th class="px-5 py-3 text-left">Role</th>
+                            <th class="px-5 py-3 text-left">Status</th>
+                            <th class="px-5 py-3 text-left">Contact</th>
+                            <th class="px-5 py-3 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y ui-border">
+                        <?php $__empty_1 = true; $__currentLoopData = $users; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $user): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                            <?php
+                                $active = (bool) ($user->is_active ?? strtolower((string) $user->status) === 'active');
+                                $payload = [
+                                    'name' => $user->name,
+                                    'email' => $user->email,
+                                    'role' => $user->role,
+                                    'phone' => $user->phone ?? $user->contact_number,
+                                    'active' => $active,
+                                    'update_url' => route('admin.users.update', $user),
+                                ];
+                            ?>
+                            <tr>
+                                <td class="px-5 py-4">
+                                    <p class="font-semibold"><?php echo e($user->name); ?></p>
+                                    <p class="text-xs ui-muted"><?php echo e($user->email); ?></p>
+                                </td>
+                                <td class="px-5 py-4"><?php echo e($user->role === 'admin' ? 'Admin / Owner' : 'Student / Tenant'); ?></td>
+                                <td class="px-5 py-4"><span class="badge border <?php echo e($badge($active)); ?>"><?php echo e($active ? 'Active' : 'Inactive'); ?></span></td>
+                                <td class="px-5 py-4 ui-muted"><?php echo e($user->phone ?? $user->contact_number ?? 'Not set'); ?></td>
+                                <td class="px-5 py-4">
+                                    <div class="flex justify-end gap-2">
+                                        <button type="button" class="btn-secondary px-3 py-1.5 text-xs" @click="selected = <?php echo e(\Illuminate\Support\Js::from($payload)); ?>; viewOpen = true">View</button>
+                                        <button type="button" class="btn-secondary px-3 py-1.5 text-xs" @click="selected = <?php echo e(\Illuminate\Support\Js::from($payload)); ?>; editOpen = true">Edit</button>
+                                        <?php if (! (auth()->id() === $user->id)): ?>
+                                            <form method="POST" action="<?php echo e(route('admin.users.destroy', $user)); ?>" onsubmit="return confirm('Delete this user account?')">
+                                                <?php echo csrf_field(); ?> <?php echo method_field('DELETE'); ?>
+                                                <button class="btn-danger px-3 py-1.5 text-xs">Delete</button>
+                                            </form>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
+                            <tr><td colspan="5" class="px-5 py-8 text-center ui-muted">No users found.</td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+            <div class="border-t ui-border px-5 py-4"><?php echo e($users->links()); ?></div>
         </div>
-        <div class="p-4">
-          <?php echo e($users->links()); ?>
 
-</div>
+        <div x-show="addOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <form method="POST" action="<?php echo e(route('admin.users.store')); ?>" class="ui-card w-full max-w-xl p-6">
+                <?php echo csrf_field(); ?>
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-semibold">Add User</h2>
+                    <button type="button" @click="addOpen = false" class="text-xl ui-muted">x</button>
+                </div>
+                <div class="mt-5 grid gap-4 sm:grid-cols-2">
+                    <label class="text-sm">Name<input name="name" required class="ui-input mt-1"></label>
+                    <label class="text-sm">Email<input name="email" type="email" required class="ui-input mt-1"></label>
+                    <label class="text-sm">Role<select name="role" required class="ui-input mt-1"><option value="user">Student / Tenant</option><option value="admin">Admin / Owner</option></select></label>
+                    <label class="text-sm">Phone<input name="phone" class="ui-input mt-1"></label>
+                    <label class="text-sm sm:col-span-2">Password<input name="password" type="password" required minlength="8" class="ui-input mt-1"></label>
+                    <label class="sm:col-span-2 flex items-center gap-2 text-sm"><input type="checkbox" name="is_active" value="1" checked> Active account</label>
+                </div>
+                <div class="mt-6 flex justify-end gap-2"><button type="button" @click="addOpen = false" class="btn-secondary">Cancel</button><button class="btn-primary">Save User</button></div>
+            </form>
+        </div>
+
+        <div x-show="viewOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div class="ui-card w-full max-w-lg p-6">
+                <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">User Details</h2><button type="button" @click="viewOpen = false" class="text-xl ui-muted">x</button></div>
+                <dl class="mt-5 grid gap-3 text-sm">
+                    <div><dt class="ui-muted">Name</dt><dd class="font-semibold" x-text="selected.name"></dd></div>
+                    <div><dt class="ui-muted">Email</dt><dd x-text="selected.email"></dd></div>
+                    <div><dt class="ui-muted">Role</dt><dd x-text="selected.role === 'admin' ? 'Admin / Owner' : 'Student / Tenant'"></dd></div>
+                    <div><dt class="ui-muted">Status</dt><dd x-text="selected.active ? 'Active' : 'Inactive'"></dd></div>
+                </dl>
+                <div class="mt-6 flex justify-end"><button type="button" @click="viewOpen = false" class="btn-secondary">Close</button></div>
+            </div>
+        </div>
+
+        <div x-show="editOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <form method="POST" :action="selected.update_url" class="ui-card w-full max-w-xl p-6">
+                <?php echo csrf_field(); ?> <?php echo method_field('PATCH'); ?>
+                <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Edit User</h2><button type="button" @click="editOpen = false" class="text-xl ui-muted">x</button></div>
+                <div class="mt-5 grid gap-4 sm:grid-cols-2">
+                    <label class="text-sm">Name<input name="name" required class="ui-input mt-1" :value="selected.name"></label>
+                    <label class="text-sm">Email<input name="email" type="email" required class="ui-input mt-1" :value="selected.email"></label>
+                    <label class="text-sm">Role<select name="role" required class="ui-input mt-1" :value="selected.role"><option value="user">Student / Tenant</option><option value="admin">Admin / Owner</option></select></label>
+                    <label class="text-sm">Phone<input name="phone" class="ui-input mt-1" :value="selected.phone"></label>
+                    <label class="text-sm sm:col-span-2">New password<input name="password" type="password" minlength="8" class="ui-input mt-1" placeholder="Leave blank to keep current password"></label>
+                    <label class="sm:col-span-2 flex items-center gap-2 text-sm"><input type="checkbox" name="is_active" value="1" :checked="selected.active"> Active account</label>
+                </div>
+                <div class="mt-6 flex justify-end gap-2"><button type="button" @click="editOpen = false" class="btn-secondary">Cancel</button><button class="btn-primary">Save Changes</button></div>
+            </form>
+        </div>
     </div>
-  </div>
-
-  <div id="userModal" class="fixed inset-0 bg-black/30 backdrop-blur-sm hidden items-center justify-center z-50">
-    <div class="ui-surface rounded-md shadow-xl w-[min(95vw,560px)] max-w-[560px] mx-4 max-h-[85vh] overflow-y-auto">
-      <div class="px-8 py-6 border-b ui-border flex items-center justify-between">
-        <h3 class="text-xl font-semibold ">User Details</h3>
-        <button id="closeUserModal" class="ui-muted ui-muted text-2xl leading-none" aria-label="Close">×</button>
-      </div>
-      <div class="px-8 py-6 space-y-5 text-base">
-        <div class="grid grid-cols-[auto,1fr] items-center gap-6">
-          <span class="ui-muted font-medium">Name</span>
-          <span id="modalName" class="font-semibold "></span>
-        </div>
-        <div class="grid grid-cols-[auto,1fr] items-center gap-6">
-          <span class="ui-muted font-medium">Email</span>
-          <span id="modalEmail" class="font-medium "></span>
-        </div>
-        <div class="grid grid-cols-[auto,1fr] items-center gap-6">
-          <span class="ui-muted font-medium">Phone</span>
-          <span id="modalPhone" class=""></span>
-        </div>
-        <div class="grid grid-cols-[auto,1fr] items-center gap-6">
-          <span class="ui-muted font-medium">Role</span>
-          <span id="modalRole" class=""></span>
-        </div>
-        <div class="grid grid-cols-[auto,1fr] items-center gap-6">
-          <span class="ui-muted font-medium">Status</span>
-          <span id="modalStatus" class=""></span>
-        </div>
-      </div>
-      <div class="px-8 py-6 border-t ui-border flex justify-end">
-        <button id="closeUserModalFooter" class="px-5 py-2.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 text-base font-semibold">Close</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="archiveModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden items-center justify-center z-50">
-    <div class="ui-surface rounded-md shadow-xl w-[min(95vw,720px)] max-w-[720px] mx-4 max-h-[90vh] overflow-y-auto">
-      <div class="px-6 py-4 border-b ui-border flex items-center justify-between">
-        <h3 class="text-lg font-semibold ">Archived Users</h3>
-        <button id="closeArchiveModal" class="ui-muted ui-muted text-2xl leading-none" aria-label="Close">×</button>
-      </div>
-      <div class="px-6 py-5 space-y-4 text-sm">
-        <?php if($archivedUsers->count()): ?>
-          <div class="overflow-x-auto">
-            <table class="min-w-full text-sm">
-              <thead class="ui-surface-2 border-b ui-border uppercase text-xs ui-muted">
-                <tr>
-                  <th class="px-4 py-3 text-left">Name</th>
-                  <th class="px-4 py-3 text-left">Email</th>
-                  <th class="px-4 py-3 text-left">Role</th>
-                  <th class="px-4 py-3 text-left">Status</th>
-                  <th class="px-4 py-3 text-left">Archived</th>
-                  <th class="px-4 py-3 text-left">Actions</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-gray-100 ">
-                <?php $__currentLoopData = $archivedUsers; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $archivedUser): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                  <tr class="hover:bg-[color:var(--surface-2)]">
-                    <td class="px-4 py-3 font-medium "><?php echo e($archivedUser->name); ?></td>
-                    <td class="px-4 py-3 ui-muted"><?php echo e($archivedUser->email); ?></td>
-                    <td class="px-4 py-3">
-                      <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
-                        <?php echo e($archivedUser->roles->pluck('name')->first() ?? $archivedUser->role ?? 'tenant'); ?>
-
-                      </span>
-                    </td>
-                    <td class="px-4 py-3">
-                      <span class="font-semibold text-xs uppercase tracking-wide text-emerald-600">
-                        <?php echo e($archivedUser->is_active ? 'Active' : 'Inactive'); ?>
-
-                      </span>
-                    </td>
-                    <td class="px-4 py-3 text-sm ui-muted">
-                      <?php echo e($archivedUser->archived_at ? $archivedUser->archived_at->format('M j, Y') : 'Unknown'); ?>
-
-                    </td>
-                    <td class="px-4 py-3">
-                      <div class="flex flex-wrap gap-2">
-                        <form action="<?php echo e(route('admin.users.restore', $archivedUser)); ?>" method="POST" class="inline">
-                          <?php echo csrf_field(); ?>
-                          <?php echo method_field('PUT'); ?>
-                          <button type="submit" class="px-3 py-1 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-600 text-xs font-semibold uppercase tracking-wide bg-emerald-100">
-                            Restore
-                          </button>
-                        </form>
-                        <form action="<?php echo e(route('admin.users.destroy', $archivedUser)); ?>" method="POST" class="inline">
-                          <?php echo csrf_field(); ?>
-                          <?php echo method_field('DELETE'); ?>
-                          <button type="submit" onclick="return confirm('Delete permanently? This cannot be undone.')" class="px-3 py-1 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 text-xs font-semibold uppercase tracking-wide bg-rose-100">
-                            Delete
-                          </button>
-                        </form>
-                      </div>
-                    </td>
-                  </tr>
-                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
-              </tbody>
-            </table>
-          </div>
-          <div class="pt-4">
-            <?php echo e($archivedUsers->withQueryString()->links()); ?>
-
-          </div>
-        <?php else: ?>
-          <div class="text-sm ui-muted">
-            No archived users yet.
-          </div>
-        <?php endif; ?>
-      </div>
-    </div>
-  </div>
-
-<script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const modal = document.getElementById('userModal');
-    const closeBtns = [document.getElementById('closeUserModal'), document.getElementById('closeUserModalFooter')];
-    const archiveModal = document.getElementById('archiveModal');
-    const archiveTrigger = document.getElementById('openArchiveModal');
-    const archiveClose = document.getElementById('closeArchiveModal');
-
-    document.querySelectorAll('.view-user-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        document.getElementById('modalName').textContent = btn.dataset.name ?? '';
-        document.getElementById('modalEmail').textContent = btn.dataset.email ?? '';
-        document.getElementById('modalPhone').textContent = btn.dataset.phone ?? '—';
-        document.getElementById('modalRole').textContent = btn.dataset.role ?? '';
-        document.getElementById('modalStatus').textContent = btn.dataset.status ?? '';
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-      });
-    });
-
-    const closeModal = () => {
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
-    };
-
-    const isOverlay = (target, overlay) => target === overlay;
-
-    closeBtns.forEach(btn => btn.addEventListener('click', closeModal));
-    modal.addEventListener('click', (e) => {
-      if (isOverlay(e.target, modal)) closeModal();
-    });
-
-    const openArchive = () => {
-      archiveModal.classList.remove('hidden');
-      archiveModal.classList.add('flex');
-    };
-
-    const closeArchive = () => {
-      archiveModal.classList.add('hidden');
-      archiveModal.classList.remove('flex');
-    };
-
-    archiveTrigger?.addEventListener('click', openArchive);
-    archiveClose?.addEventListener('click', closeArchive);
-    archiveModal.addEventListener('click', (e) => {
-      if (isOverlay(e.target, archiveModal)) closeArchive();
-    });
-  });
-</script>
  <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>
 <?php if (isset($__attributesOriginal7e50b16d05ad2bc9d4e29c45255ff8ab)): ?>
@@ -307,12 +175,12 @@
 <?php endif; ?>
  <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>
-<?php if (isset($__attributesOriginal26723e7569d950d41cabbb4f5db8c6fb)): ?>
-<?php $attributes = $__attributesOriginal26723e7569d950d41cabbb4f5db8c6fb; ?>
-<?php unset($__attributesOriginal26723e7569d950d41cabbb4f5db8c6fb); ?>
+<?php if (isset($__attributesOriginal1a6cca1fb3b05e19b47840b98800a235)): ?>
+<?php $attributes = $__attributesOriginal1a6cca1fb3b05e19b47840b98800a235; ?>
+<?php unset($__attributesOriginal1a6cca1fb3b05e19b47840b98800a235); ?>
 <?php endif; ?>
-<?php if (isset($__componentOriginal26723e7569d950d41cabbb4f5db8c6fb)): ?>
-<?php $component = $__componentOriginal26723e7569d950d41cabbb4f5db8c6fb; ?>
-<?php unset($__componentOriginal26723e7569d950d41cabbb4f5db8c6fb); ?>
+<?php if (isset($__componentOriginal1a6cca1fb3b05e19b47840b98800a235)): ?>
+<?php $component = $__componentOriginal1a6cca1fb3b05e19b47840b98800a235; ?>
+<?php unset($__componentOriginal1a6cca1fb3b05e19b47840b98800a235); ?>
 <?php endif; ?>
 <?php /**PATH C:\Users\Hazel\Herd\final-project\resources\views/admin/users.blade.php ENDPATH**/ ?>

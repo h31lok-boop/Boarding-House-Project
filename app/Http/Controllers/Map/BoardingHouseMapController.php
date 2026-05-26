@@ -103,7 +103,7 @@ class BoardingHouseMapController extends Controller
                 'price' => $price !== null ? (float) $price : null,
                 'available_rooms' => (int) ($house->available_rooms ?? 0),
                 'status' => $house->status ?? $house->approval_status ?? 'N/A',
-                'url' => route('user.boarding-houses.show', ['boardingHouse' => $house->id]),
+                'url' => route('user.browse.show', ['boardingHouse' => $house->id]),
                 'distance_km' => $distanceKm !== null ? round($distanceKm, 2) : null,
             ];
         })->values()->all();

@@ -1,301 +1,150 @@
-<x-layouts.caretaker>
-@php
-    $title = auth()->user()?->isOwner() ? 'Owner Dashboard' : 'Admin Dashboard';
-    // Safe route helper: falls back to current URL with query (never '#')
-    $r = function (string $name, array $params = [], ?string $fallback = null) {
-        if (\Illuminate\Support\Facades\Route::has($name)) {
-            return route($name, $params);
-    }
-    $fallback = $fallback ?? url()->current();
-    return !empty($params) ? $fallback . '?' . http_build_query($params) : $fallback;
-  };
-@endphp
-
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
-
+<x-layouts.dashboard>
 <x-admin.shell>
-  @php
-    $activeTenants = \App\Models\User::where('role', 'tenant')->where('is_active', true)->count();
-    $totalRooms = \App\Models\Room::count();
-    $occupiedRooms = \App\Models\Room::where('status', 'Occupied')->count();
-    $occupancy = $totalRooms > 0 ? round(($occupiedRooms / $totalRooms) * 100) . '%' : '0%';
-    $monthlyBookings = \App\Models\Booking::where('status', 'Confirmed')
-      ->whereMonth('start_date', now()->month)
-      ->whereYear('start_date', now()->year)
-      ->count();
+    <x-slot name="searchPlaceholder">Search admin records...</x-slot>
 
-        $metrics = [
-            ['label' => 'Active Tenants', 'value' => $activeTenants, 'delta' => 'Live', 'color' => 'emerald', 'icon' => 'users'],
-            ['label' => 'Occupancy Rate', 'value' => $occupancy, 'delta' => 'Live', 'color' => 'indigo', 'icon' => 'trend'],
-            ['label' => 'Monthly Bookings', 'value' => $monthlyBookings, 'delta' => 'Live', 'color' => 'amber', 'icon' => 'calendar'],
-        ];
-
-    $chartLabels = collect(range(5, 0))->map(fn ($i) => now()->subMonths($i)->format('M'))->values();
-    $chartData = collect(range(5, 0))->map(function ($i) {
-      $date = now()->subMonths($i);
-      return \App\Models\Booking::where('status', 'Confirmed')
-        ->whereMonth('start_date', $date->month)
-        ->whereYear('start_date', $date->year)
-        ->count();
-    })->values();
-
+    @php
+        $badge = function ($status) {
+            return match (strtolower((string) $status)) {
+                'approved', 'confirmed', 'paid', 'accepted', 'available' => 'bg-emerald-100 text-emerald-700 border-emerald-200',
+                'pending', 'reserved' => 'bg-amber-100 text-amber-700 border-amber-200',
+                'declined', 'cancelled', 'overdue', 'occupied' => 'bg-rose-100 text-rose-700 border-rose-200',
+                default => 'bg-slate-100 text-slate-700 border-slate-200',
+            };
+        };
     @endphp
 
     <div class="space-y-6">
-        <div class="ui-card p-4 border border-indigo-200 bg-indigo-50/40">
-            <div class="flex items-start justify-between gap-3 flex-wrap">
+        <div class="ui-card p-6">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                    <h3 class="font-semibold text-indigo-700">Geotagging Help</h3>
-                    <p class="text-sm ui-muted mt-1">
-                        Geotagging is inside Boarding House forms. Open Add/Edit, then click the map or drag marker to set latitude/longitude.
-                    </p>
+                    <p class="text-sm font-semibold uppercase tracking-[0.18em] text-[color:var(--brand-600)]">Admin / Owner Dashboard</p>
+                    <h1 class="mt-2 text-2xl font-bold">BoardMatch operations overview</h1>
+                    <p class="mt-2 text-sm ui-muted">Monitor rooms, tenant inquiries, reservations, payments, compatibility activity, and owner tasks.</p>
                 </div>
-                <div class="flex gap-2">
-                    <a href="{{ $r('admin.boarding-houses.create') }}" class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700">
-                        Add Geotagged House
-                    </a>
-                    <a href="{{ $r('admin.boarding-houses.index') }}" class="px-3 py-2 rounded-lg border ui-border text-sm hover:bg-[color:var(--surface-2)]">
-                        Open House List
-                    </a>
+                <div class="flex flex-wrap gap-2">
+                    <a href="{{ route('admin.boarding-houses') }}" class="btn-primary">Add Boarding House</a>
+                    <a href="{{ route('admin.rooms') }}" class="btn-secondary">Manage Rooms</a>
+                    <a href="{{ route('admin.match-requests') }}" class="btn-secondary">Review Matches</a>
                 </div>
             </div>
         </div>
 
-        @php
-        $totalRooms = \App\Models\Room::count();
-        $totalHouses = \App\Models\BoardingHouse::count();
-        $pendingApplications = \App\Models\BoardingHouseApplication::where('status', 'Pending')->count();
-        $iconMap = [
-            'users' => '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M16 11a4 4 0 1 0-8 0 4 4 0 0 0 8 0Z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M3 20a7 7 0 0 1 14 0"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M21 20a6 6 0 0 0-4-5"/></svg>',
-            'trend' => '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M3 17l6-6 4 4 7-7"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M14 8h7v7"/></svg>',
-            'calendar' => '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="17" rx="2" stroke-width="1.6"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M8 2v4M16 2v4M3 10h18"/></svg>',
-            'rooms' => '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M4 11h16v9H4z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M4 11V7a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v4"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M8 20v-3h4v3"/></svg>',
-            'houses' => '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M3 10l9-7 9 7"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M5 10v10h14V10"/></svg>',
-            'applications' => '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M6 3h9l5 5v13H6z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M15 3v5h5"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M9 13h6M9 17h6"/></svg>',
-        ];
-    @endphp
-
-        @php
-        $totalMatchRequests = \App\Models\RoommateMatchRequest::count();
-        $pendingMatchRequests = \App\Models\RoommateMatchRequest::where('status', 'pending')->count();
-        $acceptedMatchRequests = \App\Models\RoommateMatchRequest::where('status', 'accepted')->count();
-        $declinedMatchRequests = \App\Models\RoommateMatchRequest::where('status', 'declined')->count();
-        $matchAcceptanceRate = $totalMatchRequests > 0
-            ? round(($acceptedMatchRequests / $totalMatchRequests) * 100, 1).'%'
-            : '0.0%';
-    @endphp
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
-            @foreach ($metrics as $metric)
+        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            @foreach ($summaryCards as $card)
                 <div class="ui-card p-5">
-                    <div class="flex items-start justify-between">
-                        <div>
-                            <p class="text-sm ui-muted">{{ $metric['label'] }}</p>
-                            <p class="mt-2 text-2xl font-bold">{{ $metric['value'] }}</p>
-                        </div>
-                        <div class="flex items-center gap-2 text-slate-600">
-                            {!! $iconMap[$metric['icon']] ?? '' !!}
-                        </div>
-                    </div>
+                    <p class="text-sm ui-muted">{{ $card['label'] }}</p>
+                    <p class="mt-3 text-2xl font-bold">{{ $card['value'] }}</p>
+                    <p class="mt-2 text-xs ui-muted">{{ $card['meta'] }}</p>
                 </div>
             @endforeach
-            <div class="ui-card p-5">
-                <div class="flex items-start justify-between">
-                    <div>
-                        <p class="text-sm ui-muted">Total Rooms</p>
-                        <p class="mt-2 text-2xl font-bold">{{ $totalRooms }}</p>
-                    </div>
-                    <div class="flex items-center gap-2 text-slate-600">
-                        {!! $iconMap['rooms'] !!}
-                    </div>
-                </div>
-            </div>
-            <div class="ui-card p-5">
-                <div class="flex items-start justify-between">
-                    <div>
-                        <p class="text-sm ui-muted">Boarding Houses</p>
-                        <p class="mt-2 text-2xl font-bold">{{ $totalHouses }}</p>
-                    </div>
-                    <div class="flex items-center gap-2 text-slate-600">
-                        {!! $iconMap['houses'] !!}
-                    </div>
-                </div>
-            </div>
-            <div class="ui-card p-5">
-                <div class="flex items-start justify-between">
-                    <div>
-                        <p class="text-sm ui-muted">Pending Applications</p>
-                        <p class="mt-2 text-2xl font-bold">{{ $pendingApplications }}</p>
-                    </div>
-                    <div class="flex items-center gap-2 text-slate-600">
-                        {!! $iconMap['applications'] !!}
-                    </div>
-                </div>
-            </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-            <div class="ui-card p-5">
-                <p class="text-sm ui-muted">Total Match Requests</p>
-                <p class="mt-2 text-2xl font-bold">{{ $totalMatchRequests }}</p>
-                <p class="mt-1 text-xs ui-muted">All roommate requests submitted by tenants</p>
-            </div>
-            <div class="ui-card p-5">
-                <p class="text-sm ui-muted">Pending Match Requests</p>
-                <p class="mt-2 text-2xl font-bold">{{ $pendingMatchRequests }}</p>
-                <p class="mt-1 text-xs ui-muted">Requests still waiting for a response</p>
-            </div>
-            <div class="ui-card p-5">
-                <p class="text-sm ui-muted">Accepted Matches</p>
-                <p class="mt-2 text-2xl font-bold">{{ $acceptedMatchRequests }}</p>
-                <p class="mt-1 text-xs ui-muted">Confirmed roommate pairings</p>
-            </div>
-            <div class="ui-card p-5">
-                <p class="text-sm ui-muted">Acceptance Rate</p>
-                <p class="mt-2 text-2xl font-bold">{{ $matchAcceptanceRate }}</p>
-                <p class="mt-1 text-xs ui-muted">Accepted vs total match requests</p>
-            </div>
+        <div class="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+            <section class="ui-card p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-semibold">Recent Inquiries</h2>
+                        <p class="text-sm ui-muted">Latest tenant-to-owner questions.</p>
+                    </div>
+                    <a href="{{ route('admin.inquiries') }}" class="text-sm font-semibold text-[color:var(--brand-600)]">View all</a>
+                </div>
+                <div class="mt-5 overflow-x-auto">
+                    <table class="min-w-full text-sm">
+                        <thead class="text-xs uppercase ui-muted">
+                            <tr>
+                                <th class="py-2 text-left">Tenant</th>
+                                <th class="py-2 text-left">Boarding House</th>
+                                <th class="py-2 text-left">Status</th>
+                                <th class="py-2 text-right">Date</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y ui-border">
+                            @forelse ($recentInquiries as $inquiry)
+                                <tr>
+                                    <td class="py-3 font-medium">{{ $inquiry->user->name ?? 'Tenant' }}</td>
+                                    <td class="py-3 ui-muted">{{ $inquiry->boardingHouse->name ?? 'Listing' }}</td>
+                                    <td class="py-3"><span class="badge border {{ $badge($inquiry->status) }}">{{ ucfirst($inquiry->status ?? 'pending') }}</span></td>
+                                    <td class="py-3 text-right ui-muted">{{ $inquiry->created_at?->format('M d, Y') }}</td>
+                                </tr>
+                            @empty
+                                <tr><td colspan="4" class="py-6 text-center ui-muted">No inquiries yet.</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="ui-card p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="text-lg font-semibold">Recent Reservations</h2>
+                        <p class="text-sm ui-muted">Pending and confirmed room activity.</p>
+                    </div>
+                    <a href="{{ route('admin.reservations') }}" class="text-sm font-semibold text-[color:var(--brand-600)]">View all</a>
+                </div>
+                <div class="mt-5 space-y-3">
+                    @forelse ($recentReservations as $reservation)
+                        <div class="rounded-xl border ui-border p-4">
+                            <div class="flex items-start justify-between gap-3">
+                                <div>
+                                    <p class="font-semibold">{{ $reservation->user->name ?? 'Tenant' }}</p>
+                                    <p class="text-sm ui-muted">{{ $reservation->boardingHouse->name ?? 'Boarding house' }} · {{ $reservation->room->effective_room_number ?? 'Room TBD' }}</p>
+                                </div>
+                                <span class="badge border {{ $badge($reservation->status) }}">{{ ucfirst($reservation->status ?? 'pending') }}</span>
+                            </div>
+                            <p class="mt-2 text-xs ui-muted">Check-in: {{ $reservation->check_in_date?->format('M d, Y') ?? 'Not set' }}</p>
+                        </div>
+                    @empty
+                        <p class="text-sm ui-muted">No reservations yet.</p>
+                    @endforelse
+                </div>
+            </section>
         </div>
 
-    <div class="ui-card p-6">
-      <div class="flex items-center justify-between mb-3">
-        <div>
-          <h3 class="text-lg font-semibold">Leaflet Geotag Map</h3>
-          <p class="text-sm ui-muted">All geotagged boarding houses.</p>
+        <div class="grid gap-6 lg:grid-cols-3">
+            <section class="ui-card p-6">
+                <h2 class="text-lg font-semibold">Room Occupancy</h2>
+                <div class="mt-5 space-y-3">
+                    @forelse ($roomStatusCounts as $status => $count)
+                        <div>
+                            <div class="flex items-center justify-between text-sm">
+                                <span>{{ $status }}</span>
+                                <span class="font-semibold">{{ $count }}</span>
+                            </div>
+                            <div class="mt-2 h-2 rounded-full bg-slate-100">
+                                <div class="h-2 rounded-full bg-[color:var(--brand-500)]" style="width: {{ max(8, min(100, $count * 18)) }}%"></div>
+                            </div>
+                        </div>
+                    @empty
+                        <p class="text-sm ui-muted">No room data available.</p>
+                    @endforelse
+                </div>
+            </section>
+
+            <section class="ui-card p-6">
+                <h2 class="text-lg font-semibold">Payment Overview</h2>
+                <div class="mt-5 space-y-3">
+                    @forelse ($paymentStatusCounts as $status => $count)
+                        <div class="flex items-center justify-between rounded-xl border ui-border px-4 py-3 text-sm">
+                            <span>{{ $status }}</span>
+                            <span class="badge border {{ $badge($status) }}">{{ $count }}</span>
+                        </div>
+                    @empty
+                        <p class="text-sm ui-muted">No payment records available.</p>
+                    @endforelse
+                </div>
+            </section>
+
+            <section class="ui-card p-6">
+                <h2 class="text-lg font-semibold">Quick Actions</h2>
+                <div class="mt-5 grid gap-3">
+                    <a href="{{ route('admin.users') }}" class="btn-secondary justify-center">Manage Users</a>
+                    <a href="{{ route('admin.tenant-profiles') }}" class="btn-secondary justify-center">Verify Tenant Profiles</a>
+                    <a href="{{ route('admin.payments') }}" class="btn-secondary justify-center">Record Payment</a>
+                    <a href="{{ route('admin.reports') }}" class="btn-secondary justify-center">Open Reports</a>
+                </div>
+            </section>
         </div>
-        <a href="{{ $r('admin.boarding-houses.create') }}" class="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700">
-          Add Geotagged House
-        </a>
-      </div>
-      <div id="adminGeoMap" class="w-full rounded-lg border ui-border" style="height: 360px;"></div>
     </div>
-
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div class="lg:col-span-2 ui-card">
-        <div class="p-6">
-          <div class="flex items-center justify-between mb-4">
-            <div>
-              <h3 class="text-lg font-semibold">Booking Trend</h3>
-              <p class="text-sm ui-muted">Last 6 months</p>
-            </div>
-          </div>
-          <div class="h-72">
-            <canvas id="adminRevenueChart"></canvas>
-          </div>
-        </div>
-      </div>
-      <div class="ui-card">
-        <div class="p-6">
-          <div class="flex items-center justify-between mb-4">
-            <div>
-              <h3 class="text-lg font-semibold">Quick Actions</h3>
-              <p class="text-sm ui-muted">Admin tools</p>
-            </div>
-          </div>
-          <div class="space-y-2 text-sm">
-            <a href="{{ $r('admin.users') }}" class="block px-3 py-2 rounded-lg ui-surface-2 bg-[color:var(--surface)]">Manage Users</a>
-            <a href="{{ $r('admin.boarding-houses.index') }}" class="block px-3 py-2 rounded-lg ui-surface-2 bg-[color:var(--surface)]">Boarding Houses</a>
-            <a href="{{ $r('admin.boarding-houses.create') }}" class="block px-3 py-2 rounded-lg ui-surface-2 bg-[color:var(--surface)]">Add Geotagged House</a>
-            <a href="{{ $r('admin.applications.index') }}" class="block px-3 py-2 rounded-lg ui-surface-2 bg-[color:var(--surface)]">Applications</a>
-            <a href="{{ $r('admin.tenant-history') }}" class="block px-3 py-2 rounded-lg ui-surface-2 bg-[color:var(--surface)]">Tenant History</a>
-            <div class="px-3 py-2 rounded-lg ui-surface-2 bg-[color:var(--surface)]">
-              <p class="font-medium">Matchmaking Snapshot</p>
-              <p class="mt-1 text-xs ui-muted">{{ $acceptedMatchRequests }} accepted, {{ $pendingMatchRequests }} pending, {{ $declinedMatchRequests }} declined.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script>
-    const mapElement = document.getElementById('adminGeoMap');
-    if (mapElement) {
-      const map = L.map('adminGeoMap').setView([6.7440, 125.3550], 13);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(map);
-
-      const renderMarkers = (records) => {
-        const bounds = [];
-
-        records.forEach((house) => {
-          const lat = Number(house.latitude);
-          const lng = Number(house.longitude);
-          if (Number.isNaN(lat) || Number.isNaN(lng)) {
-            return;
-          }
-
-          const popup = `
-            <div style="min-width:220px">
-              <strong>${house.name ?? 'Boarding House'}</strong><br>
-              <small>${house.address ?? ''}</small><br>
-              <small>Price: ${house.price ? 'PHP ' + Number(house.price).toLocaleString() : 'N/A'}</small><br>
-              <small>Available Rooms: ${house.available_rooms ?? 0}</small><br>
-              <small>Status: ${house.status ?? 'N/A'}</small>
-            </div>
-          `;
-
-          L.marker([lat, lng]).addTo(map).bindPopup(popup);
-          bounds.push([lat, lng]);
-        });
-
-        if (bounds.length > 0) {
-          map.fitBounds(bounds, { padding: [30, 30] });
-        }
-      };
-
-      fetch(@json(route('map.admin.boarding-houses')))
-        .then((response) => response.ok ? response.json() : Promise.reject(new Error('Map data request failed')))
-        .then((payload) => {
-          renderMarkers(Array.isArray(payload.data) ? payload.data : []);
-        })
-        .catch(() => {
-          // Keep map loaded even when API request fails.
-        });
-    }
-
-    const ctx = document.getElementById('adminRevenueChart');
-    const revenueChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: @json($chartLabels),
-        datasets: [{
-          label: 'Bookings',
-          data: @json($chartData),
-          borderColor: '#ff7e5f',
-          backgroundColor: 'rgba(255, 126, 95, 0.1)',
-          fill: true,
-          tension: 0.25,
-          borderWidth: 2,
-          pointRadius: 3,
-        }]
-      },
-      options: {
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: (context) => `${context.formattedValue}`
-            }
-          }
-        },
-        scales: {
-          y: {
-            ticks: {
-              callback: (value) => `${value.toLocaleString()}`
-            },
-            grid: { color: 'rgba(17,24,39,0.06)' }
-          },
-          x: {
-            grid: { display: false }
-          }
-        }
-      }
-    });
-  </script>
 </x-admin.shell>
-</x-layouts.caretaker>
+</x-layouts.dashboard>

@@ -3,23 +3,22 @@
 use App\Models\BoardingHouse;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Spatie\Permission\Models\Role;
 
 uses(RefreshDatabase::class);
 
-test('owner users are redirected to the owner dashboard', function () {
-    $owner = User::factory()->create([
-        'role' => 'owner',
+test('admin users are redirected to the admin dashboard', function () {
+    $admin = User::factory()->create([
+        'role' => 'admin',
         'is_active' => true,
         'email_verified_at' => now(),
     ]);
 
-    $this->actingAs($owner)
+    $this->actingAs($admin)
         ->get(route('dashboard'))
-        ->assertRedirect(route('owner.dashboard'));
+        ->assertRedirect(route('admin.dashboard'));
 });
 
-test('favorites are forbidden for non-tenant users and do not create tenant profiles', function () {
+test('admin users cannot access user-only inquiry actions', function () {
     $admin = User::factory()->create([
         'role' => 'admin',
         'is_active' => true,
@@ -32,7 +31,9 @@ test('favorites are forbidden for non-tenant users and do not create tenant prof
     ]);
 
     $this->actingAs($admin)
-        ->post(route('user.favorites.store', $boardingHouse))
+        ->post(route('user.inquiries.store', $boardingHouse), [
+            'message' => 'Can I visit this boarding house?',
+        ])
         ->assertForbidden();
 
     $this->assertDatabaseMissing('tenant_profiles', [
@@ -40,10 +41,10 @@ test('favorites are forbidden for non-tenant users and do not create tenant prof
     ]);
 });
 
-test('tenant registration creates a tenant profile', function () {
+test('user registration creates a tenant profile', function () {
     $response = $this->post(route('register'), [
-        'name' => 'Tenant Example',
-        'email' => 'tenant@example.com',
+        'name' => 'User Example',
+        'email' => 'user-example@example.com',
         'phone' => '09170000000',
         'institution_name' => 'DSSC',
         'password' => 'password',
@@ -52,7 +53,7 @@ test('tenant registration creates a tenant profile', function () {
 
     $response->assertRedirect(route('dashboard', absolute: false));
 
-    $userId = User::query()->where('email', 'tenant@example.com')->value('id');
+    $userId = User::query()->where('email', 'user-example@example.com')->value('id');
 
     expect($userId)->not->toBeNull();
 
@@ -60,28 +61,4 @@ test('tenant registration creates a tenant profile', function () {
         'user_id' => $userId,
         'school_company' => 'DSSC',
     ]);
-});
-
-test('caretaker tenants page includes tenants assigned via spatie roles', function () {
-    Role::findOrCreate('caretaker', 'web');
-    Role::findOrCreate('tenant', 'web');
-
-    $caretaker = User::factory()->create([
-        'role' => null,
-        'is_active' => true,
-        'email_verified_at' => now(),
-    ]);
-    $caretaker->syncRoles(['caretaker']);
-
-    $tenant = User::factory()->create([
-        'role' => null,
-        'is_active' => true,
-        'email_verified_at' => now(),
-    ]);
-    $tenant->syncRoles(['tenant']);
-
-    $this->actingAs($caretaker)
-        ->get(route('caretaker.tenants.index'))
-        ->assertOk()
-        ->assertSee($tenant->name);
 });
