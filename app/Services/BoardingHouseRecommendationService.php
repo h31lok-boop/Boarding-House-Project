@@ -6,6 +6,7 @@ use App\Models\BoardingHouse;
 use App\Models\TenantMatchProfile;
 use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 
 class BoardingHouseRecommendationService
 {
@@ -15,6 +16,10 @@ class BoardingHouseRecommendationService
 
     public function rank(User $tenant, Collection $houses, ?float $referenceLat = null, ?float $referenceLng = null): Collection
     {
+        if (! $this->matchProfilesAvailable()) {
+            return collect();
+        }
+
         $tenant->loadMissing('tenantMatchProfile');
 
         if (method_exists($houses, 'loadMissing')) {
@@ -38,6 +43,10 @@ class BoardingHouseRecommendationService
 
     public function score(User $tenant, BoardingHouse $house, ?float $referenceLat = null, ?float $referenceLng = null): array
     {
+        if (! $this->matchProfilesAvailable()) {
+            return $this->unavailableRecommendation();
+        }
+
         $tenant->loadMissing('tenantMatchProfile');
         $house->loadMissing([
             'amenities:id,name',
@@ -189,6 +198,10 @@ class BoardingHouseRecommendationService
 
     private function scoreOccupantCompatibility(User $tenant, BoardingHouse $house): float
     {
+        if (! $this->matchProfilesAvailable()) {
+            return 0.5;
+        }
+
         $occupants = $house->tenants
             ->filter(fn (User $occupant) => $occupant->id !== $tenant->id)
             ->filter(fn (User $occupant) => $occupant->tenantMatchProfile?->completed_at)
@@ -337,5 +350,21 @@ class BoardingHouseRecommendationService
         $normalized = preg_replace('/[^0-9.]/', '', (string) $value);
 
         return $normalized !== '' && is_numeric($normalized) ? (float) $normalized : null;
+    }
+
+    private function matchProfilesAvailable(): bool
+    {
+        return Schema::hasTable('tenant_match_profiles');
+    }
+
+    private function unavailableRecommendation(): array
+    {
+        return [
+            'overall_score' => 0.0,
+            'recommendation_percent' => 0,
+            'breakdown' => [],
+            'reasons' => [],
+            'warnings' => ['Tenant match profiles are not available yet.'],
+        ];
     }
 }

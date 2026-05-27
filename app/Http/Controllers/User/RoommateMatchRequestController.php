@@ -7,6 +7,7 @@ use App\Models\RoommateMatchRequest;
 use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class RoommateMatchRequestController extends Controller
@@ -16,17 +17,30 @@ class RoommateMatchRequestController extends Controller
         $tenant = $request->user();
         abort_unless($tenant && $tenant->isUser(), 403);
 
-        $incoming = RoommateMatchRequest::query()
-            ->with(['sender.tenantMatchProfile', 'sender.boardingHouse:id,name'])
-            ->where('recipient_id', $tenant->id)
-            ->latest()
-            ->get();
+        $incoming = collect();
+        $outgoing = collect();
 
-        $outgoing = RoommateMatchRequest::query()
-            ->with(['recipient.tenantMatchProfile', 'recipient.boardingHouse:id,name'])
-            ->where('sender_id', $tenant->id)
-            ->latest()
-            ->get();
+        if (Schema::hasTable('roommate_match_requests')) {
+            $incomingRelations = ['sender.boardingHouse:id,name'];
+            $outgoingRelations = ['recipient.boardingHouse:id,name'];
+
+            if (Schema::hasTable('tenant_match_profiles')) {
+                $incomingRelations[] = 'sender.tenantMatchProfile';
+                $outgoingRelations[] = 'recipient.tenantMatchProfile';
+            }
+
+            $incoming = RoommateMatchRequest::query()
+                ->with($incomingRelations)
+                ->where('recipient_id', $tenant->id)
+                ->latest()
+                ->get();
+
+            $outgoing = RoommateMatchRequest::query()
+                ->with($outgoingRelations)
+                ->where('sender_id', $tenant->id)
+                ->latest()
+                ->get();
+        }
 
         return view('user.recommendations', [
             'incomingRequests' => $incoming,
@@ -38,8 +52,19 @@ class RoommateMatchRequestController extends Controller
     {
         $tenant = $request->user();
         abort_unless($tenant && $tenant->isUser(), 403);
+        if (! Schema::hasTable('roommate_match_requests')) {
+            return back()->with('error', 'Roommate match requests are not available yet.');
+        }
+
+        if (! Schema::hasTable('tenant_match_profiles')) {
+            return back()->with('error', 'Tenant match profiles are not available yet.');
+        }
+
         abort_unless($candidate->isUser(), 404);
         abort_if($candidate->is($tenant), 422, 'You cannot send a request to yourself.');
+        $tenant->loadMissing('tenantMatchProfile');
+        $candidate->loadMissing('tenantMatchProfile');
+
         abort_unless($tenant->tenantMatchProfile?->completed_at, 403, 'Complete your match profile first.');
         abort_unless($candidate->tenantMatchProfile?->completed_at, 422, 'Candidate profile is not ready.');
 
@@ -73,10 +98,15 @@ class RoommateMatchRequestController extends Controller
         return back()->with('status', 'match-request-sent');
     }
 
-    public function accept(Request $request, RoommateMatchRequest $matchRequest): RedirectResponse
+    public function accept(Request $request, mixed $matchRequest): RedirectResponse
     {
         $tenant = $request->user();
         abort_unless($tenant && $tenant->isUser(), 403);
+        if (! Schema::hasTable('roommate_match_requests')) {
+            return back()->with('error', 'Roommate match requests are not available yet.');
+        }
+
+        $matchRequest = $this->resolveMatchRequest($matchRequest);
         abort_unless($matchRequest->recipient_id === $tenant->id, 403);
         abort_unless($matchRequest->status === 'pending', 422);
 
@@ -88,10 +118,15 @@ class RoommateMatchRequestController extends Controller
         return back()->with('status', 'match-request-accepted');
     }
 
-    public function decline(Request $request, RoommateMatchRequest $matchRequest): RedirectResponse
+    public function decline(Request $request, mixed $matchRequest): RedirectResponse
     {
         $tenant = $request->user();
         abort_unless($tenant && $tenant->isUser(), 403);
+        if (! Schema::hasTable('roommate_match_requests')) {
+            return back()->with('error', 'Roommate match requests are not available yet.');
+        }
+
+        $matchRequest = $this->resolveMatchRequest($matchRequest);
         abort_unless($matchRequest->recipient_id === $tenant->id, 403);
         abort_unless($matchRequest->status === 'pending', 422);
 
@@ -103,10 +138,15 @@ class RoommateMatchRequestController extends Controller
         return back()->with('status', 'match-request-declined');
     }
 
-    public function cancel(Request $request, RoommateMatchRequest $matchRequest): RedirectResponse
+    public function cancel(Request $request, mixed $matchRequest): RedirectResponse
     {
         $tenant = $request->user();
         abort_unless($tenant && $tenant->isUser(), 403);
+        if (! Schema::hasTable('roommate_match_requests')) {
+            return back()->with('error', 'Roommate match requests are not available yet.');
+        }
+
+        $matchRequest = $this->resolveMatchRequest($matchRequest);
         abort_unless($matchRequest->sender_id === $tenant->id, 403);
         abort_unless($matchRequest->status === 'pending', 422);
 
@@ -116,5 +156,14 @@ class RoommateMatchRequestController extends Controller
         ]);
 
         return back()->with('status', 'match-request-cancelled');
+    }
+
+    private function resolveMatchRequest(mixed $matchRequest): RoommateMatchRequest
+    {
+        if ($matchRequest instanceof RoommateMatchRequest) {
+            return $matchRequest;
+        }
+
+        return RoommateMatchRequest::query()->findOrFail($matchRequest);
     }
 }

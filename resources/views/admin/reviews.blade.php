@@ -69,7 +69,7 @@
 
         <div>{{ $reviews->links() }}</div>
 
-        <div x-show="detailOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="detailOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
             <div class="ui-card w-full max-w-lg p-6">
                 <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Review Details</h2><button type="button" @click="detailOpen = false" class="text-xl ui-muted">x</button></div>
                 <p class="mt-5 text-3xl font-bold text-[color:var(--brand-600)]" x-text="`${selected.rating || 0} / 5`"></p>

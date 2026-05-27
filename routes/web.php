@@ -14,6 +14,7 @@ use App\Http\Controllers\User\MatchProfileController;
 use App\Http\Controllers\User\RecommendationController;
 use App\Http\Controllers\User\ReservationController;
 use App\Http\Controllers\User\RoommateMatchRequestController;
+use App\Http\Controllers\User\TenantAreaController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -101,10 +102,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/match-requests/{matchRequest}/decline', [RoommateMatchRequestController::class, 'decline'])->name('match-requests.decline');
         Route::post('/match-requests/{matchRequest}/cancel', [RoommateMatchRequestController::class, 'cancel'])->name('match-requests.cancel');
 
-        Route::get('/reservations', fn () => view('user.reservations'))->name('reservations');
-        Route::get('/payments', fn () => view('user.payments'))->name('payments');
-        Route::get('/messages', fn () => view('user.messages'))->name('messages');
-        Route::get('/reviews', fn () => view('user.reviews'))->name('reviews');
+        Route::get('/reservations', [TenantAreaController::class, 'reservations'])->name('reservations');
+        Route::patch('/reservations/{reservation}/cancel', [TenantAreaController::class, 'cancelReservation'])->name('reservations.cancel');
+        Route::get('/payments', [TenantAreaController::class, 'payments'])->name('payments');
+        Route::get('/messages', [TenantAreaController::class, 'messages'])->name('messages');
+        Route::post('/messages', [TenantAreaController::class, 'storeMessage'])->name('messages.store');
+        Route::get('/reviews', [TenantAreaController::class, 'reviews'])->name('reviews');
+        Route::post('/reviews', [TenantAreaController::class, 'storeReview'])->name('reviews.store');
+        Route::patch('/reviews/{review}', [TenantAreaController::class, 'updateReview'])->name('reviews.update');
+        Route::delete('/reviews/{review}', [TenantAreaController::class, 'destroyReview'])->name('reviews.destroy');
         Route::get('/profile', [MatchProfileController::class, 'edit'])->name('profile');
         Route::put('/profile', [MatchProfileController::class, 'update'])->name('profile.update');
         Route::get('/settings', [AccountController::class, 'show'])->name('settings');

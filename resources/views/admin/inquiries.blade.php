@@ -73,7 +73,7 @@
             <div class="border-t ui-border px-5 py-4">{{ $inquiries->links() }}</div>
         </div>
 
-        <div x-show="replyOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="replyOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
             <form method="POST" :action="selected.update_url" class="ui-card w-full max-w-xl p-6">
                 @csrf @method('PATCH')
                 <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Reply to Inquiry</h2><button type="button" @click="replyOpen = false" class="text-xl ui-muted">x</button></div>

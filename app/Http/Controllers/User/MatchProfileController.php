@@ -8,6 +8,7 @@ use App\Models\Amenity;
 use App\Models\TenantMatchProfile;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class MatchProfileController extends Controller
@@ -17,22 +18,30 @@ class MatchProfileController extends Controller
         $tenant = $request->user();
         abort_unless($tenant && $tenant->isUser(), 403);
 
-        $profile = TenantMatchProfile::firstOrCreate(
-            ['user_id' => $tenant->id],
-            ['gender_preference' => 'no_preference']
-        );
+        $hasMatchProfiles = Schema::hasTable('tenant_match_profiles');
+        $profile = $hasMatchProfiles
+            ? TenantMatchProfile::firstOrCreate(
+                ['user_id' => $tenant->id],
+                ['gender_preference' => 'no_preference']
+            )
+            : new TenantMatchProfile(['gender_preference' => 'no_preference']);
 
         return view('user.profile', [
             'tenant' => $tenant,
             'profile' => $profile,
             'fieldOptions' => $this->fieldOptions(),
             'amenities' => Amenity::query()->orderBy('name')->get(['id', 'name']),
+            'matchProfilesAvailable' => $hasMatchProfiles,
         ]);
     }
 
     public function update(TenantMatchProfileUpdateRequest $request): RedirectResponse
     {
         $tenant = $request->user();
+
+        if (! Schema::hasTable('tenant_match_profiles')) {
+            return back()->with('error', 'Tenant match profiles are not available yet.');
+        }
 
         $profile = TenantMatchProfile::firstOrCreate(
             ['user_id' => $tenant->id],

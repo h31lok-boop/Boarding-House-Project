@@ -97,7 +97,7 @@
             <div class="border-t ui-border px-5 py-4">{{ $rooms->links() }}</div>
         </div>
 
-        <div x-show="addOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
             <form method="POST" action="{{ route('admin.rooms.store') }}" class="ui-card w-full max-w-2xl p-6">
                 @csrf
                 <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Add Room</h2><button type="button" @click="addOpen = false" class="text-xl ui-muted">x</button></div>
@@ -114,7 +114,7 @@
             </form>
         </div>
 
-        <div x-show="viewOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
             <div class="ui-card w-full max-w-lg p-6">
                 <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Room Details</h2><button type="button" @click="viewOpen = false" class="text-xl ui-muted">x</button></div>
                 <dl class="mt-5 grid gap-3 text-sm">
@@ -128,7 +128,7 @@
             </div>
         </div>
 
-        <div x-show="editOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
             <form method="POST" :action="selected.update_url" class="ui-card w-full max-w-2xl p-6">
                 @csrf @method('PUT')
                 <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Edit Room</h2><button type="button" @click="editOpen = false" class="text-xl ui-muted">x</button></div>

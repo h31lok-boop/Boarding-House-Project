@@ -200,7 +200,17 @@ class AdminOwnerController extends Controller
         $this->authorizeAdmin($request);
 
         $houses = BoardingHouse::withCount(['rooms', 'inquiries', 'reservations', 'reviews'])
-            ->with('owner')
+            ->with([
+                'amenities:id,name',
+                'barangay:id,barangay_name',
+                'city:id,city_name',
+                'owner:id,name,email,phone,contact_number',
+                'ownerProfile',
+                'province:id,province_name',
+                'region:id,region_name',
+                'roomCategories:id,boarding_house_id,name,monthly_rate,total_rooms,available_rooms,occupied_rooms,reserved_rooms,maintenance_rooms,is_available',
+                'rooms:id,boarding_house_id,room_no,room_number,name,price,capacity,available_slots,status',
+            ])
             ->when($request->filled('q'), function ($query) use ($request) {
                 $term = '%'.$request->query('q').'%';
                 $query->where(fn ($q) => $q->where('name', 'like', $term)->orWhere('address', 'like', $term)->orWhere('full_address', 'like', $term));
@@ -219,7 +229,12 @@ class AdminOwnerController extends Controller
             ->paginate(12)
             ->withQueryString();
 
-        return view('admin.boarding-houses', compact('houses'));
+        $owners = User::query()
+            ->where('role', 'admin')
+            ->orderBy('name')
+            ->get(['id', 'name', 'email', 'phone', 'contact_number']);
+
+        return view('admin.boarding-houses', compact('houses', 'owners'));
     }
 
     public function tenantProfiles(Request $request)

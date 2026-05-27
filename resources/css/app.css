@@ -42,6 +42,30 @@ body {
     display: none !important;
 }
 
+body.modal-open {
+    overflow: hidden;
+    overscroll-behavior: contain;
+}
+
+body.modal-open [data-modal-active='true'] {
+    background-color: rgb(0 0 0 / 0.74) !important;
+    backdrop-filter: blur(4px);
+    height: 100dvh !important;
+    inset: 0 !important;
+    margin: 0 !important;
+    max-height: none !important;
+    max-width: none !important;
+    pointer-events: auto !important;
+    position: fixed !important;
+    width: 100vw !important;
+    z-index: 2147483647 !important;
+}
+
+body.modal-open [data-modal-active='true'] > :not([data-modal-backdrop]) {
+    position: relative;
+    z-index: 1;
+}
+
 .ui-bg {
     background: var(--bg);
     color: var(--text);
@@ -202,11 +226,13 @@ body {
 [data-sidebar='collapsed'] .sidebar .sidebar-text,
 [data-sidebar='collapsed'] .sidebar .sidebar-group,
 [data-sidebar='collapsed'] .sidebar .sidebar-footer,
+[data-sidebar='collapsed'] .sidebar .sidebar-help,
 [data-sidebar='collapsed'] .sidebar .sidebar-brand-text {
     display: none;
 }
 
-[data-sidebar='collapsed'] .sidebar .sidebar-nav a {
+[data-sidebar='collapsed'] .sidebar .sidebar-nav a,
+[data-sidebar='collapsed'] .sidebar .sidebar-nav button {
     justify-content: center;
 }
 
@@ -263,6 +289,7 @@ body {
     .sidebar .sidebar-text,
     .sidebar .sidebar-group,
     .sidebar .sidebar-footer,
+    .sidebar .sidebar-help,
     .sidebar .sidebar-brand-text,
     .sidebar .sidebar-menu-label,
     .sidebar .sidebar-submenu,
@@ -271,6 +298,7 @@ body {
     }
 
     .sidebar .sidebar-nav a,
+    .sidebar .sidebar-nav button,
     .sidebar .sidebar-menu-button {
         justify-content: center;
     }

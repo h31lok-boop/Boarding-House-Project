@@ -86,7 +86,7 @@
             <div class="border-t ui-border px-5 py-4">{{ $tenants->links() }}</div>
         </div>
 
-        <div x-show="viewOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
             <div class="ui-card w-full max-w-2xl p-6">
                 <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Tenant Profile</h2><button type="button" @click="viewOpen = false" class="text-xl ui-muted">x</button></div>
                 <dl class="mt-5 grid gap-4 text-sm md:grid-cols-2">
@@ -103,7 +103,7 @@
             </div>
         </div>
 
-        <div x-show="editOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
             <form method="POST" :action="selected.update_url" class="ui-card max-h-[90vh] w-full max-w-2xl overflow-y-auto p-6">
                 @csrf @method('PATCH')
                 <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Edit Tenant Profile</h2><button type="button" @click="editOpen = false" class="text-xl ui-muted">x</button></div>

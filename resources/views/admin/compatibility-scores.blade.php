@@ -66,7 +66,7 @@
             </div>
         </div>
 
-        <div x-show="detailOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="detailOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
             <div class="ui-card w-full max-w-xl p-6">
                 <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Match Details</h2><button type="button" @click="detailOpen = false" class="text-xl ui-muted">x</button></div>
                 <div class="mt-5">

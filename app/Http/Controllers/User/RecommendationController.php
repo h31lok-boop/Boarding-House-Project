@@ -6,15 +6,22 @@ use App\Http\Controllers\Controller;
 use App\Models\BoardingHouse;
 use App\Models\RoommateMatchRequest;
 use App\Models\User;
+use App\Services\BoardingHouseRecommendationService;
 use App\Services\CompatibilityService;
 use App\Services\DeepSeekService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class RecommendationController extends Controller
 {
+    private const DEFAULT_LAT = 6.7440000;
+
+    private const DEFAULT_LNG = 125.3550000;
+
     public function __construct(
         private readonly CompatibilityService $compatibilityService,
+        private readonly BoardingHouseRecommendationService $boardingHouseRecommendationService,
         private readonly DeepSeekService $deepSeekService,
     ) {}
 
@@ -22,6 +29,20 @@ class RecommendationController extends Controller
     {
         $tenant = $request->user();
         abort_unless($tenant && $tenant->isUser(), 403);
+
+        if (! Schema::hasTable('tenant_match_profiles')) {
+            return view('user.recommendations', [
+                'tenant' => $tenant,
+                'matches' => collect(),
+                'matchCount' => 0,
+                'totalMatchCount' => 0,
+                'houseRecommendations' => collect(),
+                'houseRecommendationCount' => 0,
+                'referencePoint' => $this->referencePoint($request),
+                'filters' => $this->matchFilters($request),
+                'filterOptions' => $this->filterOptions(),
+            ]);
+        }
 
         $tenant->loadMissing('tenantMatchProfile', 'boardingHouse:id,name');
 
@@ -43,12 +64,14 @@ class RecommendationController extends Controller
             ->whereHas('tenantMatchProfile', fn ($query) => $query->whereNotNull('completed_at'))
             ->get();
 
-        $requests = RoommateMatchRequest::query()
-            ->where(function ($query) use ($tenant) {
-                $query->where('sender_id', $tenant->id)
-                    ->orWhere('recipient_id', $tenant->id);
-            })
-            ->get();
+        $requests = Schema::hasTable('roommate_match_requests')
+            ? RoommateMatchRequest::query()
+                ->where(function ($query) use ($tenant) {
+                    $query->where('sender_id', $tenant->id)
+                        ->orWhere('recipient_id', $tenant->id);
+                })
+                ->get()
+            : collect();
 
         $matches = $candidates
             ->map(function (User $candidate) use ($tenant, $requests) {
@@ -68,11 +91,24 @@ class RecommendationController extends Controller
             ->filter(fn (array $item) => $this->matchPassesFilters($item, $filters))
             ->values();
 
+        $referencePoint = $this->referencePoint($request);
+        $houseRecommendations = $this->boardingHouseRecommendationService
+            ->rank(
+                $tenant,
+                $this->boardingHouseCandidates(),
+                $referencePoint['lat'],
+                $referencePoint['lng']
+            )
+            ->take(6);
+
         return view('user.recommendations', [
             'tenant' => $tenant,
             'matches' => $filteredMatches->take(20),
             'matchCount' => $filteredMatches->count(),
             'totalMatchCount' => $matches->count(),
+            'houseRecommendations' => $houseRecommendations,
+            'houseRecommendationCount' => $houseRecommendations->count(),
+            'referencePoint' => $referencePoint,
             'filters' => $filters,
             'filterOptions' => $this->filterOptions(),
         ]);
@@ -234,6 +270,64 @@ class RecommendationController extends Controller
         ];
     }
 
+    private function boardingHouseCandidates()
+    {
+        return BoardingHouse::query()
+            ->with([
+                'amenities:id,name',
+                'rooms:id,boarding_house_id,room_no,price,status,available_slots',
+                'roomCategories:id,boarding_house_id,name,monthly_rate,available_rooms,is_available',
+                'tenants:id,name,boarding_house_id,is_active,role',
+                'tenants.tenantMatchProfile',
+            ])
+            ->withCount([
+                'rooms',
+                'rooms as available_rooms_count' => fn ($query) => $query->available(),
+                'roomCategories',
+                'reviews',
+            ])
+            ->withSum('roomCategories as room_categories_available_rooms_sum', 'available_rooms')
+            ->withAvg('reviews', 'rating')
+            ->when(Schema::hasColumn('boarding_houses', 'is_active'), fn ($query) => $query->where('is_active', true))
+            ->when(
+                Schema::hasColumn('boarding_houses', 'approval_status') || Schema::hasColumn('boarding_houses', 'status'),
+                function ($query) {
+                    $query->where(function ($statusQuery) {
+                        if (Schema::hasColumn('boarding_houses', 'approval_status')) {
+                            $statusQuery->where('approval_status', 'approved');
+                        }
+
+                        if (Schema::hasColumn('boarding_houses', 'status')) {
+                            $method = Schema::hasColumn('boarding_houses', 'approval_status') ? 'orWhere' : 'where';
+                            $statusQuery->{$method}('status', 'approved');
+                        }
+                    });
+                }
+            )
+            ->orderBy('name')
+            ->limit(100)
+            ->get();
+    }
+
+    private function referencePoint(Request $request): array
+    {
+        return [
+            'lat' => $this->normalizeCoordinate($request->query('lat'), -90, 90) ?? self::DEFAULT_LAT,
+            'lng' => $this->normalizeCoordinate($request->query('lng'), -180, 180) ?? self::DEFAULT_LNG,
+        ];
+    }
+
+    private function normalizeCoordinate(mixed $value, float $min, float $max): ?float
+    {
+        if ($value === null || $value === '' || ! is_numeric($value)) {
+            return null;
+        }
+
+        $coordinate = (float) $value;
+
+        return $coordinate >= $min && $coordinate <= $max ? $coordinate : null;
+    }
+
     private function normalizePrice(mixed $value): ?float
     {
         if ($value === null || $value === '' || ! is_numeric($value)) {
@@ -256,6 +350,7 @@ class RecommendationController extends Controller
     {
         $tenant = $request->user();
         abort_unless($tenant && $tenant->isUser(), 403);
+        abort_unless(Schema::hasTable('tenant_match_profiles'), 404);
 
         $tenant->loadMissing('tenantMatchProfile', 'boardingHouse:id,name');
         $candidate->loadMissing('tenantMatchProfile', 'boardingHouse:id,name');
@@ -265,18 +360,20 @@ class RecommendationController extends Controller
         abort_unless($candidate->tenantMatchProfile?->completed_at, 404);
 
         $compatibility = $this->compatibilityService->score($tenant, $candidate);
-        $requests = RoommateMatchRequest::query()
-            ->where(function ($query) use ($tenant, $candidate) {
-                $query->where(function ($inner) use ($tenant, $candidate) {
-                    $inner->where('sender_id', $tenant->id)
-                        ->where('recipient_id', $candidate->id);
-                })->orWhere(function ($inner) use ($tenant, $candidate) {
-                    $inner->where('sender_id', $candidate->id)
-                        ->where('recipient_id', $tenant->id);
-                });
-            })
-            ->latest()
-            ->get();
+        $requests = Schema::hasTable('roommate_match_requests')
+            ? RoommateMatchRequest::query()
+                ->where(function ($query) use ($tenant, $candidate) {
+                    $query->where(function ($inner) use ($tenant, $candidate) {
+                        $inner->where('sender_id', $tenant->id)
+                            ->where('recipient_id', $candidate->id);
+                    })->orWhere(function ($inner) use ($tenant, $candidate) {
+                        $inner->where('sender_id', $candidate->id)
+                            ->where('recipient_id', $tenant->id);
+                    });
+                })
+                ->latest()
+                ->get()
+            : collect();
 
         return [
             'tenant' => $tenant,

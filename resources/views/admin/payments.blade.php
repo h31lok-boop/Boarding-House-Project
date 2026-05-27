@@ -82,7 +82,7 @@
             <div class="border-t ui-border px-5 py-4">{{ $payments->links() }}</div>
         </div>
 
-        <div x-show="addOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
             <form method="POST" action="{{ route('admin.payments.store') }}" class="ui-card w-full max-w-2xl p-6">
                 @csrf
                 <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Record Payment</h2><button type="button" @click="addOpen = false" class="text-xl ui-muted">x</button></div>
@@ -99,7 +99,7 @@
             </form>
         </div>
 
-        <div x-show="detailOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="detailOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
             <form method="POST" :action="selected.update_url" class="ui-card w-full max-w-xl p-6">
                 @csrf @method('PATCH')
                 <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Payment History</h2><button type="button" @click="detailOpen = false" class="text-xl ui-muted">x</button></div>

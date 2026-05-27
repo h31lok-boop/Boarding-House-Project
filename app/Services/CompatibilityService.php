@@ -4,22 +4,21 @@ namespace App\Services;
 
 use App\Models\TenantMatchProfile;
 use App\Models\User;
+use Illuminate\Support\Facades\Schema;
 
 class CompatibilityService
 {
     public function score(User $tenant, User $candidate): array
     {
+        if (! Schema::hasTable('tenant_match_profiles')) {
+            return $this->incompleteProfileScore();
+        }
+
         $tenantProfile = $tenant->tenantMatchProfile;
         $candidateProfile = $candidate->tenantMatchProfile;
 
         if (! $tenantProfile || ! $candidateProfile) {
-            return [
-                'overall_score' => 0.0,
-                'compatibility_percent' => 0,
-                'breakdown' => [],
-                'highlights' => [],
-                'conflicts' => ['Incomplete match profile'],
-            ];
+            return $this->incompleteProfileScore();
         }
 
         $weights = config('matchmaking.weights', []);
@@ -217,5 +216,16 @@ class CompatibilityService
     private function toFloat(mixed $value): ?float
     {
         return is_numeric($value) ? (float) $value : null;
+    }
+
+    private function incompleteProfileScore(): array
+    {
+        return [
+            'overall_score' => 0.0,
+            'compatibility_percent' => 0,
+            'breakdown' => [],
+            'highlights' => [],
+            'conflicts' => ['Incomplete match profile'],
+        ];
     }
 }

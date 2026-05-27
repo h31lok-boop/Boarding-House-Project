@@ -12,6 +12,7 @@ class GeoBoardWiringSeeder extends Seeder
             LocationReferenceSeeder::class,
             GeoBoardAccessSeeder::class,
             GeoBoardManagementSeeder::class,
+            TenantSampleDataSeeder::class,
         ]);
     }
 }

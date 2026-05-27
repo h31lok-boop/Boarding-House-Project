@@ -2,209 +2,218 @@
 <x-user.shell>
     @php
         $options = $fieldOptions ?? [];
-        $selectedHobbies = old('hobbies', $profile->hobbies ?? []);
+        $matchProfilesAvailable = $matchProfilesAvailable ?? true;
+        $selectedHobbies = old('hobbies', $profile->hobbies ?? ['reading', 'coding']);
         $selectedAmenityIds = collect(old('preferred_amenity_ids', $profile->preferred_amenity_ids ?? []))
             ->map(fn ($id) => (int) $id)
             ->all();
+        $fallbackAmenities = collect([
+            'Wi-Fi',
+            'Air Conditioning',
+            'Study Area',
+            'Kitchen Access',
+            'Laundry Area',
+            'CCTV',
+            'Water Included',
+            'Electricity Included',
+            'Security Guard',
+            '24/7 Access',
+            'Pet Friendly',
+        ]);
+        $visibleAmenities = ($amenities ?? collect())->isNotEmpty()
+            ? $amenities->values()
+            : $fallbackAmenities->map(fn ($name, $index) => (object) ['id' => $index + 1, 'name' => $name, 'disabled' => true]);
+        $summaryBudgetMin = old('budget_min', $profile->budget_min ?? 5000);
+        $summaryBudgetMax = old('budget_max', $profile->budget_max ?? 8000);
+        $selectedAmenityNames = $visibleAmenities
+            ->filter(fn ($amenity, $index) => in_array((int) $amenity->id, $selectedAmenityIds, true) || ($amenities ?? collect())->isEmpty() && $index < 9)
+            ->pluck('name')
+            ->values();
+        if ($selectedAmenityNames->isEmpty()) {
+            $selectedAmenityNames = $visibleAmenities->take(9)->pluck('name')->values();
+        }
     @endphp
 
     <div class="space-y-6">
-        <div class="ui-card p-6">
-            <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-                <div>
-                    <h2 class="text-2xl font-semibold">Match Profile</h2>
-                    <p class="text-sm ui-muted">Set the lifestyle and budget preferences that will power roommate recommendations.</p>
-                </div>
-                @if ($profile->completed_at)
-                    <p class="text-xs ui-muted">Last updated {{ $profile->completed_at->format('M d, Y h:i A') }}</p>
-                @endif
-            </div>
+        <div>
+            <h1 class="text-2xl md:text-3xl font-bold">My Preferences</h1>
+            <p class="mt-2 text-sm ui-muted">Manage your preferences to get better matches. Match Profile settings are used for compatibility scoring.</p>
         </div>
 
-        <form method="POST" action="{{ route('user.profile.update') }}" class="space-y-6">
+        @if (! $matchProfilesAvailable)
+            <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                Tenant match profiles are not available yet. Run the pending migrations to enable saving this page.
+            </div>
+        @endif
+
+        <div class="flex gap-8 border-b ui-border">
+            <a href="{{ route('user.profile') }}" class="border-b-2 border-indigo-600 px-6 py-3 text-sm font-semibold text-indigo-700">Preferences</a>
+            <a href="#lifestyle-fields" class="px-6 py-3 text-sm ui-muted hover:text-[color:var(--text)]">Lifestyle</a>
+        </div>
+
+        <form method="POST" action="{{ route('user.profile.update') }}" class="grid gap-6 xl:grid-cols-[1fr_390px]">
             @csrf
             @method('PUT')
 
-            <div class="grid gap-6 xl:grid-cols-[1.35fr,0.65fr]">
-                <div class="ui-card p-6 space-y-6">
-                    <section class="space-y-4">
-                        <div>
-                            <h3 class="text-lg font-semibold">Budget and Setup</h3>
-                            <p class="text-sm ui-muted">These values help narrow matching candidates and boarding house options.</p>
-                        </div>
-                        <div class="grid gap-4 md:grid-cols-2">
-                            <div>
-                                <label for="budget_min" class="block text-sm font-medium">Minimum monthly budget</label>
-                                <input id="budget_min" name="budget_min" type="number" step="0.01" min="0" value="{{ old('budget_min', $profile->budget_min) }}" class="ui-input mt-2 w-full">
-                                @error('budget_min')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
-                            </div>
-                            <div>
-                                <label for="budget_max" class="block text-sm font-medium">Maximum monthly budget</label>
-                                <input id="budget_max" name="budget_max" type="number" step="0.01" min="0" value="{{ old('budget_max', $profile->budget_max) }}" class="ui-input mt-2 w-full">
-                                @error('budget_max')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
-                            </div>
-                        </div>
-                        <div>
-                            <label for="gender_preference" class="block text-sm font-medium">Gender preference</label>
-                            <select id="gender_preference" name="gender_preference" class="ui-input mt-2 w-full">
-                                @foreach ($options['gender_preference'] as $value => $label)
-                                    <option value="{{ $value }}" @selected(old('gender_preference', $profile->gender_preference) === $value)>{{ $label }}</option>
-                                @endforeach
-                            </select>
-                            @error('gender_preference')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
-                        </div>
-                        @if (($amenities ?? collect())->isNotEmpty())
-                            <div>
-                                <label class="block text-sm font-medium">Preferred amenities</label>
-                                <div class="mt-2 grid gap-3 md:grid-cols-2">
-                                    @foreach ($amenities as $amenity)
-                                        <label class="flex items-center gap-3 rounded-lg border ui-border px-3 py-2">
-                                            <input type="checkbox" name="preferred_amenity_ids[]" value="{{ $amenity->id }}" @checked(in_array($amenity->id, $selectedAmenityIds, true)) class="rounded border-slate-300 text-indigo-600">
-                                            <span class="text-sm">{{ $amenity->name }}</span>
-                                        </label>
-                                    @endforeach
-                                </div>
-                                @error('preferred_amenity_ids')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
-                                @error('preferred_amenity_ids.*')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
-                            </div>
-                        @endif
-                    </section>
+            <fieldset @disabled(! $matchProfilesAvailable) class="space-y-0">
+                <div class="ui-card overflow-hidden">
+                    <section class="p-6">
+                        <h2 class="text-lg font-semibold">Basic Preferences</h2>
+                        <div class="mt-5 grid gap-5 md:grid-cols-2">
+                            <label class="text-sm">
+                                <span class="ui-muted">Preferred Location</span>
+                                <select class="ui-input mt-2" name="preferred_location">
+                                    <option>Cagayan de Oro City</option>
+                                    <option>Cogon, CDO</option>
+                                    <option>Lapasan, CDO</option>
+                                </select>
+                            </label>
 
-                    <section class="space-y-4">
-                        <div>
-                            <h3 class="text-lg font-semibold">Lifestyle Fit</h3>
-                            <p class="text-sm ui-muted">These values feed the weighted compatibility score.</p>
-                        </div>
-                        <div class="grid gap-4 md:grid-cols-2">
-                            <div>
-                                <label for="sleep_schedule" class="block text-sm font-medium">Sleeping schedule</label>
-                                <select id="sleep_schedule" name="sleep_schedule" class="ui-input mt-2 w-full">
-                                    @foreach ($options['sleep_schedule'] as $value => $label)
-                                        <option value="{{ $value }}" @selected(old('sleep_schedule', $profile->sleep_schedule) === $value)>{{ $label }}</option>
+                            <div class="grid grid-cols-2 gap-3">
+                                <label class="text-sm">
+                                    <span class="ui-muted">Budget Min</span>
+                                    <input name="budget_min" type="number" min="0" step="0.01" value="{{ $summaryBudgetMin }}" class="ui-input mt-2">
+                                </label>
+                                <label class="text-sm">
+                                    <span class="ui-muted">Budget Max</span>
+                                    <input name="budget_max" type="number" min="0" step="0.01" value="{{ $summaryBudgetMax }}" class="ui-input mt-2">
+                                </label>
+                            </div>
+
+                            <label class="text-sm">
+                                <span class="ui-muted">Room Type</span>
+                                <select class="ui-input mt-2" name="room_type">
+                                    <option>Solo Room</option>
+                                    <option>Shared Room</option>
+                                    <option>Bedspace</option>
+                                </select>
+                            </label>
+
+                            <label class="text-sm">
+                                <span class="ui-muted">Gender Preference</span>
+                                <select name="gender_preference" class="ui-input mt-2">
+                                    @foreach ($options['gender_preference'] ?? ['female' => 'Female Only'] as $value => $label)
+                                        <option value="{{ $value }}" @selected(old('gender_preference', $profile->gender_preference ?? 'female') === $value)>{{ $label }}</option>
                                     @endforeach
                                 </select>
-                                @error('sleep_schedule')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
-                            </div>
-                            <div>
-                                <label for="study_habits" class="block text-sm font-medium">Study habits</label>
-                                <select id="study_habits" name="study_habits" class="ui-input mt-2 w-full">
-                                    @foreach ($options['study_habits'] as $value => $label)
-                                        <option value="{{ $value }}" @selected(old('study_habits', $profile->study_habits) === $value)>{{ $label }}</option>
-                                    @endforeach
+                            </label>
+
+                            <label class="text-sm">
+                                <span class="ui-muted">Preferred Distance from School</span>
+                                <select class="ui-input mt-2" name="preferred_distance">
+                                    <option>Within 2 km</option>
+                                    <option>Within 5 km</option>
+                                    <option>Any distance</option>
                                 </select>
-                                @error('study_habits')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
-                            </div>
-                            <div>
-                                <label for="cleanliness_level" class="block text-sm font-medium">Cleanliness level</label>
-                                <select id="cleanliness_level" name="cleanliness_level" class="ui-input mt-2 w-full">
-                                    @for ($level = 1; $level <= 5; $level++)
-                                        <option value="{{ $level }}" @selected((int) old('cleanliness_level', $profile->cleanliness_level) === $level)>{{ $level }} / 5</option>
-                                    @endfor
-                                </select>
-                                @error('cleanliness_level')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
-                            </div>
-                            <div>
-                                <label for="noise_tolerance" class="block text-sm font-medium">Noise tolerance</label>
-                                <select id="noise_tolerance" name="noise_tolerance" class="ui-input mt-2 w-full">
-                                    @for ($level = 1; $level <= 5; $level++)
-                                        <option value="{{ $level }}" @selected((int) old('noise_tolerance', $profile->noise_tolerance) === $level)>{{ $level }} / 5</option>
-                                    @endfor
-                                </select>
-                                @error('noise_tolerance')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
-                            </div>
-                            <div>
-                                <label for="smoking_preference" class="block text-sm font-medium">Smoking preference</label>
-                                <select id="smoking_preference" name="smoking_preference" class="ui-input mt-2 w-full">
-                                    @foreach ($options['smoking_preference'] as $value => $label)
-                                        <option value="{{ $value }}" @selected(old('smoking_preference', $profile->smoking_preference) === $value)>{{ $label }}</option>
-                                    @endforeach
-                                </select>
-                                @error('smoking_preference')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
-                            </div>
-                            <div>
-                                <label for="drinking_preference" class="block text-sm font-medium">Drinking preference</label>
-                                <select id="drinking_preference" name="drinking_preference" class="ui-input mt-2 w-full">
-                                    @foreach ($options['drinking_preference'] as $value => $label)
-                                        <option value="{{ $value }}" @selected(old('drinking_preference', $profile->drinking_preference) === $value)>{{ $label }}</option>
-                                    @endforeach
-                                </select>
-                                @error('drinking_preference')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
-                            </div>
-                            <div>
-                                <label for="pets_preference" class="block text-sm font-medium">Pets preference</label>
-                                <select id="pets_preference" name="pets_preference" class="ui-input mt-2 w-full">
-                                    @foreach ($options['pets_preference'] as $value => $label)
-                                        <option value="{{ $value }}" @selected(old('pets_preference', $profile->pets_preference) === $value)>{{ $label }}</option>
-                                    @endforeach
-                                </select>
-                                @error('pets_preference')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
-                            </div>
-                            <div>
-                                <label for="internet_usage" class="block text-sm font-medium">Internet usage</label>
-                                <select id="internet_usage" name="internet_usage" class="ui-input mt-2 w-full">
-                                    @foreach ($options['internet_usage'] as $value => $label)
-                                        <option value="{{ $value }}" @selected(old('internet_usage', $profile->internet_usage) === $value)>{{ $label }}</option>
-                                    @endforeach
-                                </select>
-                                @error('internet_usage')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
-                            </div>
+                            </label>
+
+                            <label class="text-sm">
+                                <span class="ui-muted">Preferred Move-in Date</span>
+                                <input type="date" class="ui-input mt-2" name="preferred_move_in_date" value="2026-06-01">
+                            </label>
+
+                            <label class="text-sm md:col-span-2">
+                                <span class="ui-muted">Additional Notes (Optional)</span>
+                                <textarea name="additional_notes" rows="4" class="ui-input mt-2" placeholder="Prefer a quiet place for studying. Near public transport is a plus.">{{ old('additional_notes', $profile->additional_notes ?? 'Prefer a quiet place for studying. Near public transport is a plus.') }}</textarea>
+                            </label>
                         </div>
                     </section>
 
-                    <section class="space-y-4">
-                        <div>
-                            <h3 class="text-lg font-semibold">Hobbies and Notes</h3>
-                            <p class="text-sm ui-muted">These help future match explanations feel more human than just a number.</p>
-                        </div>
-                        <div class="grid gap-3 md:grid-cols-2">
-                            @foreach ($options['hobbies'] as $value => $label)
-                                <label class="flex items-center gap-3 rounded-lg border ui-border px-3 py-2">
-                                    <input type="checkbox" name="hobbies[]" value="{{ $value }}" @checked(in_array($value, $selectedHobbies, true)) class="rounded border-slate-300 text-indigo-600">
-                                    <span class="text-sm">{{ $label }}</span>
+                    <section class="border-t ui-border p-6">
+                        <h2 class="text-lg font-semibold">Amenities <span class="text-sm font-normal ui-muted">(Select all that apply)</span></h2>
+                        <div class="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                            @foreach ($visibleAmenities as $index => $amenity)
+                                @php($checked = in_array((int) $amenity->id, $selectedAmenityIds, true) || (($amenities ?? collect())->isEmpty() && $index < 9))
+                                <label class="flex items-center gap-3 rounded-lg border ui-border px-4 py-3 text-sm {{ $checked ? 'bg-violet-50 text-indigo-700 dark:bg-violet-950/20' : '' }}">
+                                    @if (! ($amenity->disabled ?? false))
+                                        <input type="checkbox" name="preferred_amenity_ids[]" value="{{ $amenity->id }}" @checked($checked) class="rounded border-slate-300 text-indigo-600">
+                                    @else
+                                        <input type="checkbox" @checked($checked) disabled class="rounded border-slate-300 text-indigo-600">
+                                    @endif
+                                    <span>{{ $amenity->name }}</span>
                                 </label>
                             @endforeach
                         </div>
-                        @error('hobbies')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
-                        @error('hobbies.*')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
 
-                        <div>
-                            <label for="additional_notes" class="block text-sm font-medium">Additional notes</label>
-                            <textarea id="additional_notes" name="additional_notes" rows="4" class="ui-input mt-2 w-full" placeholder="Share anything that matters for roommate compatibility, such as prayer time, visitors, or study routines.">{{ old('additional_notes', $profile->additional_notes) }}</textarea>
-                            @error('additional_notes')<p class="mt-1 text-xs text-rose-600">{{ $message }}</p>@enderror
+                        <div id="lifestyle-fields" class="mt-6 grid gap-4 md:grid-cols-2">
+                            <label class="text-sm">
+                                <span class="ui-muted">Sleeping Schedule</span>
+                                <select name="sleep_schedule" class="ui-input mt-2">
+                                    @foreach ($options['sleep_schedule'] ?? ['balanced' => 'Balanced routine'] as $value => $label)
+                                        <option value="{{ $value }}" @selected(old('sleep_schedule', $profile->sleep_schedule ?? 'balanced') === $value)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </label>
+                            <label class="text-sm">
+                                <span class="ui-muted">Study Habits</span>
+                                <select name="study_habits" class="ui-input mt-2">
+                                    @foreach ($options['study_habits'] ?? ['quiet_focus' => 'Quiet focus'] as $value => $label)
+                                        <option value="{{ $value }}" @selected(old('study_habits', $profile->study_habits ?? 'quiet_focus') === $value)>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </label>
+                            <label class="text-sm">
+                                <span class="ui-muted">Cleanliness Level</span>
+                                <select name="cleanliness_level" class="ui-input mt-2">
+                                    @for ($level = 1; $level <= 5; $level++)
+                                        <option value="{{ $level }}" @selected((int) old('cleanliness_level', $profile->cleanliness_level ?? 4) === $level)>{{ $level }} / 5</option>
+                                    @endfor
+                                </select>
+                            </label>
+                            <label class="text-sm">
+                                <span class="ui-muted">Noise Tolerance</span>
+                                <select name="noise_tolerance" class="ui-input mt-2">
+                                    @for ($level = 1; $level <= 5; $level++)
+                                        <option value="{{ $level }}" @selected((int) old('noise_tolerance', $profile->noise_tolerance ?? 2) === $level)>{{ $level }} / 5</option>
+                                    @endfor
+                                </select>
+                            </label>
+                        </div>
+
+                        <input type="hidden" name="smoking_preference" value="{{ old('smoking_preference', $profile->smoking_preference ?? 'non_smoker_only') }}">
+                        <input type="hidden" name="drinking_preference" value="{{ old('drinking_preference', $profile->drinking_preference ?? 'occasional_ok') }}">
+                        <input type="hidden" name="pets_preference" value="{{ old('pets_preference', $profile->pets_preference ?? 'no_pets') }}">
+                        <input type="hidden" name="internet_usage" value="{{ old('internet_usage', $profile->internet_usage ?? 'heavy') }}">
+                        @foreach ((array) $selectedHobbies as $hobby)
+                            <input type="hidden" name="hobbies[]" value="{{ $hobby }}">
+                        @endforeach
+
+                        <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-end">
+                            <a href="{{ route('user.profile') }}" class="rounded-lg border ui-border px-6 py-3 text-center text-sm font-semibold">Reset</a>
+                            <button type="submit" class="rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-700">Save Changes</button>
                         </div>
                     </section>
                 </div>
+            </fieldset>
 
-                <aside class="space-y-6">
-                    <div class="ui-card p-6">
-                        <h3 class="text-lg font-semibold">What this enables</h3>
-                        <ul class="mt-4 space-y-3 text-sm ui-muted">
-                            <li>Weighted roommate compatibility scoring</li>
-                            <li>Housing recommendations by budget, amenities, availability, and occupant fit</li>
-                            <li>Match explanations instead of opaque rankings</li>
-                        </ul>
-                    </div>
-                    <div class="ui-card p-6">
-                        <h3 class="text-lg font-semibold">Profile status</h3>
-                        <p class="mt-3 text-sm ui-muted">
-                            @if (session('status') === 'tenant-match-profile-updated')
-                                Match profile updated successfully.
-                            @elseif ($profile->completed_at)
-                                Your profile is complete and ready for recommendation scoring.
-                            @else
-                                Complete this form to activate roommate recommendations.
-                            @endif
-                        </p>
-                    </div>
-                </aside>
-            </div>
+            <aside class="space-y-5">
+                <section class="ui-card p-5">
+                    <h2 class="font-semibold text-indigo-700 dark:text-indigo-200">Preference Summary</h2>
+                    <p class="mt-1 text-sm ui-muted">Here is a summary of your preferences.</p>
+                    <dl class="mt-5 divide-y ui-border text-sm">
+                        <div class="flex justify-between gap-4 py-3"><dt class="ui-muted">Location</dt><dd class="font-semibold text-right">Cagayan de Oro City</dd></div>
+                        <div class="flex justify-between gap-4 py-3"><dt class="ui-muted">Budget Range</dt><dd class="font-semibold text-right">&#8369;{{ number_format((float) $summaryBudgetMin) }} - &#8369;{{ number_format((float) $summaryBudgetMax) }}</dd></div>
+                        <div class="flex justify-between gap-4 py-3"><dt class="ui-muted">Room Type</dt><dd class="font-semibold text-right">Solo Room</dd></div>
+                        <div class="flex justify-between gap-4 py-3"><dt class="ui-muted">Gender Preference</dt><dd class="font-semibold text-right">Female Only</dd></div>
+                        <div class="flex justify-between gap-4 py-3"><dt class="ui-muted">Distance from School</dt><dd class="font-semibold text-right">Within 2 km</dd></div>
+                        <div class="flex justify-between gap-4 py-3"><dt class="ui-muted">Move-in Date</dt><dd class="font-semibold text-right">Jun 1, 2026</dd></div>
+                    </dl>
+                </section>
 
-            <div class="flex items-center justify-between ui-card p-4">
-                <p class="text-sm ui-muted">These values power roommate ranking and recommended boarding houses.</p>
-                <button type="submit" class="inline-flex items-center rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">
-                    Save Match Profile
-                </button>
-            </div>
+                <section class="ui-card p-5 bg-emerald-50/60 dark:bg-emerald-950/20">
+                    <h2 class="font-semibold text-emerald-700 dark:text-emerald-200">Selected Amenities ({{ $selectedAmenityNames->count() }})</h2>
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        @foreach ($selectedAmenityNames as $amenityName)
+                            <span class="rounded-lg bg-white px-3 py-2 text-xs font-medium text-emerald-700 dark:bg-emerald-950/30">{{ $amenityName }}</span>
+                        @endforeach
+                    </div>
+                </section>
+
+                <section class="ui-card p-5 bg-amber-50/70 dark:bg-amber-950/20">
+                    <h2 class="font-semibold text-amber-700 dark:text-amber-200">Tip</h2>
+                    <p class="mt-3 text-sm ui-muted">The more specific your preferences, the better we can match you with the perfect boarding house.</p>
+                </section>
+            </aside>
         </form>
     </div>
 </x-user.shell>

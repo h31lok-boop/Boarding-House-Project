@@ -1,40 +1,92 @@
 <x-layouts.dashboard>
 <x-user.shell>
     @php
-        $statusLabel = $tenantStatus ?? 'Pending';
-        $statusIsApproved = strtolower($statusLabel) === 'approved';
-        $statusClasses = $statusIsApproved
-            ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-            : 'bg-amber-100 text-amber-700 border-amber-200';
-
-        $booking = $bookingDetails ?? [];
-        $billing = $billingHistory ?? ['enabled' => false, 'total_paid' => 0, 'outstanding' => 0, 'items' => []];
         $notifications = $notificationPreferences ?? [];
-        $profileImageUrl = $tenant->profile_image ? \Illuminate\Support\Facades\Storage::url($tenant->profile_image) : '';
+        $profileImageUrl = $tenant->profile_image ? \Illuminate\Support\Facades\Storage::url($tenant->profile_image) : asset('images/boardmatch-mark.svg');
+        $nameParts = preg_split('/\s+/', trim((string) $tenant->name)) ?: [];
+        $firstName = $nameParts[0] ?? 'Hazel';
+        $lastName = count($nameParts) > 1 ? implode(' ', array_slice($nameParts, 1)) : 'Mae';
+        $email = $tenant->email ?: 'hazel.mae@student.com';
+        $phone = $tenant->phone ?: ($tenant->contact_number ?: '+63 912 345 6789');
     @endphp
 
-    <x-slot name="header">
-        <div class="flex items-center justify-between gap-3">
-            <h2 class="text-xl font-semibold text-gray-800 leading-tight">User Settings</h2>
-            <span class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold {{ $statusClasses }}">
-                Status: {{ $statusLabel }}
-            </span>
+    <div class="space-y-6">
+        <div>
+            <h1 class="text-2xl md:text-3xl font-bold">Profile Settings</h1>
+            <p class="mt-2 text-sm ui-muted">Manage your personal information and account settings.</p>
         </div>
-    </x-slot>
 
-    <div class="mx-auto w-full max-w-6xl space-y-6">
-        <section class="grid grid-cols-1 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] gap-6">
-            <div class="space-y-6">
-                <article class="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
-                    <div class="mb-4">
-                        <h3 class="text-base font-semibold text-gray-900">Profile</h3>
-                        <p class="text-sm text-gray-500">Update your account profile, avatar, and reminder preferences.</p>
+        <div class="flex flex-wrap gap-8 border-b ui-border">
+            @foreach (['Profile Information', 'Account & Security', 'Notifications', 'Privacy'] as $index => $tab)
+                <a href="{{ $index === 0 ? '#profile-information' : '#account-security' }}" class="{{ $index === 0 ? 'border-b-2 border-indigo-600 text-indigo-700' : 'ui-muted' }} px-6 py-3 text-sm font-semibold">{{ $tab }}</a>
+            @endforeach
+        </div>
+
+        <div class="grid gap-6 xl:grid-cols-[270px_1fr_380px]">
+            <aside class="space-y-5">
+                <section class="ui-card p-5 text-center">
+                    <div class="relative mx-auto h-28 w-28 overflow-hidden rounded-full border ui-border">
+                        <img src="{{ $profileImageUrl }}" alt="{{ $tenant->name }}" class="h-full w-full object-cover">
                     </div>
+                    <h2 class="mt-4 text-xl font-bold">{{ $firstName }} {{ $lastName }}</h2>
+                    <span class="mt-2 inline-flex rounded-lg bg-violet-50 px-3 py-1 text-xs font-semibold text-indigo-700">Student</span>
+                    <div class="mt-6 space-y-3 text-left text-sm ui-muted">
+                        <p>{{ $email }}</p>
+                        <p>{{ $phone }}</p>
+                        <p>Cagayan de Oro City, Philippines</p>
+                        <p>Member since May 12, 2026</p>
+                    </div>
+                </section>
 
-                    <form method="POST" action="{{ route('user.settings.update') }}" enctype="multipart/form-data" class="space-y-5">
-                        @csrf
-                        @method('PUT')
+                <section class="ui-card p-5">
+                    <h2 class="font-semibold">Profile Completion</h2>
+                    <p class="mt-2 text-sm ui-muted">Complete your profile to get better matches.</p>
+                    <div class="mt-4 flex items-center gap-3">
+                        <div class="h-2 flex-1 rounded-full bg-slate-100"><div class="h-2 rounded-full bg-indigo-600" style="width:85%"></div></div>
+                        <span class="text-sm font-semibold">85%</span>
+                    </div>
+                    <ul class="mt-5 space-y-3 text-sm">
+                        <li class="text-emerald-700">Personal Information</li>
+                        <li class="text-emerald-700">Contact Information</li>
+                        <li class="text-emerald-700">Student Information</li>
+                        <li class="text-emerald-700">Preferences</li>
+                        <li class="ui-muted">ID Verification <a href="#id-verification" class="float-right font-semibold text-indigo-700">Verify now</a></li>
+                    </ul>
+                </section>
+            </aside>
 
+            <form id="profile-information" method="POST" action="{{ route('user.settings.update') }}" enctype="multipart/form-data" class="ui-card p-6">
+                @csrf
+                @method('PUT')
+
+                <section>
+                    <h2 class="text-lg font-semibold">Personal Information</h2>
+                    <p class="mt-1 text-sm ui-muted">Update your personal details.</p>
+                    <div class="mt-5 grid gap-4 md:grid-cols-2">
+                        <label class="text-sm">First Name<input name="name" required value="{{ old('name', $tenant->name) }}" class="ui-input mt-2"></label>
+                        <label class="text-sm">Last Name<input value="{{ $lastName }}" class="ui-input mt-2"></label>
+                        <label class="text-sm">Date of Birth<input type="date" value="2004-05-15" class="ui-input mt-2"></label>
+                        <label class="text-sm">Gender<select class="ui-input mt-2"><option>Female</option><option>Male</option></select></label>
+                        <label class="text-sm">Nationality<select class="ui-input mt-2"><option>Filipino</option></select></label>
+                        <label class="text-sm">Civil Status<select class="ui-input mt-2"><option>Single</option></select></label>
+                        <label class="text-sm">School / University<input value="Xavier University - Ateneo de Cagayan" class="ui-input mt-2"></label>
+                        <label class="text-sm">Course<input value="BS Information Technology" class="ui-input mt-2"></label>
+                    </div>
+                </section>
+
+                <section class="mt-6 border-t ui-border pt-6">
+                    <h2 class="text-lg font-semibold">Contact Information</h2>
+                    <p class="mt-1 text-sm ui-muted">Update your contact details.</p>
+                    <div class="mt-5 grid gap-4 md:grid-cols-2">
+                        <label class="text-sm">Email Address<input name="email" type="email" required value="{{ old('email', $email) }}" class="ui-input mt-2"></label>
+                        <label class="text-sm">Phone Number<input name="phone" value="{{ old('phone', $phone) }}" class="ui-input mt-2"></label>
+                        <label class="text-sm md:col-span-2">Current Address<textarea rows="3" class="ui-input mt-2">Cagayan de Oro City, Misamis Oriental, Philippines</textarea></label>
+                    </div>
+                </section>
+
+                <section class="mt-6 border-t ui-border pt-6">
+                    <h2 class="text-lg font-semibold">Profile Photo</h2>
+                    <div class="mt-4">
                         <x-profile-image-uploader
                             label=""
                             name="profile_image"
@@ -43,248 +95,59 @@
                             :size="96"
                             :circle="true"
                         />
-                        <x-input-error :messages="$errors->get('profile_image')" class="mt-1" />
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <x-input-label for="tenant_account_name" value="Full Name" />
-                                <x-text-input
-                                    id="tenant_account_name"
-                                    name="name"
-                                    type="text"
-                                    class="mt-1 block w-full"
-                                    :value="old('name', $tenant->name)"
-                                    required
-                                />
-                                <x-input-error :messages="$errors->get('name')" class="mt-2" />
-                            </div>
-
-                            <div>
-                                <x-input-label for="tenant_account_phone" value="Phone Number" />
-                                <x-text-input
-                                    id="tenant_account_phone"
-                                    name="phone"
-                                    type="text"
-                                    class="mt-1 block w-full"
-                                    :value="old('phone', $tenant->phone)"
-                                />
-                                <x-input-error :messages="$errors->get('phone')" class="mt-2" />
-                            </div>
-                        </div>
-
-                        <div>
-                            <x-input-label for="tenant_account_email" value="Email Address" />
-                            <x-text-input
-                                id="tenant_account_email"
-                                name="email"
-                                type="email"
-                                class="mt-1 block w-full"
-                                :value="old('email', $tenant->email)"
-                                required
-                            />
-                            <x-input-error :messages="$errors->get('email')" class="mt-2" />
-                        </div>
-
-                        <div class="rounded-xl border border-gray-200 bg-gray-50 p-4">
-                            <h4 class="text-sm font-semibold text-gray-900">Notifications</h4>
-                            <p class="text-xs text-gray-500 mt-1">Control which reminders you receive.</p>
-
-                            <div class="mt-3 space-y-3">
-                                <label class="flex items-center justify-between gap-3">
-                                    <span class="text-sm text-gray-700">Payment reminders</span>
-                                    <input
-                                        type="checkbox"
-                                        name="notify_payment_reminders"
-                                        value="1"
-                                        class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                        @checked(old('notify_payment_reminders', $notifications['payment_reminders'] ?? true))
-                                    >
-                                </label>
-                                <label class="flex items-center justify-between gap-3">
-                                    <span class="text-sm text-gray-700">Booking and room updates</span>
-                                    <input
-                                        type="checkbox"
-                                        name="notify_booking_updates"
-                                        value="1"
-                                        class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                        @checked(old('notify_booking_updates', $notifications['booking_updates'] ?? true))
-                                    >
-                                </label>
-                                <label class="flex items-center justify-between gap-3">
-                                    <span class="text-sm text-gray-700">Support ticket updates</span>
-                                    <input
-                                        type="checkbox"
-                                        name="notify_ticket_updates"
-                                        value="1"
-                                        class="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                        @checked(old('notify_ticket_updates', $notifications['ticket_updates'] ?? true))
-                                    >
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="flex items-center gap-3">
-                            <x-primary-button>Save Changes</x-primary-button>
-
-                            @if (session('status') === 'tenant-account-updated')
-                                <p class="text-sm font-medium text-emerald-600">Account updated successfully.</p>
-                            @endif
-                        </div>
-                    </form>
-                </article>
-
-                <article class="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
-                    <h3 class="text-base font-semibold text-gray-900">Security</h3>
-                    <p class="text-sm text-gray-500 mt-1">Change your account password.</p>
-
-                    <form method="POST" action="{{ route('password.update') }}" class="mt-4 space-y-4">
-                        @csrf
-                        @method('PUT')
-
-                        <div>
-                            <x-input-label for="tenant_current_password" value="Current Password" />
-                            <x-text-input
-                                id="tenant_current_password"
-                                name="current_password"
-                                type="password"
-                                class="mt-1 block w-full"
-                                autocomplete="current-password"
-                            />
-                            <x-input-error :messages="$errors->updatePassword->get('current_password')" class="mt-2" />
-                        </div>
-
-                        <div>
-                            <x-input-label for="tenant_new_password" value="New Password" />
-                            <x-text-input
-                                id="tenant_new_password"
-                                name="password"
-                                type="password"
-                                class="mt-1 block w-full"
-                                autocomplete="new-password"
-                            />
-                            <x-input-error :messages="$errors->updatePassword->get('password')" class="mt-2" />
-                        </div>
-
-                        <div>
-                            <x-input-label for="tenant_new_password_confirmation" value="Confirm New Password" />
-                            <x-text-input
-                                id="tenant_new_password_confirmation"
-                                name="password_confirmation"
-                                type="password"
-                                class="mt-1 block w-full"
-                                autocomplete="new-password"
-                            />
-                            <x-input-error :messages="$errors->updatePassword->get('password_confirmation')" class="mt-2" />
-                        </div>
-
-                        <div class="flex items-center gap-3">
-                            <x-primary-button>Update Password</x-primary-button>
-
-                            @if (session('status') === 'password-updated')
-                                <p class="text-sm font-medium text-emerald-600">Password updated successfully.</p>
-                            @endif
-                        </div>
-                    </form>
-                </article>
-            </div>
-
-            <div class="space-y-6">
-                <article class="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
-                    <h3 class="text-base font-semibold text-gray-900">Booking / Room Details</h3>
-                    <div class="mt-4 space-y-3 text-sm text-gray-700">
-                        <div>
-                            <p class="text-xs uppercase tracking-wide text-gray-400">Boarding House</p>
-                            <p class="font-semibold text-gray-900">{{ $booking['boarding_house'] ?? 'Not assigned' }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs uppercase tracking-wide text-gray-400">Room No.</p>
-                            <p class="font-semibold text-gray-900">{{ $booking['room_number'] ?? 'Not assigned' }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs uppercase tracking-wide text-gray-400">Booking Reference</p>
-                            <p class="font-semibold text-gray-900">{{ $booking['booking_reference'] ?? 'N/A' }}</p>
-                        </div>
-                        <div>
-                            <p class="text-xs uppercase tracking-wide text-gray-400">Booking Status</p>
-                            <p class="font-semibold text-gray-900">{{ $booking['status'] ?? $statusLabel }}</p>
-                        </div>
-                        @if (!empty($booking['move_in_date']))
-                            <div>
-                                <p class="text-xs uppercase tracking-wide text-gray-400">Move-in Date</p>
-                                <p class="font-semibold text-gray-900">{{ $booking['move_in_date'] }}</p>
-                            </div>
-                        @endif
-                        @if (!empty($booking['address']))
-                            <div>
-                                <p class="text-xs uppercase tracking-wide text-gray-400">Address</p>
-                                <p class="font-semibold text-gray-900">{{ $booking['address'] }}</p>
-                            </div>
-                        @endif
                     </div>
-                </article>
+                </section>
 
+                <section id="account-security" class="mt-6 border-t ui-border pt-6">
+                    <h2 class="text-lg font-semibold">Notifications</h2>
+                    <div class="mt-4 grid gap-3 md:grid-cols-3">
+                        <label class="flex items-center gap-3 rounded-lg border ui-border p-3 text-sm"><input type="checkbox" name="notify_payment_reminders" value="1" @checked(old('notify_payment_reminders', $notifications['payment_reminders'] ?? true))> Payment reminders</label>
+                        <label class="flex items-center gap-3 rounded-lg border ui-border p-3 text-sm"><input type="checkbox" name="notify_booking_updates" value="1" @checked(old('notify_booking_updates', $notifications['booking_updates'] ?? true))> Booking updates</label>
+                        <label class="flex items-center gap-3 rounded-lg border ui-border p-3 text-sm"><input type="checkbox" name="notify_ticket_updates" value="1" @checked(old('notify_ticket_updates', $notifications['ticket_updates'] ?? true))> Message alerts</label>
+                    </div>
+                </section>
+
+                <div class="mt-6 flex justify-end">
+                    <button class="rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white hover:bg-indigo-700">Save Changes</button>
+                </div>
+            </form>
+
+            <aside class="space-y-5">
+                <section class="ui-card p-5">
+                    <h2 class="font-semibold">Student Information</h2>
+                    <p class="mt-1 text-sm ui-muted">Manage your academic details.</p>
+                    <div class="mt-5 space-y-4">
+                        <label class="text-sm">Student ID<input value="2026-IT-0987" class="ui-input mt-2"></label>
+                        <label class="text-sm">Year Level<select class="ui-input mt-2"><option>2nd Year</option><option>3rd Year</option><option>4th Year</option></select></label>
+                        <label class="text-sm">Expected Graduation<input value="May 2028" class="ui-input mt-2"></label>
+                    </div>
+                </section>
+
+                <section id="id-verification" class="ui-card bg-amber-50/70 p-5 dark:bg-amber-950/20">
+                    <h2 class="font-semibold text-amber-700 dark:text-amber-200">ID Verification</h2>
+                    <p class="mt-3 text-sm ui-muted">Verify your identity to build trust and increase your booking credibility.</p>
+                    <span class="mt-4 inline-flex rounded-lg bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">Verified</span>
+                    <p class="mt-3 text-sm ui-muted">Verified on May 10, 2026</p>
+                </section>
+
+                <section class="ui-card bg-violet-50/70 p-5 dark:bg-violet-950/20">
+                    <h2 class="font-semibold text-indigo-700 dark:text-indigo-200">Account Tips</h2>
+                    <ul class="mt-4 space-y-3 text-sm">
+                        <li>Keep your information up to date</li>
+                        <li>Verify your ID for more trust</li>
+                        <li>Enable notifications for updates</li>
+                    </ul>
+                </section>
+            </aside>
+        </div>
+
+        <div class="ui-card flex flex-col gap-3 bg-violet-50/50 p-5 text-sm dark:bg-violet-950/20 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <p class="font-semibold">Your account is secure</p>
+                <p class="mt-1 ui-muted">We take your privacy and security seriously.</p>
             </div>
-        </section>
-
-        <article class="rounded-2xl border border-gray-100 bg-white shadow-sm p-5">
-            <div class="flex items-center justify-between gap-3">
-                <div>
-                    <h3 class="text-base font-semibold text-gray-900">Billing History</h3>
-                    <p class="text-sm text-gray-500">Payment records and receipt links.</p>
-                </div>
-                <div class="text-right">
-                    <p class="text-xs uppercase tracking-wide text-gray-400">Total Paid</p>
-                    <p class="text-sm font-semibold text-emerald-700">PHP {{ number_format((float) ($billing['total_paid'] ?? 0), 2) }}</p>
-                    <p class="text-xs uppercase tracking-wide text-gray-400 mt-2">Outstanding</p>
-                    <p class="text-sm font-semibold text-rose-700">PHP {{ number_format((float) ($billing['outstanding'] ?? 0), 2) }}</p>
-                </div>
-            </div>
-
-            @if (!$billing['enabled'])
-                <p class="mt-4 text-sm text-gray-500">Billing module is not configured yet.</p>
-            @elseif (empty($billing['items']))
-                <p class="mt-4 text-sm text-gray-500">No billing records found.</p>
-            @else
-                <div class="mt-4 overflow-x-auto">
-                    <table class="min-w-full text-sm text-left">
-                        <thead>
-                            <tr class="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-500">
-                                <th class="py-2 pr-4">Reference</th>
-                                <th class="py-2 pr-4">Amount</th>
-                                <th class="py-2 pr-4">Status</th>
-                                <th class="py-2 pr-4">Due Date</th>
-                                <th class="py-2 pr-4">Paid Date</th>
-                                <th class="py-2">Receipt</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($billing['items'] as $item)
-                                <tr class="border-b border-gray-100">
-                                    <td class="py-2 pr-4 font-semibold text-gray-900">{{ $item['reference'] }}</td>
-                                    <td class="py-2 pr-4 text-gray-700">PHP {{ number_format((float) $item['amount'], 2) }}</td>
-                                    <td class="py-2 pr-4">
-                                        <span class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-semibold {{ strtolower($item['status']) === 'paid' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-amber-100 text-amber-700 border-amber-200' }}">
-                                            {{ $item['status'] }}
-                                        </span>
-                                    </td>
-                                    <td class="py-2 pr-4 text-gray-600">{{ $item['due_date'] ?? '-' }}</td>
-                                    <td class="py-2 pr-4 text-gray-600">{{ $item['paid_date'] ?? '-' }}</td>
-                                    <td class="py-2">
-                                        @if (!empty($item['receipt_url']))
-                                            <a href="{{ $item['receipt_url'] }}" target="_blank" rel="noopener noreferrer" class="text-indigo-600 hover:text-indigo-700 font-medium">
-                                                View Receipt
-                                            </a>
-                                        @else
-                                            <span class="text-gray-400">N/A</span>
-                                        @endif
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            @endif
-        </article>
+            <a href="#account-security" class="rounded-lg border ui-border px-5 py-3 text-sm font-semibold text-indigo-700 hover:bg-[color:var(--surface-2)]">View Account Activity</a>
+        </div>
     </div>
 </x-user.shell>
 </x-layouts.dashboard>

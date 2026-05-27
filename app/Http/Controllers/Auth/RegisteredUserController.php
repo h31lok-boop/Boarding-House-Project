@@ -12,6 +12,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
 use Spatie\Permission\Models\Role;
@@ -81,10 +82,12 @@ class RegisteredUserController extends Controller
                 ]
             );
 
-            TenantMatchProfile::firstOrCreate(
-                ['user_id' => $user->id],
-                ['gender_preference' => 'no_preference']
-            );
+            if (Schema::hasTable('tenant_match_profiles')) {
+                TenantMatchProfile::firstOrCreate(
+                    ['user_id' => $user->id],
+                    ['gender_preference' => 'no_preference']
+                );
+            }
         } else {
             OwnerProfile::firstOrCreate(
                 ['user_id' => $user->id],

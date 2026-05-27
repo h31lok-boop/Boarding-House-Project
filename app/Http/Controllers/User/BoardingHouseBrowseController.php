@@ -10,6 +10,7 @@ use App\Models\CityMunicipality;
 use App\Services\BoardingHouseRecommendationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 class BoardingHouseBrowseController extends Controller
 {
@@ -24,8 +25,15 @@ class BoardingHouseBrowseController extends Controller
     public function index(Request $request)
     {
         $tenant = $request->user();
-        $tenant?->loadMissing('tenantMatchProfile');
-        $canRecommend = $tenant?->isTenant() && (bool) $tenant->tenantMatchProfile?->completed_at;
+        $hasMatchProfiles = Schema::hasTable('tenant_match_profiles');
+
+        if ($hasMatchProfiles) {
+            $tenant?->loadMissing('tenantMatchProfile');
+        }
+
+        $canRecommend = $hasMatchProfiles
+            && $tenant?->isTenant()
+            && (bool) $tenant->tenantMatchProfile?->completed_at;
 
         $q = trim((string) $request->query('q', ''));
         $minPrice = $this->normalizePrice($request->query('min_price'));
