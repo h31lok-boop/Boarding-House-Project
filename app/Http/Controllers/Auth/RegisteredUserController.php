@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\AdminInviteCode;
 use App\Models\OwnerProfile;
 use App\Models\TenantMatchProfile;
 use App\Models\TenantProfile;
@@ -13,15 +14,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Validation\Rules;
+use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Spatie\Permission\Models\Role;
 
 class RegisteredUserController extends Controller
 {
-    /**
-     * Display the registration view.
-     */
     public function create(): View
     {
         return view('auth.register');
@@ -30,55 +29,126 @@ class RegisteredUserController extends Controller
     /**
      * Handle an incoming registration request.
      *
-     * @throws \Illuminate\Validation\ValidationException
+     * Security measures applied here:
+     *  - CSRF: enforced by the `web` middleware stack (VerifyCsrfToken)
+     *  - Rate limiting: `throttle:6,1` applied to the route in auth.php
+     *  - Input validation & XSS: Illuminate Validator + Blade auto-escaping
+     *  - SQL injection: Eloquent uses PDO parameterized queries throughout
+     *  - Password hashing: bcrypt via Hash::make()
+     *  - Role integrity: only 'user' or 'admin' accepted; admin requires a
+     *    valid, unused, non-expired invite code
+     *  - Secure errors: validation messages never expose DB structure or stack
      */
     public function store(Request $request): RedirectResponse
     {
-        $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
-            'role' => ['nullable', 'in:admin,user'],
-            'phone' => ['nullable', 'string', 'max:30'],
-            'institution_name' => ['nullable', 'string', 'max:255'],
-            'move_in_date' => ['nullable', 'date'],
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'terms' => ['sometimes', 'accepted'],
-        ]);
-
-        $hashedPassword = Hash::make($request->password);
         $role = $request->input('role', 'user');
 
-        $attributes = [
-            'role' => $role,
-            'name' => $request->name,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'contact_number' => $request->phone,
-            'institution_name' => $request->institution_name,
-            'move_in_date' => $request->move_in_date,
-            'password' => $hashedPassword,
-            'password_hash' => $hashedPassword,
-            'is_active' => true,
-            'status' => 'active',
-            'email_verified_at' => now(),
+        // Normalise role to prevent injection of arbitrary values
+        if (! in_array($role, ['user', 'admin'], true)) {
+            $role = 'user';
+        }
+
+        // ── Validation ──────────────────────────────────────────────────────
+        $rules = [
+            'name'     => ['required', 'string', 'min:2', 'max:255'],
+            'email'    => ['required', 'string', 'email:rfc,dns', 'max:255', 'unique:users,email'],
+            'phone'    => ['required', 'string', 'regex:/^(\+63|0)9\d{9}$/', 'max:20'],
+            'role'     => ['nullable', 'in:user,admin'],
+            'password' => [
+                'required',
+                'confirmed',
+                Password::min(8)
+                    ->letters()
+                    ->mixedCase()
+                    ->numbers()
+                    ->symbols(),
+            ],
+            'terms'    => ['required', 'accepted'],
         ];
+
+        $messages = [
+            'name.required'           => 'Full name is required.',
+            'name.min'                => 'Full name must be at least 2 characters.',
+            'email.required'          => 'Email address is required.',
+            'email.email'             => 'Please enter a valid email address.',
+            'email.unique'            => 'An account with this email already exists.',
+            'phone.required'          => 'Phone number is required.',
+            'phone.regex'             => 'Enter a valid Philippine number, e.g. 09XX XXX XXXX.',
+            'password.required'       => 'Password is required.',
+            'password.confirmed'      => 'Passwords do not match.',
+            'password.min'            => 'Password must be at least 8 characters.',
+            'terms.accepted'          => 'You must accept the Terms of Service to continue.',
+        ];
+
+        // Admin-specific: require invite code
+        if ($role === 'admin') {
+            $rules['invite_code'] = ['required', 'string', 'min:6'];
+        }
+
+        $validated = $request->validate($rules, $messages);
+
+        // ── Admin invite code check ──────────────────────────────────────────
+        $inviteRecord = null;
+        if ($role === 'admin') {
+            $inviteRecord = AdminInviteCode::where('code', strtoupper(trim($validated['invite_code'])))->first();
+
+            if (! $inviteRecord || ! $inviteRecord->isValid()) {
+                throw ValidationException::withMessages([
+                    'invite_code' => 'This invite code is invalid, has already been used, or has expired.',
+                ]);
+            }
+
+            // If the code is email-restricted, verify it matches
+            if ($inviteRecord->email !== null &&
+                strtolower($inviteRecord->email) !== strtolower($validated['email'])) {
+                throw ValidationException::withMessages([
+                    'invite_code' => 'This invite code is not valid for the provided email address.',
+                ]);
+            }
+        }
+
+        // ── Create the user ─────────────────────────────────────────────────
+        $hashedPassword = Hash::make($validated['password']);
+
+        $attributes = [
+            'name'             => $validated['name'],
+            'email'            => strtolower($validated['email']),
+            'phone'            => $validated['phone'],
+            'contact_number'   => $validated['phone'],
+            'role'             => $role,
+            'password'         => $hashedPassword,
+            'is_active'        => true,
+            'status'           => 'active',
+            // Auto-verify in development; remove this line to enforce email verification
+            'email_verified_at'=> now(),
+        ];
+
+        if (Schema::hasColumn('users', 'password_hash')) {
+            $attributes['password_hash'] = $hashedPassword;
+        }
 
         $user = new User;
         $user->forceFill($attributes);
         $user->save();
 
+        // ── Consume invite code ──────────────────────────────────────────────
+        if ($inviteRecord) {
+            $inviteRecord->consume($user);
+        }
+
+        // ── Auxiliary profiles ───────────────────────────────────────────────
         if ($role === 'user') {
             TenantProfile::firstOrCreate(
                 ['user_id' => $user->id],
                 [
-                    'school_company' => $request->institution_name ?: 'Not provided',
-                    'course_or_position' => null,
-                    'valid_id_type' => 'pending',
-                    'valid_id_number' => 'PENDING-'.$user->id,
-                    'valid_id_file' => 'pending',
-                    'emergency_contact_name' => 'Not provided',
-                    'emergency_contact_number' => 'N/A',
-                    'preferred_language' => 'english',
+                    'school_company'           => null,
+                    'course_or_position'       => null,
+                    'valid_id_type'            => null,
+                    'valid_id_number'          => null,
+                    'valid_id_file'            => null,
+                    'emergency_contact_name'   => null,
+                    'emergency_contact_number' => null,
+                    'preferred_language'       => 'english',
                 ]
             );
 
@@ -92,15 +162,16 @@ class RegisteredUserController extends Controller
             OwnerProfile::firstOrCreate(
                 ['user_id' => $user->id],
                 [
-                    'company_name' => $request->name,
-                    'valid_id_type' => 'pending',
-                    'valid_id_number' => 'PENDING-'.$user->id,
-                    'valid_id_file' => 'pending',
+                    'company_name'        => $user->name,
+                    'valid_id_type'       => null,
+                    'valid_id_number'     => null,
+                    'valid_id_file'       => null,
                     'verification_status' => 'pending',
                 ]
             );
         }
 
+        // ── Spatie role sync ─────────────────────────────────────────────────
         if (method_exists($user, 'assignRole')) {
             $spatieRole = Role::findOrCreate($role, 'web');
             $user->syncRoles([$spatieRole]);
@@ -111,9 +182,6 @@ class RegisteredUserController extends Controller
         Auth::guard('web')->login($user);
         $request->session()->regenerate();
 
-        // Use a single, predictable redirect. The dashboard route itself
-        // handles per-role forwarding so callers and tests always see the
-        // same target coming out of registration.
         return redirect(route('dashboard', absolute: false));
     }
 }

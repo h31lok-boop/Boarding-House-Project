@@ -12,4 +12,7 @@ class DatabaseSeeder extends Seeder
             GeoBoardWiringSeeder::class,
         ]);
     }
+
+    // To generate admin invite codes, run:
+    //   php artisan db:seed --class=AdminInviteCodeSeeder
 }

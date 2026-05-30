@@ -12,6 +12,18 @@ class ReservationController extends Controller
 {
     public function store(Request $request, BoardingHouse $boardingHouse)
     {
+        // ── Daily limit: one reservation request per user per day ────────────
+        $alreadySentToday = Reservation::where('user_id', $request->user()->id)
+            ->whereDate('created_at', today())
+            ->exists();
+
+        if ($alreadySentToday) {
+            return back()->with(
+                'reservation_limit',
+                'You already sent a reservation request today. Please try again tomorrow.'
+            );
+        }
+
         $data = $request->validate([
             'room_id' => ['nullable', 'integer', 'exists:rooms,id'],
             'check_in_date' => ['nullable', 'date'],

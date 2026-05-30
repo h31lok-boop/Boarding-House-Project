@@ -19,6 +19,9 @@ class AccountController extends Controller
     {
         $tenant = $request->user();
         abort_unless($tenant && $tenant->isUser(), 403);
+        if (Schema::hasTable('tenant_match_profiles')) {
+            $tenant->loadMissing('tenantMatchProfile');
+        }
 
         return view('user.settings', [
             'tenant' => $tenant,

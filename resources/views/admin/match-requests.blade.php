@@ -1,4 +1,4 @@
-<x-layouts.dashboard>
+﻿<x-layouts.dashboard>
 <x-admin.shell>
     @php
         $badge = function ($status) {
@@ -88,7 +88,7 @@
             @endif
         </div>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak @click.self="addOpen = false" @keydown.escape.window="addOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <form method="POST" action="{{ route('admin.match-requests.store') }}" class="ui-card w-full max-w-xl p-6">
                 @csrf
                 <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Create Match Request</h2><button type="button" @click="addOpen = false" class="text-xl ui-muted">x</button></div>
@@ -102,7 +102,7 @@
             </form>
         </div>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak @click.self="viewOpen = false" @keydown.escape.window="viewOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="ui-card w-full max-w-lg p-6">
                 <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Request Details</h2><button type="button" @click="viewOpen = false" class="text-xl ui-muted">x</button></div>
                 <dl class="mt-5 grid gap-3 text-sm">

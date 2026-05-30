@@ -223,25 +223,34 @@ const setupModalIsolation = () => {
         }
     }, true);
 
-    document.addEventListener('pointerdown', (event) => {
-        if (!activeModal || activeModal.contains(event.target)) {
+    const isBackdropInteraction = (event) => {
+        if (!activeModal) {
+            return false;
+        }
+
+        const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+
+        return event.target === activeModal
+            || path.some((el) => el instanceof HTMLElement && el.hasAttribute('data-modal-backdrop'));
+    };
+
+    const keepInteractionInModal = (event) => {
+        if (!activeModal) {
+            return;
+        }
+
+        if (activeModal.contains(event.target) && !isBackdropInteraction(event)) {
             return;
         }
 
         event.preventDefault();
         event.stopPropagation();
+        event.stopImmediatePropagation();
         focusModal(activeModal);
-    }, true);
+    };
 
-    document.addEventListener('click', (event) => {
-        if (!activeModal || activeModal.contains(event.target)) {
-            return;
-        }
-
-        event.preventDefault();
-        event.stopPropagation();
-        focusModal(activeModal);
-    }, true);
+    document.addEventListener('pointerdown', keepInteractionInModal, true);
+    document.addEventListener('click', keepInteractionInModal, true);
 
     document.addEventListener('focusin', (event) => {
         if (!activeModal || activeModal.contains(event.target)) {

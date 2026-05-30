@@ -47,11 +47,18 @@ body.modal-open {
     overscroll-behavior: contain;
 }
 
+/* All Alpine-driven dialog overlays: always on top, always capture pointer events */
+[role="dialog"] {
+    z-index: 9999 !important;
+    pointer-events: auto !important;
+}
+
 body.modal-open [data-modal-active='true'] {
-    background-color: rgb(0 0 0 / 0.74) !important;
-    backdrop-filter: blur(4px);
+    background-color: rgb(0 0 0 / 0.86) !important;
+    backdrop-filter: blur(5px);
     height: 100dvh !important;
     inset: 0 !important;
+    isolation: isolate;
     margin: 0 !important;
     max-height: none !important;
     max-width: none !important;
@@ -59,6 +66,11 @@ body.modal-open [data-modal-active='true'] {
     position: fixed !important;
     width: 100vw !important;
     z-index: 2147483647 !important;
+}
+
+body.modal-open [data-modal-active='true'] [data-modal-backdrop] {
+    background-color: rgb(0 0 0 / 0.86) !important;
+    backdrop-filter: blur(5px);
 }
 
 body.modal-open [data-modal-active='true'] > :not([data-modal-backdrop]) {
@@ -240,6 +252,13 @@ body.modal-open [data-modal-active='true'] > :not([data-modal-backdrop]) {
     min-height: 0;
     overflow-y: auto;
     padding-right: 0.15rem;
+}
+
+/* Collapsible section toggle buttons — hidden on icon-only (mobile/tablet) mode */
+@media (max-width: 768px) {
+    .sidebar-section-toggle {
+        display: none !important;
+    }
 }
 
 .sidebar-menu-button {

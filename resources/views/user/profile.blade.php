@@ -35,20 +35,39 @@
     @endphp
 
     <div class="space-y-6">
-        <div>
-            <h1 class="text-2xl md:text-3xl font-bold">My Preferences</h1>
-            <p class="mt-2 text-sm ui-muted">Manage your preferences to get better matches. Match Profile settings are used for compatibility scoring.</p>
+
+        {{-- ── Breadcrumb ── --}}
+        <nav class="flex items-center gap-1.5 text-xs text-gray-400">
+            <a href="{{ route('user.dashboard') }}" class="hover:text-gray-600 transition-colors">Home</a>
+            <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <span class="font-medium text-gray-600">My Preferences</span>
+        </nav>
+
+        {{-- ── Header ── --}}
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-widest" style="color:var(--brand-600)">Matchmaking</p>
+                <h1 class="mt-1 text-2xl font-bold text-gray-900">My Preferences</h1>
+                <p class="mt-0.5 text-sm ui-muted">Set your preferences to get better boarding house and roommate matches.</p>
+            </div>
+            <a href="{{ route('user.recommendations') }}"
+               class="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white transition-all hover:opacity-90"
+               style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>
+                View My Matches
+            </a>
         </div>
 
         @if (! $matchProfilesAvailable)
-            <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                <svg class="inline h-4 w-4 mr-1.5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                 Tenant match profiles are not available yet. Run the pending migrations to enable saving this page.
             </div>
         @endif
 
-        <div class="flex gap-8 border-b ui-border">
-            <a href="{{ route('user.profile') }}" class="border-b-2 border-indigo-600 px-6 py-3 text-sm font-semibold text-indigo-700">Preferences</a>
-            <a href="#lifestyle-fields" class="px-6 py-3 text-sm ui-muted hover:text-[color:var(--text)]">Lifestyle</a>
+        <div class="flex items-center gap-0 border-b ui-border overflow-x-auto">
+            <a href="{{ route('user.profile') }}" class="px-5 py-3 text-sm font-semibold border-b-2 border-indigo-600 text-indigo-700 whitespace-nowrap">Preferences</a>
+            <a href="#lifestyle-fields" class="px-5 py-3 text-sm font-semibold border-b-2 border-transparent ui-muted hover:text-gray-700 whitespace-nowrap">Lifestyle</a>
         </div>
 
         <form method="POST" action="{{ route('user.profile.update') }}" class="grid gap-6 xl:grid-cols-[1fr_390px]">
@@ -215,6 +234,21 @@
                 </section>
             </aside>
         </form>
+
+        {{-- ── Bottom Banner ── --}}
+        <div class="ui-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 shrink-0 rounded-xl bg-violet-50 flex items-center justify-center">
+                    <svg class="h-5 w-5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                </div>
+                <div>
+                    <p class="text-sm font-semibold text-gray-900">More complete preferences = better matches.</p>
+                    <p class="text-xs text-gray-400">The more you fill in, the more accurately we can recommend boarding houses for you.</p>
+                </div>
+            </div>
+            <a href="{{ route('user.recommendations') }}" class="text-sm font-semibold text-indigo-600 hover:underline shrink-0">See My Matches →</a>
+        </div>
+
     </div>
 </x-user.shell>
 </x-layouts.dashboard>

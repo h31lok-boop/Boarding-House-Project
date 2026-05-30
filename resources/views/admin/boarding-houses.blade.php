@@ -1,4 +1,4 @@
-<x-layouts.dashboard>
+﻿<x-layouts.dashboard>
 <x-admin.shell>
     @php
         $statusBadge = function ($status) {
@@ -29,56 +29,71 @@
         }"
         class="space-y-6"
     >
-        <div class="ui-card p-6">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                    <p class="text-sm font-semibold uppercase tracking-[0.18em] text-[color:var(--brand-600)]">Management</p>
-                    <h1 class="mt-2 text-2xl font-bold">Boarding Houses</h1>
-                    <p class="mt-2 text-sm ui-muted">Create, verify, and manage owner listings and availability details.</p>
-                </div>
-                <button type="button" @click="addOpen = true" class="btn-primary">Add Boarding House</button>
+        {{-- Page Header --}}
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Boarding Houses</h1>
+                <p class="mt-1 text-sm text-gray-500">Manage all boarding houses in the system.</p>
             </div>
+            <button type="button" @click="addOpen = true"
+                    class="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm font-medium rounded-lg hover:bg-orange-600 transition-colors shadow-sm">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                Add Boarding House
+            </button>
         </div>
 
-        <form method="GET" class="ui-card p-4 grid gap-3 md:grid-cols-[1fr_160px_180px_auto]">
-            <input name="q" value="{{ request('q') }}" class="ui-input text-sm" placeholder="Search name or address">
-            <select name="status" class="ui-input text-sm">
-                <option value="">All statuses</option>
+        {{-- Filters --}}
+        <form method="GET" class="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm flex flex-wrap gap-3 items-center">
+            <div class="relative flex-1 min-w-[200px]">
+                <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                <input name="q" value="{{ request('q') }}" class="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" placeholder="Search by name, location...">
+            </div>
+            <select name="status" class="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300">
+                <option value="">All Status</option>
                 <option value="active" @selected(request('status') === 'active')>Active</option>
                 <option value="inactive" @selected(request('status') === 'inactive')>Inactive</option>
             </select>
-            <select name="approval" class="ui-input text-sm">
-                <option value="">All approvals</option>
+            <select name="approval" class="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300">
+                <option value="">All Locations</option>
                 <option value="approved" @selected(request('approval') === 'approved')>Approved</option>
                 <option value="pending" @selected(request('approval') === 'pending')>Pending</option>
                 <option value="rejected" @selected(request('approval') === 'rejected')>Rejected</option>
             </select>
-            <button class="btn-secondary">Filter</button>
+            <button class="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-700">
+                <svg class="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M3 4h18M6 8h12M9 12h6M12 16h1"/></svg>
+                Filters
+            </button>
         </form>
 
-        <div class="ui-card overflow-hidden">
+        {{-- Table --}}
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="min-w-full text-sm">
-                    <thead class="bg-[color:var(--surface-2)] text-xs uppercase ui-muted">
+                    <thead class="bg-gray-50 text-xs text-gray-500 uppercase border-b border-gray-100">
                         <tr>
                             <th class="px-5 py-3 text-left">Boarding House</th>
-                            <th class="px-5 py-3 text-left">Owner</th>
-                            <th class="px-5 py-3 text-left">Rooms</th>
+                            <th class="px-5 py-3 text-left">Location</th>
+                            <th class="px-5 py-3 text-left">Total Rooms</th>
+                            <th class="px-5 py-3 text-left">Occupied</th>
+                            <th class="px-5 py-3 text-left">Occupancy</th>
                             <th class="px-5 py-3 text-left">Status</th>
                             <th class="px-5 py-3 text-right">Actions</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y ui-border">
+                    <tbody class="divide-y divide-gray-100">
                         @forelse ($houses as $house)
                             @php
                                 $activeLabel = $house->is_active ? 'Active' : 'Inactive';
                                 $approval = $house->approval_status ?: ($house->status ?: 'pending');
                                 $locationLabel = collect([
-                                    $house->barangay?->barangay_name,
                                     $house->city?->city_name,
                                     $house->province?->province_name,
-                                    $house->region?->region_name,
-                                ])->filter()->implode(', ');
+                                ])->filter()->implode(', ') ?: ($house->address ? explode(',', $house->address)[0] : 'CDO');
+                                $occupiedCount = $house->rooms->where('status', 'Occupied')->count() + $house->rooms->where('status', 'occupied')->count();
+                                $totalCount = $house->rooms_count ?: 0;
+                                $occupancyPct = $totalCount > 0 ? round(($occupiedCount / $totalCount) * 100) : 0;
                                 $availableRooms = max(
                                     (int) ($house->available_rooms ?? 0),
                                     (int) $house->roomCategories->sum('available_rooms')
@@ -91,7 +106,7 @@
                                     'name' => $house->name,
                                     'address' => $house->address ?: $house->full_address,
                                     'full_address' => $house->full_address ?: $house->address,
-                                    'location_label' => $locationLabel,
+                                    'location_label' => collect([$house->barangay?->barangay_name, $house->city?->city_name, $house->province?->province_name, $house->region?->region_name])->filter()->implode(', '),
                                     'latitude' => $house->latitude !== null ? (float) $house->latitude : null,
                                     'longitude' => $house->longitude !== null ? (float) $house->longitude : null,
                                     'description' => $house->description,
@@ -141,43 +156,71 @@
                                     'update_url' => route('admin.listings.update', $house),
                                 ];
                             @endphp
-                            <tr>
+                            <tr class="hover:bg-gray-50">
                                 <td class="px-5 py-4">
-                                    <p class="font-semibold">{{ $house->name }}</p>
-                                    <p class="text-xs ui-muted">{{ $house->address ?: $house->full_address ?: 'No address set' }}</p>
-                                </td>
-                                <td class="px-5 py-4 ui-muted">{{ $house->owner->name ?? $house->landlord_info ?? 'Owner' }}</td>
-                                <td class="px-5 py-4">
-                                    <p>{{ $house->rooms_count }} rooms</p>
-                                    <p class="text-xs ui-muted">{{ $house->reservations_count }} reservations · {{ $house->inquiries_count }} inquiries</p>
-                                </td>
-                                <td class="px-5 py-4">
-                                    <div class="flex flex-wrap gap-2">
-                                        <span class="badge border {{ $statusBadge($activeLabel) }}">{{ $activeLabel }}</span>
-                                        <span class="badge border {{ $statusBadge($approval) }}">{{ ucfirst($approval) }}</span>
+                                    <div class="flex items-center gap-3">
+                                        <div class="h-10 w-14 rounded-lg bg-orange-50 flex items-center justify-center shrink-0 overflow-hidden border border-orange-100">
+                                            @if ($house->cover_image ?? $house->image ?? $house->photo ?? null)
+                                                <img src="{{ asset('storage/'.($house->cover_image ?? $house->image ?? $house->photo)) }}" class="h-full w-full object-cover" alt="">
+                                            @else
+                                                <svg class="h-5 w-5 text-orange-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 21h18M3 10h18M3 7l9-4 9 4M9 21v-7h6v7"/></svg>
+                                            @endif
+                                        </div>
+                                        <p class="font-medium text-gray-800">{{ $house->name }}</p>
                                     </div>
                                 </td>
+                                <td class="px-5 py-4 text-gray-500">{{ $locationLabel }}</td>
+                                <td class="px-5 py-4 text-gray-700">{{ $totalCount }}</td>
+                                <td class="px-5 py-4 text-gray-700">{{ $occupiedCount }}</td>
+                                <td class="px-5 py-4 text-gray-700">{{ $occupancyPct }}%</td>
                                 <td class="px-5 py-4">
-                                    <div class="flex justify-end gap-2">
-                                        <button type="button" class="btn-secondary px-3 py-1.5 text-xs" @click="showDetails({{ \Illuminate\Support\Js::from($payload) }})">View</button>
-                                        <button type="button" class="btn-secondary px-3 py-1.5 text-xs" @click="editDetails({{ \Illuminate\Support\Js::from($payload) }})">Edit</button>
+                                    <span class="px-2 py-0.5 rounded-full text-xs font-medium {{ $house->is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600' }}">
+                                        {{ $activeLabel }}
+                                    </span>
+                                </td>
+                                <td class="px-5 py-4">
+                                    <div class="flex justify-end items-center gap-2">
+                                        {{-- Manage Rooms link --}}
+                                        <a href="{{ route('admin.rooms', ['boarding_house_id' => $house->id]) }}"
+                                           title="Manage Rooms"
+                                           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-orange-200 bg-orange-50 text-orange-600 text-xs font-semibold hover:bg-orange-100 transition-colors">
+                                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                                                <rect x="3" y="4" width="18" height="16" rx="2" stroke-width="1.7"/>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M3 9h18M12 9v11M8 14h2M14 14h2"/>
+                                            </svg>
+                                            Rooms
+                                            @if($totalCount > 0)
+                                                <span class="ml-0.5 rounded-full bg-orange-200 text-orange-700 text-[10px] font-bold px-1.5 py-0.5 leading-none">{{ $totalCount }}</span>
+                                            @endif
+                                        </a>
+                                        <button type="button" class="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-500" title="View" @click="showDetails({{ \Illuminate\Support\Js::from($payload) }})">
+                                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/></svg>
+                                        </button>
+                                        <button type="button" class="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-500" title="Edit" @click="editDetails({{ \Illuminate\Support\Js::from($payload) }})">
+                                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M16.862 4.487a2.1 2.1 0 0 1 2.97 2.97L8.416 18.873l-4.5.5.5-4.5 12.446-10.386Z"/></svg>
+                                        </button>
                                         <form method="POST" action="{{ route('admin.listings.destroy', $house) }}" onsubmit="return confirm('Delete this boarding house?')">
                                             @csrf @method('DELETE')
-                                            <button class="btn-danger px-3 py-1.5 text-xs">Delete</button>
+                                            <button class="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-rose-50 text-gray-400 hover:text-rose-500" title="Delete">
+                                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16"/></svg>
+                                            </button>
                                         </form>
                                     </div>
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="px-5 py-8 text-center ui-muted">No boarding houses found.</td></tr>
+                            <tr><td colspan="7" class="px-5 py-10 text-center text-gray-400">No boarding houses found.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
-            <div class="border-t ui-border px-5 py-4">{{ $houses->links() }}</div>
+            <div class="border-t border-gray-100 px-5 py-4 flex items-center justify-between text-sm text-gray-500">
+                <span>Showing {{ $houses->firstItem() ?? 0 }} to {{ $houses->lastItem() ?? 0 }} of {{ $houses->total() }} results</span>
+                {{ $houses->links() }}
+            </div>
         </div>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak @click.self="addOpen = false" @keydown.escape.window="addOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <form method="POST" action="{{ route('admin.listings.store') }}" class="ui-card max-h-[90vh] w-full max-w-3xl overflow-y-auto p-6">
                 @csrf
                 <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Add Boarding House</h2><button type="button" @click="addOpen = false" class="text-xl ui-muted">x</button></div>
@@ -209,7 +252,7 @@
             </form>
         </div>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak @click.self="viewOpen = false" @keydown.escape.window="viewOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="ui-card max-h-[92vh] w-full max-w-5xl overflow-y-auto p-6">
                 <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Boarding House Details</h2><button type="button" @click="viewOpen = false" class="text-xl ui-muted">x</button></div>
                 <div class="mt-5 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
@@ -334,7 +377,7 @@
             </div>
         </div>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak @click.self="editOpen = false" @keydown.escape.window="editOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <form method="POST" :action="selected.update_url" class="ui-card max-h-[90vh] w-full max-w-3xl overflow-y-auto p-6">
                 @csrf @method('PUT')
                 <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Edit Boarding House</h2><button type="button" @click="editOpen = false" class="text-xl ui-muted">x</button></div>

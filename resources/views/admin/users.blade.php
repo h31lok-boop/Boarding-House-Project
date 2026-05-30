@@ -1,4 +1,4 @@
-<x-layouts.dashboard>
+﻿<x-layouts.dashboard>
 <x-admin.shell>
     @php
         $badge = fn ($active) => $active ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-rose-100 text-rose-700 border-rose-200';
@@ -97,51 +97,91 @@
             <div class="border-t ui-border px-5 py-4">{{ $users->links() }}</div>
         </div>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
+        {{-- Add User Modal --}}
+        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak @click.self="addOpen = false" @keydown.escape.window="addOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <form method="POST" action="{{ route('admin.users.store') }}" class="ui-card w-full max-w-xl p-6">
                 @csrf
-                <div class="flex items-center justify-between">
+                <div class="flex items-center justify-between mb-5">
                     <h2 class="text-lg font-semibold">Add User</h2>
-                    <button type="button" @click="addOpen = false" class="text-xl ui-muted">x</button>
+                    <button type="button" @click="addOpen = false" class="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-400">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
                 </div>
-                <div class="mt-5 grid gap-4 sm:grid-cols-2">
+                <div class="grid gap-4 sm:grid-cols-2">
                     <label class="text-sm">Name<input name="name" required class="ui-input mt-1"></label>
                     <label class="text-sm">Email<input name="email" type="email" required class="ui-input mt-1"></label>
-                    <label class="text-sm">Role<select name="role" required class="ui-input mt-1"><option value="user">Student / Tenant</option><option value="admin">Admin / Owner</option></select></label>
+                    <label class="text-sm">Role
+                        <select name="role" required class="ui-input mt-1">
+                            <option value="user">Student / Tenant</option>
+                            <option value="admin">Admin / Owner</option>
+                        </select>
+                    </label>
                     <label class="text-sm">Phone<input name="phone" class="ui-input mt-1"></label>
                     <label class="text-sm sm:col-span-2">Password<input name="password" type="password" required minlength="8" class="ui-input mt-1"></label>
-                    <label class="sm:col-span-2 flex items-center gap-2 text-sm"><input type="checkbox" name="is_active" value="1" checked> Active account</label>
+                    <label class="sm:col-span-2 flex items-center gap-2 text-sm cursor-pointer">
+                        <input type="checkbox" name="is_active" value="1" checked class="rounded"> Active account
+                    </label>
                 </div>
-                <div class="mt-6 flex justify-end gap-2"><button type="button" @click="addOpen = false" class="btn-secondary">Cancel</button><button class="btn-primary">Save User</button></div>
+                <div class="mt-6 flex justify-end gap-2">
+                    <button type="button" @click="addOpen = false" class="btn-secondary">Cancel</button>
+                    <button class="btn-primary">Save User</button>
+                </div>
             </form>
         </div>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
+        {{-- View User Modal --}}
+        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak @click.self="viewOpen = false" @keydown.escape.window="viewOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="ui-card w-full max-w-lg p-6">
-                <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">User Details</h2><button type="button" @click="viewOpen = false" class="text-xl ui-muted">x</button></div>
-                <dl class="mt-5 grid gap-3 text-sm">
-                    <div><dt class="ui-muted">Name</dt><dd class="font-semibold" x-text="selected.name"></dd></div>
-                    <div><dt class="ui-muted">Email</dt><dd x-text="selected.email"></dd></div>
-                    <div><dt class="ui-muted">Role</dt><dd x-text="selected.role === 'admin' ? 'Admin / Owner' : 'Student / Tenant'"></dd></div>
-                    <div><dt class="ui-muted">Status</dt><dd x-text="selected.active ? 'Active' : 'Inactive'"></dd></div>
+                <div class="flex items-center justify-between mb-5">
+                    <h2 class="text-lg font-semibold">User Details</h2>
+                    <button type="button" @click="viewOpen = false" class="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-400">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <dl class="grid gap-3 text-sm">
+                    <div class="flex justify-between py-2 border-b ui-border"><dt class="ui-muted">Name</dt><dd class="font-semibold" x-text="selected.name"></dd></div>
+                    <div class="flex justify-between py-2 border-b ui-border"><dt class="ui-muted">Email</dt><dd x-text="selected.email"></dd></div>
+                    <div class="flex justify-between py-2 border-b ui-border"><dt class="ui-muted">Role</dt><dd x-text="selected.role === 'admin' ? 'Admin / Owner' : 'Student / Tenant'"></dd></div>
+                    <div class="flex justify-between py-2 border-b ui-border"><dt class="ui-muted">Phone</dt><dd x-text="selected.phone || 'Not set'"></dd></div>
+                    <div class="flex justify-between py-2"><dt class="ui-muted">Status</dt><dd x-text="selected.active ? 'Active' : 'Inactive'"></dd></div>
                 </dl>
-                <div class="mt-6 flex justify-end"><button type="button" @click="viewOpen = false" class="btn-secondary">Close</button></div>
+                <div class="mt-6 flex justify-end">
+                    <button type="button" @click="viewOpen = false" class="btn-secondary">Close</button>
+                </div>
             </div>
         </div>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
+        {{-- Edit User Modal --}}
+        <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak @click.self="editOpen = false" @keydown.escape.window="editOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <form method="POST" :action="selected.update_url" class="ui-card w-full max-w-xl p-6">
                 @csrf @method('PATCH')
-                <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Edit User</h2><button type="button" @click="editOpen = false" class="text-xl ui-muted">x</button></div>
-                <div class="mt-5 grid gap-4 sm:grid-cols-2">
+                <div class="flex items-center justify-between mb-5">
+                    <h2 class="text-lg font-semibold">Edit User</h2>
+                    <button type="button" @click="editOpen = false" class="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-400">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                <div class="grid gap-4 sm:grid-cols-2">
                     <label class="text-sm">Name<input name="name" required class="ui-input mt-1" :value="selected.name"></label>
                     <label class="text-sm">Email<input name="email" type="email" required class="ui-input mt-1" :value="selected.email"></label>
-                    <label class="text-sm">Role<select name="role" required class="ui-input mt-1" :value="selected.role"><option value="user">Student / Tenant</option><option value="admin">Admin / Owner</option></select></label>
+                    <label class="text-sm">Role
+                        <select name="role" required class="ui-input mt-1">
+                            <option value="user" :selected="selected.role === 'user'">Student / Tenant</option>
+                            <option value="admin" :selected="selected.role === 'admin'">Admin / Owner</option>
+                        </select>
+                    </label>
                     <label class="text-sm">Phone<input name="phone" class="ui-input mt-1" :value="selected.phone"></label>
-                    <label class="text-sm sm:col-span-2">New password<input name="password" type="password" minlength="8" class="ui-input mt-1" placeholder="Leave blank to keep current password"></label>
-                    <label class="sm:col-span-2 flex items-center gap-2 text-sm"><input type="checkbox" name="is_active" value="1" :checked="selected.active"> Active account</label>
+                    <label class="text-sm sm:col-span-2">New Password
+                        <input name="password" type="password" minlength="8" class="ui-input mt-1" placeholder="Leave blank to keep current">
+                    </label>
+                    <label class="sm:col-span-2 flex items-center gap-2 text-sm cursor-pointer">
+                        <input type="checkbox" name="is_active" value="1" :checked="selected.active" class="rounded"> Active account
+                    </label>
                 </div>
-                <div class="mt-6 flex justify-end gap-2"><button type="button" @click="editOpen = false" class="btn-secondary">Cancel</button><button class="btn-primary">Save Changes</button></div>
+                <div class="mt-6 flex justify-end gap-2">
+                    <button type="button" @click="editOpen = false" class="btn-secondary">Cancel</button>
+                    <button class="btn-primary">Save Changes</button>
+                </div>
             </form>
         </div>
     </div>

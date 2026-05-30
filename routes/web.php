@@ -105,6 +105,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/reservations', [TenantAreaController::class, 'reservations'])->name('reservations');
         Route::patch('/reservations/{reservation}/cancel', [TenantAreaController::class, 'cancelReservation'])->name('reservations.cancel');
         Route::get('/payments', [TenantAreaController::class, 'payments'])->name('payments');
+        Route::post('/payment-methods', [TenantAreaController::class, 'storePaymentMethod'])->name('payment-methods.store');
+        Route::patch('/payment-methods/{method}/default', [TenantAreaController::class, 'setDefaultPaymentMethod'])->name('payment-methods.default');
+        Route::delete('/payment-methods/{method}', [TenantAreaController::class, 'destroyPaymentMethod'])->name('payment-methods.destroy');
+        Route::post('/payments/confirm', [TenantAreaController::class, 'confirmPayment'])->name('payments.confirm');
         Route::get('/messages', [TenantAreaController::class, 'messages'])->name('messages');
         Route::post('/messages', [TenantAreaController::class, 'storeMessage'])->name('messages.store');
         Route::get('/reviews', [TenantAreaController::class, 'reviews'])->name('reviews');

@@ -433,27 +433,46 @@
 
 <x-user.shell search-placeholder="Search listings, reservations, messages...">
     <div class="space-y-6">
-        <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+
+        {{-- ── Breadcrumb / Current Location ── --}}
+        <nav class="flex items-center gap-1.5 text-xs text-gray-400">
+            <span class="font-medium text-gray-600">Dashboard</span>
+            <span class="text-gray-300">·</span>
+            <span>{{ now()->format('l, M d, Y') }}</span>
+        </nav>
+
+        {{-- ── Welcome Header ── --}}
+        <div class="ui-card p-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+             style="background:linear-gradient(135deg,#eef2ff 0%,#f5f3ff 50%,#fff7ed 100%)">
             <div>
-                <h1 class="text-2xl md:text-3xl font-bold">Welcome back, {{ $firstName }}! <span aria-hidden="true">&#128075;</span></h1>
-                <p class="mt-2 text-sm ui-muted">Find your perfect boarding house match that fits your preferences and lifestyle.</p>
+                <p class="text-xs font-bold uppercase tracking-widest text-indigo-500">Welcome Back</p>
+                <h1 class="mt-1 text-2xl font-bold text-gray-900">{{ $firstName }} <span aria-hidden="true">&#128075;</span></h1>
+                <p class="mt-0.5 text-sm text-gray-500">Find your perfect boarding house match based on your preferences and lifestyle.</p>
             </div>
-            <div class="flex flex-wrap gap-2">
-                <a href="{{ $r('user.recommendations') }}" class="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700">View all matches</a>
-                <a href="{{ $r('user.profile') }}" class="px-4 py-2 rounded-lg border ui-border text-sm hover:bg-[color:var(--surface-2)]">Update Profile</a>
+            <div class="flex flex-wrap gap-2 shrink-0">
+                <a href="{{ $r('user.recommendations') }}"
+                   class="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white transition-all hover:opacity-90"
+                   style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+                    View Matches
+                </a>
+                <a href="{{ $r('user.profile') }}"
+                   class="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-white transition-colors">
+                    Update Profile
+                </a>
             </div>
         </div>
 
+        {{-- ── Summary Cards ── --}}
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
             @foreach ($summaryCards as $card)
                 <div class="ui-card p-5">
                     <div class="flex items-start justify-between gap-3">
                         <div>
-                            <p class="text-sm font-semibold">{{ $card['label'] }}</p>
-                            <p class="mt-3 text-2xl font-bold">{!! $card['value'] !!}</p>
-                            <p class="mt-1 text-xs ui-muted">{{ $card['subtitle'] }}</p>
+                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">{{ $card['label'] }}</p>
+                            <p class="mt-2 text-2xl font-bold text-gray-900">{!! $card['value'] !!}</p>
+                            <p class="mt-0.5 text-xs ui-muted">{{ $card['subtitle'] }}</p>
                         </div>
-                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl {{ $card['tone'] }}">
+                        <span class="inline-flex h-11 w-11 items-center justify-center rounded-2xl {{ $card['tone'] }} shrink-0">
                             {!! $card['icon'] !!}
                         </span>
                     </div>
@@ -605,6 +624,21 @@
                 </div>
             </section>
         </div>
+
+        {{-- ── Bottom Banner ── --}}
+        <div class="ui-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 shrink-0 rounded-xl bg-indigo-50 flex items-center justify-center">
+                    <svg class="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 22s-8-4-8-10V5l8-3 8 3v7c0 6-8 10-8 10Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4"/></svg>
+                </div>
+                <div>
+                    <p class="text-sm font-semibold text-gray-900">Your account and data are fully secure with BoardMatch.</p>
+                    <p class="text-xs text-gray-400">We use industry-standard encryption to keep your information safe at all times.</p>
+                </div>
+            </div>
+            <a href="{{ $r('user.messages') }}" class="text-sm font-semibold text-indigo-600 hover:underline shrink-0">Contact Support →</a>
+        </div>
+
     </div>
 </x-user.shell>
 

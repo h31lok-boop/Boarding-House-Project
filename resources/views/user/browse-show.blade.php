@@ -154,30 +154,93 @@
                     <a href="{{ route('user.browse') }}" class="block w-full text-center px-4 py-2 rounded-lg border ui-border text-sm">Back to List</a>
                 </div>
 
+                {{-- ── Send Inquiry ── --}}
                 <div class="ui-card p-4">
                     <h3 class="font-semibold mb-3">Send Inquiry</h3>
-                    <form method="POST" action="{{ route('user.inquiries.store', $house) }}" class="space-y-2">
+
+                    @if(session('inquiry_limit'))
+                        <div class="mb-3 flex items-start gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs text-amber-800">
+                            <svg class="h-4 w-4 shrink-0 mt-0.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                            {{ session('inquiry_limit') }}
+                        </div>
+                    @endif
+
+                    <form method="POST" action="{{ route('user.inquiries.store', $house) }}" class="space-y-2"
+                          @if($alreadyInquiredToday ?? false) id="inquiryFormLimited" @endif>
                         @csrf
-                        <textarea name="message" rows="4" class="ui-input text-sm" placeholder="Ask about rates, rules, or availability..." required>{{ old('message') }}</textarea>
+                        <textarea name="message" rows="4"
+                                  class="ui-input text-sm {{ ($alreadyInquiredToday ?? false) ? 'opacity-50 cursor-not-allowed' : '' }}"
+                                  placeholder="Ask about rates, rules, or availability..."
+                                  {{ ($alreadyInquiredToday ?? false) ? 'disabled' : 'required' }}>{{ old('message') }}</textarea>
                         @error('message')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
-                        <button type="submit" class="w-full px-4 py-2 rounded-lg bg-amber-500 text-white text-sm">Send Inquiry</button>
+
+                        @if($alreadyInquiredToday ?? false)
+                            <div class="flex items-start gap-1.5 text-xs text-amber-700">
+                                <svg class="h-3.5 w-3.5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                You already sent an inquiry today. Please try again tomorrow.
+                            </div>
+                            <button type="button" disabled
+                                    class="w-full px-4 py-2 rounded-lg bg-amber-200 text-amber-500 text-sm cursor-not-allowed opacity-70">
+                                Send Inquiry
+                            </button>
+                        @else
+                            <button type="submit"
+                                    class="w-full px-4 py-2 rounded-lg bg-amber-500 text-white text-sm hover:bg-amber-600 transition-colors">
+                                Send Inquiry
+                            </button>
+                        @endif
                     </form>
                 </div>
 
+                {{-- ── Reservation Request ── --}}
                 <div class="ui-card p-4">
                     <h3 class="font-semibold mb-3">Reservation Request</h3>
+
+                    @if(session('reservation_limit'))
+                        <div class="mb-3 flex items-start gap-2 rounded-lg bg-rose-50 border border-rose-200 px-3 py-2.5 text-xs text-rose-800">
+                            <svg class="h-4 w-4 shrink-0 mt-0.5 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                            {{ session('reservation_limit') }}
+                        </div>
+                    @endif
+
                     <form method="POST" action="{{ route('user.reservations.store', $house) }}" class="space-y-2">
                         @csrf
-                        <select name="room_id" class="ui-input text-sm">
+                        <select name="room_id"
+                                class="ui-input text-sm {{ ($alreadyReservedToday ?? false) ? 'opacity-50 cursor-not-allowed' : '' }}"
+                                {{ ($alreadyReservedToday ?? false) ? 'disabled' : '' }}>
                             <option value="">Any available room</option>
                             @foreach($house->rooms as $room)
                                 <option value="{{ $room->id }}">{{ $room->room_no ?: $room->name ?: 'Room #'.$room->id }}</option>
                             @endforeach
                         </select>
-                        <input type="date" name="check_in_date" class="ui-input text-sm" value="{{ old('check_in_date') }}">
-                        <input type="date" name="check_out_date" class="ui-input text-sm" value="{{ old('check_out_date') }}">
-                        <textarea name="notes" rows="3" class="ui-input text-sm" placeholder="Optional notes">{{ old('notes') }}</textarea>
-                        <button type="submit" class="w-full px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm">Submit Reservation</button>
+                        <input type="date" name="check_in_date"
+                               class="ui-input text-sm {{ ($alreadyReservedToday ?? false) ? 'opacity-50 cursor-not-allowed' : '' }}"
+                               value="{{ old('check_in_date') }}"
+                               {{ ($alreadyReservedToday ?? false) ? 'disabled' : '' }}>
+                        <input type="date" name="check_out_date"
+                               class="ui-input text-sm {{ ($alreadyReservedToday ?? false) ? 'opacity-50 cursor-not-allowed' : '' }}"
+                               value="{{ old('check_out_date') }}"
+                               {{ ($alreadyReservedToday ?? false) ? 'disabled' : '' }}>
+                        <textarea name="notes" rows="3"
+                                  class="ui-input text-sm {{ ($alreadyReservedToday ?? false) ? 'opacity-50 cursor-not-allowed' : '' }}"
+                                  placeholder="Optional notes"
+                                  {{ ($alreadyReservedToday ?? false) ? 'disabled' : '' }}>{{ old('notes') }}</textarea>
+
+                        @if($alreadyReservedToday ?? false)
+                            <div class="flex items-start gap-1.5 text-xs text-rose-700">
+                                <svg class="h-3.5 w-3.5 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                You already sent a reservation request today. Please try again tomorrow.
+            		    </div>
+                            <button type="button" disabled
+                                    class="w-full px-4 py-2 rounded-lg bg-emerald-200 text-emerald-500 text-sm cursor-not-allowed opacity-70">
+                                Submit Reservation
+                            </button>
+                        @else
+                            <button type="submit"
+                                    class="w-full px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700 transition-colors">
+                                Submit Reservation
+                            </button>
+                        @endif
                     </form>
                 </div>
             </div>

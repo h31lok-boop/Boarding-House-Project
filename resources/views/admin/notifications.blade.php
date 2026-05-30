@@ -1,4 +1,4 @@
-<x-layouts.dashboard>
+﻿<x-layouts.dashboard>
 <x-admin.shell>
     <div x-data="{ sendOpen: false, detailOpen: false, selected: {} }" class="space-y-6">
         <div class="ui-card p-6">
@@ -57,10 +57,10 @@
             @endif
         </div>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="sendOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="sendOpen" x-cloak @click.self="sendOpen = false" @keydown.escape.window="sendOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <form method="POST" action="{{ route('admin.notifications.store') }}" class="ui-card w-full max-w-xl p-6">
                 @csrf
-                <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Send Notification</h2><button type="button" @click="sendOpen = false" class="text-xl ui-muted">x</button></div>
+                <div class="flex items-center justify-between mb-5"><h2 class="text-lg font-semibold">Send Notification</h2><button type="button" @click="sendOpen = false" class="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-400"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div>
                 <div class="mt-5 grid gap-4">
                     <label class="text-sm">Recipient<select name="user_id" required class="ui-input mt-1">@foreach ($users as $user)<option value="{{ $user->id }}">{{ $user->name }} · {{ $user->email }}</option>@endforeach</select></label>
                     <label class="text-sm">Title<input name="title" required class="ui-input mt-1"></label>
@@ -70,9 +70,9 @@
             </form>
         </div>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="detailOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="detailOpen" x-cloak @click.self="detailOpen = false" @keydown.escape.window="detailOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="ui-card w-full max-w-lg p-6">
-                <div class="flex items-center justify-between"><h2 class="text-lg font-semibold" x-text="selected.title"></h2><button type="button" @click="detailOpen = false" class="text-xl ui-muted">x</button></div>
+                <div class="flex items-center justify-between mb-2"><h2 class="text-lg font-semibold" x-text="selected.title"></h2><button type="button" @click="detailOpen = false" class="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-400"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div>
                 <p class="mt-2 text-sm ui-muted" x-text="selected.type"></p>
                 <p class="mt-5 text-sm" x-text="selected.message"></p>
                 <div class="mt-6 flex justify-end"><button type="button" @click="detailOpen = false" class="btn-secondary">Close</button></div>

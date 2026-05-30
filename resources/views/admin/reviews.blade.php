@@ -1,4 +1,4 @@
-<x-layouts.dashboard>
+﻿<x-layouts.dashboard>
 <x-admin.shell>
     @php
         $badge = fn ($status) => match (strtolower((string) $status)) {
@@ -69,9 +69,9 @@
 
         <div>{{ $reviews->links() }}</div>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="detailOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="detailOpen" x-cloak @click.self="detailOpen = false" @keydown.escape.window="detailOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="ui-card w-full max-w-lg p-6">
-                <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Review Details</h2><button type="button" @click="detailOpen = false" class="text-xl ui-muted">x</button></div>
+                <div class="flex items-center justify-between mb-5"><h2 class="text-lg font-semibold">Review Details</h2><button type="button" @click="detailOpen = false" class="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-400"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div>
                 <p class="mt-5 text-3xl font-bold text-[color:var(--brand-600)]" x-text="`${selected.rating || 0} / 5`"></p>
                 <dl class="mt-5 grid gap-3 text-sm">
                     <div><dt class="ui-muted">Tenant</dt><dd x-text="selected.tenant"></dd></div>

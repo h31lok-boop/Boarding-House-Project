@@ -47,13 +47,54 @@ class AdminOwnerController extends Controller
         $unpaidAmount = Schema::hasTable('payments')
             ? (float) Payment::query()->whereIn(DB::raw('LOWER(status)'), ['unpaid', 'pending', 'overdue'])->sum('amount')
             : 0.0;
+        $pendingPayments = Schema::hasTable('payments')
+            ? (float) Payment::query()->whereRaw('LOWER(status) = ?', ['pending'])->sum('amount')
+            : 0.0;
+        $refundAmount = Schema::hasTable('payments')
+            ? (float) Payment::query()->whereRaw('LOWER(status) = ?', ['refunded'])->sum('amount')
+            : 0.0;
 
         $totalMatches = Schema::hasTable('roommate_match_requests') ? RoommateMatchRequest::query()->count() : 0;
         $acceptedMatches = Schema::hasTable('roommate_match_requests')
             ? RoommateMatchRequest::query()->whereRaw('LOWER(status) = ?', ['accepted'])->count()
             : 0;
 
+        $totalBoardingHouses = $this->tableCount('boarding_houses');
+        $activeTenants = Schema::hasTable('users')
+            ? User::query()->where('role', 'user')->where(fn ($q) => $q->where('is_active', true)->orWhere('status', 'active'))->count()
+            : 0;
+        $totalRevenue = $paidAmount;
+        $occupancyRate = $totalRooms > 0 ? round(($occupiedRooms / $totalRooms) * 100) : 0;
+
+        $topBoardingHouses = Schema::hasTable('boarding_houses')
+            ? BoardingHouse::withCount(['rooms', 'rooms as occupied_rooms_count' => fn ($q) => $q->whereRaw('LOWER(status) = ?', ['occupied'])])
+                ->orderByDesc('occupied_rooms_count')
+                ->limit(5)
+                ->get()
+                ->map(fn ($h) => [
+                    'name' => $h->name,
+                    'location' => $h->city?->city_name ?? ($h->address ? explode(',', $h->address)[0] : 'CDO'),
+                    'occupancy' => $h->rooms_count > 0 ? round(($h->occupied_rooms_count / $h->rooms_count) * 100) : 0,
+                ])
+            : collect();
+
+        $recentReservationsThisWeek = Schema::hasTable('reservations')
+            ? Reservation::query()->where('created_at', '>=', now()->startOfWeek())->count()
+            : 0;
+
         return view('admin.dashboard', [
+            'totalBoardingHouses' => $totalBoardingHouses,
+            'totalRooms' => $totalRooms,
+            'availableRooms' => $availableRooms,
+            'totalReservations' => $totalReservations,
+            'recentReservationsThisWeek' => $recentReservationsThisWeek,
+            'activeTenants' => $activeTenants,
+            'totalRevenue' => $totalRevenue,
+            'paidAmount' => $paidAmount,
+            'pendingPayments' => $pendingPayments,
+            'refundAmount' => $refundAmount,
+            'occupancyRate' => $occupancyRate,
+            'topBoardingHouses' => $topBoardingHouses,
             'summaryCards' => [
                 ['label' => 'Total Rooms', 'value' => $totalRooms, 'meta' => $availableRooms.' available'],
                 ['label' => 'Room Occupancy', 'value' => $totalRooms > 0 ? round(($occupiedRooms / $totalRooms) * 100).'%' : '0%', 'meta' => $occupiedRooms.' occupied'],
@@ -241,21 +282,36 @@ class AdminOwnerController extends Controller
     {
         $this->authorizeAdmin($request);
 
-        $tenants = User::with('tenantProfile')
+        $withRelations = ['tenantProfile'];
+        if (Schema::hasTable('reservations') && method_exists(User::class, 'reservations')) {
+            $withRelations[] = 'reservations.boardingHouse';
+            $withRelations[] = 'reservations.room';
+        }
+
+        $boardingHouses = Schema::hasTable('boarding_houses')
+            ? BoardingHouse::orderBy('name')->get(['id', 'name'])
+            : collect();
+
+        $tenants = User::with($withRelations)
             ->where('role', 'user')
             ->when($request->filled('q'), function ($query) use ($request) {
                 $term = '%'.$request->query('q').'%';
-                $query->where(fn ($q) => $q->where('name', 'like', $term)->orWhere('email', 'like', $term));
+                $query->where(fn ($q) => $q->where('name', 'like', $term)
+                    ->orWhere('email', 'like', $term)
+                    ->orWhere('phone', 'like', $term));
             })
             ->when($request->filled('verified'), function ($query) use ($request) {
                 $verified = $request->query('verified') === 'yes';
                 $query->whereHas('tenantProfile', fn ($profile) => $profile->where('id_verified', $verified));
             })
+            ->when($request->filled('boarding_house') && Schema::hasTable('reservations'), function ($query) use ($request) {
+                $query->whereHas('reservations', fn ($q) => $q->where('boarding_house_id', $request->query('boarding_house')));
+            })
             ->latest()
             ->paginate(12)
             ->withQueryString();
 
-        return view('admin.tenant-profiles', compact('tenants'));
+        return view('admin.tenant-profiles', compact('tenants', 'boardingHouses'));
     }
 
     public function updateTenantProfile(Request $request, User $user)
@@ -265,25 +321,58 @@ class AdminOwnerController extends Controller
         abort_unless($user->isUser(), 404);
 
         $data = $request->validate([
-            'student_id' => ['nullable', 'string', 'max:100'],
-            'school_company' => ['nullable', 'string', 'max:255'],
-            'course_or_position' => ['nullable', 'string', 'max:255'],
-            'valid_id_type' => ['nullable', 'string', 'max:100'],
-            'valid_id_number' => ['nullable', 'string', 'max:100'],
-            'emergency_contact_name' => ['nullable', 'string', 'max:255'],
-            'emergency_contact_number' => ['nullable', 'string', 'max:100'],
-            'preferred_language' => ['nullable', 'string', 'max:100'],
-            'id_verified' => ['nullable', 'boolean'],
+            'name'                    => ['nullable', 'string', 'max:255'],
+            'phone'                   => ['nullable', 'string', 'max:50'],
+            'student_id'              => ['nullable', 'string', 'max:100'],
+            'school_company'          => ['nullable', 'string', 'max:255'],
+            'course_or_position'      => ['nullable', 'string', 'max:255'],
+            'valid_id_type'           => ['nullable', 'string', 'max:100'],
+            'valid_id_number'         => ['nullable', 'string', 'max:100'],
+            'emergency_contact_name'  => ['nullable', 'string', 'max:255'],
+            'emergency_contact_number'=> ['nullable', 'string', 'max:100'],
+            'preferred_language'      => ['nullable', 'string', 'max:100'],
+            'id_verified'             => ['nullable', 'boolean'],
+            'profile_image'           => ['nullable', 'image', 'max:2048'],
         ]);
 
+        // Update user basic info
+        $userFill = [];
+        if (! empty($data['name'])) {
+            $userFill['name'] = $data['name'];
+        }
+        if (array_key_exists('phone', $data)) {
+            $userFill['phone'] = $data['phone'];
+            $userFill['contact_number'] = $data['phone'];
+        }
+        if ($request->hasFile('profile_image')) {
+            if ($user->profile_image) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($user->profile_image);
+            }
+            $userFill['profile_image'] = $request->file('profile_image')->store('profile-images', 'public');
+        }
+        if (! empty($userFill)) {
+            $user->forceFill($userFill)->save();
+        }
+
+        // Update tenant profile
         $verified = $request->boolean('id_verified');
-        $data['id_verified'] = $verified;
-        $data['verified_by'] = $verified ? $request->user()->id : null;
-        $data['verified_at'] = $verified ? now() : null;
+        $profileData = [
+            'student_id'               => $data['student_id'] ?? null,
+            'school_company'           => $data['school_company'] ?? null,
+            'course_or_position'       => $data['course_or_position'] ?? null,
+            'valid_id_type'            => $data['valid_id_type'] ?? null,
+            'valid_id_number'          => $data['valid_id_number'] ?? null,
+            'emergency_contact_name'   => $data['emergency_contact_name'] ?? null,
+            'emergency_contact_number' => $data['emergency_contact_number'] ?? null,
+            'preferred_language'       => $data['preferred_language'] ?? null,
+            'id_verified'              => $verified,
+            'verified_by'              => $verified ? $request->user()->id : null,
+            'verified_at'              => $verified ? now() : null,
+        ];
 
-        TenantProfile::updateOrCreate(['user_id' => $user->id], $data);
+        TenantProfile::updateOrCreate(['user_id' => $user->id], $profileData);
 
-        return back()->with('success', 'Tenant profile saved.');
+        return back()->with('success', 'Tenant profile updated.');
     }
 
     public function destroyTenantProfile(Request $request, TenantProfile $tenantProfile)
@@ -488,6 +577,10 @@ class AdminOwnerController extends Controller
 
         $reservations = Reservation::with(['user', 'boardingHouse', 'room'])
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->query('status')))
+            ->when($request->filled('q'), function ($query) use ($request) {
+                $term = '%'.$request->query('q').'%';
+                $query->whereHas('user', fn ($u) => $u->where('name', 'like', $term));
+            })
             ->latest()
             ->paginate(12)
             ->withQueryString();
@@ -514,15 +607,31 @@ class AdminOwnerController extends Controller
     {
         $this->authorizeAdmin($request);
 
+        $tab = $request->get('tab', '');
+
         $payments = Payment::with(['tenant.user', 'boardingHouse'])
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->query('status')))
             ->latest()
             ->paginate(12)
             ->withQueryString();
+
+        $payouts = Payment::with('boardingHouse')
+            ->whereRaw('LOWER(status) = ?', ['paid'])
+            ->get()
+            ->groupBy('boarding_house_id')
+            ->map(fn ($group) => [
+                'house'     => $group->first()->boardingHouse->name ?? '—',
+                'count'     => $group->count(),
+                'total'     => (float) $group->sum('amount'),
+                'last_paid' => $group->max('paid_at'),
+            ])
+            ->sortByDesc('total')
+            ->values();
+
         $tenants = Schema::hasTable('tenants') ? Tenant::with('user')->latest()->get() : collect();
         $houses = BoardingHouse::query()->orderBy('name')->get();
 
-        return view('admin.payments', compact('payments', 'tenants', 'houses'));
+        return view('admin.payments', compact('payments', 'payouts', 'tenants', 'houses', 'tab'));
     }
 
     public function storePayment(Request $request)
@@ -597,9 +706,10 @@ class AdminOwnerController extends Controller
         $this->authorizeAdmin($request);
 
         return view('admin.reports', [
-            'occupancy' => $this->statusCounts(Room::class, 'rooms'),
+            'tab'          => $request->get('tab', ''),
+            'occupancy'    => $this->statusCounts(Room::class, 'rooms'),
             'reservations' => $this->statusCounts(Reservation::class, 'reservations'),
-            'payments' => $this->statusCounts(Payment::class, 'payments'),
+            'payments'     => $this->statusCounts(Payment::class, 'payments'),
             'reviewAverage' => Schema::hasTable('reviews') ? Review::query()->avg(DB::raw('COALESCE(rating, overall_rating)')) : 0,
             'preferredAmenities' => Schema::hasTable('amenities')
                 ? DB::table('amenities')->leftJoin('boarding_house_amenities', 'amenities.id', '=', 'boarding_house_amenities.amenity_id')->select('amenities.name', DB::raw('count(boarding_house_amenities.amenity_id) as total'))->groupBy('amenities.id', 'amenities.name')->orderByDesc('total')->limit(6)->get()
@@ -728,18 +838,17 @@ class AdminOwnerController extends Controller
         return Schema::hasTable($table) ? (int) DB::table($table)->count() : 0;
     }
 
-    private function statusCounts(string $modelClass, string $table): array
+    private function statusCounts(string $modelClass, string $table): \Illuminate\Support\Collection
     {
         if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'status')) {
-            return [];
+            return collect();
         }
 
         return $modelClass::query()
             ->selectRaw("COALESCE(status, 'unknown') as status_label, count(*) as total")
             ->groupBy('status_label')
             ->pluck('total', 'status_label')
-            ->mapWithKeys(fn ($total, $status) => [ucfirst((string) $status) => (int) $total])
-            ->all();
+            ->mapWithKeys(fn ($total, $status) => [ucfirst((string) $status) => (int) $total]);
     }
 
     private function fallbackHouseScore(BoardingHouse $house): int

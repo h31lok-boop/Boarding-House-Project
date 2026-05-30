@@ -13,6 +13,18 @@ class InquiryController extends Controller
 {
     public function store(Request $request, BoardingHouse $boardingHouse)
     {
+        // ── Daily limit: one inquiry per user per day ────────────────────────
+        $alreadySentToday = Inquiry::where('user_id', $request->user()->id)
+            ->whereDate('created_at', today())
+            ->exists();
+
+        if ($alreadySentToday) {
+            return back()->with(
+                'inquiry_limit',
+                'You already sent an inquiry today. Please try again tomorrow.'
+            );
+        }
+
         $data = $request->validate([
             'message' => ['required', 'string', 'min:10', 'max:1000'],
         ]);

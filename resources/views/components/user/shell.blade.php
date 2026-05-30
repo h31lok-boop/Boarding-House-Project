@@ -34,7 +34,10 @@
             {{-- Header --}}
             @if (request()->routeIs('user.dashboard'))
                 <div class="ui-card p-4 flex items-center gap-4">
-                    <input type="text" placeholder="{{ $searchPlaceholder }}" class="flex-1 ui-input text-sm">
+                    <form method="GET" action="{{ $r('user.browse') }}" class="flex flex-1 gap-3">
+                        <input name="q" type="text" placeholder="{{ $searchPlaceholder }}" class="flex-1 ui-input text-sm">
+                        <button class="rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700">Search</button>
+                    </form>
                     <div class="flex items-center gap-2">
                         <button class="h-9 w-9 rounded-full ui-surface border ui-border flex items-center justify-center shadow">
                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -53,7 +56,8 @@
                                     <p class="text-xs ui-muted">{{ auth()->user()->email ?? '' }}</p>
                                 </div>
                                 <div class="py-2 text-sm">
-                                    <a href="{{ $r('profile.edit') }}" class="block px-4 py-2 hover:bg-[color:var(--surface-2)]">Profile</a>
+                                    <a href="{{ $r('user.settings') }}" class="block px-4 py-2 hover:bg-[color:var(--surface-2)]">Profile Settings</a>
+                                    <a href="{{ $r('user.profile') }}" class="block px-4 py-2 hover:bg-[color:var(--surface-2)]">Match Preferences</a>
                                     <button @click="confirm = true; open = false" class="w-full text-left px-4 py-2 text-rose-600 hover:bg-rose-50">Log out</button>
                                 </div>
                             </div>

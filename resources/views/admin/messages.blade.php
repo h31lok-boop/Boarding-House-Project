@@ -1,4 +1,4 @@
-<x-layouts.dashboard>
+﻿<x-layouts.dashboard>
 <x-admin.shell>
     <div x-data="{ composeOpen: false, selected: {} }" class="space-y-6">
         <div class="ui-card p-6">
@@ -41,7 +41,7 @@
 
         <div>{{ $threads->links() }}</div>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="composeOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="composeOpen" x-cloak @click.self="composeOpen = false" @keydown.escape.window="composeOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <form method="POST" :action="selected.update_url" class="ui-card w-full max-w-xl p-6">
                 @csrf @method('PATCH')
                 <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Send Message</h2><button type="button" @click="composeOpen = false" class="text-xl ui-muted">x</button></div>

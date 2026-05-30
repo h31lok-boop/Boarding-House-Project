@@ -1,4 +1,4 @@
-<x-layouts.dashboard>
+﻿<x-layouts.dashboard>
 <x-admin.shell>
     @php
         $houses = $houses ?? collect();
@@ -98,7 +98,7 @@
         </div>
     </div>
 
-    <div id="addHouseModal" data-modal-root role="dialog" aria-modal="true" class="fixed inset-0 z-50 hidden items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
+    <div id="addHouseModal" data-modal-root role="dialog" aria-modal="true" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
         <div class="bg-white rounded-md shadow-xl mx-4 flex flex-col" style="width: min(720px, 92vw); max-height: 85vh;">
             <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
                 <h3 class="text-xl font-semibold text-gray-900">Add Boarding House</h3>
@@ -172,7 +172,7 @@
             </div>
         </div>
     </div>
-    <div id="houseModal" data-modal-root role="dialog" aria-modal="true" class="fixed inset-0 z-50 hidden items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
+    <div id="houseModal" data-modal-root role="dialog" aria-modal="true" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
         <div class="bg-white rounded-md shadow-xl mx-4 flex flex-col" style="width: min(720px, 92vw); max-height: 85vh;">
             <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
                 <h3 class="text-xl font-semibold text-gray-900">Boarding House Details</h3>
