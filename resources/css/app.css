@@ -47,15 +47,20 @@ body.modal-open {
     overscroll-behavior: contain;
 }
 
-/* All Alpine-driven dialog overlays: always on top, always capture pointer events */
+/* All dialog overlays: always on top, always capture pointer events */
+[data-modal-root],
+[role="dialog"].fixed.inset-0 {
+    isolation: isolate;
+}
+
 [role="dialog"] {
     z-index: 9999 !important;
     pointer-events: auto !important;
 }
 
 body.modal-open [data-modal-active='true'] {
-    background-color: rgb(0 0 0 / 0.86) !important;
-    backdrop-filter: blur(5px);
+    background-color: rgb(2 6 23 / 0.84) !important;
+    backdrop-filter: blur(6px) saturate(0.86);
     height: 100dvh !important;
     inset: 0 !important;
     isolation: isolate;
@@ -69,13 +74,19 @@ body.modal-open [data-modal-active='true'] {
 }
 
 body.modal-open [data-modal-active='true'] [data-modal-backdrop] {
-    background-color: rgb(0 0 0 / 0.86) !important;
-    backdrop-filter: blur(5px);
+    background-color: rgb(2 6 23 / 0.84) !important;
+    backdrop-filter: blur(6px) saturate(0.86);
+    pointer-events: auto !important;
+    z-index: 0;
 }
 
 body.modal-open [data-modal-active='true'] > :not([data-modal-backdrop]) {
     position: relative;
     z-index: 1;
+}
+
+body.modal-open [data-modal-active='true'] * {
+    pointer-events: auto;
 }
 
 .ui-bg {
@@ -221,7 +232,7 @@ body.modal-open [data-modal-active='true'] > :not([data-modal-backdrop]) {
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    margin-bottom: 1.5rem;
+    margin-bottom: 2.4rem;
 }
 
 [data-sidebar='collapsed'] .sidebar-header {

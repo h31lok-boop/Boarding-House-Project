@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\BoardingHouse;
 use App\Models\Room;
 use App\Models\User;
+use App\Services\TenantPreferenceRecommendationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -13,6 +14,9 @@ use Illuminate\Support\Facades\Schema;
 
 class DashboardController extends Controller
 {
+    public function __construct(
+        private readonly TenantPreferenceRecommendationService $recommendationService,
+    ) {}
     public function index()
     {
         $roleMeta = [
@@ -116,7 +120,16 @@ class DashboardController extends Controller
         $user = $request->user();
         abort_unless($user && $user->isUser(), 403);
 
-        return view('user.dashboard', $this->buildTenantDashboardData($user));
+        $aiRecommendations = $this->recommendationService->rank($user);
+        $hasPreferences    = $this->recommendationService->hasPreferences($user);
+
+        return view('user.dashboard', array_merge(
+            $this->buildTenantDashboardData($user),
+            [
+                'aiRecommendations' => $aiRecommendations,
+                'hasPreferences'    => $hasPreferences,
+            ]
+        ));
     }
 
     public function search(Request $request)

@@ -43,7 +43,7 @@
         <p class="mt-1 text-sm ui-muted">Track your payments, view history, and manage payment methods.</p>
     </div>
 
-    {{-- ── Flash ── --}}
+    {{-- ── Payment Confirmed banner (unique content: ref + method) ── --}}
     @if(session('payment_confirmed'))
         <div class="flex items-start gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4">
             <div class="h-10 w-10 shrink-0 rounded-full bg-emerald-100 flex items-center justify-center">
@@ -58,11 +58,6 @@
                 <p class="text-xs text-emerald-500 mt-1">Your transaction has been recorded and is visible in the list below.</p>
             </div>
         </div>
-    @elseif(session('success'))
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">{{ session('success') }}</div>
-    @endif
-    @if(session('error'))
-        <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{{ session('error') }}</div>
     @endif
 
     {{-- ── Summary Cards ── --}}
@@ -522,7 +517,7 @@
             </div>
 
             {{-- ── Add Payment Method Modal (Pay = save method + record transaction) ── --}}
-            <div role="dialog" aria-modal="true" x-show="addMethodOpen" x-cloak
+            <div data-modal-root role="dialog" aria-modal="true" x-show="addMethodOpen" x-cloak
                  @click.self="addMethodOpen = false" @keydown.escape.window="addMethodOpen = false"
                  class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
                 <form method="POST" action="{{ route('user.payment-methods.store') }}"
@@ -601,7 +596,7 @@
             </div>
 
             {{-- ── Pay Now Modal — select method or add new ── --}}
-            <div role="dialog" aria-modal="true" x-show="payNowOpen" x-cloak
+            <div data-modal-root role="dialog" aria-modal="true" x-show="payNowOpen" x-cloak
                  @click.self="payNowOpen = false" @keydown.escape.window="payNowOpen = false"
                  class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
 

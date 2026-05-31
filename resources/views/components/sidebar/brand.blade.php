@@ -21,7 +21,7 @@
 @endphp
 
 <a href="{{ route($dashRoute) }}" class="flex items-center gap-3 flex-1 min-w-0">
-    <div class="h-10 w-10 overflow-hidden rounded-2xl shadow-lg">
+    <div class="h-11 w-11 overflow-hidden rounded-[18px] shadow-[0_10px_24px_rgba(255,126,95,0.25)]">
         <img src="{{ $brandImage }}" alt="BoardMatch" class="h-full w-full object-cover">
     </div>
     <div class="leading-tight sidebar-brand-text min-w-0">
@@ -30,7 +30,7 @@
             <p class="text-lg font-bold">{{ $roleLabel }}</p>
             <p class="text-[11px] ui-muted">{{ $workspace }}</p>
         @else
-            <p class="text-lg font-bold">BoardMatch</p>
+            <p class="text-[22px] font-bold tracking-[-0.01em] text-[#0f172a]">BoardMatch</p>
         @endif
     </div>
 </a>

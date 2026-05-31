@@ -1,8 +1,7 @@
 @php
-    $navBase = 'flex items-center gap-2 px-3 py-2 rounded-lg transition-colors';
-    $navActive = $navBase . ' ui-surface-2 text-[color:var(--text)] font-medium border ui-border';
-    $navInactive = $navBase . ' text-[color:var(--muted)] hover:bg-[color:var(--surface-2)]';
-    $logoutClass = $navBase . ' w-full text-left text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30';
+    $navBase = 'flex items-center gap-4 px-3 py-3 rounded-lg transition-colors';
+    $navActive = $navBase . ' bg-[#fff3e8] text-[#111827] font-semibold border border-[#ffd9b8]';
+    $navInactive = $navBase . ' text-[#1f2937] hover:bg-[#f8fafc]';
 
     $menus = [
         [
@@ -62,8 +61,8 @@
     ];
 @endphp
 
-<nav class="flex-1 space-y-2 text-sm sidebar-nav" aria-label="Tenant navigation">
-    <p class="text-xs uppercase ui-muted mb-2 sidebar-group">Main Navigation</p>
+<nav class="flex-1 space-y-2 text-[15px] sidebar-nav" aria-label="Tenant navigation">
+    <p class="text-[13px] uppercase text-[#344154] font-semibold mb-6 sidebar-group">Main Navigation</p>
 
     @foreach ($menus as $menu)
         @php
@@ -78,31 +77,19 @@
         </a>
     @endforeach
 
-    <form method="POST" action="{{ route('logout') }}" class="pt-4">
-        @csrf
-        <button type="submit" class="{{ $logoutClass }}" title="Logout">
-            <span class="sidebar-icon">
-                @include('components.sidebar.partials.admin-icon', ['name' => 'logout'])
-            </span>
-            <span class="sidebar-text">
-                <span class="block font-medium">Logout</span>
-                <span class="block text-xs text-rose-500/80">Log out of your account</span>
-            </span>
-        </button>
-    </form>
 </nav>
 
-<div class="sidebar-help mt-4 rounded-lg border ui-border bg-violet-50/70 p-4 text-sm dark:bg-violet-950/20">
+<div class="sidebar-help mt-4 rounded-lg bg-gradient-to-br from-[#f7f4ff] to-[#fffafb] p-5 text-sm">
     <div class="flex items-start gap-3">
-        <span class="sidebar-icon text-violet-600">
+        <span class="sidebar-icon mt-0.5 text-[#6c4cff]">
             @include('components.sidebar.partials.admin-icon', ['name' => 'support'])
         </span>
         <div class="min-w-0">
-            <p class="font-semibold text-violet-700 dark:text-violet-200">Need Help?</p>
-            <p class="mt-1 text-xs ui-muted">Contact our support team</p>
-            <a href="{{ route('user.messages') }}" class="mt-3 inline-flex rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:bg-violet-700">Go to Help Center</a>
+            <p class="font-semibold text-[#8a73ff]">Need Help?</p>
+            <p class="mt-4 text-xs text-[#64748b]">Contact our support team</p>
+            <a href="{{ route('user.messages') }}" class="mt-4 inline-flex rounded-lg bg-[#5f35e8] px-4 py-3 text-xs font-semibold text-white hover:bg-[#4e29c8]">Go to Help Center</a>
         </div>
     </div>
 </div>
 
-<p class="text-xs ui-muted mt-4 sidebar-footer">&copy; 2026 BoardMatch. All rights reserved.</p>
+<p class="text-xs leading-6 text-[#697386] mt-5 sidebar-footer">&copy; 2026 BoardMatch.<br>All rights reserved.</p>

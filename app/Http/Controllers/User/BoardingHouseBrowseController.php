@@ -42,6 +42,7 @@ class BoardingHouseBrowseController extends Controller
             ->map(fn ($id) => (int) $id)->filter(fn ($id) => $id > 0)->values()->all();
         $cityId      = (int) $request->query('city_id', 0);
         $barangayId  = (int) $request->query('barangay_id', 0);
+        $roomType    = (string) $request->query('room_type', '');
         $availableOnly = $request->boolean('available_only');
         $nearMe      = $request->boolean('near_me');
         $sort        = $request->query('sort', 'newest');
@@ -60,6 +61,7 @@ class BoardingHouseBrowseController extends Controller
             'available_only' => $availableOnly,
             'city_id'        => $cityId > 0 ? $cityId : null,
             'barangay_id'    => $barangayId > 0 ? $barangayId : null,
+            'room_type'      => $roomType !== '' ? $roomType : null,
             'sort'           => $sort,
             'min_rating'     => $minRating,
         ];
@@ -77,9 +79,13 @@ class BoardingHouseBrowseController extends Controller
             $computedDistance    = $this->distanceKm($refLat, $refLng, $house->latitude, $house->longitude);
             $house->distance_km  = isset($house->distance_km_calc) && is_numeric($house->distance_km_calc)
                 ? round((float) $house->distance_km_calc, 2) : $computedDistance;
-            $house->min_room_price     = $house->rooms->min('price');
-            $house->min_category_price = $house->roomCategories->min('monthly_rate');
-            $house->display_price      = $house->min_room_price ?? $house->min_category_price ?? $house->price;
+            // Use the lowest positive price, skipping 0 values (daily-rate-only listings store monthly_rate=0)
+            $house->min_room_price     = $house->rooms->where('price', '>', 0)->min('price');
+            $house->min_category_price = $house->roomCategories->where('monthly_rate', '>', 0)->min('monthly_rate');
+            $house->display_price      = $house->min_room_price
+                                      ?? $house->min_category_price
+                                      ?? (($house->price > 0) ? (float) $house->price : null)
+                                      ?? (($house->monthly_payment > 0) ? (float) $house->monthly_payment : null);
             $house->computed_available_rooms = max(
                 (int) ($house->available_rooms ?? 0),
                 (int) ($house->available_rooms_count ?? 0),
@@ -132,8 +138,7 @@ class BoardingHouseBrowseController extends Controller
                     (int) ($house->available_rooms_count ?? 0),
                     (int) ($house->room_categories_available_rooms_sum ?? 0),
                 ),
-                'image_url' => ($house->images->first()?->image_path && ! str_ends_with($house->images->first()->image_path, '.svg'))
-                    ? asset('storage/'.$house->images->first()->image_path) : null,
+                'image_url'   => $this->resolveImageUrl($house),
                 'distance_km' => $this->distanceKm($refLat, $refLng, $house->latitude, $house->longitude),
             ])
             ->values();
@@ -177,25 +182,70 @@ class BoardingHouseBrowseController extends Controller
         ]);
     }
 
+    /**
+     * Resolve the best available image URL for a boarding house.
+     * Priority: primary image from images relation → any relation image →
+     *           featured_image → exterior_image → room_image column.
+     * Returns a fully-qualified URL, or null when nothing is found.
+     */
+    private function resolveImageUrl(BoardingHouse $house): ?string
+    {
+        $path = null;
+
+        if ($house->relationLoaded('images') && $house->images->isNotEmpty()) {
+            $img  = $house->images->firstWhere('is_primary', true)
+                 ?? $house->images->sortBy('sort_order')->first()
+                 ?? $house->images->first();
+            $path = $img?->image_path ?: null;
+        }
+
+        if (! $path) {
+            foreach (['featured_image', 'exterior_image', 'room_image'] as $col) {
+                if (! empty($house->{$col})) {
+                    $path = $house->{$col};
+                    break;
+                }
+            }
+        }
+
+        if (! $path) {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://') || str_starts_with($path, '/')) {
+            return $path;
+        }
+
+        return asset('storage/'.$path);
+    }
+
     private function houseToArray($house): array
     {
-        $img = $house->images->first();
+        $typeLabel = match ($house->property_type) {
+            'dormitory'      => 'Dormitory',
+            'apartment'      => 'Apartment / Studio',
+            'boarding_house' => 'Boarding House',
+            'bedspace'       => 'Bed Space',
+            'other'          => 'Transient / Resort',
+            default          => 'Boarding House',
+        };
+
         return [
             'id'              => $house->id,
             'name'            => $house->name,
             'address'         => $house->full_address ?? $house->address ?? '',
-            'city_name'       => $house->city?->city_name ?? '',
+            'city_name'       => $house->city?->city_name ?? 'Digos City',
             'barangay_name'   => $house->barangay?->barangay_name ?? '',
             'display_price'   => (float) ($house->display_price ?? 0),
             'price_label'     => $house->display_price ? '₱'.number_format((float) $house->display_price) : 'Price TBD',
             'available_rooms' => (int) ($house->computed_available_rooms ?? 0),
+            'room_type_label' => $typeLabel,
             'amenities'       => $house->amenities->map(fn ($a) => ['id' => $a->id, 'name' => $a->name])->values()->toArray(),
+            'images_count'    => $house->images->count(),
             'match_score'     => (int) ($house->match_score ?? 70),
             'match_label'     => $house->match_label ?? 'Good Match',
             'distance_km'     => $house->distance_km,
-            'image_url'       => ($img?->image_path && ! str_ends_with($img->image_path, '.svg'))
-                                    ? asset('storage/'.$img->image_path)
-                                    : null,
+            'image_url'       => $this->resolveImageUrl($house),
             'url'             => route('user.browse.show', $house),
             'rating'          => round((float) ($house->reviews_avg_rating ?? 0), 1),
             'reviews_count'   => (int) ($house->reviews_count ?? 0),
@@ -317,7 +367,10 @@ class BoardingHouseBrowseController extends Controller
 
         $houses = $houses->map(function ($house) use ($refLat, $refLng) {
             $house->distance_km = $this->distanceKm($refLat, $refLng, $house->latitude, $house->longitude);
-            $house->min_room_price = $house->rooms->min('price') ?? $house->roomCategories->min('monthly_rate') ?? $house->price;
+            $house->min_room_price = $house->rooms->where('price', '>', 0)->min('price')
+                                  ?? $house->roomCategories->where('monthly_rate', '>', 0)->min('monthly_rate')
+                                  ?? (($house->price > 0) ? (float) $house->price : null)
+                                  ?? (float) ($house->monthly_payment ?? 0);
 
             return $house;
         });
@@ -441,7 +494,33 @@ class BoardingHouseBrowseController extends Controller
                     'amenities',
                     fn ($amenityQuery) => $amenityQuery->whereIn('amenities.id', $filters['amenity_ids'])
                 )
-            );
+            )
+            ->when($filters['room_type'] !== null, function ($listingQuery) use ($filters) {
+                $type = $filters['room_type'];
+                // Map UI filter values to DB property_type or room category names
+                $propertyTypeMap = [
+                    'dormitory' => 'dormitory',
+                    'studio'    => 'apartment',
+                    'bedspace'  => 'bedspace',
+                ];
+                if (isset($propertyTypeMap[$type])) {
+                    $listingQuery->where('property_type', $propertyTypeMap[$type]);
+                } else {
+                    // single / shared / private — filter by room category names
+                    $keyword = match ($type) {
+                        'single'  => 'Single',
+                        'shared'  => 'Shared',
+                        'private' => 'Private',
+                        default   => null,
+                    };
+                    if ($keyword) {
+                        $listingQuery->where(function ($inner) use ($keyword) {
+                            $inner->where('property_type', 'boarding_house')
+                                ->orWhereHas('roomCategories', fn ($rc) => $rc->where('name', 'like', "%{$keyword}%"));
+                        });
+                    }
+                }
+            });
 
         $sort = $filters['sort'] ?? 'newest';
 

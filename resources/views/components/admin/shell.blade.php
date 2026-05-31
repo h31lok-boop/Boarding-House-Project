@@ -171,38 +171,7 @@
             <div class="px-4 lg:px-6 py-6 space-y-6">
 
                 {{-- Flash Messages --}}
-                @if (session('success') || session('error') || $errors->any())
-                    <div class="space-y-2">
-                        @if (session('success'))
-                            <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 flex items-center gap-2">
-                                <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                                </svg>
-                                {{ session('success') }}
-                            </div>
-                        @endif
-                        @if (session('error'))
-                            <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700 flex items-center gap-2">
-                                <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                </svg>
-                                {{ session('error') }}
-                            </div>
-                        @endif
-                        @if ($errors->any())
-                            <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 flex items-start gap-2">
-                                <svg class="h-4 w-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                </svg>
-                                <div>
-                                    @foreach ($errors->all() as $error)
-                                        <p>{{ $error }}</p>
-                                    @endforeach
-                                </div>
-                            </div>
-                        @endif
-                    </div>
-                @endif
+                <x-toast />
 
                 {{ $slot }}
             </div>
@@ -210,7 +179,8 @@
     </div>
 
     {{-- Logout Confirm Modal (single, shared) --}}
-    <div role="dialog"
+    <div data-modal-root
+         role="dialog"
          aria-modal="true"
          x-show="logoutConfirm"
          x-cloak
@@ -245,87 +215,6 @@
         </div>
     </div>
 </div>
-
-{{-- Modal overlay lock — keeps background non-interactive when any dialog is open --}}
-<script>
-(function () {
-    var scrollY = 0;
-
-    function lockBody() {
-        scrollY = window.scrollY || 0;
-        document.body.style.overflow   = 'hidden';
-        document.body.style.position   = 'fixed';
-        document.body.style.top        = '-' + scrollY + 'px';
-        document.body.style.width      = '100%';
-        document.body.classList.add('modal-open');
-    }
-
-    function unlockBody() {
-        document.body.style.overflow  = '';
-        document.body.style.position  = '';
-        document.body.style.top       = '';
-        document.body.style.width     = '';
-        document.body.classList.remove('modal-open');
-        window.scrollTo(0, scrollY);
-    }
-
-    function anyModalOpen() {
-        var dialogs = document.querySelectorAll('[role="dialog"]');
-        for (var i = 0; i < dialogs.length; i++) {
-            var d = dialogs[i];
-            if (d.hasAttribute('x-cloak'))          continue; // pre-Alpine init
-            if (d.style.display === 'none')          continue; // Alpine x-show hidden
-            if (d.classList.contains('hidden'))      continue; // Tailwind hidden class
-            if (getComputedStyle(d).display === 'none') continue; // any other hidden
-            return true;
-        }
-        return false;
-    }
-
-    function syncLock() {
-        if (anyModalOpen()) {
-            lockBody();
-        } else {
-            unlockBody();
-        }
-    }
-
-    // Watch style/attribute changes on all descendants so we catch Alpine x-show toggling
-    var observer = new MutationObserver(function (mutations) {
-        for (var i = 0; i < mutations.length; i++) {
-            var m = mutations[i];
-            if (m.type === 'attributes' &&
-                (m.attributeName === 'style' || m.attributeName === 'x-cloak' || m.attributeName === 'class')) {
-                var el = m.target;
-                if (el.getAttribute('role') === 'dialog') {
-                    syncLock();
-                    return;
-                }
-            }
-            // Catch new dialogs added to DOM
-            if (m.type === 'childList' && m.addedNodes.length) {
-                syncLock();
-                return;
-            }
-        }
-    });
-
-    document.addEventListener('DOMContentLoaded', function () {
-        observer.observe(document.body, {
-            subtree: true,
-            attributes: true,
-            attributeFilter: ['style', 'x-cloak', 'class'],
-            childList: true,
-        });
-        // Also close on Escape globally
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') {
-                setTimeout(syncLock, 50);
-            }
-        });
-    });
-})();
-</script>
 
 {{-- Sidebar scroll persistence --}}
 <script>

@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" role="img" aria-label="Boarding house placeholder">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff7ed"/>
+      <stop offset="100%" stop-color="#ffedd5"/>
+    </linearGradient>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f9fafb"/>
+    </linearGradient>
+    <linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#dcfce7"/>
+      <stop offset="100%" stop-color="#bbf7d0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Sky -->
+  <rect width="800" height="500" fill="url(#sky)"/>
+
+  <!-- Clouds -->
+  <ellipse cx="120" cy="80" rx="50" ry="22" fill="white" opacity="0.7"/>
+  <ellipse cx="155" cy="68" rx="38" ry="26" fill="white" opacity="0.7"/>
+  <ellipse cx="88"  cy="75" rx="32" ry="18" fill="white" opacity="0.7"/>
+  <ellipse cx="640" cy="70" rx="45" ry="20" fill="white" opacity="0.6"/>
+  <ellipse cx="672" cy="58" rx="34" ry="22" fill="white" opacity="0.6"/>
+  <ellipse cx="612" cy="66" rx="28" ry="16" fill="white" opacity="0.6"/>
+
+  <!-- Ground -->
+  <rect x="0" y="400" width="800" height="100" fill="url(#ground)"/>
+  <rect x="0" y="395" width="800" height="8" fill="#86efac" opacity="0.6"/>
+
+  <!-- Main building body -->
+  <rect x="160" y="170" width="480" height="240" fill="url(#wall)" rx="4" stroke="#f3f4f6" stroke-width="1.5"/>
+
+  <!-- Roof -->
+  <polygon points="130,172 400,55 670,172" fill="#f97316"/>
+  <polygon points="130,172 400,75 670,172" fill="#ea580c" opacity="0.25"/>
+  <!-- Roof ridge shadow -->
+  <line x1="400" y1="55" x2="400" y2="172" stroke="#ea580c" stroke-width="2" opacity="0.3"/>
+
+  <!-- Chimney -->
+  <rect x="530" y="80" width="32" height="60" fill="#d1d5db" rx="2"/>
+  <rect x="526" y="76" width="40" height="10" fill="#9ca3af" rx="2"/>
+
+  <!-- Front door -->
+  <rect x="345" y="290" width="110" height="120" rx="5" fill="#e5e7eb"/>
+  <rect x="351" y="296" width="98" height="108" rx="4" fill="#d1d5db"/>
+  <!-- Door arch -->
+  <path d="M351,320 Q400,275 449,320" fill="#c4b5fd" opacity="0.5"/>
+  <!-- Doorknob -->
+  <circle cx="440" cy="355" r="6" fill="#9ca3af"/>
+  <circle cx="440" cy="355" r="3" fill="#6b7280"/>
+
+  <!-- Left window, ground floor -->
+  <rect x="190" y="215" width="125" height="95" rx="5" fill="#bfdbfe" opacity="0.85" stroke="#93c5fd" stroke-width="1.5"/>
+  <line x1="252" y1="215" x2="252" y2="310" stroke="white" stroke-width="2.5"/>
+  <line x1="190" y1="262" x2="315" y2="262" stroke="white" stroke-width="2.5"/>
+  <!-- Window sill -->
+  <rect x="186" y="308" width="133" height="6" rx="2" fill="#e2e8f0"/>
+
+  <!-- Right window, ground floor -->
+  <rect x="485" y="215" width="125" height="95" rx="5" fill="#bfdbfe" opacity="0.85" stroke="#93c5fd" stroke-width="1.5"/>
+  <line x1="547" y1="215" x2="547" y2="310" stroke="white" stroke-width="2.5"/>
+  <line x1="485" y1="262" x2="610" y2="262" stroke="white" stroke-width="2.5"/>
+  <rect x="481" y="308" width="133" height="6" rx="2" fill="#e2e8f0"/>
+
+  <!-- Path / walkway -->
+  <rect x="370" y="410" width="60" height="90" fill="#e2e8f0" rx="3"/>
+
+  <!-- Left tree -->
+  <rect x="92"  y="360" width="16" height="50" fill="#6b7280" rx="2"/>
+  <circle cx="100" cy="330" r="38" fill="#4ade80" opacity="0.85"/>
+  <circle cx="84"  cy="342" r="26" fill="#22c55e" opacity="0.7"/>
+  <circle cx="116" cy="345" r="24" fill="#22c55e" opacity="0.7"/>
+
+  <!-- Right tree -->
+  <rect x="692"  y="360" width="16" height="50" fill="#6b7280" rx="2"/>
+  <circle cx="700" cy="330" r="38" fill="#4ade80" opacity="0.85"/>
+  <circle cx="684" cy="342" r="26" fill="#22c55e" opacity="0.7"/>
+  <circle cx="716" cy="345" r="24" fill="#22c55e" opacity="0.7"/>
+
+  <!-- Small bushes near building -->
+  <circle cx="162" cy="404" r="16" fill="#86efac"/>
+  <circle cx="175" cy="398" r="13" fill="#4ade80"/>
+  <circle cx="635" cy="404" r="16" fill="#86efac"/>
+  <circle cx="622" cy="398" r="13" fill="#4ade80"/>
+
+  <!-- "No Photo Available" pill -->
+  <rect x="285" y="445" width="230" height="34" rx="17" fill="#f97316" opacity="0.12"/>
+  <text x="400" y="467" text-anchor="middle"
+        font-family="system-ui,-apple-system,sans-serif"
+        font-size="14" font-weight="600" fill="#f97316" opacity="0.85">No Photo Available</text>
+</svg>

@@ -1,5 +1,6 @@
 @props([
     'searchPlaceholder' => 'Search listings, reservations, messages...',
+    'topBar' => true,
 ])
 
 @php
@@ -17,22 +18,22 @@
         : asset('images/boardmatch-mark.svg');
 @endphp
 
-<div class="min-h-screen flex w-full">
+<div class="min-h-screen flex w-full bg-[#f7f8fb]">
     {{-- Sidebar --}}
-    <aside class="sidebar w-[260px] shrink-0 h-screen sticky top-0 ui-surface border-r ui-border px-4 py-6 flex flex-col">
+    <aside class="sidebar w-[300px] shrink-0 h-screen sticky top-0 bg-white border-r border-[#edf1f5] px-5 py-6 flex flex-col">
         <div class="sidebar-header">
             <x-sidebar.brand />
-            <button class="h-9 w-9 rounded-full ui-surface border ui-border flex items-center justify-center shadow" data-sidebar-toggle>
+            <button class="h-10 w-10 rounded-full bg-white border border-[#e5e9f0] flex items-center justify-center shadow-sm" data-sidebar-toggle>
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
         </div>
         <x-sidebar.user-panel />
     </aside>
 
-    <main class="flex-1 ui-bg">
-        <div class="max-w-7xl mx-auto px-6 py-6 space-y-6">
+    <main class="flex-1 min-w-0 bg-[#f7f8fb]">
+        <div class="max-w-[1600px] mx-auto px-4 sm:px-6 2xl:px-8 py-6 space-y-6">
             {{-- Header --}}
-            @if (request()->routeIs('user.dashboard'))
+            @if ($topBar && request()->routeIs('user.dashboard'))
                 <div class="ui-card p-4 flex items-center gap-4">
                     <form method="GET" action="{{ $r('user.browse') }}" class="flex flex-1 gap-3">
                         <input name="q" type="text" placeholder="{{ $searchPlaceholder }}" class="flex-1 ui-input text-sm">
@@ -82,30 +83,7 @@
                 </div>
             @endisset
 
-            @if (session('success') || session('error') || session('status') || $errors->any())
-                <div class="space-y-2">
-                    @if (session('success'))
-                        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
-                            {{ session('success') }}
-                        </div>
-                    @endif
-                    @if (session('error'))
-                        <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-                            {{ session('error') }}
-                        </div>
-                    @endif
-                    @if (session('status'))
-                        <div class="rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-medium text-sky-700">
-                            {{ str_replace('-', ' ', ucfirst(session('status'))) }}
-                        </div>
-                    @endif
-                    @if ($errors->any())
-                        <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                            {{ $errors->first() }}
-                        </div>
-                    @endif
-                </div>
-            @endif
+            <x-toast />
 
             {{ $slot }}
         </div>

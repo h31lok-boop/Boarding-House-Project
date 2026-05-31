@@ -386,7 +386,7 @@
         </div>
 
         {{-- ── Detail Modal ── --}}
-        <div role="dialog" aria-modal="true" x-show="detailOpen" x-cloak
+        <div data-modal-root role="dialog" aria-modal="true" x-show="detailOpen" x-cloak
              @click.self="detailOpen = false" @keydown.escape.window="detailOpen = false"
              class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">

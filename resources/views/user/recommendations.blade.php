@@ -1,386 +1,366 @@
 <x-layouts.dashboard>
 <x-user.shell>
-    @php
-        $matches = $matches ?? collect();
-        $houseRecommendations = $houseRecommendations ?? collect();
-        $image = fn (int $index) => asset('storage/boarding-houses/sample-house-'.(($index % 4) + 1).'.svg');
-        $formatOption = fn ($value) => $value ? \Illuminate\Support\Str::headline(str_replace('_', ' ', (string) $value)) : 'Not specified';
+@php
+    if (!isset($houseRecommendations)) { $houseRecommendations = collect(); }
+    if (!isset($hasPreferences))       { $hasPreferences       = false; }
+    if (!isset($preferredLocation))    { $preferredLocation    = null; }
+    if (!isset($lifestyleText))        { $lifestyleText        = null; }
+    if (!isset($tenant))               { $tenant               = auth()->user(); }
 
-        $detailUrl = function (int $index) use ($houseRecommendations) {
-            $item = $houseRecommendations->get($index);
-            if ($item && isset($item['house'])) {
-                return route('user.browse.show', $item['house']);
-            }
+    $profile = $tenant?->tenantMatchProfile;
 
-            return route('user.browse');
-        };
+    // Format profile display values
+    $profileBudgetMin = $profile?->budget_min;
+    $profileBudgetMax = $profile?->budget_max;
+    $budgetDisplay = '—';
+    if ($profileBudgetMin && $profileBudgetMax) {
+        $budgetDisplay = '₱'.number_format((float)$profileBudgetMin).' – ₱'.number_format((float)$profileBudgetMax).'/month';
+    } elseif ($profileBudgetMax) {
+        $budgetDisplay = 'Up to ₱'.number_format((float)$profileBudgetMax).'/month';
+    } elseif ($profileBudgetMin) {
+        $budgetDisplay = 'From ₱'.number_format((float)$profileBudgetMin).'/month';
+    }
 
-        $topMatches = [
-            [
-                'name' => 'Cozy Haven Boarding House',
-                'location' => 'Cogon, Cagayan de Oro City',
-                'amenities' => ['Wi-Fi', 'AC', 'Study Area'],
-                'description' => 'A quiet and comfortable place near schools and public transport.',
-                'price' => '6,500',
-                'score' => 98,
-                'badge' => 'Perfect Match',
-                'tone' => 'emerald',
-            ],
-            [
-                'name' => 'Comfort Living Space',
-                'location' => 'Lapasan, CDO',
-                'amenities' => ['Wi-Fi', 'Kitchen', 'CCTV'],
-                'description' => 'Clean rooms and friendly environment for students.',
-                'price' => '6,000',
-                'score' => 97,
-                'badge' => 'Highly Match',
-                'tone' => 'emerald',
-            ],
-            [
-                'name' => 'Student Ville Residences',
-                'location' => 'Nazareth, CDO',
-                'amenities' => ['Wi-Fi', 'Laundry', 'Security'],
-                'description' => 'Safe, accessible, and student-friendly community.',
-                'price' => '5,800',
-                'score' => 95,
-                'badge' => 'Highly Match',
-                'tone' => 'emerald',
-            ],
-            [
-                'name' => 'Greenfield Boarding House',
-                'location' => 'Bulua, CDO',
-                'amenities' => ['Parking', 'Wi-Fi', 'AC'],
-                'description' => 'Spacious rooms with parking and 24/7 security.',
-                'price' => '6,200',
-                'score' => 93,
-                'badge' => 'Good Match',
-                'tone' => 'emerald',
-            ],
-            [
-                'name' => 'Peaceful Place Boarding',
-                'location' => 'Kauswagan, CDO',
-                'amenities' => ['Wi-Fi', 'Kitchen', 'Garden'],
-                'description' => 'Affordable and peaceful place to focus on your studies.',
-                'price' => '4,800',
-                'score' => 90,
-                'badge' => 'Good Match',
-                'tone' => 'emerald',
-            ],
-        ];
+    $locationDisplay = $preferredLocation ?: '—';
+    $lifestyleDisplay = $lifestyleText
+        ? \Illuminate\Support\Str::limit($lifestyleText, 60)
+        : '—';
 
-        $avgScore = count($topMatches) ? (int) round(array_sum(array_column($topMatches,'score')) / count($topMatches)) : 0;
-    @endphp
+    // Match readiness: percentage of key fields filled
+    $filledFields = 0;
+    if ($profileBudgetMin || $profileBudgetMax) $filledFields++;
+    if ($preferredLocation) $filledFields++;
+    if ($lifestyleText) $filledFields++;
+    $matchReadyPct = (int) round(($filledFields / 3) * 100);
 
-    <div class="space-y-6">
+    // Score helpers
+    $scoreColor = function(int $pct): string {
+        if ($pct >= 75) return '#22c55e';
+        if ($pct >= 50) return '#f59e0b';
+        return '#ef4444';
+    };
+    $textColorClass = function(int $pct): string {
+        if ($pct >= 75) return 'text-green-500';
+        if ($pct >= 50) return 'text-amber-500';
+        return 'text-red-500';
+    };
+    $badgeBgClass = function(int $pct): string {
+        if ($pct >= 90) return 'bg-emerald-600';
+        if ($pct >= 75) return 'bg-green-500';
+        if ($pct >= 50) return 'bg-amber-500';
+        return 'bg-red-400';
+    };
 
-        {{-- ── Breadcrumb ── --}}
-        <nav class="flex items-center gap-1.5 text-xs text-gray-400">
-            <a href="{{ route('user.dashboard') }}" class="hover:text-gray-600 transition-colors">Home</a>
-            <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-            <span class="font-medium text-gray-600">Matchmaking</span>
-        </nav>
+    // Circumference for r=40: 2π*40 ≈ 251.3
+    $dashArr = fn(int $pct): string => round($pct * 2.513).' 251.3';
 
-        {{-- ── Header ── --}}
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-                <p class="text-xs font-bold uppercase tracking-widest" style="color:var(--brand-600)">AI Matchmaking</p>
-                <h1 class="mt-1 text-2xl font-bold text-gray-900">Matchmaking Results</h1>
-                <p class="mt-0.5 text-sm ui-muted">Your top boarding house matches based on preferences, budget, and lifestyle.</p>
+    $money = fn($v) => is_numeric($v) ? number_format((float)$v, 2) : '—';
+@endphp
+
+<style>
+.rec-card { transition: box-shadow .2s, transform .15s; }
+.rec-card:hover { box-shadow: 0 8px 28px rgba(0,0,0,.09); }
+.btn-outline { display:inline-flex;align-items:center;justify-content:center;border:1px solid #e5e7eb;border-radius:10px;padding:7px 16px;font-size:13px;font-weight:600;background:#fff;color:#374151;cursor:pointer;transition:all .15s;white-space:nowrap;text-decoration:none; }
+.btn-outline:hover { border-color:#6366f1;color:#6366f1; }
+.btn-primary-sm { display:inline-flex;align-items:center;justify-content:center;border-radius:10px;padding:7px 16px;font-size:13px;font-weight:700;background:#6366f1;color:#fff;cursor:pointer;transition:background .15s;white-space:nowrap;border:none;text-decoration:none; }
+.btn-primary-sm:hover { background:#4f46e5; }
+</style>
+
+<div class="space-y-5">
+
+    {{-- Breadcrumb --}}
+    <nav class="flex items-center gap-1.5 text-xs text-gray-400">
+        <a href="{{ route('user.dashboard') }}" class="hover:text-gray-600 transition-colors">Dashboard</a>
+        <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        <span class="text-gray-500">Matchmaking</span>
+    </nav>
+
+    {{-- Title --}}
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Matchmaking</h1>
+        <p class="mt-1 text-sm text-gray-500">AI-powered recommendations tailored to your lifestyle, budget, and preferred location.</p>
+    </div>
+
+    {{-- Lifestyle Profile Card --}}
+    <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div class="flex items-center gap-4">
+                {{-- Avatar + readiness badge --}}
+                <div class="relative shrink-0">
+                    <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50">
+                        <svg class="h-9 w-9 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
+                    </div>
+                    <span class="absolute -bottom-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-green-500 px-2 py-0.5 text-[10px] font-bold text-white">{{ $matchReadyPct }}% Profile Ready</span>
+                </div>
+                {{-- Profile info --}}
+                <div>
+                    <p class="text-base font-bold text-gray-900">Your Boarding Preferences</p>
+                    <div class="mt-2.5 grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-3">
+                        <div class="flex items-start gap-2">
+                            <svg class="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8V7m0 1v8m0 0v1"/></svg>
+                            <div>
+                                <p class="text-[10px] text-gray-400 font-medium">Budget Range</p>
+                                <p class="text-xs font-semibold text-gray-700">{{ $budgetDisplay }}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-2">
+                            <svg class="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
+                            <div>
+                                <p class="text-[10px] text-gray-400 font-medium">Preferred Location</p>
+                                <p class="text-xs font-semibold text-gray-700">{{ $locationDisplay }}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-2">
+                            <svg class="mt-0.5 h-3.5 w-3.5 shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                            <div>
+                                <p class="text-[10px] text-gray-400 font-medium">Lifestyle Preferences</p>
+                                <p class="text-xs font-semibold text-gray-700">{{ $lifestyleDisplay }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="flex gap-2">
+            <a href="{{ route('user.profile') }}"
+               class="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+                <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>
+                Edit Preferences
+            </a>
+        </div>
+    </div>
+
+    {{-- 2-column layout: main + right sidebar --}}
+    <div class="grid gap-5 xl:grid-cols-[1fr_252px]">
+
+        {{-- ══ LEFT: Recommendations ══ --}}
+        <div class="space-y-4">
+
+            {{-- Section header --}}
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <h2 class="text-base font-bold text-gray-900">Recommended for You</h2>
+                    @if ($houseRecommendations->isNotEmpty())
+                    <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-500">
+                        {{ $houseRecommendations->count() }} {{ Str::plural('match', $houseRecommendations->count()) }} — sorted by highest match
+                    </span>
+                    @endif
+                </div>
+                @if ($hasPreferences)
+                <a href="{{ route('user.browse') }}"
+                   class="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                    <svg class="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    Browse All
+                </a>
+                @endif
+            </div>
+
+            {{-- No preferences set --}}
+            @if (!$hasPreferences)
+            <div class="rounded-2xl border border-gray-200 bg-white p-12 text-center shadow-sm">
+                <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-50">
+                    <svg class="h-8 w-8 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+                </div>
+                <h3 class="text-base font-semibold text-gray-800 mb-1">No preferences saved yet</h3>
+                <p class="text-sm text-gray-400 mb-5">Set your preferred location, budget, and lifestyle to get AI-powered boarding house matches.</p>
+                <a href="{{ route('user.profile') }}" class="inline-block rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors">Set Preferences</a>
+            </div>
+
+            {{-- Preferences set but no matching houses found --}}
+            @elseif ($houseRecommendations->isEmpty())
+            <div class="rounded-2xl border border-gray-200 bg-white p-12 text-center shadow-sm">
+                <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gray-50">
+                    <svg class="h-8 w-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
+                </div>
+                <h3 class="text-base font-semibold text-gray-800 mb-1">No matching boarding houses found.</h3>
+                <p class="text-sm text-gray-400 mb-5">Try updating your preferences — a different location or budget range may unlock more results.</p>
+                <a href="{{ route('user.profile') }}" class="inline-block rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors">Update Preferences</a>
+            </div>
+
+            @else
+            {{-- Recommendation cards --}}
+            @foreach($houseRecommendations as $item)
+            @php
+                $house  = $item['house'];
+                $rec    = $item['recommendation'];
+                $pct    = $rec['recommendation_percent'];
+                $color  = $scoreColor($pct);
+                $txtCls = $textColorClass($pct);
+                $bgCls        = $badgeBgClass($pct);
+                $img          = $item['image_url'] ?? null;
+                $affordPct    = isset($rec['scores']['budget'])    ? (int)round($rec['scores']['budget'] * 100)    : $pct;
+                $lifestylePct = isset($rec['scores']['lifestyle']) ? (int)round($rec['scores']['lifestyle'] * 100) : $pct;
+                $locPct       = isset($rec['scores']['location'])  ? (int)round($rec['scores']['location'] * 100)  : $pct;
+            @endphp
+            <div class="rec-card overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+                <div class="flex flex-col sm:grid sm:grid-cols-[140px_1fr_150px_1fr]">
+
+                    {{-- Image --}}
+                    <div class="relative h-48 sm:h-full sm:min-h-[180px] overflow-hidden rounded-tl-2xl rounded-bl-none sm:rounded-bl-2xl sm:rounded-tr-none bg-gray-100">
+                        @if ($img)
+                        <img src="{{ $img }}"
+                             alt="{{ $house->name }}"
+                             class="h-full w-full object-cover"
+                             style="min-height:180px"
+                             onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='block'">
+                        @endif
+                        <img src="{{ asset('images/room-placeholder.svg') }}"
+                             alt="Boarding house room"
+                             class="h-full w-full object-cover"
+                             style="{{ $img ? 'display:none' : '' }}min-height:180px">
+                        <span class="absolute left-2.5 top-2.5 rounded-full {{ $bgCls }} px-2.5 py-1 text-[11px] font-bold text-white">{{ $pct }}% Match</span>
+                    </div>
+
+                    {{-- Property details --}}
+                    <div class="px-4 py-4 min-w-0">
+                        <h3 class="text-sm font-bold text-gray-900 leading-snug">{{ $house->name }}</h3>
+                        <div class="mt-1 flex items-center gap-1 text-xs text-gray-400">
+                            <svg class="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
+                            <span class="truncate">{{ $house->address ?: '—' }}</span>
+                        </div>
+
+                        {{-- Match label tag --}}
+                        <div class="mt-2">
+                            <span class="inline-flex items-center rounded-full {{ $bgCls }} px-2.5 py-0.5 text-[11px] font-semibold text-white">
+                                {{ $rec['match_label'] }}
+                            </span>
+                        </div>
+
+                        <div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                                <p class="text-gray-400 text-[10px]">Monthly Rent</p>
+                                <p class="font-bold text-gray-900 mt-0.5">₱{{ $money($rec['price']) }}</p>
+                            </div>
+                            <div>
+                                <p class="text-gray-400 text-[10px]">Location Match</p>
+                                <p class="font-semibold mt-0.5 {{ $textColorClass($locPct) }}">{{ $locPct }}%</p>
+                            </div>
+                        </div>
+
+                        {{-- Reason chips --}}
+                        @if (!empty($rec['reasons']))
+                        <div class="mt-2 flex flex-wrap gap-1">
+                            @foreach(array_slice($rec['reasons'], 0, 3) as $reason)
+                            <span class="inline-flex items-center gap-1 rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-medium text-green-700">
+                                <svg class="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                                {{ $reason }}
+                            </span>
+                            @endforeach
+                        </div>
+                        @endif
+                    </div>
+
+                    {{-- Compatibility ring --}}
+                    <div class="flex flex-col items-center justify-center border-x border-gray-100 px-4 py-4">
+                        <p class="mb-2 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Compatibility</p>
+                        <div class="relative h-24 w-24">
+                            <svg class="h-24 w-24 -rotate-90" viewBox="0 0 100 100">
+                                <circle cx="50" cy="50" r="40" fill="none" stroke="#f3f4f6" stroke-width="10"/>
+                                <circle cx="50" cy="50" r="40" fill="none" stroke="{{ $color }}" stroke-width="10"
+                                        stroke-dasharray="{{ $dashArr($pct) }}"
+                                        stroke-linecap="round"/>
+                            </svg>
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <span class="text-xl font-bold text-gray-900">{{ $pct }}%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {{-- Scores + AI reason + buttons --}}
+                    <div class="px-4 py-4 flex flex-col justify-between">
+                        <div class="space-y-2.5">
+                            <div>
+                                <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Affordability Match</p>
+                                <p class="text-2xl font-bold {{ $textColorClass($affordPct) }}">{{ $affordPct }}%</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Lifestyle Match</p>
+                                <p class="text-2xl font-bold {{ $textColorClass($lifestylePct) }}">{{ $lifestylePct }}%</p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">AI Reason</p>
+                                <p class="text-xs text-gray-600 leading-relaxed mt-0.5">{{ $rec['ai_reason'] }}</p>
+                            </div>
+                        </div>
+                        <div class="mt-3 flex items-center gap-2 flex-wrap">
+                            <a href="{{ route('user.browse.show', $house) }}" class="btn-outline">View Details</a>
+                            <button class="btn-outline">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            @endforeach
+            @endif
+
+        </div>
+
+        {{-- ══ RIGHT sidebar ══ --}}
+        <div class="space-y-5">
+
+            {{-- How We Match --}}
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <p class="text-sm font-bold text-gray-900">How We Match</p>
+                <p class="mt-1 text-xs text-gray-400 leading-relaxed">Our AI evaluates each boarding house based on what matters most to you.</p>
+                <div class="mt-4 space-y-3">
+                    @foreach([
+                        ['range'=>'90 – 100%','label'=>'Top Match',  'desc'=>'Perfect fit for your location, budget, and lifestyle','color'=>'bg-emerald-600'],
+                        ['range'=>'75 – 89%', 'label'=>'Great Match', 'desc'=>'Very compatible with your preferences',               'color'=>'bg-green-500'],
+                        ['range'=>'50 – 74%', 'label'=>'Good Match',  'desc'=>'Some trade-offs, but still a worthwhile option',      'color'=>'bg-amber-400'],
+                        ['range'=>'Below 50%','label'=>'Low Match',   'desc'=>'May not meet most of your preferences',               'color'=>'bg-red-400'],
+                    ] as $tier)
+                    <div class="flex items-start gap-2.5">
+                        <span class="mt-1 flex h-4 w-4 shrink-0 items-center justify-center rounded-full {{ $tier['color'] }}">
+                            <svg class="h-2.5 w-2.5 text-white" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3"/></svg>
+                        </span>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-bold text-gray-800">{{ $tier['range'] }}</span>
+                                <span class="text-xs font-semibold text-gray-600">{{ $tier['label'] }}</span>
+                            </div>
+                            <p class="text-[11px] text-gray-400">{{ $tier['desc'] }}</p>
+                        </div>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+
+            {{-- What We Analyse --}}
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+                <p class="text-sm font-bold text-gray-900">What We Analyse</p>
+                <p class="mt-1 text-xs text-gray-400">Each recommendation is scored on:</p>
+                <ul class="mt-3 space-y-2">
+                    @foreach([
+                        ['icon'=>'budget',    'text'=>'Preferred budget range (40%)'],
+                        ['icon'=>'location',  'text'=>'Preferred location / area (35%)'],
+                        ['icon'=>'lifestyle', 'text'=>'Lifestyle & environment fit (15%)'],
+                        ['icon'=>'avail',     'text'=>'Room availability (10%)'],
+                    ] as $item)
+                    <li class="flex items-center gap-2 text-xs text-gray-700">
+                        <svg class="h-3.5 w-3.5 shrink-0 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                        {{ $item['text'] }}
+                    </li>
+                    @endforeach
+                </ul>
+            </div>
+
+            {{-- Refine --}}
+            <div class="rounded-2xl border border-indigo-100 bg-indigo-50 p-5">
+                <div class="flex items-start gap-3 mb-3">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm">
+                        <svg class="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-gray-900">Refine Your Matches</p>
+                        <p class="text-xs text-gray-500 mt-0.5 leading-relaxed">Update your preferences to get better recommendations. Changes take effect immediately.</p>
+                    </div>
+                </div>
                 <a href="{{ route('user.profile') }}"
-                   class="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                   class="flex w-full items-center justify-center rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors">
                     Update Preferences
                 </a>
-                <a href="{{ route('user.browse') }}"
-                   class="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white transition-all hover:opacity-90"
-                   style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
-                    View All Houses
-                </a>
             </div>
+
         </div>
-
-        {{-- ── Summary Cards ── --}}
-        <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
-            <div class="ui-card p-5 flex items-center gap-4">
-                <div class="h-12 w-12 shrink-0 rounded-2xl bg-violet-100 flex items-center justify-center">
-                    <svg class="h-6 w-6 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>
-                </div>
-                <div>
-                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Top Matches</p>
-                    <p class="mt-0.5 text-2xl font-bold text-gray-900">{{ count($topMatches) }}</p>
-                    <p class="text-xs text-gray-400">boarding houses</p>
-                </div>
-            </div>
-            <div class="ui-card p-5 flex items-center gap-4">
-                <div class="h-12 w-12 shrink-0 rounded-2xl bg-emerald-100 flex items-center justify-center">
-                    <svg class="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9" stroke-width="1.7"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12l3 3 5-5"/></svg>
-                </div>
-                <div>
-                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Avg Score</p>
-                    <p class="mt-0.5 text-2xl font-bold text-gray-900">{{ $avgScore }}%</p>
-                    <p class="text-xs text-gray-400">compatibility</p>
-                </div>
-            </div>
-            <div class="ui-card p-5 flex items-center gap-4">
-                <div class="h-12 w-12 shrink-0 rounded-2xl bg-amber-100 flex items-center justify-center">
-                    <svg class="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                </div>
-                <div>
-                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Roommates</p>
-                    <p class="mt-0.5 text-2xl font-bold text-gray-900">{{ $matches->count() }}</p>
-                    <p class="text-xs text-gray-400">potential matches</p>
-                </div>
-            </div>
-            <div class="ui-card p-5 flex items-center gap-4">
-                <div class="h-12 w-12 shrink-0 rounded-2xl bg-blue-100 flex items-center justify-center">
-                    <svg class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-                </div>
-                <div>
-                    <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Houses Listed</p>
-                    <p class="mt-0.5 text-2xl font-bold text-gray-900">{{ $houseRecommendations->count() ?: count($topMatches) }}</p>
-                    <p class="text-xs text-gray-400">recommended</p>
-                </div>
-            </div>
-        </div>
-
-        {{-- ── Main Grid ── --}}
-        <div class="grid gap-6 xl:grid-cols-[1fr_280px]">
-            <div class="space-y-4">
-
-                {{-- Tabs --}}
-                <div class="ui-card overflow-hidden">
-                    <div class="flex items-center gap-0 border-b ui-border px-4 pt-1">
-                        <a href="{{ route('user.recommendations') }}"
-                           class="px-4 py-3 text-sm font-semibold border-b-2 border-indigo-600 text-indigo-700 transition-colors">
-                            Top Matches
-                        </a>
-                        <a href="{{ route('user.browse') }}"
-                           class="px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-gray-500 hover:text-gray-700 transition-colors">
-                            All Houses
-                        </a>
-                    </div>
-                    <div class="px-4 py-2.5 bg-gray-50/50 text-xs ui-muted">
-                        Showing {{ count($topMatches) }} top-matched boarding houses for your profile
-                    </div>
-                </div>
-
-                {{-- Match Cards --}}
-                <section class="space-y-3">
-                    @foreach ($topMatches as $index => $match)
-                        @php
-                            $scoreColor = $match['score'] >= 95 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                        : ($match['score'] >= 90 ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                                        : 'bg-amber-50 text-amber-700 border border-amber-200');
-                        @endphp
-                        <article class="ui-card p-4 hover:shadow-md transition-all">
-                            <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
-                                {{-- Rank --}}
-                                <div class="hidden sm:flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base font-bold text-white"
-                                     style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
-                                    {{ $index + 1 }}
-                                </div>
-
-                                {{-- Image --}}
-                                <img src="{{ $image($index) }}" alt="{{ $match['name'] }}"
-                                     class="h-28 w-full rounded-xl object-cover sm:h-20 sm:w-28 sm:rounded-lg border ui-border">
-
-                                {{-- Info --}}
-                                <div class="flex-1 min-w-0">
-                                    <h2 class="text-base font-bold text-gray-900">{{ $match['name'] }}</h2>
-                                    <div class="flex items-center gap-1.5 mt-0.5">
-                                        <svg class="h-3.5 w-3.5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
-                                        <p class="text-xs ui-muted">{{ $match['location'] }}</p>
-                                    </div>
-                                    <div class="mt-2 flex flex-wrap gap-1.5">
-                                        @foreach ($match['amenities'] as $amenity)
-                                            <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-600">{{ $amenity }}</span>
-                                        @endforeach
-                                    </div>
-                                    <p class="mt-1.5 text-xs ui-muted leading-relaxed">{{ $match['description'] }}</p>
-                                </div>
-
-                                {{-- Score + Price + CTA --}}
-                                <div class="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start gap-3 sm:min-w-[130px]">
-                                    <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold {{ $scoreColor }}">
-                                        <svg class="mr-1 h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                        {{ $match['score'] }}% Match
-                                    </span>
-                                    <div class="sm:text-right">
-                                        <p class="text-base font-bold text-gray-900">₱{{ $match['price'] }}</p>
-                                        <p class="text-xs ui-muted">/ month</p>
-                                    </div>
-                                    <a href="{{ $detailUrl($index) }}"
-                                       class="w-full rounded-xl border-2 text-center text-xs font-bold px-3 py-2 transition-colors"
-                                       style="border-color:var(--brand-500);color:var(--brand-600)"
-                                       @mouseenter="$el.style.background='var(--brand-500)';$el.style.color='#fff'"
-                                       @mouseleave="$el.style.background='';$el.style.color='var(--brand-600)'">
-                                        View Details
-                                    </a>
-                                </div>
-                            </div>
-                        </article>
-                    @endforeach
-                </section>
-
-                {{-- Recommended Roommates --}}
-                @if ($matches->isNotEmpty())
-                    <div class="ui-card p-5">
-                        <div class="flex items-center justify-between mb-4">
-                            <div>
-                                <h2 class="text-base font-bold text-gray-900">Recommended Roommates</h2>
-                                <p class="text-sm ui-muted mt-0.5">Compatible tenants ranked by shared lifestyle and habits.</p>
-                            </div>
-                        </div>
-                        <div class="grid gap-4 lg:grid-cols-2">
-                            @foreach ($matches as $match)
-                                @php
-                                    $candidate = $match['candidate'];
-                                    $compatibility = $match['compatibility'];
-                                    $profile = $candidate->tenantMatchProfile;
-                                @endphp
-                                <article class="rounded-xl border ui-border p-4 hover:border-indigo-200 transition-colors">
-                                    <div class="flex items-start justify-between gap-3 mb-3">
-                                        <div>
-                                            <h3 class="text-sm font-bold text-gray-900">{{ $candidate->name }}</h3>
-                                            <p class="text-xs ui-muted">{{ $match['context'] }}</p>
-                                        </div>
-                                        <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                                            {{ $compatibility['compatibility_percent'] }}%
-                                        </span>
-                                    </div>
-                                    <div class="grid grid-cols-2 gap-2 text-xs mb-3">
-                                        <div class="rounded-lg bg-gray-50 px-2.5 py-2">
-                                            <p class="text-gray-400">Budget</p>
-                                            <p class="font-semibold text-gray-700 mt-0.5">₱{{ number_format((float) ($profile->budget_min ?? 0)) }}–{{ number_format((float) ($profile->budget_max ?? 0)) }}</p>
-                                        </div>
-                                        <div class="rounded-lg bg-gray-50 px-2.5 py-2">
-                                            <p class="text-gray-400">Study</p>
-                                            <p class="font-semibold text-gray-700 mt-0.5">{{ $formatOption($profile->study_habits ?? null) }}</p>
-                                        </div>
-                                    </div>
-                                    <a href="{{ route('user.recommendations.show', $candidate) }}"
-                                       class="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold text-white"
-                                       style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
-                                        View Full Match
-                                    </a>
-                                </article>
-                            @endforeach
-                        </div>
-                    </div>
-                @endif
-
-                {{-- House Recommendations --}}
-                @if ($houseRecommendations->isNotEmpty())
-                    <div class="ui-card p-5">
-                        <h2 class="text-base font-bold text-gray-900 mb-1">AI Recommended Houses</h2>
-                        <p class="text-sm ui-muted mb-4">Ranked by budget fit, amenities, availability, and compatibility.</p>
-                        <div class="space-y-3">
-                            @foreach ($houseRecommendations as $item)
-                                @php
-                                    $house = $item['house'];
-                                    $recommendation = $item['recommendation'];
-                                    $price = $house->rooms->min('price') ?? $house->roomCategories->min('monthly_rate') ?? $house->price ?? $house->monthly_payment;
-                                @endphp
-                                <div class="flex flex-col gap-3 rounded-xl border ui-border p-4 md:flex-row md:items-center md:justify-between hover:border-indigo-200 transition-colors">
-                                    <div>
-                                        <h3 class="text-sm font-bold text-gray-900">{{ $house->name }}</h3>
-                                        <p class="text-xs ui-muted">{{ $house->address ?? 'Location not specified' }}</p>
-                                    </div>
-                                    <div class="flex flex-wrap items-center gap-3">
-                                        <span class="rounded-full px-2.5 py-1 text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                            {{ $recommendation['recommendation_percent'] }}% Fit
-                                        </span>
-                                        <span class="text-sm font-bold text-gray-800">{{ $price ? '₱'.number_format((float) $price, 2) : 'Price not set' }}</span>
-                                        <a href="{{ route('user.browse.show', $house) }}"
-                                           class="rounded-xl border border-indigo-200 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 transition-colors">
-                                            View Details
-                                        </a>
-                                    </div>
-                                </div>
-                            @endforeach
-                        </div>
-                    </div>
-                @endif
-
-            </div>
-
-            {{-- ── Right Panel ── --}}
-            <div class="space-y-5">
-
-                {{-- How it works --}}
-                <div class="ui-card p-5" style="background:linear-gradient(135deg,#eef2ff,#f5f3ff)">
-                    <div class="flex items-center gap-2 mb-3">
-                        <div class="h-8 w-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-                            <svg class="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                        </div>
-                        <h3 class="text-sm font-bold text-indigo-800">How Matching Works</h3>
-                    </div>
-                    <ul class="space-y-2 text-xs text-indigo-700/80">
-                        <li class="flex items-start gap-1.5"><span class="mt-0.5 h-1.5 w-1.5 rounded-full bg-indigo-400 shrink-0"></span>Your preferences are scored against each house</li>
-                        <li class="flex items-start gap-1.5"><span class="mt-0.5 h-1.5 w-1.5 rounded-full bg-indigo-400 shrink-0"></span>Budget, location, and amenities are weighted</li>
-                        <li class="flex items-start gap-1.5"><span class="mt-0.5 h-1.5 w-1.5 rounded-full bg-indigo-400 shrink-0"></span>Lifestyle compatibility boosts your score</li>
-                        <li class="flex items-start gap-1.5"><span class="mt-0.5 h-1.5 w-1.5 rounded-full bg-indigo-400 shrink-0"></span>Higher percentage = better overall fit</li>
-                    </ul>
-                    <a href="{{ route('user.profile') }}"
-                       class="mt-4 block text-center rounded-xl py-2 text-xs font-bold text-white"
-                       style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
-                        Update My Preferences
-                    </a>
-                </div>
-
-                {{-- Score Legend --}}
-                <div class="ui-card p-5">
-                    <h3 class="text-sm font-bold text-gray-800 mb-3">Match Score Guide</h3>
-                    <div class="space-y-2">
-                        @foreach([
-                            ['range'=>'95–100%','label'=>'Perfect Match','color'=>'bg-emerald-100 text-emerald-700'],
-                            ['range'=>'90–94%','label'=>'Highly Compatible','color'=>'bg-blue-100 text-blue-700'],
-                            ['range'=>'80–89%','label'=>'Good Match','color'=>'bg-amber-100 text-amber-700'],
-                            ['range'=>'Below 80%','label'=>'Fair Match','color'=>'bg-gray-100 text-gray-600'],
-                        ] as $row)
-                            <div class="flex items-center justify-between text-xs">
-                                <span class="px-2 py-0.5 rounded-full font-semibold {{ $row['color'] }}">{{ $row['label'] }}</span>
-                                <span class="text-gray-500 font-mono">{{ $row['range'] }}</span>
-                            </div>
-                        @endforeach
-                    </div>
-                </div>
-
-                {{-- CTA --}}
-                <div class="ui-card p-5 text-center">
-                    <p class="text-sm font-semibold text-gray-800 mb-1">Not seeing what you want?</p>
-                    <p class="text-xs ui-muted mb-4">Browse all approved boarding houses in your area.</p>
-                    <a href="{{ route('user.browse') }}"
-                       class="block w-full rounded-xl py-2.5 text-sm font-bold text-white transition-all hover:opacity-90"
-                       style="background:linear-gradient(135deg,#f97316,#ef4444)">
-                        Browse All Houses
-                    </a>
-                </div>
-            </div>
-        </div>
-
-        {{-- ── Bottom Note ── --}}
-        <p class="text-center text-xs ui-muted py-2">
-            Match scores are calculated using AI based on your preferences, budget, and lifestyle profile.
-            <a href="{{ route('user.profile') }}" class="ml-1 font-semibold text-indigo-600 hover:underline">Update preferences →</a>
-        </p>
-
-        {{-- ── Bottom Banner ── --}}
-        <div class="ui-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div class="flex items-center gap-3">
-                <div class="h-10 w-10 shrink-0 rounded-xl bg-violet-50 flex items-center justify-center">
-                    <svg class="h-5 w-5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 22s-8-4-8-10V5l8-3 8 3v7c0 6-8 10-8 10Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4"/></svg>
-                </div>
-                <div>
-                    <p class="text-sm font-semibold text-gray-900">Your data is used only to improve your matches.</p>
-                    <p class="text-xs text-gray-400">Preferences are private and never shared with boarding house owners.</p>
-                </div>
-            </div>
-            <a href="{{ route('user.messages') }}" class="text-sm font-semibold text-indigo-600 hover:underline shrink-0">Get Help →</a>
-        </div>
-
     </div>
+
+</div>
 </x-user.shell>
 </x-layouts.dashboard>

@@ -38,6 +38,7 @@ const setupModalIsolation = () => {
     let focusBeforeOpen = null;
     let queued = false;
     const lockedElements = new Map();
+    const modalSelector = '[data-modal-root], [role="dialog"], .fixed.inset-0.z-50';
 
     const isVisible = (el) => {
         const style = window.getComputedStyle(el);
@@ -52,7 +53,7 @@ const setupModalIsolation = () => {
             return false;
         }
 
-        if (el.matches('[data-modal-root]')) {
+        if (el.matches('[data-modal-root], [role="dialog"]')) {
             return true;
         }
 
@@ -66,7 +67,7 @@ const setupModalIsolation = () => {
             );
     };
 
-    const openModals = () => [...document.querySelectorAll('[data-modal-root], .fixed.inset-0.z-50')]
+    const openModals = () => [...document.querySelectorAll(modalSelector)]
         .filter((el) => isModalCandidate(el) && isVisible(el));
 
     const focusablesIn = (modal) => [...modal.querySelectorAll(focusableSelector)]
@@ -163,6 +164,7 @@ const setupModalIsolation = () => {
         });
 
         if (topModal) {
+            topModal.setAttribute('data-modal-root', '');
             topModal.setAttribute('data-modal-active', 'true');
             topModal.setAttribute('role', topModal.getAttribute('role') || 'dialog');
             topModal.setAttribute('aria-modal', 'true');
@@ -251,6 +253,23 @@ const setupModalIsolation = () => {
 
     document.addEventListener('pointerdown', keepInteractionInModal, true);
     document.addEventListener('click', keepInteractionInModal, true);
+
+    const keepScrollInModal = (event) => {
+        if (!activeModal) {
+            return;
+        }
+
+        if (activeModal.contains(event.target) && !isBackdropInteraction(event)) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+    };
+
+    document.addEventListener('wheel', keepScrollInModal, { capture: true, passive: false });
+    document.addEventListener('touchmove', keepScrollInModal, { capture: true, passive: false });
 
     document.addEventListener('focusin', (event) => {
         if (!activeModal || activeModal.contains(event.target)) {

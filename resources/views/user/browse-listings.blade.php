@@ -1,615 +1,1187 @@
 <x-layouts.dashboard>
 <x-user.shell>
 @php
-    $amenitiesList    = $amenities ?? collect();
-    $citiesList       = $cities    ?? collect();
-    $initialCount     = isset($houses) ? $houses->total() : 0;
-    $initialHousesArr = isset($initialHouses) ? $initialHouses->toArray() : [];
+    $detailUrl = \Illuminate\Support\Facades\Route::has('user.browse.show') ? route('user.browse') : url()->current();
+    $mapUrl = \Illuminate\Support\Facades\Route::has('map.user.listings')
+        ? route('map.user.listings')
+        : 'https://www.openstreetmap.org/#map=12/14.6760/121.0437';
 
-    $priceRanges = [
-        ['label' => 'Under ₱3,000',      'min' => '',     'max' => '3000'],
-        ['label' => '₱3,000 – ₱5,000',   'min' => '3000', 'max' => '5000'],
-        ['label' => '₱5,000 – ₱8,000',   'min' => '5000', 'max' => '8000'],
-        ['label' => '₱8,000 – ₱12,000',  'min' => '8000', 'max' => '12000'],
-        ['label' => 'Above ₱12,000',      'min' => '12000','max' => ''],
+    $listings = [
+        [
+            'name' => 'Sunrise Boarding House',
+            'price' => '3,500',
+            'location' => 'Quezon City, Metro Manila',
+            'room' => 'Private Room',
+            'rating' => '4.6',
+            'reviews' => 32,
+            'photos' => 12,
+            'image' => 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=700&q=80',
+            'icons' => ['wifi', 'water', 'key', 'lock'],
+        ],
+        [
+            'name' => 'Greenview Residences',
+            'price' => '4,000',
+            'location' => 'Quezon City, Metro Manila',
+            'room' => 'Private Room',
+            'rating' => '4.4',
+            'reviews' => 28,
+            'photos' => 10,
+            'image' => 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=700&q=80',
+            'icons' => ['wifi', 'water', 'key', 'share'],
+        ],
+        [
+            'name' => 'Haven Boarders',
+            'price' => '3,800',
+            'location' => 'Quezon City, Metro Manila',
+            'room' => 'Shared Room',
+            'rating' => '4.2',
+            'reviews' => 19,
+            'photos' => 15,
+            'image' => 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=700&q=80',
+            'icons' => ['air', 'water', 'key'],
+        ],
+        [
+            'name' => 'Comfort Living QC',
+            'price' => '4,500',
+            'location' => 'Quezon City, Metro Manila',
+            'room' => 'Private Room',
+            'rating' => '4.7',
+            'reviews' => 41,
+            'photos' => 8,
+            'image' => 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=700&q=80',
+            'icons' => ['wifi', 'water', 'key', 'lock', 'share'],
+        ],
+        [
+            'name' => 'SafeHaven Boarding',
+            'price' => '3,200',
+            'location' => 'Quezon City, Metro Manila',
+            'room' => 'Shared Room',
+            'rating' => '4.1',
+            'reviews' => 16,
+            'photos' => 9,
+            'image' => 'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&w=700&q=80',
+            'icons' => ['wifi', 'water', 'key', 'lock'],
+        ],
+        [
+            'name' => 'Maple Lodge',
+            'price' => '3,600',
+            'location' => 'Quezon City, Metro Manila',
+            'room' => 'Private Room',
+            'rating' => '4.3',
+            'reviews' => 23,
+            'photos' => 11,
+            'image' => 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=700&q=80',
+            'icons' => ['wifi', 'water', 'key', 'lock'],
+        ],
+        [
+            'name' => 'Tranquil Place',
+            'price' => '4,200',
+            'location' => 'Quezon City, Metro Manila',
+            'room' => 'Private Room',
+            'rating' => '4.5',
+            'reviews' => 30,
+            'photos' => 7,
+            'image' => 'https://images.unsplash.com/photo-1560185007-c5ca9d2c014d?auto=format&fit=crop&w=700&q=80',
+            'icons' => ['wifi', 'water', 'key', 'lock'],
+        ],
+        [
+            'name' => 'Bright Stay',
+            'price' => '3,900',
+            'location' => 'Quezon City, Metro Manila',
+            'room' => 'Shared Room',
+            'rating' => '4.2',
+            'reviews' => 18,
+            'photos' => 6,
+            'image' => 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=700&q=80',
+            'icons' => ['wifi', 'water', 'key', 'lock', 'share'],
+        ],
     ];
 
-    $citiesForJs = $citiesList->map(fn($c) => ['id' => (string)$c->id, 'name' => $c->city_name])->values()->toArray();
-    $amenitiesForJs = $amenitiesList->map(fn($a) => ['id' => (string)$a->id, 'name' => $a->name])->values()->toArray();
+    $popularAmenities = [
+        ['name' => 'Wi-Fi', 'count' => 42, 'icon' => 'wifi'],
+        ['name' => 'Kitchen', 'count' => 38, 'icon' => 'kitchen'],
+        ['name' => 'Laundry', 'count' => 35, 'icon' => 'laundry'],
+        ['name' => 'Air Conditioning', 'count' => 28, 'icon' => 'air'],
+        ['name' => 'Parking', 'count' => 22, 'icon' => 'parking'],
+    ];
 
-    $requestAmenities = array_map('strval', (array) request('amenities', []));
+    $iconPaths = [
+        'search' => '<path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.2-5.2m1.7-5.05a6.75 6.75 0 1 1-13.5 0 6.75 6.75 0 0 1 13.5 0Z"/>',
+        'chevron' => '<path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/>',
+        'grid' => '<path stroke-linecap="round" stroke-linejoin="round" d="M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 0h6v6h-6v-6Z"/>',
+        'list' => '<path stroke-linecap="round" stroke-linejoin="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+        'filter' => '<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M7 12h10m-7 6h4"/>',
+        'heart' => '<path stroke-linecap="round" stroke-linejoin="round" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8Z"/>',
+        'camera' => '<path stroke-linecap="round" stroke-linejoin="round" d="M4 8h3l1.4-2h7.2L17 8h3v10H4V8Zm8 7.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"/>',
+        'bookmark' => '<path stroke-linecap="round" stroke-linejoin="round" d="M6 4h12v16l-6-3-6 3V4Z"/>',
+        'star' => '<path stroke-linecap="round" stroke-linejoin="round" d="m12 3 2.6 5.3 5.9.8-4.2 4.1 1 5.8-5.3-2.8L6.7 19l1-5.8-4.2-4.1 5.9-.8L12 3Z"/>',
+        'wifi' => '<path stroke-linecap="round" stroke-linejoin="round" d="M2.5 8.5a15 15 0 0 1 19 0M5.8 11.8a10 10 0 0 1 12.4 0M9.2 15.2a5 5 0 0 1 5.6 0M12 18h.01"/>',
+        'water' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 3s5 5.2 5 9a5 5 0 0 1-10 0c0-3.8 5-9 5-9Z"/>',
+        'key' => '<path stroke-linecap="round" stroke-linejoin="round" d="M15 7a4 4 0 1 1-2.5 7.1L6 20.5H3.5V18H6v-2.5h2.5l2.4-2.4A4 4 0 0 1 15 7Z"/>',
+        'lock' => '<path stroke-linecap="round" stroke-linejoin="round" d="M6 10h12v10H6V10Zm3 0V7a3 3 0 1 1 6 0v3"/>',
+        'share' => '<path stroke-linecap="round" stroke-linejoin="round" d="M18 8a3 3 0 1 0-2.8-4H15a3 3 0 0 0 .2 1L8.8 9a3 3 0 1 0 0 6l6.4 4a3 3 0 1 0 .9-1.5L9.7 13.5a3.1 3.1 0 0 0 0-3L16.1 6.5A3 3 0 0 0 18 8Z"/>',
+        'kitchen' => '<path stroke-linecap="round" stroke-linejoin="round" d="M7 3v8m4-8v8m4-8v8M5 11h12v10H5V11Zm14-7v17"/>',
+        'laundry' => '<path stroke-linecap="round" stroke-linejoin="round" d="M5 4h14v16H5V4Zm4 3h.01M12 15a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/>',
+        'air' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 3v18M5 7l14 10M19 7 5 17"/>',
+        'parking' => '<path stroke-linecap="round" stroke-linejoin="round" d="M8 20V4h6a4.5 4.5 0 0 1 0 9H8"/>',
+        'location' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 21s7-4.8 7-11a7 7 0 1 0-14 0c0 6.2 7 11 7 11Zm0-8a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>',
+        'budget' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m3-9.5c-.6-1-1.6-1.5-3-1.5-1.7 0-3 .9-3 2s1.3 2 3 2 3 .9 3 2-1.3 2-3 2c-1.4 0-2.5-.5-3.1-1.5"/>',
+        'home' => '<path stroke-linecap="round" stroke-linejoin="round" d="m3 11 9-8 9 8v9h-6v-5H9v5H3v-9Z"/>',
+        'spark' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 3l2.1 6 6 2.1-6 2.1-2.1 6-2.1-6-6-2.1 6-2.1L12 3Z"/>',
+        'sort' => '<path stroke-linecap="round" stroke-linejoin="round" d="M4 6h12M4 12h8M4 18h5m9-8v10m0 0 3-3m-3 3-3-3"/>',
+        'shield' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 3 5 6v5c0 4.6 2.8 8.4 7 10 4.2-1.6 7-5.4 7-10V6l-7-3Zm-2.2 9 1.5 1.5 3.2-3.6"/>',
+        'expand' => '<path stroke-linecap="round" stroke-linejoin="round" d="M15 3h6v6M14 10l7-7M9 21H3v-6m7-1-7 7"/>',
+    ];
 @endphp
 
 <style>
-.bm-pill {
-    display:inline-flex; align-items:center; gap:6px;
-    padding:8px 14px; border-radius:999px; font-size:13px; font-weight:600;
-    border:1.5px solid var(--border); background:var(--surface); color:var(--text);
-    cursor:pointer; white-space:nowrap; user-select:none;
-    transition:border-color .15s, background .15s, color .15s;
-}
-.bm-pill:hover   { border-color:var(--brand-500); color:var(--brand-600); }
-.bm-pill.active  { border-color:var(--brand-500); background:rgba(255,126,95,.08); color:var(--brand-600); }
-.bm-pill svg     { width:14px; height:14px; flex-shrink:0; }
-.bm-pill .caret  { width:11px; height:11px; flex-shrink:0; transition:transform .15s; }
-.bm-pill.open .caret { transform:rotate(180deg); }
+    .bm-finder {
+        color: #111827;
+        font-family: Manrope, "Segoe UI", sans-serif;
+    }
 
-.bm-drop {
-    position:absolute; top:calc(100% + 8px); left:0; z-index:200;
-    background:var(--surface); border:1px solid var(--border);
-    border-radius:16px; padding:6px; min-width:220px;
-    box-shadow:0 16px 48px rgba(26,18,15,.13);
-}
-.bm-drop.right { left:auto; right:0; }
+    .bm-finder * {
+        box-sizing: border-box;
+    }
 
-.bm-opt {
-    display:flex; align-items:center; gap:9px;
-    padding:9px 11px; border-radius:10px; font-size:13px;
-    cursor:pointer; transition:background .1s;
-}
-.bm-opt:hover     { background:var(--surface-2); }
-.bm-opt.selected  { background:rgba(255,126,95,.1); color:var(--brand-600); font-weight:600; }
+    .bm-icon {
+        width: 18px;
+        height: 18px;
+        flex: 0 0 auto;
+    }
 
-.chk-box {
-    width:16px; height:16px; border-radius:5px;
-    border:2px solid #d1d5db; flex-shrink:0;
-    display:flex; align-items:center; justify-content:center;
-    transition:background .15s, border-color .15s;
-}
-.chk-box.checked { background:var(--brand-500); border-color:var(--brand-500); }
-.chk-box svg { width:10px; height:10px; color:#fff; }
+    .bm-crumbs {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #64748b;
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 16px;
+    }
 
-.match-badge {
-    display:inline-flex; align-items:center; gap:5px;
-    border-radius:999px; padding:4px 10px;
-    font-size:11.5px; font-weight:700;
-}
-.mb-best  { background:#d1fae5; color:#065f46; }
-.mb-great { background:#dcfce7; color:#166534; }
-.mb-good  { background:#fff7ed; color:#c2410c; }
-.mb-fair  { background:#f3f4f6; color:#4b5563; }
+    .bm-crumbs a {
+        color: #64748b;
+        text-decoration: none;
+    }
 
-.hcard { transition:box-shadow .2s, transform .2s; }
-.hcard:hover { box-shadow:0 12px 32px rgba(26,18,15,.1); transform:translateY(-1px); }
+    .bm-page-heading h1 {
+        margin: 0;
+        color: #0f172a;
+        font-size: 30px;
+        line-height: 1.12;
+        font-weight: 800;
+        letter-spacing: 0;
+    }
 
-@keyframes sk { 0%,100%{opacity:1} 50%{opacity:.45} }
-.sk { background:var(--surface-2); border-radius:8px; animation:sk 1.5s ease-in-out infinite; }
+    .bm-page-heading p {
+        margin: 10px 0 0;
+        color: #64748b;
+        font-size: 15px;
+    }
+
+    .bm-search-card {
+        margin-top: 0;
+        background: #fff;
+        border: 1px solid #e9edf3;
+        border-radius: 10px;
+        padding: 16px 18px;
+        box-shadow: 0 18px 44px rgba(15, 23, 42, 0.045);
+    }
+
+    .bm-search-box {
+        position: relative;
+        margin-bottom: 14px;
+    }
+
+    .bm-search-box svg {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #64748b;
+    }
+
+    .bm-search-box input {
+        width: 100%;
+        height: 36px;
+        border: 1px solid #d9e0ea;
+        border-radius: 8px;
+        color: #0f172a;
+        font-size: 13px;
+        outline: none;
+        padding: 0 14px 0 42px;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .bm-search-box input:focus {
+        border-color: #7556ff;
+        box-shadow: 0 0 0 3px rgba(117, 86, 255, 0.12);
+    }
+
+    .bm-filter-row {
+        display: grid;
+        width: 100%;
+        min-width: 0;
+        grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+        gap: 12px;
+        align-items: center;
+    }
+
+    .bm-filter-control {
+        position: relative;
+        display: grid;
+        gap: 4px;
+        min-width: 0;
+        height: 50px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: #fff;
+        padding: 8px 34px 7px 12px;
+    }
+
+    .bm-filter-control span {
+        color: #64748b;
+        font-size: 10px;
+        font-weight: 700;
+    }
+
+    .bm-filter-control select {
+        width: 100%;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        border: 0;
+        padding: 0;
+        background: transparent;
+        appearance: none;
+        color: #111827;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.15;
+        outline: none;
+    }
+
+    .bm-filter-control svg {
+        position: absolute;
+        right: 11px;
+        bottom: 10px;
+        color: #475569;
+        width: 14px;
+        height: 14px;
+        pointer-events: none;
+    }
+
+    .bm-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 360px;
+        gap: 32px;
+        align-items: start;
+        margin-top: 24px;
+    }
+
+    .bm-results-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin: 24px 0 14px;
+    }
+
+    .bm-results-head p {
+        margin: 0;
+        color: #475569;
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+    .bm-view-toggle {
+        display: inline-flex;
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        background: #fff;
+    }
+
+    .bm-view-toggle button {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 34px;
+        min-width: 82px;
+        justify-content: center;
+        border: 0;
+        background: #fff;
+        color: #334155;
+        font-size: 13px;
+        font-weight: 800;
+        cursor: pointer;
+    }
+
+    .bm-view-toggle button + button {
+        border-left: 1px solid #edf1f5;
+    }
+
+    .bm-view-toggle button.is-active {
+        color: #5b36f5;
+        background: #fbfaff;
+    }
+
+    .bm-card-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px 18px;
+    }
+
+    .bm-listing-card {
+        min-width: 0;
+        overflow: hidden;
+        border: 1px solid #e4e9f1;
+        border-radius: 9px;
+        background: #fff;
+        box-shadow: 0 12px 26px rgba(15, 23, 42, 0.045);
+    }
+
+    .bm-card-media {
+        position: relative;
+        height: 128px;
+        background: linear-gradient(135deg, #e2e8f0, #f8fafc);
+        overflow: hidden;
+    }
+
+    .bm-card-media img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
+    .bm-photo-count {
+        position: absolute;
+        left: 10px;
+        bottom: 9px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        min-width: 38px;
+        height: 24px;
+        padding: 0 8px;
+        border-radius: 5px;
+        color: #fff;
+        background: rgba(17, 24, 39, 0.78);
+        font-size: 12px;
+        font-weight: 800;
+    }
+
+    .bm-heart {
+        position: absolute;
+        right: 9px;
+        top: 8px;
+        display: inline-flex;
+        width: 36px;
+        height: 36px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #dfe5ee;
+        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.94);
+        color: #64748b;
+        cursor: pointer;
+    }
+
+    .bm-heart.is-saved {
+        color: #ff4b2b;
+    }
+
+    .bm-card-body {
+        padding: 12px 12px 10px;
+    }
+
+    .bm-card-title {
+        margin: 0;
+        color: #111827;
+        font-size: 15px;
+        line-height: 1.2;
+        font-weight: 800;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .bm-price-row {
+        margin-top: 8px;
+        color: #ff4b2b;
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .bm-price-row strong {
+        font-size: 15px;
+        font-weight: 900;
+    }
+
+    .bm-location {
+        margin-top: 8px;
+        color: #64748b;
+        font-size: 11px;
+        line-height: 1.25;
+    }
+
+    .bm-room-chip {
+        display: inline-flex;
+        margin-top: 9px;
+        border-radius: 5px;
+        background: #f3f5f8;
+        color: #64748b;
+        padding: 3px 7px;
+        font-size: 10px;
+        font-weight: 700;
+    }
+
+    .bm-card-meta {
+        margin-top: 11px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+    .bm-rating {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        color: #334155;
+        font-size: 11px;
+        font-weight: 600;
+        min-width: 0;
+    }
+
+    .bm-rating svg {
+        color: #f8a300;
+        fill: #f8a300;
+        stroke: #f8a300;
+    }
+
+    .bm-amenity-icons {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: #475569;
+    }
+
+    .bm-amenity-icons svg {
+        width: 13px;
+        height: 13px;
+    }
+
+    .bm-card-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 76px;
+        gap: 12px;
+        margin-top: 12px;
+    }
+
+    .bm-details-btn,
+    .bm-save-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 31px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 800;
+    }
+
+    .bm-details-btn {
+        border: 1px solid #7a5cff;
+        color: #5b36f5;
+        background: #fff;
+    }
+
+    .bm-save-btn {
+        border: 1px solid #dce3ed;
+        color: #111827;
+        background: #fff;
+        gap: 6px;
+        cursor: pointer;
+    }
+
+    .bm-save-btn.is-saved {
+        color: #5b36f5;
+        border-color: #b8a8ff;
+        background: #fbfaff;
+    }
+
+    .bm-pagination-row {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 16px;
+        margin: 10px 0 0;
+    }
+
+    .bm-pagination {
+        grid-column: 2;
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .bm-page-btn {
+        min-width: 32px;
+        height: 32px;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        background: #fff;
+        color: #334155;
+        font-size: 13px;
+        font-weight: 800;
+    }
+
+    .bm-page-btn.is-active {
+        border-color: #ff5a3c;
+        color: #ff4b2b;
+        background: #fff7f4;
+    }
+
+    .bm-page-btn.is-plain {
+        border-color: transparent;
+        background: transparent;
+        color: #64748b;
+    }
+
+    .bm-page-size {
+        justify-self: end;
+        position: relative;
+    }
+
+    .bm-page-size select {
+        height: 34px;
+        min-width: 108px;
+        appearance: none;
+        border: 1px solid #e2e8f0;
+        border-radius: 7px;
+        background: #fff;
+        color: #334155;
+        font-size: 12px;
+        font-weight: 800;
+        padding: 0 32px 0 12px;
+        outline: none;
+    }
+
+    .bm-page-size svg {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #64748b;
+        pointer-events: none;
+    }
+
+    .bm-sidebar {
+        display: grid;
+        gap: 10px;
+    }
+
+    .bm-side-panel {
+        border: 1px solid #e7ebf2;
+        border-radius: 10px;
+        background: #fff;
+        box-shadow: 0 14px 32px rgba(15, 23, 42, 0.045);
+        padding: 18px;
+    }
+
+    .bm-panel-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+    }
+
+    .bm-panel-title h2 {
+        margin: 0;
+        color: #111827;
+        font-size: 15px;
+        font-weight: 900;
+    }
+
+    .bm-panel-title button {
+        border: 0;
+        background: transparent;
+        color: #ff4b2b;
+        font-size: 12px;
+        font-weight: 800;
+        cursor: pointer;
+    }
+
+    .bm-map {
+        position: relative;
+        height: 206px;
+        overflow: hidden;
+        border-radius: 8px;
+        background:
+            linear-gradient(26deg, transparent 45%, rgba(134, 197, 255, 0.5) 46%, rgba(134, 197, 255, 0.5) 49%, transparent 50%),
+            linear-gradient(146deg, transparent 42%, rgba(255, 255, 255, 0.95) 43%, rgba(255, 255, 255, 0.95) 47%, transparent 48%),
+            linear-gradient(85deg, transparent 48%, rgba(255, 255, 255, 0.9) 49%, rgba(255, 255, 255, 0.9) 51%, transparent 52%),
+            linear-gradient(0deg, rgba(124, 198, 255, 0.28), rgba(246, 248, 252, 0.88));
+    }
+
+    .bm-map::before,
+    .bm-map::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+            repeating-linear-gradient(18deg, transparent 0 28px, rgba(196, 203, 213, 0.38) 29px 31px, transparent 32px 60px),
+            repeating-linear-gradient(107deg, transparent 0 34px, rgba(196, 203, 213, 0.3) 35px 37px, transparent 38px 72px);
+        opacity: 0.55;
+    }
+
+    .bm-map::after {
+        background:
+            radial-gradient(circle at 12% 30%, rgba(86, 202, 115, 0.26) 0 20px, transparent 21px),
+            radial-gradient(circle at 77% 12%, rgba(86, 202, 115, 0.22) 0 22px, transparent 23px),
+            radial-gradient(circle at 91% 52%, rgba(86, 202, 115, 0.18) 0 18px, transparent 19px);
+        opacity: 1;
+    }
+
+    .bm-map-label {
+        position: absolute;
+        z-index: 2;
+        color: #334155;
+        font-size: 13px;
+        font-weight: 900;
+        letter-spacing: 0.08em;
+        left: 37%;
+        top: 48%;
+    }
+
+    .bm-map-place {
+        position: absolute;
+        z-index: 2;
+        color: rgba(71, 85, 105, 0.72);
+        font-size: 11px;
+        font-weight: 700;
+    }
+
+    .bm-pin {
+        position: absolute;
+        z-index: 3;
+        width: 22px;
+        height: 22px;
+        border-radius: 50% 50% 50% 0;
+        background: #6c3df4;
+        transform: rotate(-45deg);
+        box-shadow: 0 7px 14px rgba(108, 61, 244, 0.24);
+    }
+
+    .bm-pin::after {
+        content: "";
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: #fff;
+        left: 7px;
+        top: 7px;
+    }
+
+    .bm-map-link {
+        position: absolute;
+        z-index: 4;
+        left: 12px;
+        bottom: 12px;
+        color: #5b36f5;
+        background: rgba(255, 255, 255, 0.92);
+        border-radius: 6px;
+        padding: 8px 12px;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 900;
+    }
+
+    .bm-map-expand {
+        position: absolute;
+        z-index: 4;
+        right: 11px;
+        bottom: 10px;
+        display: inline-flex;
+        width: 30px;
+        height: 30px;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        border-radius: 7px;
+        background: rgba(255, 255, 255, 0.92);
+        color: #475569;
+    }
+
+    .bm-summary-list,
+    .bm-amenity-list {
+        display: grid;
+        gap: 15px;
+    }
+
+    .bm-summary-row,
+    .bm-amenity-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        color: #475569;
+        font-size: 13px;
+    }
+
+    .bm-summary-label,
+    .bm-amenity-name {
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+        min-width: 0;
+        font-weight: 800;
+        color: #334155;
+    }
+
+    .bm-summary-value {
+        color: #64748b;
+        font-weight: 700;
+        text-align: right;
+    }
+
+    .bm-edit-search {
+        width: 100%;
+        height: 34px;
+        margin-top: 20px;
+        border: 1px solid #a38fff;
+        border-radius: 7px;
+        background: #fff;
+        color: #5b36f5;
+        font-size: 13px;
+        font-weight: 900;
+        cursor: pointer;
+    }
+
+    .bm-count-pill {
+        min-width: 34px;
+        height: 26px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #e7ebf2;
+        border-radius: 999px;
+        background: #fbfcfe;
+        color: #64748b;
+        font-size: 12px;
+        font-weight: 800;
+    }
+
+    .bm-view-amenities {
+        display: inline-flex;
+        margin-top: 20px;
+        color: #5b36f5;
+        text-decoration: none;
+        font-size: 13px;
+        font-weight: 900;
+    }
+
+    .bm-safety {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        min-height: 58px;
+        margin-top: 26px;
+        padding: 10px 24px;
+        border: 1px solid #e7ebf2;
+        border-radius: 9px;
+        background: #fff;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.035);
+    }
+
+    .bm-safety-main {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        min-width: 0;
+    }
+
+    .bm-shield {
+        display: inline-flex;
+        width: 42px;
+        height: 42px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        background: #fff2ed;
+        color: #ff4b2b;
+    }
+
+    .bm-safety strong {
+        display: block;
+        color: #111827;
+        font-size: 13px;
+        font-weight: 900;
+    }
+
+    .bm-safety p {
+        margin: 0;
+    }
+
+    .bm-safety span {
+        color: #64748b;
+        font-size: 12px;
+    }
+
+    .bm-safety-cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 24px;
+        color: #64748b;
+        font-size: 13px;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .bm-safety-cta a {
+        color: #ff4b2b;
+        text-decoration: none;
+        font-weight: 900;
+    }
+
+    .bm-safety-cta span {
+        color: #64748b;
+        font-size: 13px;
+    }
+
+    @media (max-width: 1500px) {
+        .bm-card-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .bm-filter-row {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+    }
+
+    @media (max-width: 1200px) {
+        .bm-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .bm-sidebar {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 900px) {
+        .bm-card-grid,
+        .bm-sidebar,
+        .bm-filter-row {
+            grid-template-columns: 1fr;
+        }
+
+        .bm-search-card {
+            padding: 16px;
+        }
+
+        .bm-results-head,
+        .bm-safety {
+            align-items: stretch;
+            flex-direction: column;
+        }
+
+        .bm-pagination-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .bm-page-size {
+            justify-self: auto;
+        }
+
+        .bm-safety-cta {
+            justify-content: space-between;
+        }
+    }
 </style>
 
-<div
-    x-data="browseApp()"
-    x-init="init()"
-    @keydown.escape.window="cityOpen=false;priceOpen=false;rtOpen=false;amenityOpen=false;sortOpen=false"
-    class="space-y-6">
-
-    {{-- ── Breadcrumb ── --}}
-    <nav class="flex items-center gap-1.5 text-xs text-gray-400">
-        <a href="{{ route('user.dashboard') }}" class="hover:text-gray-600 transition-colors">Home</a>
-        <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-        <span class="font-medium text-gray-600">Find Boarding Houses</span>
+<div class="bm-finder" x-data="boardingHouseFinder()">
+    <nav class="bm-crumbs" aria-label="Breadcrumb">
+        <a href="{{ route('user.dashboard') }}">Dashboard</a>
+        <svg class="bm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/>
+        </svg>
+        <span>Find Boarding Houses</span>
     </nav>
 
-    {{-- ── Header ── --}}
-    <div class="ui-card p-5">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-                <p class="text-xs font-bold uppercase tracking-widest" style="color:var(--brand-600)">Explore</p>
-                <h1 class="mt-1 text-2xl font-bold">Find Boarding Houses</h1>
-                <p class="mt-0.5 text-sm ui-muted">
-                    <span x-text="total" class="font-semibold text-gray-800"></span>
-                    <span x-text="total===1?' result':' results'"></span>
-                    <span x-show="hasFilters" style="color:var(--brand-600)" class="font-medium"> matching your filters</span>
-                </p>
-            </div>
-            <button x-show="hasFilters" @click="reset()"
-                    class="flex items-center gap-1.5 text-sm font-semibold text-rose-500 border border-rose-200 rounded-lg px-4 py-2 hover:bg-rose-50 transition-colors">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                Clear Filters
-            </button>
-        </div>
-    </div>
+    <header class="bm-page-heading">
+        <h1>Find Boarding Houses</h1>
+        <p>Discover and compare boarding houses that fit your preferences and budget.</p>
+    </header>
 
-    {{-- ── Filter Bar ── --}}
-    <div class="ui-card p-4 space-y-3">
+    <div class="bm-layout">
+        <main>
+            <section class="bm-search-card" aria-label="Search filters">
+                <div class="bm-search-box">
+                    <svg class="bm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        {!! $iconPaths['search'] !!}
+                    </svg>
+                    <input x-model="search" type="search" placeholder="Search by boarding house name, location, or keyword...">
+                </div>
 
-        {{-- Search --}}
-        <div class="relative">
-            <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-            </svg>
-            <input x-model.debounce.450ms="q" type="text"
-                   placeholder="Search by name, location or keyword…"
-                   class="ui-input pl-10 pr-9 py-2.5 text-sm w-full">
-            <button x-show="q" @click="q=''" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-        </div>
+                <div class="bm-filter-row">
+                    <label class="bm-filter-control">
+                        <span>Budget</span>
+                        <select>
+                            <option>&#8369;3,000 - &#8369;6,000</option>
+                            <option>Under &#8369;3,000</option>
+                            <option>&#8369;6,000 - &#8369;9,000</option>
+                            <option>Above &#8369;9,000</option>
+                        </select>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">{!! $iconPaths['chevron'] !!}</svg>
+                    </label>
 
-        {{-- Filter pills --}}
-        <div class="flex flex-wrap gap-2 items-center">
+                    <label class="bm-filter-control">
+                        <span>Location</span>
+                        <select>
+                            <option>Quezon City</option>
+                            <option>Manila</option>
+                            <option>Makati</option>
+                            <option>Pasig</option>
+                        </select>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">{!! $iconPaths['chevron'] !!}</svg>
+                    </label>
 
-            {{-- Location --}}
-            <div class="relative">
-                <button @click.stop="cityOpen=!cityOpen; priceOpen=false; rtOpen=false; amenityOpen=false; sortOpen=false"
-                        :class="{ active: city_id, open: cityOpen }" class="bm-pill">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                    <span x-text="cityLabel()"></span>
-                    <svg class="caret" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-                </button>
-                <div x-show="cityOpen" @click.outside="cityOpen=false" x-cloak class="bm-drop" style="min-width:200px">
-                    <div @click="city_id=''; cityOpen=false" :class="{'selected':!city_id}" class="bm-opt">All Locations</div>
-                    @foreach($citiesList as $city)
-                    <div @click="city_id='{{ $city->id }}'; cityOpen=false"
-                         :class="{'selected':city_id==='{{ $city->id }}'}" class="bm-opt">
-                        {{ $city->city_name }}
-                    </div>
-                    @endforeach
+                    <label class="bm-filter-control">
+                        <span>Room Type</span>
+                        <select>
+                            <option>Private Room</option>
+                            <option>Shared Room</option>
+                            <option>Studio</option>
+                            <option>Dormitory</option>
+                        </select>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">{!! $iconPaths['chevron'] !!}</svg>
+                    </label>
+
+                    <label class="bm-filter-control">
+                        <span>Amenities</span>
+                        <select>
+                            <option>Select amenities</option>
+                            <option>Wi-Fi, Kitchen, Laundry</option>
+                            <option>Air Conditioning</option>
+                            <option>Parking</option>
+                        </select>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">{!! $iconPaths['chevron'] !!}</svg>
+                    </label>
+
+                    <label class="bm-filter-control">
+                        <span>Sort By</span>
+                        <select>
+                            <option>Recommended</option>
+                            <option>Lowest Price</option>
+                            <option>Highest Rated</option>
+                            <option>Newest</option>
+                        </select>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">{!! $iconPaths['chevron'] !!}</svg>
+                    </label>
+                </div>
+            </section>
+
+            <div class="bm-results-head">
+                <p>42 boarding houses found</p>
+                <div class="bm-view-toggle" role="group" aria-label="View mode">
+                    <button type="button" :class="{ 'is-active': view === 'grid' }" @click="view = 'grid'">
+                        <svg class="bm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">{!! $iconPaths['grid'] !!}</svg>
+                        Grid
+                    </button>
+                    <button type="button" :class="{ 'is-active': view === 'list' }" @click="view = 'list'">
+                        <svg class="bm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">{!! $iconPaths['list'] !!}</svg>
+                        List
+                    </button>
                 </div>
             </div>
 
-            {{-- Price --}}
-            <div class="relative">
-                <button @click.stop="priceOpen=!priceOpen; cityOpen=false; rtOpen=false; amenityOpen=false; sortOpen=false"
-                        :class="{ active: min_price||max_price, open: priceOpen }" class="bm-pill">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    <span x-text="(min_price||max_price) ? (priceLabel||'Custom') : 'Price Range'"></span>
-                    {{-- Use <span> not <button> — nested buttons are invalid HTML and break layout --}}
-                    <span x-show="min_price||max_price"
-                          @click.stop="clearPrice()"
-                          class="flex items-center text-gray-400 hover:text-rose-400 cursor-pointer leading-none">
-                        <svg style="width:11px;height:11px" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </span>
-                    <svg x-show="!min_price && !max_price" class="caret" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-                </button>
-                <div x-show="priceOpen" @click.outside="priceOpen=false" x-cloak class="bm-drop" style="min-width:240px">
-                    <p class="text-[10px] font-bold uppercase tracking-wider text-gray-400 px-3 py-1.5">Quick Select</p>
-                    @foreach($priceRanges as $r)
-                    <div @click="setPriceRange('{{ $r['min'] }}','{{ $r['max'] }}','{{ $r['label'] }}')"
-                         :class="{'selected':min_price==='{{ $r['min'] }}'&&max_price==='{{ $r['max'] }}'}" class="bm-opt">
-                        {{ $r['label'] }}
-                    </div>
-                    @endforeach
-                    <div class="border-t border-gray-100 mt-1 pt-2 px-3 pb-2 space-y-1.5">
-                        <p class="text-[10px] text-gray-400 font-semibold uppercase tracking-wide">Custom (₱)</p>
-                        <div class="flex gap-2 items-center">
-                            <input x-model.number.lazy="min_price" type="number" placeholder="Min"
-                                   class="ui-input text-sm py-1.5 px-2 w-24">
-                            <span class="text-gray-400 text-sm">–</span>
-                            <input x-model.number.lazy="max_price" type="number" placeholder="Max"
-                                   class="ui-input text-sm py-1.5 px-2 w-24">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Room Type --}}
-            <div class="relative">
-                <button @click.stop="rtOpen=!rtOpen; cityOpen=false; priceOpen=false; amenityOpen=false; sortOpen=false"
-                        :class="{ active: room_type, open: rtOpen }" class="bm-pill">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-                    <span x-text="roomTypeLabel()"></span>
-                    <svg class="caret" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-                </button>
-                <div x-show="rtOpen" @click.outside="rtOpen=false" x-cloak class="bm-drop">
-                    @foreach(['' => 'Any Type','single'=>'Single Room','shared'=>'Shared Room','studio'=>'Studio','dormitory'=>'Dormitory'] as $v=>$l)
-                    <div @click="room_type='{{ $v }}'; rtOpen=false" :class="{'selected':room_type==='{{ $v }}'}" class="bm-opt">{{ $l }}</div>
-                    @endforeach
-                </div>
-            </div>
-
-            {{-- Amenities ── custom checkbox dropdown --}}
-            <div class="relative">
-                <button @click.stop="amenityOpen=!amenityOpen; cityOpen=false; priceOpen=false; rtOpen=false; sortOpen=false"
-                        :class="{ active: amenities.length>0, open: amenityOpen }" class="bm-pill">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
-                    <span x-text="amenities.length ? 'Amenities ('+amenities.length+')' : 'Amenities'"></span>
-                    <svg class="caret" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-                </button>
-
-                <div x-show="amenityOpen" @click.outside="amenityOpen=false" x-cloak
-                     class="bm-drop" style="max-height:280px;overflow-y:auto;min-width:220px">
-                    @if($amenitiesList->isEmpty())
-                        <p class="text-xs text-gray-400 px-3 py-3">No amenities available.</p>
-                    @else
-                        @foreach($amenitiesList->unique('name')->sortBy('name') as $amenity)
-                        <label class="bm-opt cursor-pointer"
-                               :class="{'selected': amenities.includes('{{ $amenity->id }}')}"
-                               @click.prevent="toggleAmenity('{{ $amenity->id }}')">
-                            <span :class="{'checked': amenities.includes('{{ $amenity->id }}')}" class="chk-box">
-                                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                                </svg>
+            <div class="bm-card-grid">
+                @foreach($listings as $listing)
+                    <article class="bm-listing-card">
+                        <div class="bm-card-media">
+                            <img src="{{ $listing['image'] }}" alt="{{ $listing['name'] }}" loading="lazy" onerror="this.style.display='none'">
+                            <span class="bm-photo-count">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">{!! $iconPaths['camera'] !!}</svg>
+                                {{ $listing['photos'] }}
                             </span>
-                            <span>{{ $amenity->name }}</span>
-                        </label>
-                        @endforeach
-                    @endif
-                    <template x-if="amenities.length > 0">
-                        <div class="border-t border-gray-100 px-3 pt-1.5 pb-1">
-                            <button @click="amenities=[]" class="text-xs text-rose-500 font-medium hover:underline">Clear all</button>
+                            <button class="bm-heart" type="button" :class="{ 'is-saved': isSaved('{{ $listing['name'] }}') }" @click="toggleSave('{{ $listing['name'] }}')" aria-label="Save {{ $listing['name'] }}">
+                                <svg class="bm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">{!! $iconPaths['heart'] !!}</svg>
+                            </button>
                         </div>
-                    </template>
-                </div>
-            </div>
 
-            {{-- More Filters --}}
-            <button @click="showMore=!showMore" :class="{ active: showMore }" class="bm-pill">
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
-                More Filters
-            </button>
-        </div>
+                        <div class="bm-card-body">
+                            <h2 class="bm-card-title">{{ $listing['name'] }}</h2>
+                            <div class="bm-price-row"><strong>&#8369;{{ $listing['price'] }}</strong> / month</div>
+                            <div class="bm-location">{{ $listing['location'] }}</div>
+                            <span class="bm-room-chip">{{ $listing['room'] }}</span>
 
-        {{-- More Filters panel --}}
-        <div x-show="showMore" x-cloak
-             x-transition:enter="transition ease-out duration-200"
-             x-transition:enter-start="opacity-0 -translate-y-1"
-             x-transition:enter-end="opacity-100 translate-y-0"
-             class="border-t border-dashed border-gray-200 pt-4">
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                            <div class="bm-card-meta">
+                                <span class="bm-rating">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2">{!! $iconPaths['star'] !!}</svg>
+                                    {{ $listing['rating'] }} ({{ $listing['reviews'] }} reviews)
+                                </span>
+                                <span class="bm-amenity-icons" aria-label="Amenities">
+                                    @foreach($listing['icons'] as $icon)
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">{!! $iconPaths[$icon] !!}</svg>
+                                    @endforeach
+                                </span>
+                            </div>
 
-                {{-- Available Only --}}
-                <label class="flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-colors"
-                       :class="available_only ? 'border-orange-300 bg-orange-50' : 'border-gray-100 hover:border-orange-200'">
-                    <div class="relative flex-shrink-0">
-                        <input type="checkbox" x-model="available_only" class="sr-only">
-                        <div class="h-5 w-9 rounded-full transition-colors duration-200"
-                             :class="available_only ? 'bg-orange-500' : 'bg-gray-200'"></div>
-                        <div class="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform duration-200"
-                             :class="available_only ? 'translate-x-4' : ''"></div>
-                    </div>
-                    <div>
-                        <p class="text-sm font-semibold" :class="available_only ? 'text-orange-700' : 'text-gray-700'">Available Only</p>
-                        <p class="text-xs text-gray-400">Show houses with open slots</p>
-                    </div>
-                </label>
-
-                {{-- Near Me --}}
-                <div class="p-3 rounded-xl border transition-colors"
-                     :class="near_me ? 'border-orange-300 bg-orange-50' : 'border-gray-100'">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-sm font-semibold" :class="near_me ? 'text-orange-700' : 'text-gray-700'">Near My Location</p>
-                            <p class="text-xs text-gray-400" x-text="near_me ? 'Sorting by distance' : 'Use GPS sorting'"></p>
+                            <div class="bm-card-actions">
+                                <a class="bm-details-btn" href="{{ $detailUrl }}">View Details</a>
+                                <button class="bm-save-btn" type="button" :class="{ 'is-saved': isSaved('{{ $listing['name'] }}') }" @click="toggleSave('{{ $listing['name'] }}')">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">{!! $iconPaths['bookmark'] !!}</svg>
+                                    Save
+                                </button>
+                            </div>
                         </div>
-                        <button @click="near_me ? (near_me=false;lat='';lng='') : getNearMe()"
-                                class="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-                                :class="near_me ? 'bg-rose-100 text-rose-600 hover:bg-rose-200' : 'bg-orange-100 text-orange-700 hover:bg-orange-200'">
-                            <svg x-show="geoLoading" class="h-3.5 w-3.5 animate-spin inline" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-                            <span x-text="near_me ? 'Turn Off' : (geoLoading ? 'Finding…' : 'Enable')"></span>
-                        </button>
-                    </div>
-                </div>
-
-                {{-- Min Rating --}}
-                <div class="p-3 rounded-xl border border-gray-100">
-                    <p class="text-sm font-semibold text-gray-700 mb-2">Minimum Rating</p>
-                    <div class="flex gap-1">
-                        @foreach([''=>'Any','3'=>'3+','3.5'=>'3.5+','4'=>'4+','4.5'=>'4.5+'] as $v=>$l)
-                        <button @click="min_rating = min_rating==='{{ $v }}' ? '' : '{{ $v }}'"
-                                class="flex-1 py-1 rounded-lg text-xs font-semibold border transition-colors"
-                                :class="min_rating==='{{ $v }}' ? 'border-orange-400 bg-orange-100 text-orange-700' : 'border-gray-200 text-gray-600 hover:border-orange-200'">
-                            {{ $l }}
-                        </button>
-                        @endforeach
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- ── Results bar + Sort ── --}}
-    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex items-center gap-2 text-sm">
-            <svg x-show="loading" class="h-4 w-4 animate-spin text-orange-500" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-            <span x-show="loading" class="text-gray-400">Updating results…</span>
-            <span x-show="!loading" class="ui-muted">
-                <strong class="text-gray-800" x-text="total"></strong>
-                <span x-text="total===1?' result':' results'"></span>
-            </span>
-        </div>
-
-        <div class="relative">
-            <button @click.stop="sortOpen=!sortOpen; cityOpen=false; priceOpen=false; rtOpen=false; amenityOpen=false"
-                    :class="{ open: sortOpen }" class="bm-pill">
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"/></svg>
-                <span x-text="sortLabel()"></span>
-                <svg class="caret" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-            </button>
-            <div x-show="sortOpen" @click.outside="sortOpen=false" x-cloak class="bm-drop right">
-                @foreach(['newest'=>'Newest First','best_match'=>'Best Match','price_asc'=>'Lowest Price','price_desc'=>'Highest Price','rating'=>'Highest Rated','available'=>'Most Available'] as $v=>$l)
-                <div @click="sort='{{ $v }}'; sortOpen=false" :class="{'selected':sort==='{{ $v }}'}" class="bm-opt">{{ $l }}</div>
+                    </article>
                 @endforeach
             </div>
-        </div>
-    </div>
 
-    {{-- ── Results ── --}}
-    <section class="space-y-4">
-
-        {{-- Skeletons while loading empty state --}}
-        <template x-if="loading && houses.length===0">
-            <div class="space-y-4">
-                <template x-for="i in 3" :key="i">
-                    <div class="ui-card p-4">
-                        <div class="grid gap-4 lg:grid-cols-[260px_1fr_160px]">
-                            <div class="sk h-40 w-full rounded-xl"></div>
-                            <div class="space-y-3 py-2">
-                                <div class="sk h-5 w-3/4 rounded"></div>
-                                <div class="sk h-4 w-1/2 rounded"></div>
-                                <div class="flex gap-2 mt-3"><div class="sk h-6 w-16 rounded-full"></div><div class="sk h-6 w-16 rounded-full"></div></div>
-                            </div>
-                            <div class="space-y-3 py-2"><div class="sk h-7 w-24 rounded-full"></div><div class="sk h-8 w-28 rounded"></div><div class="sk h-10 w-full rounded-xl"></div></div>
-                        </div>
-                    </div>
-                </template>
-            </div>
-        </template>
-
-        {{-- Empty state --}}
-        <template x-if="!loading && houses.length===0">
-            <div class="ui-card p-12 text-center">
-                <div class="h-16 w-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
-                    <svg class="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <div class="bm-pagination-row">
+                <div class="bm-pagination" aria-label="Pagination">
+                    <button class="bm-page-btn is-plain" type="button" aria-label="Previous page">&#8249;</button>
+                    <button class="bm-page-btn is-active" type="button">1</button>
+                    <button class="bm-page-btn" type="button">2</button>
+                    <button class="bm-page-btn" type="button">3</button>
+                    <span class="bm-page-btn is-plain">...</span>
+                    <button class="bm-page-btn" type="button">6</button>
+                    <button class="bm-page-btn is-plain" type="button" aria-label="Next page">&#8250;</button>
                 </div>
-                <h3 class="text-lg font-semibold text-gray-800 mb-2">No boarding houses found</h3>
-                <p class="text-sm ui-muted mb-5">Try adjusting your filters or clearing them to see more results.</p>
-                <button @click="reset()" class="btn-primary px-5 py-2 text-sm">Clear All Filters</button>
+
+                <label class="bm-page-size">
+                    <select aria-label="Results per page">
+                        <option>8 per page</option>
+                        <option>12 per page</option>
+                        <option>24 per page</option>
+                    </select>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">{!! $iconPaths['chevron'] !!}</svg>
+                </label>
             </div>
-        </template>
+        </main>
 
-        {{-- House cards --}}
-        <template x-for="h in houses" :key="h.id">
-            <article class="ui-card p-4 hcard">
-                <div class="grid gap-4 lg:grid-cols-[260px_1fr_auto] lg:items-start">
+        <aside class="bm-sidebar" aria-label="Search sidebar">
+            <section class="bm-side-panel">
+                <div class="bm-panel-title">
+                    <h2>Map Preview</h2>
+                </div>
+                <div class="bm-map">
+                    <span class="bm-map-place" style="left: 3%; top: 18%;">Baesa</span>
+                    <span class="bm-map-place" style="left: 55%; top: 17%;">North</span>
+                    <span class="bm-map-place" style="left: 74%; top: 61%;">Project 8</span>
+                    <span class="bm-map-place" style="left: 86%; top: 72%;">Cubao</span>
+                    <span class="bm-map-label">QUEZON CITY</span>
+                    <span class="bm-pin" style="left: 23%; top: 39%;"></span>
+                    <span class="bm-pin" style="left: 39%; top: 18%;"></span>
+                    <span class="bm-pin" style="left: 63%; top: 19%;"></span>
+                    <span class="bm-pin" style="left: 45%; top: 60%;"></span>
+                    <span class="bm-pin" style="left: 86%; top: 56%;"></span>
+                    <a class="bm-map-link" href="{{ $mapUrl }}">View larger map</a>
+                    <a class="bm-map-expand" href="{{ $mapUrl }}" aria-label="Expand map">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">{!! $iconPaths['expand'] !!}</svg>
+                    </a>
+                </div>
+            </section>
 
-                    {{-- Image --}}
-                    <div class="relative shrink-0">
-                        <div class="h-44 lg:h-40 w-full rounded-xl overflow-hidden bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center">
-                            <template x-if="h.image_url">
-                                <img :src="h.image_url" :alt="h.name" class="h-full w-full object-cover"
-                                     x-on:error="$el.style.display='none'">
-                            </template>
-                            <template x-if="!h.image_url">
-                                <svg class="h-12 w-12 text-orange-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-                            </template>
-                        </div>
-                        {{-- Availability badge --}}
-                        <template x-if="h.available_rooms > 0">
-                            <span class="absolute bottom-2 left-2 bg-white/95 text-gray-700 text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm">
-                                <span x-text="h.available_rooms"></span> room<span x-text="h.available_rooms>1?'s':''"></span> open
+            <section class="bm-side-panel">
+                <div class="bm-panel-title">
+                    <h2>Your Search Summary</h2>
+                    <button type="button" @click="clearAll()">Clear All</button>
+                </div>
+                <div class="bm-summary-list">
+                    <div class="bm-summary-row">
+                        <span class="bm-summary-label"><svg class="bm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">{!! $iconPaths['budget'] !!}</svg>Budget</span>
+                        <span class="bm-summary-value">&#8369;3,000 - &#8369;6,000</span>
+                    </div>
+                    <div class="bm-summary-row">
+                        <span class="bm-summary-label"><svg class="bm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">{!! $iconPaths['location'] !!}</svg>Location</span>
+                        <span class="bm-summary-value">Quezon City</span>
+                    </div>
+                    <div class="bm-summary-row">
+                        <span class="bm-summary-label"><svg class="bm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">{!! $iconPaths['home'] !!}</svg>Room Type</span>
+                        <span class="bm-summary-value">Private Room</span>
+                    </div>
+                    <div class="bm-summary-row">
+                        <span class="bm-summary-label"><svg class="bm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">{!! $iconPaths['spark'] !!}</svg>Amenities</span>
+                        <span class="bm-summary-value">Wi-Fi, Kitchen, Laundry</span>
+                    </div>
+                    <div class="bm-summary-row">
+                        <span class="bm-summary-label"><svg class="bm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">{!! $iconPaths['sort'] !!}</svg>Sort By</span>
+                        <span class="bm-summary-value">Recommended</span>
+                    </div>
+                </div>
+                <button class="bm-edit-search" type="button">Edit Search</button>
+            </section>
+
+            <section class="bm-side-panel">
+                <div class="bm-panel-title">
+                    <h2>Popular Amenities</h2>
+                </div>
+                <div class="bm-amenity-list">
+                    @foreach($popularAmenities as $amenity)
+                        <div class="bm-amenity-row">
+                            <span class="bm-amenity-name">
+                                <svg class="bm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">{!! $iconPaths[$amenity['icon']] !!}</svg>
+                                {{ $amenity['name'] }}
                             </span>
-                        </template>
-                        <template x-if="h.available_rooms === 0">
-                            <span class="absolute bottom-2 left-2 bg-rose-50 text-rose-600 text-xs font-semibold px-2.5 py-1 rounded-full border border-rose-200">Full</span>
-                        </template>
-                    </div>
-
-                    {{-- Details --}}
-                    <div class="min-w-0 py-1">
-                        <h2 class="text-base font-bold text-gray-900 leading-snug" x-text="h.name"></h2>
-
-                        <div class="flex items-center gap-1.5 mt-1">
-                            <svg class="h-3.5 w-3.5 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                            <p class="text-sm ui-muted truncate"
-                               x-text="h.city_name ? (h.city_name + (h.barangay_name ? ', '+h.barangay_name : '')) : (h.address||'Location not set')"></p>
+                            <span class="bm-count-pill">{{ $amenity['count'] }}</span>
                         </div>
-
-                        <div class="flex flex-wrap items-center gap-3 mt-2">
-                            <template x-if="h.rating > 0">
-                                <span class="flex items-center gap-1 text-xs">
-                                    <svg class="h-3.5 w-3.5 text-amber-400" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
-                                    <strong class="text-gray-700" x-text="Number(h.rating).toFixed(1)"></strong>
-                                    <span class="text-gray-400" x-text="'('+h.reviews_count+')'"></span>
-                                </span>
-                            </template>
-                            <template x-if="h.distance_km !== null && h.distance_km !== undefined">
-                                <span class="text-xs ui-muted flex items-center gap-1">
-                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
-                                    <span x-text="h.distance_km < 1 ? (h.distance_km*1000).toFixed(0)+'m away' : Number(h.distance_km).toFixed(1)+'km away'"></span>
-                                </span>
-                            </template>
-                        </div>
-
-                        {{-- Amenity chips --}}
-                        <div class="mt-3 flex flex-wrap gap-1.5">
-                            <template x-for="a in h.amenities.slice(0,6)" :key="a.id">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border transition-colors"
-                                      :class="amenities.includes(String(a.id))
-                                          ? 'border-orange-300 bg-orange-50 text-orange-700'
-                                          : 'ui-border ui-muted'"
-                                      x-text="a.name"></span>
-                            </template>
-                            <span x-show="h.amenities.length > 6" class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500"
-                                  x-text="'+'+(h.amenities.length-6)+' more'"></span>
-                            <span x-show="h.amenities.length === 0" class="text-xs ui-muted">No amenities listed</span>
-                        </div>
-                    </div>
-
-                    {{-- Price + Match + CTA --}}
-                    <div class="flex flex-row lg:flex-col items-center lg:items-end justify-between lg:justify-start gap-3 lg:gap-4 lg:min-w-[152px]">
-
-                        <span class="match-badge" :class="badgeCls(h.match_score)">
-                            <svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                            <span x-text="h.match_score+'% '+h.match_label"></span>
-                        </span>
-
-                        <div class="text-right lg:text-right">
-                            <p class="text-xl font-bold text-gray-900" x-text="h.price_label"></p>
-                            <p class="text-xs ui-muted">/ month</p>
-                        </div>
-
-                        <a :href="h.url"
-                           class="w-full rounded-xl border-2 text-center text-sm font-semibold px-4 py-2.5 transition-colors"
-                           style="border-color:var(--brand-500); color:var(--brand-600)"
-                           @mouseenter="$el.style.background='var(--brand-500)'; $el.style.color='#fff'"
-                           @mouseleave="$el.style.background=''; $el.style.color='var(--brand-600)'">
-                            View Details
-                        </a>
-                    </div>
-
+                    @endforeach
                 </div>
-            </article>
-        </template>
-    </section>
-
-    {{-- Server-side pagination (initial load only) --}}
-    @if(isset($houses) && $houses->hasPages())
-    <div class="ui-card px-5 py-4">{{ $houses->links() }}</div>
-    @endif
-
-    {{-- ── Bottom Banner ── --}}
-    <div class="ui-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex items-center gap-3">
-            <div class="h-10 w-10 shrink-0 rounded-xl flex items-center justify-center" style="background:rgba(255,126,95,.1)">
-                <svg class="h-5 w-5" style="color:var(--brand-600)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 22s-8-4-8-10V5l8-3 8 3v7c0 6-8 10-8 10Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4"/></svg>
-            </div>
-            <div>
-                <p class="text-sm font-semibold text-gray-900">All listed boarding houses are verified by BoardMatch.</p>
-                <p class="text-xs text-gray-400">Only approved and active listings appear in your search results.</p>
-            </div>
-        </div>
-        <a href="{{ route('user.recommendations') }}" class="text-sm font-semibold hover:underline shrink-0" style="color:var(--brand-600)">View AI Matches →</a>
+                <a class="bm-view-amenities" href="#">View all amenities</a>
+            </section>
+        </aside>
     </div>
 
+    <section class="bm-safety">
+        <div class="bm-safety-main">
+            <span class="bm-shield">
+                <svg class="bm-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">{!! $iconPaths['shield'] !!}</svg>
+            </span>
+            <p>
+                <strong>Your safety is our priority.</strong>
+                <span>All boarding houses are verified and regularly inspected for your peace of mind.</span>
+            </p>
+        </div>
+        <div class="bm-safety-cta">
+            <span>Can't find what you're looking for?</span>
+            <a href="{{ route('user.recommendations') }}">Request a listing</a>
+        </div>
+    </section>
 </div>
 
 <script>
-function browseApp() {
-    return {
-        // ── Filter state ──
-        q:              '{{ addslashes(request("q","")) }}',
-        city_id:        '{{ request("city_id","") }}',
-        min_price:      '{{ request("min_price","") }}',
-        max_price:      '{{ request("max_price","") }}',
-        amenities:      {!! json_encode(array_map('strval', (array) request('amenities', []))) !!},
-        room_type:      '{{ request("room_type","") }}',
-        available_only: {{ request()->boolean('available_only') ? 'true' : 'false' }},
-        near_me:        false,
-        sort:           '{{ request("sort","newest") }}',
-        min_rating:     '{{ request("min_rating","") }}',
-        lat:            '',
-        lng:            '',
-        priceLabel:     '{{ request("min_price")||request("max_price") ? "Price set" : "" }}',
-
-        // ── UI state ──
-        houses:         {!! json_encode($initialHousesArr) !!},
-        total:          {{ $initialCount }},
-        loading:        false,
-        showMore:       false,
-        cityOpen:       false,
-        priceOpen:      false,
-        rtOpen:         false,
-        amenityOpen:    false,
-        sortOpen:       false,
-        geoLoading:     false,
-        _timer:         null,
-
-        init() {
-            this.$watch(
-                () => JSON.stringify([
-                    this.q, this.city_id, this.min_price, this.max_price,
-                    this.amenities, this.room_type, this.available_only,
-                    this.sort, this.min_rating, this.lat, this.lng
-                ]),
-                () => {
-                    clearTimeout(this._timer);
-                    this._timer = setTimeout(() => this.doFetch(), 550);
+    function boardingHouseFinder() {
+        return {
+            search: '',
+            view: 'grid',
+            saved: [],
+            toggleSave(name) {
+                if (this.saved.includes(name)) {
+                    this.saved = this.saved.filter((item) => item !== name);
+                    return;
                 }
-            );
-        },
 
-        async doFetch() {
-            this.loading = true;
-            try {
-                const p = new URLSearchParams();
-                if (this.q)              p.set('q', this.q);
-                if (this.city_id)        p.set('city_id', this.city_id);
-                if (this.min_price)      p.set('min_price', this.min_price);
-                if (this.max_price)      p.set('max_price', this.max_price);
-                this.amenities.forEach(a => p.append('amenities[]', a));
-                if (this.room_type)      p.set('room_type', this.room_type);
-                if (this.available_only) p.set('available_only', '1');
-                if (this.near_me && this.lat) { p.set('near_me','1'); p.set('lat',this.lat); p.set('lng',this.lng); }
-                if (this.sort)           p.set('sort', this.sort);
-                if (this.min_rating)     p.set('min_rating', this.min_rating);
-
-                const r = await fetch('{{ route("user.browse") }}?' + p.toString(), {
-                    headers: { 'X-Requested-With':'XMLHttpRequest', 'Accept':'application/json' }
-                });
-                const d = await r.json();
-                this.houses = d.houses || [];
-                this.total  = d.total  || 0;
-            } catch(e) { console.error('Browse fetch error:', e); }
-            finally    { this.loading = false; }
-        },
-
-        toggleAmenity(id) {
-            const s = String(id);
-            const i = this.amenities.indexOf(s);
-            if (i === -1) this.amenities.push(s);
-            else          this.amenities.splice(i, 1);
-        },
-
-        setPriceRange(min, max, label) {
-            this.min_price  = min;
-            this.max_price  = max;
-            this.priceLabel = label;
-            this.priceOpen  = false;
-        },
-
-        clearPrice() {
-            this.min_price = '';
-            this.max_price = '';
-            this.priceLabel = '';
-        },
-
-        reset() {
-            this.q = ''; this.city_id = ''; this.min_price = ''; this.max_price = '';
-            this.amenities = []; this.room_type = ''; this.available_only = false;
-            this.near_me = false; this.lat = ''; this.lng = '';
-            this.sort = 'newest'; this.min_rating = '';
-            this.priceLabel = ''; this.showMore = false;
-        },
-
-        getNearMe() {
-            if (!navigator.geolocation) return;
-            this.geoLoading = true;
-            navigator.geolocation.getCurrentPosition(
-                pos => { this.lat = pos.coords.latitude; this.lng = pos.coords.longitude; this.near_me = true; this.geoLoading = false; },
-                ()  => { this.geoLoading = false; }
-            );
-        },
-
-        get hasFilters() {
-            return !!(this.q || this.city_id || this.min_price || this.max_price ||
-                      this.amenities.length || this.room_type || this.available_only || this.min_rating);
-        },
-
-        cityLabel() {
-            if (!this.city_id) return 'Location';
-            const cities = {!! json_encode($citiesForJs) !!};
-            const c = cities.find(x => x.id === String(this.city_id));
-            return c ? c.name : 'Location';
-        },
-
-        roomTypeLabel() {
-            const m = {'':'Room Type','single':'Single Room','shared':'Shared Room','studio':'Studio','dormitory':'Dormitory'};
-            return m[this.room_type] || 'Room Type';
-        },
-
-        sortLabel() {
-            const m = {'newest':'Newest','best_match':'Best Match','price_asc':'Lowest Price','price_desc':'Highest Price','rating':'Top Rated','available':'Most Available','nearest':'Nearest'};
-            return m[this.sort] || 'Sort';
-        },
-
-        badgeCls(score) {
-            if (score >= 90) return 'mb-best';
-            if (score >= 80) return 'mb-great';
-            if (score >= 70) return 'mb-good';
-            return 'mb-fair';
-        },
-    };
-}
+                this.saved.push(name);
+            },
+            isSaved(name) {
+                return this.saved.includes(name);
+            },
+            clearAll() {
+                this.search = '';
+            },
+        };
+    }
 </script>
 </x-user.shell>
 </x-layouts.dashboard>

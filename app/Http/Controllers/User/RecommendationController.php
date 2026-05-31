@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\BoardingHouseRecommendationService;
 use App\Services\CompatibilityService;
 use App\Services\DeepSeekService;
+use App\Services\TenantPreferenceRecommendationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
@@ -23,6 +24,7 @@ class RecommendationController extends Controller
         private readonly CompatibilityService $compatibilityService,
         private readonly BoardingHouseRecommendationService $boardingHouseRecommendationService,
         private readonly DeepSeekService $deepSeekService,
+        private readonly TenantPreferenceRecommendationService $preferenceRecommendationService,
     ) {}
 
     public function index(Request $request): View
@@ -30,97 +32,95 @@ class RecommendationController extends Controller
         $tenant = $request->user();
         abort_unless($tenant && $tenant->isUser(), 403);
 
-        if (! Schema::hasTable('tenant_match_profiles')) {
-            return view('user.recommendations', [
-                'tenant' => $tenant,
-                'matches' => collect(),
-                'matchCount' => 0,
-                'totalMatchCount' => 0,
-                'houseRecommendations' => collect(),
-                'houseRecommendationCount' => 0,
-                'referencePoint' => $this->referencePoint($request),
-                'filters' => $this->matchFilters($request),
-                'filterOptions' => $this->filterOptions(),
-            ]);
-        }
-
         $tenant->loadMissing('tenantMatchProfile', 'boardingHouse:id,name');
 
-        abort_unless($tenant->tenantMatchProfile?->completed_at, 403, 'Complete your match profile first.');
+        $hasPreferences  = $this->preferenceRecommendationService->hasPreferences($tenant);
+        $profile         = $tenant->tenantMatchProfile;
+        $notes           = (string) ($profile?->additional_notes ?? '');
+        $preferredLocation = $this->preferenceRecommendationService->extractPreferredLocation($notes);
+        $lifestyleText   = $this->preferenceRecommendationService->extractLifestyleText($notes);
 
-        $filters = $this->matchFilters($request);
-
-        $candidates = User::query()
-            ->with(['tenantMatchProfile', 'boardingHouse:id,name'])
-            ->whereKeyNot($tenant->id)
-            ->where('is_archived', false)
-            ->where('is_active', true)
-            ->where(function ($query) {
-                $query->whereIn('role', ['user', 'tenant', 'student'])
-                    ->orWhereHas('roles', function ($roleQuery) {
-                        $roleQuery->whereIn('name', ['user', 'tenant', 'student']);
-                    });
-            })
-            ->whereHas('tenantMatchProfile', fn ($query) => $query->whereNotNull('completed_at'))
-            ->get();
-
-        $requests = Schema::hasTable('roommate_match_requests')
-            ? RoommateMatchRequest::query()
-                ->where(function ($query) use ($tenant) {
-                    $query->where('sender_id', $tenant->id)
-                        ->orWhere('recipient_id', $tenant->id);
-                })
-                ->get()
+        // House recommendations — always available once a tenant has any preferences
+        $houseRecommendations = $hasPreferences
+            ? $this->preferenceRecommendationService->rank($tenant)
             : collect();
 
-        $matches = $candidates
-            ->map(function (User $candidate) use ($tenant, $requests) {
-                $compatibility = $this->compatibilityService->score($tenant, $candidate);
+        // Roommate matches — only if match profile is fully completed
+        $matches         = collect();
+        $filteredMatches = collect();
+        $filters         = $this->matchFilters($request);
 
-                return [
-                    'candidate' => $candidate,
-                    'compatibility' => $compatibility,
-                    'context' => $this->candidateContext($tenant, $candidate),
+        if (Schema::hasTable('tenant_match_profiles') && $profile?->completed_at) {
+            $candidates = User::query()
+                ->with(['tenantMatchProfile', 'boardingHouse:id,name'])
+                ->whereKeyNot($tenant->id)
+                ->where('is_active', true)
+                ->where(function ($query) {
+                    $query->whereIn('role', ['user', 'tenant', 'student'])
+                        ->orWhereHas('roles', fn ($rq) => $rq->whereIn('name', ['user', 'tenant', 'student']));
+                })
+                ->whereHas('tenantMatchProfile', fn ($q) => $q->whereNotNull('completed_at'))
+                ->when(Schema::hasColumn('users', 'is_archived'), fn ($q) => $q->where('is_archived', false))
+                ->get();
+
+            $requests = Schema::hasTable('roommate_match_requests')
+                ? RoommateMatchRequest::query()
+                    ->where(fn ($q) => $q->where('sender_id', $tenant->id)->orWhere('recipient_id', $tenant->id))
+                    ->get()
+                : collect();
+
+            $matches = $candidates
+                ->map(fn (User $candidate) => [
+                    'candidate'    => $candidate,
+                    'compatibility'=> $this->compatibilityService->score($tenant, $candidate),
+                    'context'      => $this->candidateContext($tenant, $candidate),
                     'requestState' => $this->resolveRequestState($tenant, $candidate, $requests),
-                ];
-            })
-            ->sortByDesc(fn (array $item) => $item['compatibility']['overall_score'])
-            ->values();
+                ])
+                ->sortByDesc(fn ($item) => $item['compatibility']['overall_score'])
+                ->values();
 
-        $filteredMatches = $matches
-            ->filter(fn (array $item) => $this->matchPassesFilters($item, $filters))
-            ->values();
-
-        $referencePoint = $this->referencePoint($request);
-        $houseRecommendations = $this->boardingHouseRecommendationService
-            ->rank(
-                $tenant,
-                $this->boardingHouseCandidates(),
-                $referencePoint['lat'],
-                $referencePoint['lng']
-            )
-            ->take(6);
+            $filteredMatches = $matches
+                ->filter(fn ($item) => $this->matchPassesFilters($item, $filters))
+                ->values();
+        }
 
         return view('user.recommendations', [
-            'tenant' => $tenant,
-            'matches' => $filteredMatches->take(20),
-            'matchCount' => $filteredMatches->count(),
-            'totalMatchCount' => $matches->count(),
-            'houseRecommendations' => $houseRecommendations,
+            'tenant'                   => $tenant,
+            'hasPreferences'           => $hasPreferences,
+            'preferredLocation'        => $preferredLocation,
+            'lifestyleText'            => $lifestyleText,
+            'houseRecommendations'     => $houseRecommendations,
             'houseRecommendationCount' => $houseRecommendations->count(),
-            'referencePoint' => $referencePoint,
-            'filters' => $filters,
-            'filterOptions' => $this->filterOptions(),
+            'matches'                  => $filteredMatches->take(20),
+            'matchCount'               => $filteredMatches->count(),
+            'totalMatchCount'          => $matches->count(),
+            'referencePoint'           => $this->referencePoint($request),
+            'filters'                  => $filters,
+            'filterOptions'            => $this->filterOptions(),
         ]);
     }
 
-    public function show(Request $request, User $candidate): View
+    public function show(Request $request, User $candidate): mixed
     {
+        $tenant = $request->user();
+        $tenant?->loadMissing('tenantMatchProfile');
+        if (! $tenant?->tenantMatchProfile?->completed_at) {
+            return redirect()->route('user.profile')
+                ->with('status', 'Please complete your match profile before viewing recommendations.');
+        }
+
         return $this->renderMatchDetail($request, $candidate);
     }
 
-    public function explain(Request $request, User $candidate): View
+    public function explain(Request $request, User $candidate): mixed
     {
+        $tenant = $request->user();
+        $tenant?->loadMissing('tenantMatchProfile');
+        if (! $tenant?->tenantMatchProfile?->completed_at) {
+            return redirect()->route('user.profile')
+                ->with('status', 'Please complete your match profile before viewing recommendations.');
+        }
+
         $match = $this->matchDetailData($request, $candidate);
         $match['aiExplanation'] = $this->deepSeekService->explainRoommateMatch([
             'tenant' => $this->profilePayload($match['tenant']),

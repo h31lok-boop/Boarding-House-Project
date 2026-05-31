@@ -5,14 +5,20 @@
         if (\Illuminate\Support\Facades\Route::has($name)) {
             return route($name, $params);
         }
-
         $fallback = $fallback ?? url()->current();
-
         return ! empty($params) ? $fallback.'?'.http_build_query($params) : $fallback;
     };
 
-    $tenant = auth()->user();
-    $firstName = trim(explode(' ', (string) ($tenant?->name ?: 'Student'))[0] ?? 'Student');
+    $tenant    = auth()->user();
+    $firstName = trim(explode(' ', (string) ($tenant?->name ?: 'User'))[0] ?? 'User');
+    $userName  = $tenant?->name ?? 'User';
+    $userInitials = collect(explode(' ', $userName))->map(fn($w) => strtoupper(substr($w, 0, 1)))->take(2)->implode('');
+    $profileImage = $tenant?->profile_image;
+    $avatarUrl = $profileImage
+        ? (\Illuminate\Support\Str::startsWith($profileImage, ['http://', 'https://', '/'])
+            ? $profileImage
+            : \Illuminate\Support\Facades\Storage::url($profileImage))
+        : null;
 
     $money = function ($amount, float $fallback = 0): string {
         if (is_numeric($amount)) {
@@ -21,625 +27,502 @@
             $normalized = preg_replace('/[^0-9.]/', '', (string) $amount);
             $value = is_numeric($normalized) ? (float) $normalized : $fallback;
         }
-
         return number_format($value, 2);
     };
 
+    // ── Tenant record IDs ──
     $tenantRecordIds = collect();
-    if (
-        $tenant
-        && \Illuminate\Support\Facades\Schema::hasTable('tenants')
-        && \Illuminate\Support\Facades\Schema::hasColumn('tenants', 'user_id')
-    ) {
-        $tenantRecordIds = \Illuminate\Support\Facades\DB::table('tenants')
-            ->where('user_id', $tenant->id)
-            ->pluck('id');
+    if ($tenant && \Illuminate\Support\Facades\Schema::hasTable('tenants') && \Illuminate\Support\Facades\Schema::hasColumn('tenants', 'user_id')) {
+        $tenantRecordIds = \Illuminate\Support\Facades\DB::table('tenants')->where('user_id', $tenant->id)->pluck('id');
     }
 
-    $tenantProfileId = null;
-    if (
-        $tenant
-        && \Illuminate\Support\Facades\Schema::hasTable('tenant_profiles')
-        && \Illuminate\Support\Facades\Schema::hasColumn('tenant_profiles', 'user_id')
-    ) {
-        $tenantProfileId = \Illuminate\Support\Facades\DB::table('tenant_profiles')
-            ->where('user_id', $tenant->id)
-            ->value('id');
-    }
-
-    $tenancyRecordIds = collect();
-    if (
-        $tenantProfileId
-        && \Illuminate\Support\Facades\Schema::hasTable('tenancy_records')
-        && \Illuminate\Support\Facades\Schema::hasColumn('tenancy_records', 'tenant_profile_id')
-    ) {
-        $tenancyRecordIds = \Illuminate\Support\Facades\DB::table('tenancy_records')
-            ->where('tenant_profile_id', $tenantProfileId)
-            ->pluck('id');
-    }
-
-    $makeReservationQuery = function () use ($tenant, $tenantRecordIds) {
-        if (! $tenant || ! \Illuminate\Support\Facades\Schema::hasTable('reservations')) {
-            return null;
-        }
-
-        $query = \Illuminate\Support\Facades\DB::table('reservations');
-
-        if (\Illuminate\Support\Facades\Schema::hasColumn('reservations', 'user_id')) {
-            return $query->where('reservations.user_id', $tenant->id);
-        }
-
-        if (\Illuminate\Support\Facades\Schema::hasColumn('reservations', 'tenant_id') && $tenantRecordIds->isNotEmpty()) {
-            return $query->whereIn('reservations.tenant_id', $tenantRecordIds);
-        }
-
-        return null;
-    };
-
-    $pendingBookings = 2;
+    // ── Active reservations ──
     $activeReservations = 1;
-    $upcomingItems = collect([
-        [
-            'type' => 'Booking Request',
-            'title' => 'Comfort Living Space',
-            'date' => 'May 25, 2026',
-            'status' => 'Pending',
-            'tone' => 'amber',
-        ],
-        [
-            'type' => 'Booking Request',
-            'title' => 'Student Ville Residences',
-            'date' => 'May 27, 2026',
-            'status' => 'Pending',
-            'tone' => 'amber',
-        ],
-        [
-            'type' => 'Reservation Confirmed',
-            'title' => 'Greenfield Boarding House',
-            'date' => 'May 20, 2026',
-            'status' => 'Confirmed',
-            'tone' => 'emerald',
-        ],
-    ]);
-
-    $reservationQuery = $makeReservationQuery();
-    if ($reservationQuery && \Illuminate\Support\Facades\Schema::hasColumn('reservations', 'status')) {
-        $pendingCount = (clone $reservationQuery)
-            ->whereIn('reservations.status', ['pending', 'requested', 'processing'])
-            ->count();
-        $confirmedCount = (clone $reservationQuery)
-            ->whereIn('reservations.status', ['approved', 'confirmed', 'active'])
-            ->count();
-
-        $pendingBookings = $pendingCount > 0 ? $pendingCount : $pendingBookings;
-        $activeReservations = $confirmedCount > 0 ? $confirmedCount : $activeReservations;
-    }
-
-    $paymentTotal = 6500.00;
-    if (
-        $tenant
-        && \Illuminate\Support\Facades\Schema::hasTable('payments')
-        && \Illuminate\Support\Facades\Schema::hasColumn('payments', 'amount')
-    ) {
-        $paymentQuery = \Illuminate\Support\Facades\DB::table('payments');
-        $hasPaymentScope = false;
-
-        if (\Illuminate\Support\Facades\Schema::hasColumn('payments', 'user_id')) {
-            $paymentQuery->where('user_id', $tenant->id);
-            $hasPaymentScope = true;
-        } elseif (\Illuminate\Support\Facades\Schema::hasColumn('payments', 'tenant_id') && $tenantRecordIds->isNotEmpty()) {
-            $paymentQuery->whereIn('tenant_id', $tenantRecordIds);
-            $hasPaymentScope = true;
-        } elseif (\Illuminate\Support\Facades\Schema::hasColumn('payments', 'tenancy_id') && $tenancyRecordIds->isNotEmpty()) {
-            $paymentQuery->whereIn('tenancy_id', $tenancyRecordIds);
-            $hasPaymentScope = true;
+    if ($tenant && \Illuminate\Support\Facades\Schema::hasTable('reservations')) {
+        $q = \Illuminate\Support\Facades\DB::table('reservations');
+        $scoped = false;
+        if (\Illuminate\Support\Facades\Schema::hasColumn('reservations', 'user_id')) {
+            $q->where('user_id', $tenant->id); $scoped = true;
+        } elseif (\Illuminate\Support\Facades\Schema::hasColumn('reservations', 'tenant_id') && $tenantRecordIds->isNotEmpty()) {
+            $q->whereIn('tenant_id', $tenantRecordIds); $scoped = true;
         }
-
-        if ($hasPaymentScope) {
-            if (\Illuminate\Support\Facades\Schema::hasColumn('payments', 'status')) {
-                $paymentQuery->whereIn('status', ['paid', 'confirmed', 'completed', 'settled']);
-            }
-
-            $total = (float) $paymentQuery->sum('amount');
-            $paymentTotal = $total > 0 ? $total : $paymentTotal;
+        if ($scoped && \Illuminate\Support\Facades\Schema::hasColumn('reservations', 'status')) {
+            $cnt = $q->whereIn('status', ['approved', 'confirmed', 'active'])->count();
+            if ($cnt > 0) $activeReservations = $cnt;
         }
     }
 
-    $reviewCount = 2;
-    if (
-        $tenant
-        && \Illuminate\Support\Facades\Schema::hasTable('reviews')
-        && \Illuminate\Support\Facades\Schema::hasColumn('reviews', 'user_id')
-    ) {
-        $count = \Illuminate\Support\Facades\DB::table('reviews')
-            ->where('user_id', $tenant->id)
-            ->count();
-        $reviewCount = $count > 0 ? $count : $reviewCount;
+    // ── Pending payment amount ──
+    $pendingPaymentAmount = 3500.00;
+    $pendingPaymentDue    = 'Aug 05, 2026';
+    $pendingPaymentProp   = 'Sunrise Student Boarding House';
+    if ($tenant && \Illuminate\Support\Facades\Schema::hasTable('payments') && \Illuminate\Support\Facades\Schema::hasColumn('payments', 'amount')) {
+        $pq = \Illuminate\Support\Facades\DB::table('payments');
+        $ps = false;
+        if (\Illuminate\Support\Facades\Schema::hasColumn('payments', 'user_id')) { $pq->where('user_id', $tenant->id); $ps = true; }
+        elseif (\Illuminate\Support\Facades\Schema::hasColumn('payments', 'tenant_id') && $tenantRecordIds->isNotEmpty()) { $pq->whereIn('tenant_id', $tenantRecordIds); $ps = true; }
+        if ($ps && \Illuminate\Support\Facades\Schema::hasColumn('payments', 'status')) {
+            $tot = (float) (clone $pq)->whereIn('status', ['pending', 'unpaid', 'overdue'])->sum('amount');
+            if ($tot > 0) $pendingPaymentAmount = $tot;
+        }
     }
 
-    $hasRoommateMatchRequests = \Illuminate\Support\Facades\Schema::hasTable('roommate_match_requests');
-    $pendingIncomingMatchRequests = 0;
-    $pendingOutgoingMatchRequests = 0;
-    $acceptedMatchRequests = 0;
+    // ── AI match score ──
+    $matchScore = 92;
+    $matchLabel = 'Excellent';
 
-    if ($tenant && $hasRoommateMatchRequests) {
-        $pendingIncomingMatchRequests = \App\Models\RoommateMatchRequest::where('recipient_id', $tenant->id)
-            ->where('status', 'pending')
-            ->count();
+    // ── Saved listings count ──
+    $savedCount = 12;
 
-        $pendingOutgoingMatchRequests = \App\Models\RoommateMatchRequest::where('sender_id', $tenant->id)
-            ->where('status', 'pending')
-            ->count();
+    // ── Recommended houses (from controller via TenantPreferenceRecommendationService) ──
+    if (!isset($aiRecommendations)) $aiRecommendations = collect();
+    if (!isset($hasPreferences))    $hasPreferences    = false;
 
-        $acceptedMatchRequests = \App\Models\RoommateMatchRequest::where(function ($query) use ($tenant) {
-            $query->where('sender_id', $tenant->id)
-                ->orWhere('recipient_id', $tenant->id);
-        })->where('status', 'accepted')->count();
-    }
-
-    $houseWith = [];
-    if (\Illuminate\Support\Facades\Schema::hasTable('rooms')) {
-        $houseWith[] = 'rooms';
-    }
-    if (\Illuminate\Support\Facades\Schema::hasTable('room_categories')) {
-        $houseWith[] = 'roomCategories';
-    }
-    if (
-        \Illuminate\Support\Facades\Schema::hasTable('amenities')
-        && \Illuminate\Support\Facades\Schema::hasTable('boarding_house_amenities')
-    ) {
-        $houseWith[] = 'amenities';
-    }
-    if (\Illuminate\Support\Facades\Schema::hasTable('boarding_house_images')) {
-        $houseWith[] = 'images';
-    }
-
-    $recommendedHouses = collect();
-    if (\Illuminate\Support\Facades\Schema::hasTable('boarding_houses')) {
-        $houseQuery = \App\Models\BoardingHouse::query();
-
-        if (! empty($houseWith)) {
-            $houseQuery->with($houseWith);
-        }
-
-        if (\Illuminate\Support\Facades\Schema::hasTable('reviews')) {
-            $houseQuery->withAvg('reviews', 'rating');
-        }
-
-        if (\Illuminate\Support\Facades\Schema::hasColumn('boarding_houses', 'is_active')) {
-            $houseQuery->where('is_active', true);
-        }
-
-        if (
-            \Illuminate\Support\Facades\Schema::hasColumn('boarding_houses', 'approval_status')
-            || \Illuminate\Support\Facades\Schema::hasColumn('boarding_houses', 'status')
-        ) {
-            $houseQuery->where(function ($query) {
-                if (\Illuminate\Support\Facades\Schema::hasColumn('boarding_houses', 'approval_status')) {
-                    $query->where('approval_status', 'approved');
-                }
-
-                if (\Illuminate\Support\Facades\Schema::hasColumn('boarding_houses', 'status')) {
-                    $method = \Illuminate\Support\Facades\Schema::hasColumn('boarding_houses', 'approval_status') ? 'orWhere' : 'where';
-                    $query->{$method}('status', 'approved');
-                }
-            });
-        }
-
-        $recommendedHouses = $houseQuery->latest('id')->take(4)->get();
-    }
-
-    $sampleMatches = collect([
-        [
-            'name' => 'Cozy Haven Boarding House',
-            'location' => 'Cogon, Cagayan de Oro City',
-            'price' => '6,500.00',
-            'amenities' => ['Wi-Fi', 'AC', 'Study Area'],
-            'match' => 98,
-            'image' => null,
-            'href' => $r('user.browse'),
-        ],
-        [
-            'name' => 'Comfort Living Space',
-            'location' => 'Lapasan, CDO',
-            'price' => '6,000.00',
-            'amenities' => ['Wi-Fi', 'Kitchen', 'CCTV'],
-            'match' => 97,
-            'image' => null,
-            'href' => $r('user.browse'),
-        ],
-        [
-            'name' => 'Student Ville Residences',
-            'location' => 'Nazareth, CDO',
-            'price' => '5,800.00',
-            'amenities' => ['Wi-Fi', 'Laundry', 'Security'],
-            'match' => 95,
-            'image' => null,
-            'href' => $r('user.browse'),
-        ],
-        [
-            'name' => 'Greenfield Boarding House',
-            'location' => 'Bulua, CDO',
-            'price' => '6,200.00',
-            'amenities' => ['Parking', 'Wi-Fi', 'AC'],
-            'match' => 94,
-            'image' => null,
-            'href' => $r('user.browse'),
-        ],
-    ]);
-
-    $imageUrlFor = function ($house): ?string {
-        $path = null;
-
-        if ($house && $house->relationLoaded('images')) {
-            $path = $house->images->first()?->image_path;
-        }
-
-        foreach (['featured_image', 'exterior_image', 'room_image'] as $column) {
-            if (! $path && $house && ! empty($house->{$column})) {
-                $path = $house->{$column};
-            }
-        }
-
-        if (! $path) {
-            return null;
-        }
-
-        if (\Illuminate\Support\Str::startsWith($path, ['http://', 'https://', '/'])) {
-            return $path;
-        }
-
-        return \Illuminate\Support\Facades\Storage::url($path);
-    };
-
-    $topMatches = $recommendedHouses->values()->map(function ($house, int $index) use ($sampleMatches, $money, $imageUrlFor) {
-        $sample = $sampleMatches[$index] ?? $sampleMatches->last();
-        $rawPrice = null;
-
-        if ($house->relationLoaded('rooms') && $house->rooms->isNotEmpty()) {
-            $rawPrice = $house->rooms->min('price');
-        }
-
-        if (! $rawPrice && $house->relationLoaded('roomCategories') && $house->roomCategories->isNotEmpty()) {
-            $rawPrice = $house->roomCategories->min('monthly_rate');
-        }
-
-        $rawPrice = $rawPrice ?: ($house->price ?? $house->monthly_payment ?? null);
-
-        $amenities = $house->relationLoaded('amenities')
-            ? $house->amenities->pluck('name')->take(3)->values()->all()
-            : [];
+    $topMatches = $aiRecommendations->take(3)->map(function ($item) use ($money) {
+        $house = $item['house'];
+        $rec   = $item['recommendation'];
 
         return [
-            'name' => $house->name ?: $sample['name'],
-            'location' => $house->address ?: $sample['location'],
-            'price' => $money($rawPrice, (float) str_replace(',', '', $sample['price'])),
-            'amenities' => ! empty($amenities) ? $amenities : $sample['amenities'],
-            'match' => $sample['match'],
-            'image' => $imageUrlFor($house),
-            'href' => route('user.browse.show', $house),
+            'name'       => $house->name,
+            'location'   => $house->address ?: '—',
+            'price'      => $money($rec['price']),
+            'match'      => $rec['recommendation_percent'],
+            'matchLabel' => $rec['match_label'],
+            'matchDesc'  => $rec['ai_reason'],
+            'image'      => $item['image_url'] ?? null,
+            'href'       => route('user.browse.show', $house),
         ];
     });
 
-    if ($topMatches->count() < 4) {
-        $topMatches = $topMatches->concat($sampleMatches->slice($topMatches->count()))->values();
-    }
-
-    $summaryCards = [
-        [
-            'label' => 'Top Matches',
-            'value' => '5',
-            'subtitle' => 'Boarding houses',
-            'tone' => 'text-violet-600 bg-violet-50',
-            'icon' => '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"/></svg>',
-        ],
-        [
-            'label' => 'Pending Bookings',
-            'value' => $pendingBookings,
-            'subtitle' => 'Requests',
-            'tone' => 'text-amber-600 bg-amber-50',
-            'icon' => '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor"><rect x="4" y="5" width="16" height="15" rx="2" stroke-width="1.7"/><path stroke-linecap="round" stroke-width="1.7" d="M8 3v4M16 3v4M4 10h16"/></svg>',
-        ],
-        [
-            'label' => 'Active Reservations',
-            'value' => $activeReservations,
-            'subtitle' => 'Confirmed',
-            'tone' => 'text-emerald-600 bg-emerald-50',
-            'icon' => '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9" stroke-width="1.7"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m8 12 2.5 2.5L16 9"/></svg>',
-        ],
-        [
-            'label' => 'Total Payments',
-            'value' => '&#8369;'.$money($paymentTotal),
-            'subtitle' => 'Total paid',
-            'tone' => 'text-blue-600 bg-blue-50',
-            'icon' => '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor"><rect x="3" y="6" width="18" height="14" rx="2" stroke-width="1.7"/><path stroke-linecap="round" stroke-width="1.7" d="M3 10h18M7 15h3"/></svg>',
-        ],
-        [
-            'label' => 'Your Reviews',
-            'value' => $reviewCount,
-            'subtitle' => 'Reviews given',
-            'tone' => 'text-violet-600 bg-violet-50',
-            'icon' => '<svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor"><path stroke-linejoin="round" stroke-width="1.7" d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2 7.5 14 3 9.6l6.2-.9L12 3Z"/></svg>',
-        ],
-    ];
-
     $recentActivities = [
-        [
-            'title' => 'Reservation confirmed',
-            'detail' => 'Greenfield Boarding House',
-            'date' => 'May 20, 2026',
-            'time' => '10:30 AM',
-            'tone' => 'emerald',
-        ],
-        [
-            'title' => 'Booking request sent',
-            'detail' => 'Comfort Living Space',
-            'date' => 'May 18, 2026',
-            'time' => '02:15 PM',
-            'tone' => 'amber',
-        ],
-        [
-            'title' => 'New message received',
-            'detail' => 'From Cozy Haven Boarding House',
-            'date' => 'May 18, 2026',
-            'time' => '09:45 AM',
-            'tone' => 'blue',
-        ],
+        ['bg'=>'bg-green-100','iconColor'=>'text-green-600','title'=>'Reservation Confirmed','detail'=>'Sunrise Student Boarding House','date'=>'May 29, 2026','time'=>'09:17 PM',
+         'icon'=>'<path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5"/>'],
+        ['bg'=>'bg-blue-100','iconColor'=>'text-blue-600','title'=>'Payment Successful','detail'=>'Payment for Sunrise','date'=>'May 29, 2026','time'=>'08:43 PM',
+         'icon'=>'<rect x="2" y="5" width="20" height="14" rx="2" stroke-width="1.7"/><path stroke-linecap="round" stroke-width="1.7" d="M2 10h20"/>'],
+        ['bg'=>'bg-pink-100','iconColor'=>'text-pink-500','title'=>'Saved a Listing','detail'=>'Haven Residence','date'=>'May 28, 2026','time'=>'04:12 PM',
+         'icon'=>'<path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"/>'],
+        ['bg'=>'bg-teal-100','iconColor'=>'text-teal-600','title'=>'New Message','detail'=>'From Sunrise Student Boarding House','date'=>'May 28, 2026','time'=>'11:05 AM',
+         'icon'=>'<path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/>'],
+        ['bg'=>'bg-orange-100','iconColor'=>'text-orange-500','title'=>'Updated Preferences','detail'=>'Budget, Location, Amenities','date'=>'May 27, 2026','time'=>'10:22 AM',
+         'icon'=>'<path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"/>'],
     ];
 
-    $preferenceSummary = [
-        ['label' => 'Preferred Location', 'value' => 'Cogon, CDO', 'tone' => 'blue'],
-        ['label' => 'Budget Range', 'value' => '&#8369;5,000 - &#8369;8,000', 'tone' => 'emerald'],
-        ['label' => 'Room Type', 'value' => 'Solo Room', 'tone' => 'emerald'],
-        ['label' => 'Lifestyle Priority', 'value' => 'Cleanliness, Study-friendly, Quiet', 'tone' => 'amber'],
-    ];
-
-    $tips = [
-        [
-            'title' => 'Update your preferences regularly',
-            'detail' => 'This helps us find better matches for you.',
-            'tone' => 'blue',
-        ],
-        [
-            'title' => 'Enable notifications',
-            'detail' => 'Do not miss new matches and updates.',
-            'tone' => 'rose',
-        ],
-        [
-            'title' => 'Read reviews',
-            'detail' => 'Check reviews from other students.',
-            'tone' => 'amber',
-        ],
-    ];
-
-    $matchStatusCards = [
-        [
-            'label' => 'Incoming Pending',
-            'value' => $pendingIncomingMatchRequests,
-            'detail' => 'Requests waiting for your response.',
-        ],
-        [
-            'label' => 'Outgoing Pending',
-            'value' => $pendingOutgoingMatchRequests,
-            'detail' => 'Requests you sent and are still waiting on.',
-        ],
-        [
-            'label' => 'Accepted Matches',
-            'value' => $acceptedMatchRequests,
-            'detail' => 'Confirmed roommate pairings so far.',
-        ],
+    $quickActions = [
+        ['label'=>'Find Homes',         'bg'=>'bg-indigo-600','iconColor'=>'text-white','href'=>$r('user.browse'),       'icon'=>'<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/>'],
+        ['label'=>'Update Preferences', 'bg'=>'bg-indigo-600','iconColor'=>'text-white','href'=>$r('user.profile'),      'icon'=>'<path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"/>'],
+        ['label'=>'My Reservations',    'bg'=>'bg-orange-500','iconColor'=>'text-white','href'=>$r('user.reservations'), 'icon'=>'<path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5"/>'],
+        ['label'=>'Messages',           'bg'=>'bg-teal-500',  'iconColor'=>'text-white','href'=>$r('user.messages'),    'icon'=>'<path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/>'],
     ];
 @endphp
 
-<x-user.shell search-placeholder="Search listings, reservations, messages...">
-    <div class="space-y-6">
+<x-user.shell :top-bar="false">
+<div class="space-y-6">
 
-        {{-- ── Breadcrumb / Current Location ── --}}
-        <nav class="flex items-center gap-1.5 text-xs text-gray-400">
-            <span class="font-medium text-gray-600">Dashboard</span>
-            <span class="text-gray-300">·</span>
-            <span>{{ now()->format('l, M d, Y') }}</span>
+    {{-- ── Top header bar ── --}}
+    <div class="flex items-center justify-between">
+        <nav class="flex items-center gap-1.5 text-xs text-gray-500">
+            <span class="font-medium text-gray-700">Dashboard</span>
+            <svg class="h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            <span>Overview</span>
         </nav>
-
-        {{-- ── Welcome Header ── --}}
-        <div class="ui-card p-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
-             style="background:linear-gradient(135deg,#eef2ff 0%,#f5f3ff 50%,#fff7ed 100%)">
-            <div>
-                <p class="text-xs font-bold uppercase tracking-widest text-indigo-500">Welcome Back</p>
-                <h1 class="mt-1 text-2xl font-bold text-gray-900">{{ $firstName }} <span aria-hidden="true">&#128075;</span></h1>
-                <p class="mt-0.5 text-sm text-gray-500">Find your perfect boarding house match based on your preferences and lifestyle.</p>
+        <div class="flex items-center gap-3">
+            {{-- Bell --}}
+            <div x-data="{open:false}" class="relative">
+                <button @click="open=!open" class="relative flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white shadow-sm hover:bg-gray-50 transition-colors">
+                    <svg class="h-4.5 w-4.5 text-gray-600" style="height:18px;width:18px" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/></svg>
+                    <span class="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">2</span>
+                </button>
             </div>
-            <div class="flex flex-wrap gap-2 shrink-0">
-                <a href="{{ $r('user.recommendations') }}"
-                   class="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white transition-all hover:opacity-90"
-                   style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
-                    View Matches
-                </a>
-                <a href="{{ $r('user.profile') }}"
-                   class="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-white transition-colors">
-                    Update Profile
-                </a>
-            </div>
-        </div>
-
-        {{-- ── Summary Cards ── --}}
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            @foreach ($summaryCards as $card)
-                <div class="ui-card p-5">
-                    <div class="flex items-start justify-between gap-3">
-                        <div>
-                            <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide">{{ $card['label'] }}</p>
-                            <p class="mt-2 text-2xl font-bold text-gray-900">{!! $card['value'] !!}</p>
-                            <p class="mt-0.5 text-xs ui-muted">{{ $card['subtitle'] }}</p>
-                        </div>
-                        <span class="inline-flex h-11 w-11 items-center justify-center rounded-2xl {{ $card['tone'] }} shrink-0">
-                            {!! $card['icon'] !!}
-                        </span>
+            {{-- User info --}}
+            <div x-data="{open:false}" class="relative">
+                <button @click="open=!open" class="flex items-center gap-2 rounded-full pr-2 hover:bg-gray-50 transition-colors">
+                    @if($avatarUrl)
+                        <img src="{{ $avatarUrl }}" alt="{{ $userName }}" class="h-9 w-9 rounded-full object-cover shrink-0 border border-gray-200">
+                    @else
+                        <div class="flex h-9 w-9 items-center justify-center rounded-full bg-orange-500 text-sm font-bold text-white shrink-0">{{ $userInitials }}</div>
+                    @endif
+                    <div class="text-left hidden sm:block">
+                        <p class="text-sm font-semibold text-gray-900 leading-tight">{{ $userName }}</p>
+                        <p class="text-xs text-gray-400 leading-tight">Tenant</p>
+                    </div>
+                    <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </button>
+                <div x-show="open" @click.outside="open=false" x-transition class="absolute right-0 mt-2 w-48 rounded-xl border border-gray-200 bg-white shadow-lg z-50">
+                    <div class="border-b border-gray-100 px-4 py-3 text-sm">
+                        <p class="font-semibold text-gray-900">{{ $userName }}</p>
+                        <p class="text-xs text-gray-400">{{ $tenant?->email ?? '' }}</p>
+                    </div>
+                    <div class="py-2 text-sm">
+                        <a href="{{ $r('user.settings') }}" class="block px-4 py-2 hover:bg-gray-50">Profile Settings</a>
+                        <a href="{{ $r('user.profile') }}" class="block px-4 py-2 hover:bg-gray-50">Match Preferences</a>
+                        <button onclick="document.getElementById('topbar-logout-form').submit()" class="w-full text-left px-4 py-2 text-rose-600 hover:bg-rose-50">Log out</button>
                     </div>
                 </div>
-            @endforeach
+                <form id="topbar-logout-form" method="POST" action="{{ route('logout') }}" class="hidden">@csrf</form>
+            </div>
         </div>
+    </div>
 
-        <div class="grid grid-cols-1 xl:grid-cols-4 gap-6">
-            <section class="xl:col-span-3 ui-card p-5">
-                <div class="flex items-center justify-between gap-3 mb-5">
-                    <div>
-                        <h2 class="text-lg font-semibold">Top Match for You</h2>
-                        <p class="text-sm ui-muted">Boarding houses that best match your preferences and lifestyle.</p>
+    {{-- ── Page title ── --}}
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <p class="mt-1 text-sm text-gray-500">Welcome back, {{ $firstName }}! Here's what's happening with your boarding journey.</p>
+    </div>
+
+    {{-- ── 4 Stat cards ── --}}
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+
+        {{-- Saved Listings --}}
+        <a href="{{ $r('user.browse') }}"
+           class="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+            <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-violet-50">
+                <svg class="h-6 w-6 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z"/></svg>
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-[11px] font-semibold uppercase tracking-widest text-gray-400">Saved Listings</p>
+                <p class="mt-1 text-2xl font-bold text-gray-900">{{ $savedCount }}</p>
+                <p class="mt-0.5 text-xs text-gray-400">View your saved places</p>
+            </div>
+            <svg class="h-4 w-4 shrink-0 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </a>
+
+        {{-- Active Reservations --}}
+        <a href="{{ $r('user.reservations') }}"
+           class="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+            <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-emerald-50">
+                <svg class="h-6 w-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5m-9-6h.008v.008H12V9zm.008 3.75h-.008v.008h.008v-.008zm-3.741 0h-.008v.008h.008v-.008zm7.492 0h-.008v.008h.008v-.008zm-7.5 3.75h-.008v.008h.008v-.008zm7.508 0h-.008v.008h.008v-.008z"/></svg>
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-[11px] font-semibold uppercase tracking-widest text-gray-400">Active Reservations</p>
+                <p class="mt-1 text-2xl font-bold text-gray-900">{{ $activeReservations }}</p>
+                <p class="mt-0.5 text-xs text-gray-400">View reservation details</p>
+            </div>
+            <svg class="h-4 w-4 shrink-0 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </a>
+
+        {{-- Pending Payments --}}
+        <a href="{{ $r('user.payments') }}"
+           class="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+            <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-orange-50">
+                <svg class="h-6 w-6 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3"/></svg>
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-[11px] font-semibold uppercase tracking-widest text-gray-400">Pending Payments</p>
+                <p class="mt-1 text-2xl font-bold text-gray-900">&#8369;{{ $money($pendingPaymentAmount) }}</p>
+                <p class="mt-0.5 text-xs text-gray-400">Due on {{ $pendingPaymentDue }}</p>
+            </div>
+            <svg class="h-4 w-4 shrink-0 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </a>
+
+        {{-- AI Match Score --}}
+        <a href="{{ $r('user.recommendations') }}"
+           class="flex items-center gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm hover:shadow-md transition-shadow">
+            <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-violet-50">
+                <svg class="h-6 w-6 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"/></svg>
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-[11px] font-semibold uppercase tracking-widest text-gray-400">AI Match Score</p>
+                <div class="mt-1 flex items-baseline gap-2">
+                    <p class="text-2xl font-bold text-gray-900">{{ $matchScore }}%</p>
+                    <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">{{ $matchLabel }}</span>
+                </div>
+                <p class="mt-0.5 text-xs text-gray-400">View match insights</p>
+            </div>
+            <svg class="h-4 w-4 shrink-0 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </a>
+    </div>
+
+    {{-- ── Two-column: main + right sidebar ── --}}
+    <div class="grid gap-5 xl:grid-cols-[1fr_320px]">
+
+        {{-- ─ Main content ─ --}}
+        <div class="space-y-5">
+
+            {{-- AI Recommended Section --}}
+            <div class="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+                <div class="mb-5 flex items-start justify-between gap-4">
+                    <div class="flex items-start gap-3">
+                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50">
+                            <svg class="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/></svg>
+                        </div>
+                        <div>
+                            <h2 class="text-base font-semibold text-gray-900">AI Recommended Boarding Houses for You</h2>
+                            <p class="mt-0.5 text-xs text-gray-400">Personalized picks based on your preferences and lifestyle.</p>
+                        </div>
                     </div>
-                    <a href="{{ $r('user.recommendations') }}" class="hidden sm:inline-flex items-center gap-2 text-sm font-medium text-indigo-600">
-                        View all matches <span aria-hidden="true">&rarr;</span>
+                    <a href="{{ $r('user.recommendations') }}"
+                       class="shrink-0 rounded-xl border border-gray-200 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
+                        View All Matches
                     </a>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                {{-- No preferences yet --}}
+                @if (!$hasPreferences)
+                <div class="flex flex-col items-center justify-center py-10 text-center">
+                    <div class="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50">
+                        <svg class="h-7 w-7 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+                    </div>
+                    <p class="text-sm font-semibold text-gray-800">Set your preferences to unlock AI recommendations</p>
+                    <p class="mt-1 text-xs text-gray-400">Tell us your budget, preferred location, and lifestyle — we'll find your best matches.</p>
+                    <a href="{{ $r('user.profile') }}"
+                       class="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+                        Update Preferences
+                    </a>
+                </div>
+
+                {{-- Has preferences but no matches --}}
+                @elseif ($topMatches->isEmpty())
+                <div class="flex flex-col items-center justify-center py-10 text-center">
+                    <div class="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-50">
+                        <svg class="h-7 w-7 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
+                    </div>
+                    <p class="text-sm font-semibold text-gray-700">No matching boarding houses found.</p>
+                    <p class="mt-1 text-xs text-gray-400">Try updating your preferred location or budget to find more matches.</p>
+                    <a href="{{ $r('user.profile') }}"
+                       class="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
+                        Update Preferences
+                    </a>
+                </div>
+
+                @else
+                {{-- Property cards --}}
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     @foreach ($topMatches as $match)
-                        <article class="rounded-lg border ui-border overflow-hidden ui-surface">
-                            <div class="relative h-32 bg-gradient-to-br from-indigo-100 via-emerald-50 to-amber-50">
-                                @if ($match['image'])
-                                    <img src="{{ $match['image'] }}" alt="{{ $match['name'] }}" class="h-full w-full object-cover">
-                                @else
-                                    <div class="h-full w-full flex items-center justify-center px-4 text-center text-sm font-semibold text-slate-600">
-                                        {{ $match['name'] }}
-                                    </div>
-                                @endif
-                                <span class="absolute left-3 bottom-3 rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">{{ $match['match'] }}% Match</span>
-                            </div>
-                            <div class="p-4 space-y-3">
-                                <div>
-                                    <h3 class="font-semibold leading-snug">{{ $match['name'] }}</h3>
-                                    <p class="mt-1 text-xs ui-muted">{{ $match['location'] }}</p>
+                    @php
+                        $badgeClass = match($match['matchLabel']) {
+                            'Top Match'   => 'bg-emerald-600 text-white',
+                            'Great Match' => 'bg-indigo-600 text-white',
+                            'Good Match'  => 'bg-amber-500 text-white',
+                            default       => 'bg-gray-500 text-white',
+                        };
+                        $ringColor = $match['match'] >= 75 ? '#22c55e' : ($match['match'] >= 50 ? '#f59e0b' : '#ef4444');
+                    @endphp
+                    <div class="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow">
+                        {{-- Image --}}
+                        @php $hasImg = !empty($match['image']); @endphp
+                        <div class="relative h-48 overflow-hidden rounded-t-2xl bg-gray-100">
+                            @if ($hasImg)
+                            <img src="{{ $match['image'] }}"
+                                 alt="{{ $match['name'] }}"
+                                 class="h-full w-full object-cover"
+                                 onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='block'">
+                            @endif
+                            <img src="{{ asset('images/room-placeholder.svg') }}"
+                                 alt="Boarding house room"
+                                 class="h-full w-full object-cover"
+                                 style="{{ $hasImg ? 'display:none' : '' }}">
+                            <span class="absolute left-3 top-3 rounded-full {{ $badgeClass }} px-2 py-0.5 text-[10px] font-semibold">{{ $match['matchLabel'] }}</span>
+                            <button class="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm hover:bg-gray-50 transition-colors">
+                                <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z"/></svg>
+                            </button>
+                        </div>
+                        {{-- Card body --}}
+                        <div class="p-4 space-y-3">
+                            <div>
+                                <h3 class="text-sm font-semibold text-gray-900 leading-snug">{{ $match['name'] }}</h3>
+                                <div class="mt-1.5 flex items-center gap-1 text-xs text-gray-400">
+                                    <svg class="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
+                                    <span class="truncate">{{ $match['location'] }}</span>
                                 </div>
-                                <p class="text-sm font-semibold">&#8369;{{ $match['price'] }} <span class="font-normal ui-muted">/ month</span></p>
-                                <div class="flex flex-wrap gap-2 text-xs ui-muted">
-                                    @foreach ($match['amenities'] as $amenity)
-                                        <span class="rounded-full border ui-border px-2 py-1">{{ $amenity }}</span>
-                                    @endforeach
-                                </div>
-                                <a href="{{ $match['href'] }}" class="block w-full rounded-lg border ui-border px-3 py-2 text-center text-sm font-medium hover:bg-[color:var(--surface-2)]">View Details</a>
                             </div>
-                        </article>
+                            <p class="text-sm font-bold text-orange-500">&#8369;{{ $match['price'] }} <span class="text-xs font-normal text-gray-400">/month</span></p>
+                            {{-- Compatibility ring --}}
+                            <div class="flex items-center gap-2.5">
+                                <div class="relative h-9 w-9 shrink-0">
+                                    <svg class="h-9 w-9 -rotate-90" viewBox="0 0 36 36">
+                                        <circle cx="18" cy="18" r="15" fill="none" stroke="#f3f4f6" stroke-width="3.5"/>
+                                        <circle cx="18" cy="18" r="15" fill="none" stroke="{{ $ringColor }}" stroke-width="3.5"
+                                                stroke-dasharray="{{ round($match['match'] * 0.942) }} 100"
+                                                stroke-linecap="round"/>
+                                    </svg>
+                                    <span class="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-gray-800">{{ $match['match'] }}%</span>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-xs font-semibold text-gray-700">Compatibility</p>
+                                    <p class="text-[11px] text-gray-400 leading-tight line-clamp-2">{{ $match['matchDesc'] }}</p>
+                                </div>
+                            </div>
+                            {{-- Actions --}}
+                            <div class="flex gap-2 pt-1">
+                                <a href="{{ $match['href'] }}"
+                                   class="flex-1 rounded-xl border border-gray-200 py-2 text-center text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
+                                    View Details
+                                </a>
+                                <button class="flex-1 rounded-xl bg-indigo-600 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors">
+                                    Save
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                     @endforeach
                 </div>
-            </section>
 
-            <aside class="space-y-4">
-                <section class="ui-card p-5">
-                    <h2 class="text-lg font-semibold">Upcoming / Pending</h2>
-                    <div class="mt-4 space-y-3">
-                        @foreach ($upcomingItems as $item)
-                            <a href="{{ $r('user.reservations') }}" class="flex items-center justify-between gap-3 rounded-lg border ui-border p-3 hover:bg-[color:var(--surface-2)]">
-                                <div class="min-w-0">
-                                    <p class="text-xs ui-muted">{{ $item['type'] }}</p>
-                                    <p class="truncate text-sm font-semibold">{{ $item['title'] }}</p>
-                                    <p class="text-xs ui-muted">{{ $item['date'] }} &bull; {{ $item['status'] }}</p>
-                                </div>
-                                <span class="text-lg ui-muted" aria-hidden="true">&rsaquo;</span>
-                            </a>
+                <div class="mt-5 flex items-center gap-2 text-xs text-gray-400">
+                    <svg class="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    Recommendations update automatically after you save your preferences.
+                </div>
+                @endif
+            </div>
+
+            {{-- AI Match Insights + Saved Boarding Houses --}}
+            <div class="grid gap-5 sm:grid-cols-2">
+
+                {{-- AI Match Insights --}}
+                <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+                    <div class="mb-4 flex items-center gap-2.5">
+                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-50">
+                            <svg class="h-4 w-4 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/></svg>
+                        </div>
+                        <div>
+                            <h2 class="text-sm font-semibold text-gray-900">AI Match Insights</h2>
+                            <p class="text-[11px] text-gray-400">Your compatibility breakdown</p>
+                        </div>
+                    </div>
+                    <div class="space-y-3.5">
+                        @foreach([
+                            ['label' => 'Budget Compatibility', 'pct' => 95, 'bar' => 'bg-emerald-500'],
+                            ['label' => 'Location Preference',  'pct' => 88, 'bar' => 'bg-indigo-500'],
+                            ['label' => 'Lifestyle Fit',         'pct' => 90, 'bar' => 'bg-violet-500'],
+                            ['label' => 'Amenity Preferences',   'pct' => 85, 'bar' => 'bg-sky-500'],
+                        ] as $ins)
+                        <div>
+                            <div class="mb-1.5 flex items-center justify-between">
+                                <span class="text-xs font-medium text-gray-600">{{ $ins['label'] }}</span>
+                                <span class="text-xs font-bold text-gray-900">{{ $ins['pct'] }}%</span>
+                            </div>
+                            <div class="h-1.5 w-full overflow-hidden rounded-full bg-gray-100">
+                                <div class="h-1.5 rounded-full {{ $ins['bar'] }}" style="width:{{ $ins['pct'] }}%"></div>
+                            </div>
+                        </div>
                         @endforeach
                     </div>
-                </section>
+                    <a href="{{ $r('user.recommendations') }}"
+                       class="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl border border-gray-200 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
+                        View Full Analysis
+                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
+                    </a>
+                </div>
 
-                <section class="ui-card p-5">
-                    <div class="flex items-center gap-4">
-                        <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-4 border-indigo-600 text-sm font-bold">85%</div>
-                        <div>
-                            <h2 class="font-semibold">Complete Your Profile</h2>
-                            <p class="mt-1 text-sm ui-muted">You are almost there! Complete your profile to get better matches.</p>
-                            <a href="{{ $r('user.profile') }}" class="mt-2 inline-flex text-sm font-medium text-indigo-600">Update Profile</a>
+                {{-- Saved Boarding Houses --}}
+                <div class="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+                    <div class="mb-4 flex items-center justify-between">
+                        <div class="flex items-center gap-2.5">
+                            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-50">
+                                <svg class="h-4 w-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z"/></svg>
+                            </div>
+                            <h2 class="text-sm font-semibold text-gray-900">Saved Boarding Houses</h2>
                         </div>
+                        <a href="{{ $r('user.browse') }}" class="text-[11px] font-semibold text-indigo-600 hover:underline">View All</a>
                     </div>
-                </section>
-            </aside>
+                    <div class="space-y-2">
+                        @foreach([
+                            ['name' => 'Sunrise Student Boarding House', 'location' => 'Paligsahan, Quezon City', 'price' => '3,500', 'saved' => '2 days ago'],
+                            ['name' => 'Haven Residence',               'location' => 'Kamuning, Quezon City',    'price' => '3,800', 'saved' => '5 days ago'],
+                            ['name' => 'Cozy Corner Suites',            'location' => 'Teachers Village, QC',      'price' => '3,200', 'saved' => '1 week ago'],
+                        ] as $saved)
+                        <a href="{{ $r('user.browse') }}"
+                           class="flex items-center gap-3 rounded-xl border border-gray-100 p-3 hover:bg-gray-50 transition-colors">
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-100 to-violet-100">
+                                <svg class="h-5 w-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="truncate text-xs font-semibold text-gray-900">{{ $saved['name'] }}</p>
+                                <p class="text-[11px] text-gray-400">{{ $saved['location'] }}</p>
+                            </div>
+                            <div class="shrink-0 text-right">
+                                <p class="text-xs font-bold text-orange-500">&#8369;{{ $saved['price'] }}<span class="font-normal text-gray-400">/mo</span></p>
+                                <p class="text-[10px] text-gray-400">{{ $saved['saved'] }}</p>
+                            </div>
+                        </a>
+                        @endforeach
+                    </div>
+                </div>
+
+            </div>
         </div>
 
-        <section class="ui-card p-5">
-            <div class="flex items-center justify-between gap-3 mb-4">
-                <div>
-                    <h2 class="text-lg font-semibold">Roommate Match Status</h2>
-                    <p class="text-sm ui-muted">Live snapshot of your current matchmaking activity.</p>
-                </div>
-                <a href="{{ $r('user.recommendations') }}" class="px-3 py-2 rounded-lg border ui-border text-sm hover:bg-[color:var(--surface-2)]">Open Recommendations</a>
-            </div>
-            <div class="grid gap-4 md:grid-cols-3">
-                @foreach ($matchStatusCards as $statusCard)
-                    <div class="rounded-lg border ui-border p-4">
-                        <p class="text-xs uppercase tracking-wide ui-muted">{{ $statusCard['label'] }}</p>
-                        <p class="mt-2 text-2xl font-semibold">{{ $statusCard['value'] }}</p>
-                        <p class="mt-1 text-xs ui-muted">{{ $statusCard['detail'] }}</p>
-                    </div>
-                @endforeach
-            </div>
-        </section>
+        {{-- ─ Right sidebar ─ --}}
+        <div class="space-y-5">
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <section class="ui-card p-5">
-                <div class="flex items-center justify-between gap-3">
-                    <h2 class="text-lg font-semibold">Recent Activity</h2>
-                    <a href="{{ $r('user.reservations') }}" class="text-sm text-indigo-600">View all activity</a>
+            {{-- Recent Activity --}}
+            <div class="rounded-2xl border border-gray-100 bg-white shadow-sm">
+                <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+                    <h2 class="text-sm font-semibold text-gray-900">Recent Activity</h2>
+                    <a href="{{ $r('user.reservations') }}" class="text-xs font-semibold text-indigo-600 hover:underline">View All</a>
                 </div>
-                <div class="mt-4 space-y-4">
+                <div class="divide-y divide-gray-50 px-5">
                     @foreach ($recentActivities as $activity)
-                        <div class="flex items-start justify-between gap-4 border-b ui-border pb-3 last:border-0 last:pb-0">
-                            <div>
-                                <p class="text-sm font-semibold">{{ $activity['title'] }}</p>
-                                <p class="text-xs ui-muted">{{ $activity['detail'] }}</p>
-                            </div>
-                            <div class="text-right text-xs ui-muted">
-                                <p>{{ $activity['date'] }}</p>
-                                <p>{{ $activity['time'] }}</p>
-                            </div>
+                    <div class="flex items-start gap-3 py-3.5">
+                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg {{ $activity['bg'] }}">
+                            <svg class="h-4 w-4 {{ $activity['iconColor'] }}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                                {!! $activity['icon'] !!}
+                            </svg>
                         </div>
-                    @endforeach
-                </div>
-            </section>
-
-            <section class="ui-card p-5">
-                <div class="flex items-center justify-between gap-3">
-                    <h2 class="text-lg font-semibold">Preference Summary</h2>
-                    <a href="{{ $r('user.profile') }}" class="text-sm text-indigo-600">View all preferences</a>
-                </div>
-                <div class="mt-4 space-y-3">
-                    @foreach ($preferenceSummary as $preference)
-                        <div class="flex items-center justify-between gap-4 border-b ui-border pb-3 last:border-0 last:pb-0">
-                            <p class="text-sm ui-muted">{{ $preference['label'] }}</p>
-                            <p class="text-right text-sm font-semibold">{!! $preference['value'] !!}</p>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-semibold text-gray-900">{{ $activity['title'] }}</p>
+                            <p class="text-[11px] text-gray-400 truncate">{{ $activity['detail'] }}</p>
                         </div>
-                    @endforeach
-                </div>
-            </section>
-
-            <section class="ui-card p-5">
-                <div class="flex items-center justify-between gap-3">
-                    <h2 class="text-lg font-semibold">Tips for You</h2>
-                    <a href="{{ $r('user.recommendations') }}" class="text-sm text-indigo-600">View more tips</a>
-                </div>
-                <div class="mt-4 space-y-4">
-                    @foreach ($tips as $tip)
-                        <div>
-                            <p class="text-sm font-semibold">{{ $tip['title'] }}</p>
-                            <p class="mt-1 text-xs ui-muted">{{ $tip['detail'] }}</p>
+                        <div class="shrink-0 text-right">
+                            <p class="text-[10px] text-gray-400">{{ $activity['date'] }}</p>
+                            <p class="text-[10px] text-gray-400">{{ $activity['time'] }}</p>
                         </div>
+                    </div>
                     @endforeach
-                </div>
-            </section>
-        </div>
-
-        {{-- ── Bottom Banner ── --}}
-        <div class="ui-card p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div class="flex items-center gap-3">
-                <div class="h-10 w-10 shrink-0 rounded-xl bg-indigo-50 flex items-center justify-center">
-                    <svg class="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 22s-8-4-8-10V5l8-3 8 3v7c0 6-8 10-8 10Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4"/></svg>
-                </div>
-                <div>
-                    <p class="text-sm font-semibold text-gray-900">Your account and data are fully secure with BoardMatch.</p>
-                    <p class="text-xs text-gray-400">We use industry-standard encryption to keep your information safe at all times.</p>
                 </div>
             </div>
-            <a href="{{ $r('user.messages') }}" class="text-sm font-semibold text-indigo-600 hover:underline shrink-0">Contact Support →</a>
-        </div>
 
+            {{-- Upcoming Payment --}}
+            <div class="rounded-2xl border border-gray-100 bg-white shadow-sm">
+                <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+                    <h2 class="text-sm font-semibold text-gray-900">Upcoming Payment</h2>
+                    <a href="{{ $r('user.payments') }}" class="text-xs font-semibold text-indigo-600 hover:underline">View All</a>
+                </div>
+                <div class="px-5 py-4 space-y-3">
+                    <div class="flex items-start justify-between gap-2">
+                        <div>
+                            <p class="text-sm font-semibold text-gray-900">Monthly Rent</p>
+                            <p class="text-xs text-gray-400 mt-0.5">{{ $pendingPaymentProp }}</p>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <p class="text-sm font-bold text-orange-500">&#8369;{{ $money($pendingPaymentAmount) }}</p>
+                            <span class="inline-flex items-center rounded-full bg-orange-100 px-2 py-0.5 text-[10px] font-semibold text-orange-600">Pending</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between text-xs border-t border-gray-100 pt-3">
+                        <span class="text-gray-400">Due Date</span>
+                        <span class="font-semibold text-gray-700">{{ $pendingPaymentDue }}</span>
+                    </div>
+                    <a href="{{ $r('user.payments') }}"
+                       class="mt-1 flex w-full items-center justify-center rounded-xl bg-indigo-700 py-2.5 text-sm font-semibold text-white hover:bg-indigo-800 transition-colors">
+                        Go to Payments
+                    </a>
+                </div>
+            </div>
+
+            {{-- Quick Actions --}}
+            <div class="rounded-2xl border border-gray-100 bg-white shadow-sm">
+                <div class="border-b border-gray-100 px-5 py-4">
+                    <h2 class="text-sm font-semibold text-gray-900">Quick Actions</h2>
+                </div>
+                <div class="grid grid-cols-4 gap-2 p-4">
+                    @foreach ($quickActions as $action)
+                    <a href="{{ $action['href'] }}" class="flex flex-col items-center gap-2 rounded-xl p-3 hover:bg-gray-50 transition-colors text-center">
+                        <div class="flex h-11 w-11 items-center justify-center rounded-xl {{ $action['bg'] }}">
+                            <svg class="h-5 w-5 {{ $action['iconColor'] }}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                                {!! $action['icon'] !!}
+                            </svg>
+                        </div>
+                        <span class="text-[10px] font-medium text-gray-600 leading-tight">{{ $action['label'] }}</span>
+                    </a>
+                    @endforeach
+                </div>
+            </div>
+
+        </div>
     </div>
+
+</div>
 </x-user.shell>
 
 </x-layouts.dashboard>
