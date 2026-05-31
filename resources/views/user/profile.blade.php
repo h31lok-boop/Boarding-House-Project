@@ -22,7 +22,7 @@
     $dash   = round($circ * $completionPct / 100, 2);
     $gap    = round($circ - $dash, 2);
 
-    $locationTags = ['Loyola Heights','Katipunan','UP Village'];
+    $locationTags = ['Poblacion', 'Aplaya', 'Mahayahay', 'Zone 1', 'Zone 2'];
 
     $priceRanges = [
         ['₱20,000 – ₱50,000', '₱50,000 – ₱100,000', 'Below ₱20,000', 'Above ₱100,000'],

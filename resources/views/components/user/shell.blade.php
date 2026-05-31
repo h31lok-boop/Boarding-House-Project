@@ -20,7 +20,7 @@
 
 <div class="min-h-screen flex w-full bg-[#f7f8fb]">
     {{-- Sidebar --}}
-    <aside class="sidebar w-[300px] shrink-0 h-screen sticky top-0 bg-white border-r border-[#edf1f5] px-5 py-6 flex flex-col">
+    <aside class="sidebar w-[280px] shrink-0 h-screen sticky top-0 bg-white border-r border-[#edf1f5] px-5 py-6 flex flex-col">
         <div class="sidebar-header">
             <x-sidebar.brand />
             <button class="h-10 w-10 rounded-full bg-white border border-[#e5e9f0] flex items-center justify-center shadow-sm" data-sidebar-toggle>

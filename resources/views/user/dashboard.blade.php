@@ -417,9 +417,9 @@
                     </div>
                     <div class="space-y-2">
                         @foreach([
-                            ['name' => 'Sunrise Student Boarding House', 'location' => 'Paligsahan, Quezon City', 'price' => '3,500', 'saved' => '2 days ago'],
-                            ['name' => 'Haven Residence',               'location' => 'Kamuning, Quezon City',    'price' => '3,800', 'saved' => '5 days ago'],
-                            ['name' => 'Cozy Corner Suites',            'location' => 'Teachers Village, QC',      'price' => '3,200', 'saved' => '1 week ago'],
+                            ['name' => 'Sunrise Student Boarding House', 'location' => 'Zone 1, Digos City',      'price' => '2,800', 'saved' => '2 days ago'],
+                            ['name' => 'Berchby Loft',                   'location' => 'Poblacion, Digos City',   'price' => '5,500', 'saved' => '5 days ago'],
+                            ['name' => 'Suburban Sanctuary',             'location' => 'Mahayahay, Digos City',   'price' => '3,200', 'saved' => '1 week ago'],
                         ] as $saved)
                         <a href="{{ $r('user.browse') }}"
                            class="flex items-center gap-3 rounded-xl border border-gray-100 p-3 hover:bg-gray-50 transition-colors">
