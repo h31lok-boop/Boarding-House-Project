@@ -6,11 +6,15 @@ use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class LoginRequest extends FormRequest
 {
+    private const MAX_ATTEMPTS = 3;
+    private const LOCKOUT_SECONDS = 180;
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -27,8 +31,9 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'string', 'email'],
+            'email' => ['required', 'string'],
             'password' => ['required', 'string'],
+            'role' => ['nullable', 'string', 'in:tenant,owner,user,admin'],
         ];
     }
 
@@ -41,15 +46,87 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
-            RateLimiter::hit($this->throttleKey());
+        if (! $this->attemptLogin()) {
+            RateLimiter::hit($this->throttleKey(), self::LOCKOUT_SECONDS);
+            $attempts = RateLimiter::attempts($this->throttleKey());
+
+            if ($attempts >= self::MAX_ATTEMPTS) {
+                throw ValidationException::withMessages([
+                    'email' => 'Too many failed attempts. Please try again later.',
+                ]);
+            }
+
+            $remaining = max(self::MAX_ATTEMPTS - $attempts, 0);
 
             throw ValidationException::withMessages([
-                'email' => trans('auth.failed'),
+                'email' => 'Incorrect password. You have '.$remaining.' '.Str::plural('attempt', $remaining).' remaining.',
             ]);
         }
 
+        $this->validateAuthenticatedUser();
+
         RateLimiter::clear($this->throttleKey());
+    }
+
+    private function attemptLogin(): bool
+    {
+        $login = trim((string) $this->input('email'));
+        $password = (string) $this->input('password');
+        $remember = $this->boolean('remember');
+
+        if (Auth::attempt(['email' => $login, 'password' => $password], $remember)) {
+            return true;
+        }
+
+        if (Schema::hasColumn('users', 'username')) {
+            return Auth::attempt(['username' => $login, 'password' => $password], $remember);
+        }
+
+        return false;
+    }
+
+    private function validateAuthenticatedUser(): void
+    {
+        $user = Auth::user();
+
+        if (! $user) {
+            return;
+        }
+
+        $selectedRole = strtolower((string) $this->input('role', ''));
+        if ($selectedRole !== '' && ! $this->roleMatchesUser($selectedRole, $user)) {
+            Auth::logout();
+
+            throw ValidationException::withMessages([
+                'email' => 'The selected role does not match this account.',
+            ]);
+        }
+
+        $status = strtolower((string) ($user->status ?: ($user->account_status ?? 'active')));
+        if (in_array($status, ['suspended', 'inactive', 'disabled'], true)) {
+            Auth::logout();
+
+            throw ValidationException::withMessages([
+                'email' => 'This account is not active. Please contact support.',
+            ]);
+        }
+
+        if ($status === 'pending' && ! $user->isAdmin()) {
+            Auth::logout();
+
+            throw ValidationException::withMessages([
+                'email' => 'This account is pending approval.',
+            ]);
+        }
+    }
+
+    private function roleMatchesUser(string $selectedRole, mixed $user): bool
+    {
+        return match ($selectedRole) {
+            'tenant', 'user' => $user->isUser(),
+            'owner', 'admin' => $user->isAdmin(),
+            default => false,
+        };
     }
 
     /**
@@ -59,19 +136,14 @@ class LoginRequest extends FormRequest
      */
     public function ensureIsNotRateLimited(): void
     {
-        if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
+        if (! RateLimiter::tooManyAttempts($this->throttleKey(), self::MAX_ATTEMPTS)) {
             return;
         }
 
         event(new Lockout($this));
 
-        $seconds = RateLimiter::availableIn($this->throttleKey());
-
         throw ValidationException::withMessages([
-            'email' => trans('auth.throttle', [
-                'seconds' => $seconds,
-                'minutes' => ceil($seconds / 60),
-            ]),
+            'email' => 'Too many failed attempts. Please try again later.',
         ]);
     }
 

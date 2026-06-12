@@ -15,10 +15,12 @@ class BoardingHouse extends Model
     protected $fillable = [
         'owner_profile_id',
         'owner_id',
+        'user_id',
         'name',
         'slug',
         'address',
         'full_address',
+        'proof_of_ownership',
         'latitude',
         'longitude',
         'region_id',
@@ -155,6 +157,11 @@ class BoardingHouse extends Model
         return $this->belongsTo(User::class, 'owner_id');
     }
 
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
     public function ownerProfile()
     {
         return $this->belongsTo(OwnerProfile::class, 'owner_profile_id');
@@ -210,9 +217,19 @@ class BoardingHouse extends Model
         return $this->hasMany(BoardingHouseImage::class)->orderBy('is_primary', 'desc')->orderBy('sort_order');
     }
 
+    public function photos()
+    {
+        return $this->hasMany(BoardingHousePhoto::class);
+    }
+
     public function favorites()
     {
         return $this->hasMany(Favorite::class);
+    }
+
+    public function matches()
+    {
+        return $this->hasMany(BoardingHouseMatch::class);
     }
 
     public function inquiries()

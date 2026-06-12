@@ -1,4 +1,4 @@
-﻿<x-layouts.dashboard>
+<x-layouts.dashboard>
 <x-admin.shell>
     @php
         $badge = fn ($status) => match (strtolower((string) $status)) {

@@ -19,29 +19,29 @@
                 $navLinks[] = ['label' => 'Listings', 'route' => 'admin.listings', 'icon' => 'LST', 'active' => 'admin.listings*'];
                 $navLinks[] = ['label' => 'Rooms', 'route' => 'admin.rooms', 'icon' => 'ROM', 'active' => 'admin.rooms*'];
             } elseif ($user->isUser()) {
-                $navLinks[] = ['label' => 'Browse Listings', 'route' => 'user.browse', 'icon' => 'BHS', 'active' => 'user.browse*'];
-                $navLinks[] = ['label' => 'Recommendations', 'route' => 'user.recommendations', 'icon' => 'REC', 'active' => 'user.recommendations*'];
-                $navLinks[] = ['label' => 'Reservations', 'route' => 'user.reservations', 'icon' => 'RES', 'active' => 'user.reservations'];
+                $navLinks[] = ['label' => 'Browse Listings', 'route' => 'user.boarding-houses.index', 'icon' => 'BHS', 'active' => 'user.boarding-houses*'];
+                $navLinks[] = ['label' => 'Recommendations', 'route' => 'user.matchmaking.index', 'icon' => 'REC', 'active' => 'user.matchmaking*'];
+                $navLinks[] = ['label' => 'Reservations', 'route' => 'user.reservations.index', 'icon' => 'RES', 'active' => 'user.reservations.index'];
             }
         }
     @endphp
 
     <div class="p-6 border-b ui-border">
         <a href="{{ route($dashRoute) }}" class="flex items-center gap-3">
-            <div class="h-10 w-10 rounded-2xl bg-gradient-to-br from-[#ff7e5f] via-[#feb47b] to-[#ffd1a3] text-white flex items-center justify-center font-black text-lg shadow-lg">
-                SF
+            <div class="h-10 w-10 overflow-hidden rounded-2xl shadow-[0_10px_24px_rgba(37,99,235,0.24)]">
+                <img src="{{ asset('images/boardmatch-mark.svg') }}" alt="BoardMatch" class="h-full w-full object-cover">
             </div>
             <div class="leading-tight">
-                <p class="text-[11px] uppercase tracking-[0.18em] ui-muted font-semibold">StaySafe</p>
+                <p class="text-[11px] uppercase tracking-[0.18em] ui-muted font-semibold">BoardMatch</p>
                 <p class="text-lg font-bold">Finder</p>
-                <p class="text-[11px] ui-muted">Comfort &amp; Community</p>
+                <p class="text-[11px] ui-muted">Boarding house matchmaking</p>
             </div>
         </a>
     </div>
 
     <div class="px-4 py-4 border-b ui-border">
         <div class="flex items-center gap-3">
-            <div class="h-10 w-10 rounded-full bg-gradient-to-br from-orange-500 via-rose-500 to-amber-400 text-white flex items-center justify-center text-xs font-semibold uppercase">
+            <div class="h-10 w-10 rounded-full bg-gradient-to-br from-blue-600 via-slate-700 to-slate-900 text-white flex items-center justify-center text-xs font-semibold uppercase">
                 {{ Str::substr(Auth::user()->name ?? 'U', 0, 2) }}
             </div>
             <div class="min-w-0">

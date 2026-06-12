@@ -16,11 +16,13 @@ return [
     ],
 
     'boarding_house_weights' => [
-        'budget' => 0.28,
-        'amenities' => 0.22,
-        'distance' => 0.16,
-        'availability' => 0.16,
-        'occupant_compatibility' => 0.18,
+        'budget' => 0.25,
+        'location' => 0.20,
+        'room_type' => 0.15,
+        'amenities' => 0.15,
+        'safety' => 0.10,
+        'lifestyle' => 0.10,
+        'distance' => 0.05,
     ],
 
     'max_recommendation_distance_km' => 8,

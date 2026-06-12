@@ -19,12 +19,13 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('guest')->group(function () {
-    Route::get('register', [RegisteredUserController::class, 'create'])
+    Route::get('register', [RegisteredUserController::class, 'showRegistrationForm'])
         ->name('register');
 
     // Rate-limited: max 6 registration attempts per minute per IP
-    Route::post('register', [RegisteredUserController::class, 'store'])
-        ->middleware('throttle:6,1');
+    Route::post('register', [RegisteredUserController::class, 'register'])
+        ->middleware('throttle:6,1')
+        ->name('register.store');
 
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');

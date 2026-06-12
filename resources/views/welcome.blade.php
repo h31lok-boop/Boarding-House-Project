@@ -3,1159 +3,1391 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BoardMatch | Comfort & Community</title>
+    <title>BoardMatch | Student Boarding House Finder</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+    <link rel="shortcut icon" href="{{ asset('favicon.svg') }}">
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=manrope:400,500,600,700,800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        :root {
+            --ink: #172033;
+            --text: #2f3b52;
+            --muted: #647083;
+            --line: #dde5ef;
+            --soft: #f6f8fb;
+            --white: #ffffff;
+            --brand: #2563eb;
+            --brand-dark: #1d4ed8;
+            --teal: #0f766e;
+            --teal-soft: #e9fbf7;
+            --amber: #f59e0b;
+            --amber-soft: #fff7e6;
+            --shadow: 0 18px 44px rgba(23, 32, 51, 0.12);
+            --radius: 8px;
         }
 
-        :root {
-            --primary: #ff7e5f;
-            --secondary: #feb47b;
-            --dark: #333;
-            --light: #f9f9f9;
-            --shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html {
+            scroll-behavior: smooth;
         }
 
         body {
+            background: var(--white);
+            color: var(--text);
+            font-family: Manrope, "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
             line-height: 1.6;
-            color: var(--dark);
             overflow-x: hidden;
-            background-color: #f5f5f5;
+        }
+
+        img {
+            display: block;
+            max-width: 100%;
+        }
+
+        a {
+            color: inherit;
+            text-decoration: none;
+        }
+
+        button,
+        input,
+        select,
+        textarea {
+            font: inherit;
         }
 
         .container {
-            width: 90%;
-            max-width: 1200px;
             margin: 0 auto;
-            padding: 0 20px;
+            width: min(1140px, calc(100% - 48px));
         }
 
-        /* Header & Navigation */
-        header {
-            position: fixed;
+        .site-nav {
+            background: rgba(255, 255, 255, 0.94);
+            border-bottom: 1px solid rgba(221, 229, 239, 0.9);
+            backdrop-filter: blur(16px);
+            position: sticky;
             top: 0;
-            left: 0;
-            width: 100%;
-            z-index: 1000;
-            padding: 20px 0;
-            transition: all 0.5s ease;
+            z-index: 50;
         }
 
-        header.scrolled {
-            background-color: rgba(255, 255, 255, 0.95);
-            padding: 15px 0;
-            box-shadow: var(--shadow);
-        }
-
-        header:not(.scrolled) .logo span,
-        header:not(.scrolled) .nav-links a:not(.auth-btn),
-        header:not(.scrolled) .mobile-menu-btn {
-            color: #fff;
-            text-shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
-        }
-
-        header:not(.scrolled) .nav-links a:not(.auth-btn):hover {
-            color: var(--secondary);
-        }
-
-        .nav-container {
+        .nav-inner {
+            align-items: center;
             display: flex;
+            gap: 24px;
             justify-content: space-between;
+            min-height: 72px;
+        }
+
+        .brand {
             align-items: center;
-        }
-
-        .logo {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: var(--primary);
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-        }
-
-        .logo i {
-            margin-right: 10px;
-            font-size: 2rem;
-        }
-
-        .logo span {
-            color: var(--dark);
-        }
-
-        .nav-links {
-            display: flex;
-            list-style: none;
-        }
-
-        .nav-links li {
-            margin-left: 30px;
-        }
-
-        .nav-links a {
-            text-decoration: none;
-            color: var(--dark);
-            font-weight: 500;
-            transition: color 0.3s ease;
-            position: relative;
-        }
-
-        .nav-links a:hover {
-            color: var(--primary);
-        }
-
-        .nav-links a::after {
-            content: '';
-            position: absolute;
-            bottom: -5px;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background-color: var(--primary);
-            transition: width 0.3s ease;
-        }
-
-        .nav-links a:hover::after {
-            width: 100%;
-        }
-
-        .book-btn,
-        .auth-btn {
-            background: linear-gradient(to right, var(--primary), var(--secondary));
-            color: white;
-            border: none;
-            padding: 10px 25px;
-            border-radius: 30px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
             display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            text-decoration: none;
+            flex-shrink: 0;
+            gap: 10px;
+            line-height: 1;
+        }
+
+        .brand-mark {
+            border-radius: var(--radius);
+            box-shadow: 0 10px 24px rgba(37, 99, 235, 0.16);
+            height: 40px;
+            width: 40px;
+        }
+
+        .brand-name {
+            color: var(--ink);
+            font-size: 1.16rem;
+            font-weight: 800;
             white-space: nowrap;
         }
 
-        .book-btn:hover,
-        .auth-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 7px 15px rgba(255, 126, 95, 0.3);
+        .brand-name span {
+            color: var(--brand);
         }
 
-        .nav-links a.auth-btn::after {
-            display: none;
-        }
-
-        .nav-links a.auth-btn,
-        .nav-links a.auth-btn:hover {
-            color: white;
-            font-weight: 600;
-        }
-
-        .mobile-menu-btn {
-            display: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: var(--dark);
-        }
-
-        /* Hero Section */
-        .hero {
-            min-height: 100vh;
-            display: flex;
+        .nav-links {
             align-items: center;
-            background: #111;
-            color: white;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-            isolation: isolate;
-            padding: 120px 0 80px;
+            display: flex;
+            flex: 1;
+            gap: 24px;
+            justify-content: center;
+            list-style: none;
+            min-width: 0;
         }
 
-        .hero::before,
-        .hero::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            pointer-events: none;
+        .nav-links a {
+            color: var(--muted);
+            font-size: 0.92rem;
+            font-weight: 700;
+            transition: color 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--brand);
+        }
+
+        .nav-actions {
+            align-items: center;
+            display: flex;
+            flex-shrink: 0;
+            gap: 10px;
+        }
+
+        .mobile-auth-actions {
+            display: none;
+        }
+
+        .menu-toggle {
+            align-items: center;
+            background: var(--soft);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            color: var(--ink);
+            cursor: pointer;
+            display: none;
+            height: 42px;
+            justify-content: center;
+            width: 42px;
+        }
+
+        .btn {
+            align-items: center;
+            border: 1px solid transparent;
+            border-radius: var(--radius);
+            cursor: pointer;
+            display: inline-flex;
+            font-weight: 800;
+            gap: 10px;
+            justify-content: center;
+            min-height: 44px;
+            padding: 11px 18px;
+            transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, transform 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .btn-primary {
+            background: var(--brand);
+            box-shadow: 0 14px 28px rgba(37, 99, 235, 0.22);
+            color: var(--white);
+        }
+
+        .btn-primary:hover {
+            background: var(--brand-dark);
+            box-shadow: 0 18px 34px rgba(37, 99, 235, 0.28);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: var(--white);
+            border-color: var(--line);
+            color: var(--ink);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--brand);
+            color: var(--brand);
+            transform: translateY(-1px);
+        }
+
+        .btn-light {
+            background: var(--white);
+            color: var(--ink);
+        }
+
+        .hero {
+            color: var(--white);
+            min-height: clamp(560px, 76vh, 660px);
+            overflow: hidden;
+            position: relative;
         }
 
         .hero::before {
-            z-index: 0;
-            background: url('https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80') center/cover no-repeat;
-            filter: brightness(0.64) contrast(1.08) saturate(0.95);
-            transform: scale(1.02);
-        }
-
-        .hero::after {
-            z-index: 1;
             background:
-                radial-gradient(circle at center, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.62) 78%),
-                linear-gradient(135deg, rgba(10, 10, 12, 0.86) 0%, rgba(12, 12, 14, 0.72) 48%, rgba(10, 10, 12, 0.58) 100%);
+                linear-gradient(90deg, rgba(10, 18, 32, 0.86) 0%, rgba(10, 18, 32, 0.64) 45%, rgba(10, 18, 32, 0.18) 100%),
+                url("https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1800&q=80") center right / cover no-repeat;
+            content: "";
+            inset: 0;
+            position: absolute;
         }
 
-        .hero-content {
+        .hero-inner {
+            align-items: center;
+            display: grid;
+            min-height: clamp(560px, 76vh, 660px);
+            padding: 72px 0 92px;
             position: relative;
-            z-index: 2;
-            max-width: 800px;
-            margin: 0 auto;
-            opacity: 0;
-            transform: translateY(30px);
-            animation: fadeUp 1s ease forwards;
+            z-index: 1;
+        }
+
+        .hero-copy {
+            max-width: 650px;
+        }
+
+        .eyebrow {
+            align-items: center;
+            color: var(--teal-soft);
+            display: inline-flex;
+            font-size: 0.76rem;
+            font-weight: 800;
+            gap: 8px;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .eyebrow::before {
+            background: var(--teal);
+            border-radius: 999px;
+            content: "";
+            height: 8px;
+            width: 8px;
+        }
+
+        .section .eyebrow {
+            color: var(--teal);
         }
 
         .hero h1 {
-            font-size: 3.5rem;
-            margin-bottom: 20px;
-            line-height: 1.2;
-            color: #fff;
-            text-shadow: 0 5px 28px rgba(0, 0, 0, 0.62);
+            color: var(--white);
+            font-size: clamp(2.5rem, 5.4vw, 4.7rem);
+            font-weight: 800;
+            line-height: 1.04;
+            margin: 18px 0 20px;
+            max-width: 760px;
         }
 
-        .hero p {
-            font-size: 1.2rem;
-            margin-bottom: 30px;
-            color: rgba(255, 255, 255, 0.96);
-            font-weight: 500;
-            opacity: 1;
-            text-shadow: 0 3px 18px rgba(0, 0, 0, 0.65);
+        .hero-copy p:not(.eyebrow) {
+            color: rgba(255, 255, 255, 0.84);
+            font-size: clamp(1rem, 1.5vw, 1.14rem);
+            max-width: 610px;
         }
 
-        .hero-btns {
+        .hero-actions {
+            align-items: center;
             display: flex;
-            justify-content: center;
-            gap: 20px;
             flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 30px;
         }
 
-        .cta-btn {
-            padding: 15px 35px;
-            border-radius: 30px;
-            font-weight: 600;
+        .hero-facts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 26px;
+            margin-top: 44px;
+        }
+
+        .hero-fact strong {
+            color: var(--white);
+            display: block;
+            font-size: 1.42rem;
+            line-height: 1;
+        }
+
+        .hero-fact span {
+            color: rgba(255, 255, 255, 0.72);
+            display: block;
+            font-size: 0.86rem;
+            margin-top: 6px;
+        }
+
+        .finder-band {
+            margin-top: -60px;
+            position: relative;
+            z-index: 5;
+        }
+
+        .finder-panel {
+            background: var(--white);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            box-shadow: var(--shadow);
+            padding: 18px;
+        }
+
+        .finder-tabs {
+            align-items: center;
+            display: flex;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .finder-tab {
+            align-items: center;
+            background: var(--soft);
+            border: 1px solid transparent;
+            border-radius: var(--radius);
+            color: var(--muted);
+            display: inline-flex;
+            font-size: 0.86rem;
+            font-weight: 800;
+            gap: 8px;
+            min-height: 38px;
+            padding: 8px 12px;
+        }
+
+        .finder-tab.active {
+            background: var(--teal-soft);
+            border-color: rgba(15, 118, 110, 0.18);
+            color: var(--teal);
+        }
+
+        .search-grid {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: 1.15fr 0.9fr 0.9fr 0.9fr auto;
+        }
+
+        .field {
+            background: var(--soft);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            display: grid;
+            gap: 5px;
+            padding: 12px 13px;
+        }
+
+        .field label {
+            color: var(--muted);
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .field input,
+        .field select {
+            background: transparent;
+            border: 0;
+            color: var(--ink);
+            font-weight: 800;
+            min-width: 0;
+            outline: 0;
+            width: 100%;
+        }
+
+        .search-button {
+            min-height: 64px;
+            padding-left: 24px;
+            padding-right: 24px;
+        }
+
+        .quick-filters {
+            align-items: center;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 9px;
+            margin-top: 14px;
+        }
+
+        .quick-filters span {
+            color: var(--muted);
+            font-size: 0.86rem;
+            font-weight: 800;
+        }
+
+        .chip {
+            background: var(--white);
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            color: var(--text);
             cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 1rem;
+            font-size: 0.86rem;
+            font-weight: 700;
+            padding: 7px 12px;
+            transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
         }
 
-        .cta-primary {
-            background: linear-gradient(to right, var(--primary), var(--secondary));
-            color: white;
-            border: none;
-            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28), 0 8px 18px rgba(255, 126, 95, 0.28);
+        .chip:hover,
+        .chip.active {
+            background: var(--teal-soft);
+            border-color: rgba(15, 118, 110, 0.28);
+            color: var(--teal);
         }
 
-        .cta-secondary {
-            background: rgba(255, 255, 255, 0.08);
-            color: white;
-            border: 2px solid rgba(255, 255, 255, 0.88);
-            backdrop-filter: blur(8px);
+        .section {
+            padding: 88px 0;
         }
 
-        .cta-primary:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        .section-soft {
+            background: var(--soft);
         }
 
-        .cta-secondary:hover {
-            background: rgba(255, 255, 255, 0.1);
-            transform: translateY(-5px);
+        .section-header {
+            align-items: end;
+            display: flex;
+            gap: 28px;
+            justify-content: space-between;
+            margin-bottom: 34px;
         }
 
-        /* Features Section */
         .section-title {
-            text-align: center;
-            margin-bottom: 50px;
+            max-width: 690px;
         }
 
         .section-title h2 {
-            font-size: 2.5rem;
-            color: var(--dark);
-            margin-bottom: 15px;
-            position: relative;
-            display: inline-block;
-        }
-
-        .section-title h2::after {
-            content: '';
-            position: absolute;
-            bottom: -10px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 70px;
-            height: 4px;
-            background: linear-gradient(to right, var(--primary), var(--secondary));
+            color: var(--ink);
+            font-size: clamp(1.9rem, 3.4vw, 3rem);
+            font-weight: 800;
+            line-height: 1.12;
+            margin-top: 10px;
         }
 
         .section-title p {
-            color: #666;
-            max-width: 600px;
-            margin: 0 auto;
+            color: var(--muted);
+            margin-top: 12px;
+            max-width: 620px;
         }
 
-        .features {
-            padding: 100px 0;
-            background-color: white;
-        }
-
-        .features-grid {
+        .listing-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 30px;
+            gap: 22px;
+            grid-template-columns: repeat(3, 1fr);
         }
 
-        .feature-card {
-            background: white;
-            border-radius: 10px;
-            padding: 40px 30px;
-            text-align: center;
+        .listing-card {
+            background: var(--white);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            box-shadow: 0 12px 34px rgba(23, 32, 51, 0.08);
+            overflow: hidden;
+            transition: box-shadow 0.2s ease, transform 0.2s ease;
+        }
+
+        .listing-card:hover {
             box-shadow: var(--shadow);
-            transition: transform 0.5s ease, box-shadow 0.5s ease;
-            opacity: 0;
-            transform: translateY(30px);
+            transform: translateY(-3px);
         }
 
-        .feature-card.animated {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .feature-card:hover {
-            transform: translateY(-15px);
-            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
-        }
-
-        .feature-icon {
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 25px;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 2rem;
-        }
-
-        .feature-card h3 {
-            font-size: 1.5rem;
-            margin-bottom: 15px;
-            color: var(--dark);
-        }
-
-        .feature-card p {
-            color: #666;
-        }
-
-        /* Gallery Section */
-        .gallery {
-            padding: 100px 0;
-            background-color: #f9f9f9;
-        }
-
-        .gallery-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
-        }
-
-        .gallery-item {
-            height: 250px;
-            border-radius: 10px;
+        .listing-media {
+            aspect-ratio: 16 / 10;
             overflow: hidden;
             position: relative;
-            cursor: pointer;
-            opacity: 0;
-            transform: scale(0.9);
-            transition: transform 0.5s ease, opacity 0.5s ease;
         }
 
-        .gallery-item.animated {
-            opacity: 1;
-            transform: scale(1);
-        }
-
-        .gallery-item img {
-            width: 100%;
+        .listing-media img {
             height: 100%;
             object-fit: cover;
-            transition: transform 0.5s ease;
+            transition: transform 0.35s ease;
+            width: 100%;
         }
 
-        .gallery-item:hover img {
-            transform: scale(1.1);
+        .listing-card:hover .listing-media img {
+            transform: scale(1.04);
         }
 
-        .gallery-overlay {
+        .badge-row {
+            display: flex;
+            gap: 8px;
+            left: 12px;
             position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
-            padding: 20px;
-            color: white;
-            transform: translateY(100%);
-            transition: transform 0.5s ease;
+            right: 12px;
+            top: 12px;
         }
 
-        .gallery-item:hover .gallery-overlay {
-            transform: translateY(0);
-        }
-
-        /* Testimonials */
-        .testimonials {
-            padding: 100px 0;
-            background-color: white;
-        }
-
-        .testimonial-slider {
-            max-width: 800px;
-            margin: 0 auto;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .testimonial {
-            background: #f9f9f9;
-            border-radius: 10px;
-            padding: 40px;
-            text-align: center;
-            box-shadow: var(--shadow);
-            display: none;
-            animation: fadeIn 1s ease;
-        }
-
-        .testimonial.active {
-            display: block;
-        }
-
-        .testimonial-content {
-            font-size: 1.2rem;
-            font-style: italic;
-            margin-bottom: 30px;
-            color: #555;
-        }
-
-        .testimonial-author {
-            display: flex;
+        .badge {
             align-items: center;
-            justify-content: center;
+            background: rgba(23, 32, 51, 0.86);
+            border-radius: 999px;
+            color: var(--white);
+            display: inline-flex;
+            font-size: 0.78rem;
+            font-weight: 800;
+            gap: 6px;
+            padding: 7px 10px;
         }
 
-        .author-img {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
+        .badge.match {
+            background: var(--teal);
+            margin-left: auto;
+        }
+
+        .listing-body {
+            padding: 18px;
+        }
+
+        .listing-head {
+            align-items: start;
+            display: flex;
+            gap: 14px;
+            justify-content: space-between;
+        }
+
+        .listing-head h3 {
+            color: var(--ink);
+            font-size: 1.08rem;
+            font-weight: 800;
+            line-height: 1.3;
+        }
+
+        .price {
+            color: var(--brand);
+            font-size: 1rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .location {
+            color: var(--muted);
+            font-size: 0.9rem;
+            margin-top: 7px;
+        }
+
+        .meta-grid {
+            display: grid;
+            gap: 9px;
+            grid-template-columns: repeat(2, 1fr);
+            margin-top: 16px;
+        }
+
+        .meta {
+            align-items: center;
+            background: var(--soft);
+            border-radius: var(--radius);
+            color: var(--text);
+            display: flex;
+            font-size: 0.84rem;
+            font-weight: 700;
+            gap: 8px;
+            padding: 9px 10px;
+        }
+
+        .meta i {
+            color: var(--teal);
+        }
+
+        .match-layout {
+            align-items: center;
+            display: grid;
+            gap: 44px;
+            grid-template-columns: 0.95fr 1.05fr;
+        }
+
+        .match-preview {
+            background: var(--white);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
             overflow: hidden;
-            margin-right: 15px;
         }
 
-        .author-img img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+        .preview-top {
+            align-items: center;
+            background: var(--ink);
+            color: var(--white);
+            display: flex;
+            gap: 14px;
+            justify-content: space-between;
+            padding: 18px;
         }
 
-        .author-info h4 {
-            font-size: 1.1rem;
-            color: var(--dark);
+        .score {
+            align-items: center;
+            background: var(--teal);
+            border-radius: 999px;
+            color: var(--white);
+            display: inline-flex;
+            font-weight: 800;
+            height: 42px;
+            justify-content: center;
+            width: 74px;
         }
 
-        .author-info p {
-            color: #777;
+        .preview-body {
+            display: grid;
+            gap: 12px;
+            padding: 18px;
+        }
+
+        .match-row {
+            align-items: center;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            display: flex;
+            gap: 12px;
+            justify-content: space-between;
+            padding: 13px 14px;
+        }
+
+        .match-row span {
+            align-items: center;
+            color: var(--ink);
+            display: flex;
+            font-weight: 800;
+            gap: 9px;
+        }
+
+        .match-row i {
+            color: var(--brand);
+        }
+
+        .match-row strong {
+            color: var(--teal);
             font-size: 0.9rem;
         }
 
-        .slider-controls {
-            display: flex;
-            justify-content: center;
-            margin-top: 30px;
-        }
-
-        .slider-dot {
-            width: 12px;
-            height: 12px;
-            background-color: #ddd;
-            border-radius: 50%;
-            margin: 0 5px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
-
-        .slider-dot.active {
-            background-color: var(--primary);
-        }
-
-        /* Contact Section */
-        .contact {
-            padding: 100px 0;
-            background: linear-gradient(to right, var(--primary), var(--secondary));
-            color: white;
-        }
-
-        .contact-container {
+        .steps {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 50px;
+            gap: 14px;
+            margin-top: 28px;
         }
 
-        .contact-info h3 {
-            font-size: 1.8rem;
-            margin-bottom: 20px;
-        }
-
-        .contact-info p {
-            margin-bottom: 30px;
-            opacity: 0.9;
-        }
-
-        .contact-details {
-            margin-top: 30px;
-        }
-
-        .contact-item {
+        .step {
+            align-items: flex-start;
             display: flex;
-            align-items: center;
-            margin-bottom: 20px;
+            gap: 13px;
         }
 
-        .contact-item i {
-            font-size: 1.2rem;
-            margin-right: 15px;
-            width: 40px;
-            height: 40px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-            display: flex;
+        .step-number {
             align-items: center;
+            background: var(--amber-soft);
+            border: 1px solid rgba(245, 158, 11, 0.18);
+            border-radius: var(--radius);
+            color: #b45309;
+            display: inline-flex;
+            flex: 0 0 auto;
+            font-weight: 800;
+            height: 34px;
             justify-content: center;
+            width: 34px;
         }
 
-        .contact-form input,
-        .contact-form textarea {
-            width: 100%;
-            padding: 15px;
-            margin-bottom: 20px;
-            border: none;
-            border-radius: 5px;
-            background: rgba(255, 255, 255, 0.9);
+        .step h3 {
+            color: var(--ink);
             font-size: 1rem;
+            font-weight: 800;
+            margin-bottom: 3px;
         }
 
-        .contact-form textarea {
-            min-height: 150px;
-            resize: vertical;
+        .step p {
+            color: var(--muted);
+            font-size: 0.92rem;
         }
 
-        /* Footer */
-        footer {
-            background-color: var(--dark);
-            color: white;
-            padding: 60px 0 30px;
-        }
-
-        .footer-container {
+        .location-layout {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 40px;
-            margin-bottom: 40px;
+            gap: 24px;
+            grid-template-columns: 1.1fr 0.9fr;
         }
 
-        .footer-col h3 {
-            font-size: 1.3rem;
-            margin-bottom: 25px;
-            color: var(--primary);
+        .photo-grid {
+            display: grid;
+            gap: 14px;
+            grid-template-columns: 1.2fr 0.8fr;
         }
 
-        .footer-col p {
-            opacity: 0.8;
-            margin-bottom: 20px;
+        .photo-tile {
+            border-radius: var(--radius);
+            min-height: 210px;
+            overflow: hidden;
+            position: relative;
         }
 
-        .social-links {
-            display: flex;
-            gap: 15px;
-            margin-top: 20px;
+        .photo-tile:first-child {
+            min-height: 436px;
         }
 
-        .social-links a {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 40px;
-            height: 40px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-            color: white;
-            text-decoration: none;
-            transition: all 0.3s ease;
+        .photo-tile img {
+            height: 100%;
+            object-fit: cover;
+            width: 100%;
         }
 
-        .social-links a:hover {
-            background: var(--primary);
-            transform: translateY(-5px);
+        .photo-tile::after {
+            background: linear-gradient(180deg, transparent 45%, rgba(23, 32, 51, 0.78));
+            content: "";
+            inset: 0;
+            position: absolute;
         }
 
-        .footer-links {
+        .photo-label {
+            bottom: 16px;
+            color: var(--white);
+            font-weight: 800;
+            left: 16px;
+            position: absolute;
+            z-index: 1;
+        }
+
+        .amenity-panel {
+            background: var(--white);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 24px;
+        }
+
+        .amenity-panel h3 {
+            color: var(--ink);
+            font-size: 1.35rem;
+            line-height: 1.25;
+            margin-bottom: 10px;
+        }
+
+        .amenity-panel p {
+            color: var(--muted);
+            margin-bottom: 22px;
+        }
+
+        .amenity-list {
+            display: grid;
+            gap: 12px;
             list-style: none;
         }
 
-        .footer-links li {
-            margin-bottom: 12px;
+        .amenity-list li {
+            align-items: center;
+            color: var(--ink);
+            display: flex;
+            font-weight: 700;
+            gap: 11px;
         }
 
-        .footer-links a {
-            color: rgba(255, 255, 255, 0.8);
-            text-decoration: none;
-            transition: color 0.3s ease;
+        .amenity-list i {
+            align-items: center;
+            background: var(--teal-soft);
+            border-radius: var(--radius);
+            color: var(--teal);
+            display: inline-flex;
+            height: 30px;
+            justify-content: center;
+            width: 30px;
         }
 
-        .footer-links a:hover {
-            color: var(--primary);
+        .cta {
+            background: var(--ink);
+            color: var(--white);
+            overflow: hidden;
+            position: relative;
         }
 
-        .copyright {
-            text-align: center;
-            padding-top: 30px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            opacity: 0.7;
+        .cta::before {
+            background:
+                linear-gradient(90deg, rgba(23, 32, 51, 0.94), rgba(23, 32, 51, 0.74)),
+                url("https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=1500&q=80") center / cover no-repeat;
+            content: "";
+            inset: 0;
+            position: absolute;
+        }
+
+        .cta-inner {
+            align-items: center;
+            display: flex;
+            gap: 28px;
+            justify-content: space-between;
+            padding: 72px 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .cta h2 {
+            color: var(--white);
+            font-size: clamp(1.9rem, 3.4vw, 3rem);
+            font-weight: 800;
+            line-height: 1.12;
+            max-width: 620px;
+        }
+
+        .cta p {
+            color: rgba(255, 255, 255, 0.78);
+            margin-top: 12px;
+            max-width: 560px;
+        }
+
+        .footer {
+            background: #101827;
+            color: rgba(255, 255, 255, 0.72);
+            padding: 38px 0 26px;
+        }
+
+        .footer-grid {
+            align-items: start;
+            display: grid;
+            gap: 26px;
+            grid-template-columns: 1.5fr repeat(3, 1fr);
+        }
+
+        .footer .brand-name {
+            color: var(--white);
+        }
+
+        .footer p,
+        .footer li,
+        .footer a {
+            color: rgba(255, 255, 255, 0.68);
             font-size: 0.9rem;
         }
 
-        /* Animations */
-        @keyframes fadeUp {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+        .footer h3 {
+            color: var(--white);
+            font-size: 0.98rem;
+            margin-bottom: 12px;
         }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-            to {
-                opacity: 1;
-            }
+        .footer ul {
+            display: grid;
+            gap: 8px;
+            list-style: none;
         }
 
-        /* Responsive Styles */
-        @media (max-width: 992px) {
-            .hero h1 {
-                font-size: 2.8rem;
+        .footer a:hover {
+            color: var(--white);
+        }
+
+        .footer-bottom {
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin-top: 30px;
+            padding-top: 18px;
+            text-align: center;
+        }
+
+        @media (max-width: 1120px) {
+            .nav-links {
+                background: var(--white);
+                border-bottom: 1px solid var(--line);
+                display: none;
+                flex-direction: column;
+                gap: 18px;
+                left: 0;
+                padding: 24px;
+                position: absolute;
+                right: 0;
+                top: 72px;
             }
-            
-            .features-grid,
-            .gallery-container {
+
+            .nav-links.open {
+                display: flex;
+            }
+
+            .nav-links a {
+                text-align: center;
+            }
+
+            .menu-toggle {
+                display: inline-flex;
+            }
+
+            .nav-actions > .btn {
+                display: none;
+            }
+
+            .mobile-auth-actions {
+                border-top: 1px solid var(--line);
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                padding-top: 16px;
+                width: 100%;
+            }
+
+            .mobile-auth-actions .btn {
+                width: 100%;
+            }
+
+            .search-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .search-button {
+                grid-column: 1 / -1;
+            }
+
+            .listing-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .match-layout,
+            .location-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .footer-grid {
                 grid-template-columns: repeat(2, 1fr);
             }
         }
 
-        @media (max-width: 768px) {
-            .mobile-menu-btn {
-                display: block;
-            }
-            
-            .nav-links {
-                position: fixed;
-                top: 80px;
-                left: -100%;
-                width: 100%;
-                flex-direction: column;
-                background-color: white;
-                padding: 30px;
-                box-shadow: var(--shadow);
-                transition: left 0.5s ease;
-            }
-            
-            .nav-links.active {
-                left: 0;
+        @media (max-width: 720px) {
+            .container {
+                width: min(100% - 28px, 1140px);
             }
 
-            header:not(.scrolled) .nav-links.active a:not(.auth-btn) {
-                color: var(--dark);
-                text-shadow: none;
-            }
-
-            header:not(.scrolled) .nav-links.active a:not(.auth-btn):hover {
-                color: var(--primary);
-            }
-            
-            .nav-links li {
-                margin: 15px 0;
-            }
-
-            .hero {
+            .hero,
+            .hero-inner {
                 min-height: auto;
-                padding: 120px 0 90px;
-            }
-            
-            .hero h1 {
-                font-size: 2.2rem;
             }
 
-            .hero p {
-                font-size: 1rem;
+            .hero::before {
+                background:
+                    linear-gradient(180deg, rgba(10, 18, 32, 0.86), rgba(10, 18, 32, 0.72)),
+                    url("https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1100&q=80") center / cover no-repeat;
             }
-            
-            .hero-btns {
+
+            .hero-inner {
+                padding: 66px 0 96px;
+            }
+
+            .hero h1 {
+                font-size: clamp(2.2rem, 11vw, 3.2rem);
+            }
+
+            .hero-actions,
+            .cta-inner {
+                align-items: stretch;
                 flex-direction: column;
-                align-items: center;
             }
-            
-            .features-grid,
-            .gallery-container {
+
+            .hero-actions .btn,
+            .cta-inner .btn {
+                width: 100%;
+            }
+
+            .hero-facts {
+                display: grid;
+                gap: 16px;
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .finder-band {
+                margin-top: -48px;
+            }
+
+            .finder-panel {
+                padding: 14px;
+            }
+
+            .finder-tabs {
+                flex-wrap: wrap;
+            }
+
+            .search-grid,
+            .listing-grid,
+            .meta-grid,
+            .footer-grid {
                 grid-template-columns: 1fr;
             }
-            
-            .section-title h2 {
-                font-size: 2rem;
+
+            .section {
+                padding: 68px 0;
             }
-        }
 
-        /* Scroll Animation Classes */
-        .animate-on-scroll {
-            opacity: 0;
-            transform: translateY(30px);
-            transition: opacity 0.8s ease, transform 0.8s ease;
-        }
+            .section-header {
+                align-items: start;
+                flex-direction: column;
+                gap: 18px;
+            }
 
-        .animate-on-scroll.animated {
-            opacity: 1;
-            transform: translateY(0);
+            .listing-head {
+                display: grid;
+            }
+
+            .photo-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .photo-tile,
+            .photo-tile:first-child {
+                min-height: 240px;
+            }
+
+            .match-row {
+                align-items: flex-start;
+                flex-direction: column;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Header & Navigation -->
-    <header id="header">
-        <div class="container nav-container">
-            <a href="#" class="logo">
-                <i class="fas fa-home"></i>
-                Board<span>Match</span>
+    <nav class="site-nav" aria-label="Primary navigation">
+        <div class="container nav-inner">
+            <a href="#home" class="brand" aria-label="BoardMatch home">
+                <img class="brand-mark" src="{{ asset('images/boardmatch-mark.svg') }}" alt="" aria-hidden="true">
+                <span class="brand-name">Board<span>Match</span></span>
             </a>
-            
-            <div class="mobile-menu-btn" id="mobile-menu-btn">
-                <i class="fas fa-bars"></i>
-            </div>
-            
-            <ul class="nav-links" id="nav-links">
-                <li><a href="#home">Home</a></li>
-                <li><a href="#features">Features</a></li>
-                <li><a href="#gallery">Gallery</a></li>
-                <li><a href="#testimonials">Testimonials</a></li>
-                <li><a href="#contact">Contact</a></li>
-                <li>
-                    <a class="auth-btn" href="{{ route('auth.choice') }}">
-                        <i class="fas fa-sign-in-alt"></i> Sign In
-                    </a>
-                </li>
 
+            <ul class="nav-links" id="nav-links">
+                <li><a class="active" href="#home">Home</a></li>
+                <li><a href="#finder">Find a Room</a></li>
+                <li><a href="#listings">Listings</a></li>
+                <li><a href="#matching">Matching</a></li>
+                <li><a href="#locations">Locations</a></li>
+                <li class="mobile-auth-actions">
+                    <a class="btn btn-secondary" href="{{ route('auth.choice') }}"><i class="fas fa-right-to-bracket"></i> Sign In</a>
+                    <a class="btn btn-primary" href="{{ route('register') }}"><i class="fas fa-user-plus"></i> Get Started</a>
+                </li>
             </ul>
+
+            <div class="nav-actions">
+                <a class="btn btn-secondary" href="{{ route('auth.choice') }}"><i class="fas fa-right-to-bracket"></i> Sign In</a>
+                <a class="btn btn-primary" href="{{ route('register') }}"><i class="fas fa-user-plus"></i> Get Started</a>
+                <button class="menu-toggle" id="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <header class="hero" id="home">
+        <div class="container hero-inner">
+            <div class="hero-copy">
+                <p class="eyebrow">Boarding house finder</p>
+                <h1>Student Boarding Houses in Digos City</h1>
+                <p>Compare rooms by budget, distance, amenities, availability, and compatibility so students can shortlist safer places with less back-and-forth.</p>
+                <div class="hero-actions">
+                    <a class="btn btn-light" href="#finder"><i class="fas fa-magnifying-glass"></i> Start Searching</a>
+                    <a class="btn btn-secondary" href="#matching"><i class="fas fa-sliders"></i> View Match Criteria</a>
+                </div>
+                <div class="hero-facts" aria-label="BoardMatch highlights">
+                    <div class="hero-fact"><strong>120+</strong><span>rooms to compare</span></div>
+                    <div class="hero-fact"><strong>3 min</strong><span>profile setup</span></div>
+                    <div class="hero-fact"><strong>88%</strong><span>sample top match</span></div>
+                </div>
+            </div>
         </div>
     </header>
 
-    <!-- Hero Section -->
-    <section class="hero" id="home">
-        <div class="container hero-content">
-            <h1>Welcome to BoardMatch</h1>
-            <p>Experience comfortable living in a friendly community. Our boarding house offers modern amenities, a safe environment, and a home-like atmosphere for students and professionals.</p>
-            <div class="hero-btns">
-                <button class="cta-btn cta-primary">Start Booking</button>
-            </div>
-        </div>
-    </section>
-
-    <!-- Features Section -->
-    <section class="features" id="features">
-        <div class="container">
-            <div class="section-title">
-                <h2>Why Choose Our Boarding House</h2>
-                <p>We provide everything you need for a comfortable and convenient stay away from home.</p>
-            </div>
-            
-            <div class="features-grid">
-                <div class="feature-card animate-on-scroll">
-                    <div class="feature-icon">
-                        <i class="fas fa-wifi"></i>
+    <main>
+        <section class="finder-band" id="finder" aria-label="Boarding house search">
+            <div class="container">
+                <form class="finder-panel" id="search-form">
+                    <div class="finder-tabs" aria-label="Search audience">
+                        <span class="finder-tab active"><i class="fas fa-user-graduate"></i> For students</span>
+                        <span class="finder-tab"><i class="fas fa-house-user"></i> For owners</span>
                     </div>
-                    <h3>High-Speed Internet</h3>
-                    <p>Stay connected with our reliable high-speed WiFi available throughout the property.</p>
-                </div>
-                
-                <div class="feature-card animate-on-scroll">
-                    <div class="feature-icon">
-                        <i class="fas fa-utensils"></i>
-                    </div>
-                    <h3>Home-Cooked Meals</h3>
-                    <p>Enjoy nutritious and delicious home-cooked meals prepared with care and hygiene.</p>
-                </div>
-                
-                <div class="feature-card animate-on-scroll">
-                    <div class="feature-icon">
-                        <i class="fas fa-shield-alt"></i>
-                    </div>
-                    <h3>24/7 Security</h3>
-                    <p>Your safety is our priority with CCTV surveillance and security personnel on duty.</p>
-                </div>
-                
-                <div class="feature-card animate-on-scroll">
-                    <div class="feature-icon">
-                        <i class="fas fa-tint"></i>
-                    </div>
-                    <h3>Laundry Service</h3>
-                    <p>Regular laundry services to keep your clothes clean and fresh without any hassle.</p>
-                </div>
-                
-                <div class="feature-card animate-on-scroll">
-                    <div class="feature-icon">
-                        <i class="fas fa-car"></i>
-                    </div>
-                    <h3>Parking Space</h3>
-                    <p>Secure parking area available for residents with personal vehicles.</p>
-                </div>
-                
-                <div class="feature-card animate-on-scroll">
-                    <div class="feature-icon">
-                        <i class="fas fa-users"></i>
-                    </div>
-                    <h3>Community Events</h3>
-                    <p>Regular community gatherings and events to foster friendships and networking.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Gallery Section -->
-    <section class="gallery" id="gallery">
-        <div class="container">
-            <div class="section-title">
-                <h2>Our Boarding House Gallery</h2>
-                <p>Take a look at our comfortable rooms and common areas designed for your convenience.</p>
-            </div>
-            
-            <div class="gallery-container">
-                <div class="gallery-item animate-on-scroll">
-                    <img src="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=958&q=80" alt="Single Room">
-                    <div class="gallery-overlay">
-                        <h3>Cozy Single Room</h3>
-                    </div>
-                </div>
-                
-                <div class="gallery-item animate-on-scroll">
-                    <img src="https://images.unsplash.com/photo-1555854877-bab0e564b8d5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1169&q=80" alt="Common Area">
-                    <div class="gallery-overlay">
-                        <h3>Spacious Common Area</h3>
-                    </div>
-                </div>
-                
-                <div class="gallery-item animate-on-scroll">
-                    <img src="https://images.unsplash.com/photo-1613977257363-707ba9348227?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1170&q=80" alt="Study Room">
-                    <div class="gallery-overlay">
-                        <h3>Quiet Study Room</h3>
-                    </div>
-                </div>
-                
-                <div class="gallery-item animate-on-scroll">
-                    <img src="https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1074&q=80" alt="Kitchen">
-                    <div class="gallery-overlay">
-                        <h3>Fully Equipped Kitchen</h3>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Testimonials Section -->
-    <section class="testimonials" id="testimonials">
-        <div class="container">
-            <div class="section-title">
-                <h2>What Our Residents Say</h2>
-                <p>Hear from our residents about their experience living at BoardMatch.</p>
-            </div>
-            
-            <div class="testimonial-slider">
-                <div class="testimonial active">
-                    <div class="testimonial-content">
-                        "I've been living here for 2 years and it feels like home. The environment is friendly, the food is great, and the location is perfect for my university."
-                    </div>
-                    <div class="testimonial-author">
-                        <div class="author-img">
-                            <img src="https://randomuser.me/api/portraits/women/32.jpg" alt="Sarah Johnson">
+                    <div class="search-grid">
+                        <div class="field">
+                            <label for="location-filter">Location</label>
+                            <select id="location-filter" name="location">
+                                <option value="">Any Digos City area</option>
+                                <option value="Rizal Avenue">Rizal Avenue</option>
+                                <option value="Digos Centro">Digos Centro</option>
+                                <option value="Aplaya">Aplaya</option>
+                                <option value="Tres de Mayo">Tres de Mayo</option>
+                            </select>
                         </div>
-                        <div class="author-info">
-                            <h4>Sarah Johnson</h4>
-                            <p>Medical Student, Resident for 2 years</p>
+                        <div class="field">
+                            <label for="budget-filter">Budget</label>
+                            <select id="budget-filter" name="budget">
+                                <option value="">Any budget</option>
+                                <option value="3500">Up to &#8369;3,500</option>
+                                <option value="5000">Up to &#8369;5,000</option>
+                                <option value="7000">Up to &#8369;7,000</option>
+                            </select>
                         </div>
-                    </div>
-                </div>
-                
-                <div class="testimonial">
-                    <div class="testimonial-content">
-                        "As a working professional, I appreciate the quiet study areas and reliable internet. The boarding house is clean, safe, and well-managed."
-                    </div>
-                    <div class="testimonial-author">
-                        <div class="author-img">
-                            <img src="https://randomuser.me/api/portraits/men/54.jpg" alt="Michael Chen">
+                        <div class="field">
+                            <label for="room-filter">Room Type</label>
+                            <select id="room-filter" name="room_type">
+                                <option value="">Any type</option>
+                                <option value="Solo Room">Solo Room</option>
+                                <option value="Shared Room">Shared Room</option>
+                                <option value="Bedspace">Bedspace</option>
+                            </select>
                         </div>
-                        <div class="author-info">
-                            <h4>Michael Chen</h4>
-                            <p>Software Engineer, Resident for 1 year</p>
+                        <div class="field">
+                            <label for="amenity-filter">Amenity</label>
+                            <select id="amenity-filter" name="amenities">
+                                <option value="">Any amenity</option>
+                                <option value="WiFi">WiFi</option>
+                                <option value="Kitchen">Kitchen</option>
+                                <option value="Laundry">Laundry</option>
+                                <option value="Study Area">Study Area</option>
+                            </select>
                         </div>
+                        <button class="btn btn-primary search-button" type="submit">
+                            <i class="fas fa-magnifying-glass"></i> Search
+                        </button>
                     </div>
-                </div>
-                
-                <div class="testimonial">
-                    <div class="testimonial-content">
-                        "The community events helped me make friends quickly when I moved to the city. The rooms are comfortable and the staff is always helpful."
+                    <div class="quick-filters" aria-label="Popular filters">
+                        <span>Popular:</span>
+                        <button class="chip" type="button">Near school</button>
+                        <button class="chip" type="button">WiFi ready</button>
+                        <button class="chip" type="button">Solo room</button>
+                        <button class="chip" type="button">Available now</button>
                     </div>
-                    <div class="testimonial-author">
-                        <div class="author-img">
-                            <img src="https://randomuser.me/api/portraits/women/67.jpg" alt="Priya Sharma">
-                        </div>
-                        <div class="author-info">
-                            <h4>Priya Sharma</h4>
-                            <p>Business Student, Resident for 8 months</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="slider-controls">
-                    <div class="slider-dot active" data-slide="0"></div>
-                    <div class="slider-dot" data-slide="1"></div>
-                    <div class="slider-dot" data-slide="2"></div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Contact Section -->
-    <section class="contact" id="contact">
-        <div class="container contact-container">
-            <div class="contact-info">
-                <h3>Get In Touch</h3>
-                <p>Have questions or want to schedule a visit? Contact us today to learn more about availability and pricing.</p>
-                
-                <div class="contact-details">
-                    <div class="contact-item">
-                        <i class="fas fa-map-marker-alt"></i>
-                        <div>
-                            <h4>Our Location</h4>
-                            <p>123 Sunshine Avenue, Greenfield City</p>
-                        </div>
-                    </div>
-                    
-                    <div class="contact-item">
-                        <i class="fas fa-phone-alt"></i>
-                        <div>
-                            <h4>Phone Number</h4>
-                            <p>(123) 456-7890</p>
-                        </div>
-                    </div>
-                    
-                    <div class="contact-item">
-                        <i class="fas fa-envelope"></i>
-                        <div>
-                            <h4>Email Address</h4>
-                            <p>info@boardmatch.local</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="contact-form">
-                <form id="inquiry-form">
-                    <input type="text" placeholder="Your Name" required>
-                    <input type="email" placeholder="Your Email" required>
-                    <input type="tel" placeholder="Phone Number">
-                    <textarea placeholder="Your Message" required></textarea>
-                    <button type="submit" class="cta-btn cta-primary">Send Message</button>
                 </form>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Footer -->
-    <footer>
-        <div class="container">
-            <div class="footer-container">
-                <div class="footer-col">
-                    <h3>BoardMatch</h3>
-                    <p>Providing comfortable, safe, and affordable boarding solutions for students and professionals since 2010.</p>
-                    <div class="social-links">
-                        <a href="#"><i class="fab fa-facebook-f"></i></a>
-                        <a href="#"><i class="fab fa-twitter"></i></a>
-                        <a href="#"><i class="fab fa-instagram"></i></a>
-                        <a href="#"><i class="fab fa-linkedin-in"></i></a>
+        <section class="section" id="listings">
+            <div class="container">
+                <div class="section-header">
+                    <div class="section-title">
+                        <p class="eyebrow">Featured stays</p>
+                        <h2>Boarding houses laid out like property listings</h2>
+                        <p>Each listing keeps the details students need most visible: price, room setup, distance, availability, and match score.</p>
+                    </div>
+                    <a class="btn btn-secondary" href="{{ route('auth.choice') }}"><i class="fas fa-table-list"></i> View Dashboard</a>
+                </div>
+
+                <div class="listing-grid">
+                    <article class="listing-card">
+                        <div class="listing-media">
+                            <img src="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=900&q=80" alt="Clean solo boarding room" loading="lazy">
+                            <div class="badge-row">
+                                <span class="badge"><i class="fas fa-check"></i> Available</span>
+                                <span class="badge match">92% match</span>
+                            </div>
+                        </div>
+                        <div class="listing-body">
+                            <div class="listing-head">
+                                <h3>Rizal Avenue Solo Room</h3>
+                                <span class="price">&#8369;4,500/mo</span>
+                            </div>
+                            <p class="location"><i class="fas fa-location-dot"></i> Near Digos City colleges</p>
+                            <div class="meta-grid">
+                                <span class="meta"><i class="fas fa-bed"></i> Solo room</span>
+                                <span class="meta"><i class="fas fa-wifi"></i> WiFi included</span>
+                                <span class="meta"><i class="fas fa-shield-halved"></i> Verified owner</span>
+                                <span class="meta"><i class="fas fa-clock"></i> Quiet hours</span>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="listing-card">
+                        <div class="listing-media">
+                            <img src="https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=900&q=80" alt="Shared student boarding room" loading="lazy">
+                            <div class="badge-row">
+                                <span class="badge"><i class="fas fa-users"></i> Shared</span>
+                                <span class="badge match">87% match</span>
+                            </div>
+                        </div>
+                        <div class="listing-body">
+                            <div class="listing-head">
+                                <h3>Centro Shared Study House</h3>
+                                <span class="price">&#8369;3,200/mo</span>
+                            </div>
+                            <p class="location"><i class="fas fa-location-dot"></i> Digos Centro</p>
+                            <div class="meta-grid">
+                                <span class="meta"><i class="fas fa-book-open"></i> Study area</span>
+                                <span class="meta"><i class="fas fa-kitchen-set"></i> Kitchen use</span>
+                                <span class="meta"><i class="fas fa-shirt"></i> Laundry area</span>
+                                <span class="meta"><i class="fas fa-calendar-check"></i> 2 slots open</span>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="listing-card">
+                        <div class="listing-media">
+                            <img src="https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&w=900&q=80" alt="Compact boarding house bedspace" loading="lazy">
+                            <div class="badge-row">
+                                <span class="badge"><i class="fas fa-bolt"></i> New</span>
+                                <span class="badge match">83% match</span>
+                            </div>
+                        </div>
+                        <div class="listing-body">
+                            <div class="listing-head">
+                                <h3>Aplaya Bedspace with WiFi</h3>
+                                <span class="price">&#8369;2,800/mo</span>
+                            </div>
+                            <p class="location"><i class="fas fa-location-dot"></i> Aplaya, Digos City</p>
+                            <div class="meta-grid">
+                                <span class="meta"><i class="fas fa-bed"></i> Bedspace</span>
+                                <span class="meta"><i class="fas fa-wifi"></i> Fiber internet</span>
+                                <span class="meta"><i class="fas fa-person-walking"></i> Near transit</span>
+                                <span class="meta"><i class="fas fa-peso-sign"></i> Low deposit</span>
+                            </div>
+                        </div>
+                    </article>
+                </div>
+            </div>
+        </section>
+
+        <section class="section section-soft" id="matching">
+            <div class="container match-layout">
+                <div class="section-title">
+                    <p class="eyebrow">Smart matching</p>
+                    <h2>Shortlists based on student priorities</h2>
+                    <p>BoardMatch adapts the real-estate browsing pattern for student boarding decisions, where compatibility matters as much as rent.</p>
+                    <div class="steps">
+                        <div class="step">
+                            <span class="step-number">1</span>
+                            <div>
+                                <h3>Build a student profile</h3>
+                                <p>Budget, room type, schedule, preferred area, amenities, and house-rule preferences.</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <span class="step-number">2</span>
+                            <div>
+                                <h3>Compare recommended rooms</h3>
+                                <p>Listings are easier to scan with match percentage, price, availability, and location cues.</p>
+                            </div>
+                        </div>
+                        <div class="step">
+                            <span class="step-number">3</span>
+                            <div>
+                                <h3>Inquire or reserve</h3>
+                                <p>Students can contact owners after checking the details that affect day-to-day boarding life.</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                
-                <div class="footer-col">
-                    <h3>Quick Links</h3>
-                    <ul class="footer-links">
-                        <li><a href="#home">Home</a></li>
-                        <li><a href="#features">Features</a></li>
-                        <li><a href="#gallery">Gallery</a></li>
-                        <li><a href="#testimonials">Testimonials</a></li>
-                        <li><a href="#contact">Contact</a></li>
-                    </ul>
-                </div>
-                
-                <div class="footer-col">
-                    <h3>Our Services</h3>
-                    <ul class="footer-links">
-                        <li><a href="#">Accommodation</a></li>
-                        <li><a href="#">Meal Plans</a></li>
-                        <li><a href="#">Laundry Service</a></li>
-                        <li><a href="#">Study Facilities</a></li>
-                        <li><a href="#">Security</a></li>
-                    </ul>
-                </div>
-                
-                <div class="footer-col">
-                    <h3>Newsletter</h3>
-                    <p>Subscribe to our newsletter for updates on availability and special offers.</p>
-                    <form id="newsletter-form">
-                        <input type="email" placeholder="Your Email" required>
-                        <button type="submit" class="book-btn">Subscribe</button>
-                    </form>
+
+                <div class="match-preview" aria-label="Sample compatibility preview">
+                    <div class="preview-top">
+                        <div>
+                            <strong>Rizal Avenue Solo Room</strong>
+                            <p>Quiet, near school, WiFi ready</p>
+                        </div>
+                        <span class="score">92%</span>
+                    </div>
+                    <div class="preview-body">
+                        <div class="match-row">
+                            <span><i class="fas fa-wallet"></i> Budget fit</span>
+                            <strong>&#8369;4,500 within range</strong>
+                        </div>
+                        <div class="match-row">
+                            <span><i class="fas fa-location-dot"></i> Location fit</span>
+                            <strong>Near preferred area</strong>
+                        </div>
+                        <div class="match-row">
+                            <span><i class="fas fa-moon"></i> Lifestyle fit</span>
+                            <strong>Quiet hours match</strong>
+                        </div>
+                        <div class="match-row">
+                            <span><i class="fas fa-list-check"></i> Amenities fit</span>
+                            <strong>WiFi, kitchen, laundry</strong>
+                        </div>
+                    </div>
                 </div>
             </div>
-            
-            <div class="copyright">
-                <p>&copy; 2023 BoardMatch. All rights reserved.</p>
+        </section>
+
+        <section class="section" id="locations">
+            <div class="container location-layout">
+                <div class="photo-grid">
+                    <div class="photo-tile">
+                        <img src="https://images.unsplash.com/photo-1560448204-603b3fc33ddc?auto=format&fit=crop&w=1000&q=80" alt="Boarding house exterior" loading="lazy">
+                        <span class="photo-label">Verified exteriors</span>
+                    </div>
+                    <div class="photo-tile">
+                        <img src="https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=700&q=80" alt="Study area" loading="lazy">
+                        <span class="photo-label">Study spaces</span>
+                    </div>
+                    <div class="photo-tile">
+                        <img src="https://images.unsplash.com/photo-1556911220-bff31c812dba?auto=format&fit=crop&w=700&q=80" alt="Shared kitchen" loading="lazy">
+                        <span class="photo-label">Shared amenities</span>
+                    </div>
+                </div>
+
+                <div class="amenity-panel">
+                    <p class="eyebrow">Student filters</p>
+                    <h3>Focused details, less visual noise</h3>
+                    <p>The landing page keeps the real-estate feel while prioritizing the checks that matter for student boarding houses.</p>
+                    <ul class="amenity-list">
+                        <li><i class="fas fa-school"></i> Distance from school and transit</li>
+                        <li><i class="fas fa-peso-sign"></i> Monthly rent, deposit, and included utilities</li>
+                        <li><i class="fas fa-door-closed"></i> Solo, shared, or bedspace room setup</li>
+                        <li><i class="fas fa-wifi"></i> WiFi, study area, kitchen, and laundry access</li>
+                        <li><i class="fas fa-file-shield"></i> Owner verification and house rules</li>
+                    </ul>
+                </div>
             </div>
+        </section>
+
+        <section class="cta" id="start">
+            <div class="container cta-inner">
+                <div>
+                    <h2>Ready to find a boarding house that fits?</h2>
+                    <p>Create a profile, compare recommendations, and move from search to inquiry with cleaner information.</p>
+                </div>
+                <a class="btn btn-light" href="{{ route('register') }}"><i class="fas fa-user-plus"></i> Create Account</a>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div>
+                    <a href="#home" class="brand">
+                        <img class="brand-mark" src="{{ asset('images/boardmatch-mark.svg') }}" alt="" aria-hidden="true">
+                        <span class="brand-name">Board<span>Match</span></span>
+                    </a>
+                    <p style="margin-top: 14px;">A student boarding house finder and matchmaking system for Digos City.</p>
+                </div>
+                <div>
+                    <h3>Explore</h3>
+                    <ul>
+                        <li><a href="#finder">Find a Room</a></li>
+                        <li><a href="#listings">Listings</a></li>
+                        <li><a href="#matching">Matching</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3>Account</h3>
+                    <ul>
+                        <li><a href="{{ route('auth.choice') }}">Sign In</a></li>
+                        <li><a href="{{ route('register') }}">Create Account</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h3>Contact</h3>
+                    <ul>
+                        <li>Rizal Avenue, Digos City</li>
+                        <li>+63 912 345 6789</li>
+                        <li>support@boardmatch.local</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">&copy; 2026 BoardMatch. All rights reserved.</div>
         </div>
     </footer>
 
     <script>
-        // Mobile Menu Toggle
-        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
         const navLinks = document.getElementById('nav-links');
-        
-        mobileMenuBtn.addEventListener('click', () => {
-            navLinks.classList.toggle('active');
-            mobileMenuBtn.querySelector('i').classList.toggle('fa-bars');
-            mobileMenuBtn.querySelector('i').classList.toggle('fa-times');
+        const menuToggle = document.getElementById('menu-toggle');
+        const navAnchors = document.querySelectorAll('.nav-links a');
+        const sections = document.querySelectorAll('header[id], section[id]');
+        const searchForm = document.getElementById('search-form');
+        const chips = document.querySelectorAll('.chip');
+
+        menuToggle.addEventListener('click', () => {
+            const isOpen = navLinks.classList.toggle('open');
+            menuToggle.setAttribute('aria-expanded', String(isOpen));
+            menuToggle.querySelector('i').classList.toggle('fa-bars', !isOpen);
+            menuToggle.querySelector('i').classList.toggle('fa-xmark', isOpen);
         });
-        
-        // Close mobile menu when clicking on a link
-        document.querySelectorAll('.nav-links a').forEach(link => {
-            link.addEventListener('click', () => {
-                navLinks.classList.remove('active');
-                mobileMenuBtn.querySelector('i').classList.add('fa-bars');
-                mobileMenuBtn.querySelector('i').classList.remove('fa-times');
+
+        navAnchors.forEach(anchor => {
+            anchor.addEventListener('click', () => {
+                navLinks.classList.remove('open');
+                menuToggle.setAttribute('aria-expanded', 'false');
+                menuToggle.querySelector('i').classList.add('fa-bars');
+                menuToggle.querySelector('i').classList.remove('fa-xmark');
             });
         });
-        
-        // Header scroll effect
-        window.addEventListener('scroll', () => {
-            const header = document.getElementById('header');
-            if (window.scrollY > 100) {
-                header.classList.add('scrolled');
-            } else {
-                header.classList.remove('scrolled');
-            }
-        });
-        
-        // Testimonial slider
-        const testimonialDots = document.querySelectorAll('.slider-dot');
-        const testimonials = document.querySelectorAll('.testimonial');
-        let currentSlide = 0;
-        
-        function showSlide(slideIndex) {
-            testimonials.forEach(testimonial => {
-                testimonial.classList.remove('active');
-            });
-            
-            testimonialDots.forEach(dot => {
-                dot.classList.remove('active');
-            });
-            
-            testimonials[slideIndex].classList.add('active');
-            testimonialDots[slideIndex].classList.add('active');
-            currentSlide = slideIndex;
-        }
-        
-        testimonialDots.forEach(dot => {
-            dot.addEventListener('click', () => {
-                const slideIndex = parseInt(dot.getAttribute('data-slide'));
-                showSlide(slideIndex);
-            });
-        });
-        
-        // Auto slide testimonials
-        setInterval(() => {
-            currentSlide = (currentSlide + 1) % testimonials.length;
-            showSlide(currentSlide);
-        }, 5000);
-        
-        // Scroll animation
-        function checkScroll() {
-            const elements = document.querySelectorAll('.animate-on-scroll');
-            
-            elements.forEach(element => {
-                const elementPosition = element.getBoundingClientRect().top;
-                const screenPosition = window.innerHeight / 1.2;
-                
-                if (elementPosition < screenPosition) {
-                    element.classList.add('animated');
+
+        function updateActiveNav() {
+            let current = 'home';
+            const offset = window.scrollY + 120;
+
+            sections.forEach(section => {
+                if (offset >= section.offsetTop) {
+                    current = section.id;
                 }
             });
-        }
-        
-        window.addEventListener('scroll', checkScroll);
-        window.addEventListener('load', checkScroll);
-        
-        // Form submission
-        document.getElementById('inquiry-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            alert('Thank you for your inquiry! We will get back to you within 24 hours.');
-            this.reset();
-        });
-        
-        document.getElementById('newsletter-form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            alert('Thank you for subscribing to our newsletter!');
-            this.reset();
-        });
-        
-        // Book Now button
-        document.querySelectorAll('.book-btn').forEach(button => {
-            button.addEventListener('click', () => {
-                document.getElementById('contact').scrollIntoView({ behavior: 'smooth' });
+
+            navAnchors.forEach(anchor => {
+                anchor.classList.toggle('active', anchor.getAttribute('href') === `#${current}`);
             });
+        }
+
+        window.addEventListener('scroll', updateActiveNav);
+        window.addEventListener('load', updateActiveNav);
+
+        searchForm.addEventListener('submit', event => {
+            event.preventDefault();
+            document.getElementById('listings').scrollIntoView({ behavior: 'smooth' });
         });
-        
-        // CTA buttons
-        document.querySelector('.cta-primary').addEventListener('click', () => {
-            document.getElementById('features').scrollIntoView({ behavior: 'smooth' });
-        });
-        
-        document.querySelector('.cta-secondary').addEventListener('click', () => {
-            document.getElementById('contact').scrollIntoView({ behavior: 'smooth' });
-        });
-        
-        // Smooth scrolling for navigation links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function(e) {
-                e.preventDefault();
-                
-                const targetId = this.getAttribute('href');
-                if (targetId === '#') return;
-                
-                const targetElement = document.querySelector(targetId);
-                if (targetElement) {
-                    window.scrollTo({
-                        top: targetElement.offsetTop - 80,
-                        behavior: 'smooth'
-                    });
-                }
+
+        chips.forEach(chip => {
+            chip.addEventListener('click', () => {
+                chip.classList.toggle('active');
             });
         });
     </script>

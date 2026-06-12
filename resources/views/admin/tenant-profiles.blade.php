@@ -1,385 +1,525 @@
-﻿<x-layouts.dashboard>
+<x-layouts.dashboard>
 <x-admin.shell>
-    @php
-        $badge = fn ($status) => match (strtolower((string) $status)) {
-            'active', 'verified' => 'bg-emerald-100 text-emerald-700',
-            'inactive', 'needs review' => 'bg-rose-100 text-rose-700',
-            default => 'bg-gray-100 text-gray-600',
-        };
+@php
+    $hasTenantProfiles = $hasTenantProfiles ?? \Illuminate\Support\Facades\Schema::hasTable('tenant_profiles');
+    $hasReservations = $hasReservations ?? \Illuminate\Support\Facades\Schema::hasTable('reservations');
+    $hasBoardingHouseUserColumn = $hasBoardingHouseUserColumn ?? \Illuminate\Support\Facades\Schema::hasColumn('users', 'boarding_house_id');
 
-        $totalTenants    = $tenants->total();
-        $activeTenants   = \App\Models\User::where('role', 'user')->where(fn ($q) => $q->where('is_active', true)->orWhere('status', 'active'))->count();
-        $withLease       = \Illuminate\Support\Facades\Schema::hasTable('reservations')
-            ? \App\Models\Reservation::whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['confirmed', 'checked-in', 'checked_in'])->distinct('user_id')->count('user_id')
-            : 0;
-        $inactiveTenants = \App\Models\User::where('role', 'user')->where(fn ($q) => $q->where('is_active', false)->orWhereIn('status', ['inactive', 'suspended']))->count();
-    @endphp
+    $activeLeaseStatuses = ['active', 'approved', 'checked-in', 'checked_in', 'confirmed'];
+    $pendingLeaseStatuses = ['pending', 'requested', 'reserved'];
 
-    <div x-data="{
-            viewOpen: false, editOpen: false, addOpen: false,
-            selected: {}, photoPreview: null,
-            openEdit(t) { this.selected = t; this.photoPreview = null; this.editOpen = true; },
-            openView(t) { this.selected = t; this.viewOpen = true; }
-         }" class="space-y-6">
+    $initialsFor = function (?string $name): string {
+        $words = preg_split('/\s+/', trim((string) $name)) ?: [];
+        $initials = collect($words)
+            ->filter()
+            ->map(fn ($word) => strtoupper(substr($word, 0, 1)))
+            ->take(2)
+            ->implode('');
 
-        {{-- Page Header --}}
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-                <h1 class="text-2xl font-bold text-gray-900">Tenants</h1>
-                <p class="mt-1 text-sm text-gray-500">Manage all tenants in the system.</p>
+        return $initials ?: 'T';
+    };
+
+    $phoneFor = fn ($tenant) => $tenant->phone_number ?: ($tenant->phone ?: ($tenant->contact_number ?: 'Not set'));
+
+    $imageFor = function ($tenant): ?string {
+        $path = $tenant->profile_photo ?: $tenant->profile_image;
+
+        if (! $path) {
+            return null;
+        }
+
+        return \Illuminate\Support\Str::startsWith($path, ['http://', 'https://', '/'])
+            ? $path
+            : \Illuminate\Support\Facades\Storage::url($path);
+    };
+
+    $isActiveTenant = fn ($tenant): bool => (bool) ($tenant->is_active ?? false)
+        || strtolower((string) ($tenant->status ?? '')) === 'active';
+
+    $summaryCards = [
+        [
+            'label' => 'Total Tenants',
+            'value' => $totalTenants ?? $tenants->total(),
+            'tone' => 'bg-blue-50 text-blue-600',
+            'icon' => 'tenants',
+        ],
+        [
+            'label' => 'Active Tenants',
+            'value' => $activeTenants ?? 0,
+            'tone' => 'bg-emerald-50 text-emerald-600',
+            'icon' => 'check',
+        ],
+        [
+            'label' => 'Inactive Tenants',
+            'value' => $inactiveTenants ?? 0,
+            'tone' => 'bg-rose-50 text-rose-600',
+            'icon' => 'tenant',
+        ],
+    ];
+@endphp
+
+<div
+    x-data="{
+        viewOpen: false,
+        editOpen: false,
+        addOpen: @json(request('add') === 'tenant'),
+        selected: {},
+        photoPreview: null,
+        openView(tenant) {
+            this.selected = tenant;
+            this.viewOpen = true;
+        },
+        openEdit(tenant) {
+            this.selected = tenant;
+            this.photoPreview = null;
+            this.editOpen = true;
+        }
+    }"
+    class="space-y-6"
+>
+    <section class="rounded-2xl border border-slate-200 bg-white px-6 py-6 shadow-sm shadow-slate-900/5">
+        <div class="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div class="min-w-0">
+                <p class="text-xs font-bold uppercase tracking-[0.22em] text-blue-700">Tenant Management</p>
+                <h1 class="mt-3 text-3xl font-bold tracking-tight text-slate-950">Tenants</h1>
+                <p class="mt-2 text-sm leading-6 text-slate-500">Manage tenant profiles and current room assignments.</p>
             </div>
-            <button type="button" @click="addOpen = true"
-                    class="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm font-medium rounded-lg hover:bg-orange-600 transition-colors shadow-sm">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            <a
+                href="{{ route('admin.tenants.create') }}"
+                class="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white shadow-sm shadow-blue-600/25 transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100"
+            >
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m7-7H5"/>
+                </svg>
                 Add Tenant
-            </button>
+            </a>
         </div>
+    </section>
 
-        {{-- Summary Cards --}}
-        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            @php
-                $summCards = [
-                    ['label' => 'Total Tenants',    'value' => $totalTenants,    'sub' => '+ 4 this month', 'icon_bg' => 'bg-blue-50',    'icon_color' => 'text-blue-500',    'icon' => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'],
-                    ['label' => 'Active Tenants',   'value' => $activeTenants,   'sub' => round($totalTenants > 0 ? ($activeTenants / ($totalTenants ?: 1)) * 100 : 0).'% of total', 'icon_bg' => 'bg-emerald-50', 'icon_color' => 'text-emerald-600', 'icon' => 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z'],
-                    ['label' => 'With Active Lease','value' => $withLease,       'sub' => round($totalTenants > 0 ? ($withLease / ($totalTenants ?: 1)) * 100 : 0).'% of total', 'icon_bg' => 'bg-orange-50',  'icon_color' => 'text-orange-500',  'icon' => 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z'],
-                    ['label' => 'Inactive Tenants', 'value' => $inactiveTenants, 'sub' => round($totalTenants > 0 ? ($inactiveTenants / ($totalTenants ?: 1)) * 100 : 0).'% of total', 'icon_bg' => 'bg-rose-50',    'icon_color' => 'text-rose-400',    'icon' => 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'],
-                ];
-            @endphp
-            @foreach ($summCards as $sc)
-                <div class="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-                    <div class="h-10 w-10 rounded-xl {{ $sc['icon_bg'] }} flex items-center justify-center mb-3">
-                        <svg class="h-5 w-5 {{ $sc['icon_color'] }}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="{{ $sc['icon'] }}"/>
+    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        @foreach ($summaryCards as $card)
+            <article class="flex min-h-[112px] items-center gap-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5">
+                <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full {{ $card['tone'] }}">
+                    @if ($card['icon'] === 'check')
+                        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12.5 11.2 15 16 9.5"/>
+                            <circle cx="12" cy="12" r="9" stroke-width="1.8"/>
                         </svg>
-                    </div>
-                    <p class="text-2xl font-bold text-gray-900">{{ $sc['value'] }}</p>
-                    <p class="text-xs text-gray-500 mt-0.5">{{ $sc['label'] }}</p>
-                    <p class="text-xs text-gray-400 mt-1">{{ $sc['sub'] }}</p>
+                    @elseif ($card['icon'] === 'tenant')
+                        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <circle cx="12" cy="8" r="3.5" stroke-width="1.8"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 20a7 7 0 0 1 14 0"/>
+                        </svg>
+                    @else
+                        @include('components.sidebar.partials.admin-icon', ['name' => 'tenants'])
+                    @endif
                 </div>
-            @endforeach
-        </div>
+                <div>
+                    <p class="text-3xl font-bold tracking-tight text-slate-950">{{ number_format((int) $card['value']) }}</p>
+                    <p class="mt-1 text-sm font-medium text-slate-500">{{ $card['label'] }}</p>
+                </div>
+            </article>
+        @endforeach
+    </section>
 
-        {{-- Filters --}}
-        <form method="GET" class="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm flex flex-wrap gap-3 items-center">
-            <div class="relative flex-1 min-w-[220px]">
-                <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                <input name="q" value="{{ request('q') }}" class="w-full pl-9 pr-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" placeholder="Search by name, email, or phone...">
-            </div>
-            <select name="verified" class="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300">
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
+        <form method="GET" action="{{ route('admin.tenants.index') }}" class="grid gap-3 xl:grid-cols-[minmax(260px,1fr)_220px_260px_auto]">
+            <label class="relative block">
+                <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <circle cx="10.5" cy="10.5" r="6.5" stroke-width="1.8"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m16 16 4 4"/>
+                    </svg>
+                </span>
+                <input
+                    name="q"
+                    value="{{ request('q') }}"
+                    class="h-12 w-full rounded-xl border border-slate-200 bg-white pl-12 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    placeholder="Search tenant name, email, or phone..."
+                >
+            </label>
+
+            <select
+                name="status"
+                class="h-12 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            >
                 <option value="">All Status</option>
-                <option value="yes" @selected(request('verified') === 'yes')>Verified</option>
-                <option value="no" @selected(request('verified') === 'no')>Unverified</option>
+                <option value="active" @selected(request('status') === 'active')>Active</option>
+                <option value="inactive" @selected(request('status') === 'inactive')>Inactive</option>
             </select>
-            <select name="boarding_house" class="px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300">
+
+            <select
+                name="boarding_house"
+                class="h-12 rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            >
                 <option value="">All Boarding Houses</option>
-                @foreach ($boardingHouses as $bh)
-                    <option value="{{ $bh->id }}" @selected(request('boarding_house') == $bh->id)>{{ $bh->name }}</option>
+                @foreach ($boardingHouses as $boardingHouse)
+                    <option value="{{ $boardingHouse->id }}" @selected((string) request('boarding_house') === (string) $boardingHouse->id)>
+                        {{ $boardingHouse->name }}
+                    </option>
                 @endforeach
             </select>
-            <button type="submit" class="flex items-center gap-1.5 px-4 py-2 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-medium transition-colors">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+
+            <button
+                type="submit"
+                class="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100"
+            >
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <circle cx="10.5" cy="10.5" r="6.5" stroke-width="2"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m16 16 4 4"/>
+                </svg>
                 Search
             </button>
-            @if (request()->hasAny(['q','verified','boarding_house']))
-                <a href="{{ route('admin.tenant-profiles') }}" class="px-3 py-2 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 text-gray-600">Clear</a>
-            @endif
         </form>
+    </section>
 
-        {{-- Table --}}
-        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div class="overflow-x-auto">
-                <table class="min-w-full text-sm">
-                    <thead class="bg-gray-50 text-xs text-gray-500 uppercase border-b border-gray-100">
-                        <tr>
-                            <th class="px-5 py-3 text-left">Tenant</th>
-                            <th class="px-5 py-3 text-left">Contact</th>
-                            <th class="px-5 py-3 text-left">Boarding House / Room</th>
-                            <th class="px-5 py-3 text-left">Lease Period</th>
-                            <th class="px-5 py-3 text-left">Status</th>
-                            <th class="px-5 py-3 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        @forelse ($tenants as $tenant)
-                            @php
-                                $profile = $tenant->tenantProfile;
-                                $verified = (bool) ($profile?->id_verified);
-                                $isActive = $tenant->is_active || $tenant->status === 'active';
+    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-900/5">
+        <div class="overflow-x-auto">
+            <table class="min-w-[1080px] w-full text-left text-sm">
+                <thead class="border-b border-slate-200 bg-slate-50/70">
+                    <tr class="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
+                        <th class="px-6 py-4">Tenant</th>
+                        <th class="px-6 py-4">Contact</th>
+                        <th class="px-6 py-4">Assigned Room</th>
+                        <th class="px-6 py-4">Lease Status</th>
+                        <th class="px-6 py-4">Status</th>
+                        <th class="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    @forelse ($tenants as $tenant)
+                        @php
+                            $profile = $hasTenantProfiles ? $tenant->tenantProfile : null;
+                            $tenantReservations = $hasReservations ? $tenant->reservations : collect();
+                            $leaseReservation = $tenantReservations
+                                ->filter(fn ($reservation) => in_array(strtolower((string) $reservation->status), array_merge($activeLeaseStatuses, $pendingLeaseStatuses), true))
+                                ->sortByDesc(fn ($reservation) => optional($reservation->created_at)->timestamp ?? 0)
+                                ->first();
+                            $leaseStatusKey = strtolower((string) ($leaseReservation?->status ?? ''));
+                            $leaseStatus = in_array($leaseStatusKey, $activeLeaseStatuses, true)
+                                ? ['label' => 'Active Lease', 'dot' => 'bg-emerald-500', 'text' => 'text-emerald-700']
+                                : (in_array($leaseStatusKey, $pendingLeaseStatuses, true)
+                                    ? ['label' => 'Pending', 'dot' => 'bg-amber-500', 'text' => 'text-amber-600']
+                                    : ['label' => 'No Lease', 'dot' => 'bg-slate-400', 'text' => 'text-slate-500']);
 
-                                $activeReservation = $tenant->reservations
-                                    ->whereIn('status', ['confirmed', 'Confirmed', 'checked-in', 'checked_in', 'pending', 'Pending'])
-                                    ->sortByDesc('created_at')
-                                    ->first();
-
-                                $payload = [
-                                    'student_id' => $profile?->student_id,
-                                    'school_company' => $profile?->school_company,
-                                    'course_or_position' => $profile?->course_or_position,
-                                    'valid_id_type' => $profile?->valid_id_type,
-                                    'valid_id_number' => $profile?->valid_id_number,
-                                    'emergency_contact_name' => $profile?->emergency_contact_name,
-                                    'emergency_contact_number' => $profile?->emergency_contact_number,
-                                    'preferred_language' => $profile?->preferred_language,
-                                    'id_verified' => $verified,
-                                    'tenant_name' => $tenant->name,
-                                    'tenant_email' => $tenant->email,
-                                    'tenant_phone' => $tenant->phone ?? $tenant->contact_number ?? '',
-                                    'photo_url' => $tenant->profile_image
-                                        ? (\Illuminate\Support\Str::startsWith($tenant->profile_image, ['http://', 'https://'])
-                                            ? $tenant->profile_image
-                                            : \Illuminate\Support\Facades\Storage::url($tenant->profile_image))
-                                        : null,
-                                    'update_url' => route('admin.tenant-profiles.update', $tenant),
-                                    'delete_url' => $profile ? route('admin.tenant-profiles.destroy', $profile) : null,
-                                ];
-                            @endphp
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-5 py-3">
-                                    <div class="flex items-center gap-3">
-                                        <div class="h-9 w-9 rounded-full bg-gray-100 flex items-center justify-center text-sm font-semibold text-gray-600 shrink-0 overflow-hidden">
-                                            @if ($tenant->profile_image)
-                                                <img src="{{ \Illuminate\Support\Facades\Storage::url($tenant->profile_image) }}" class="h-full w-full object-cover" alt="">
-                                            @else
-                                                {{ strtoupper(substr($tenant->name, 0, 1)) }}
-                                            @endif
-                                        </div>
-                                        <div>
-                                            <p class="font-medium text-gray-800">{{ $tenant->name }}</p>
-                                            <p class="text-xs text-gray-400">{{ $tenant->email }}</p>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="px-5 py-3 text-gray-600 text-sm">{{ $tenant->contact_number ?? $tenant->phone ?? '—' }}</td>
-                                <td class="px-5 py-3">
-                                    @if ($activeReservation)
-                                        <p class="text-sm text-gray-700">{{ $activeReservation->boardingHouse?->name ?? '—' }}</p>
-                                        <p class="text-xs text-gray-400">Room {{ $activeReservation->room?->effective_room_number ?? '—' }}</p>
-                                    @else
-                                        <span class="text-xs text-gray-400">Not assigned</span>
-                                    @endif
-                                </td>
-                                <td class="px-5 py-3">
-                                    @if ($activeReservation)
-                                        <p class="text-xs text-gray-600">{{ $activeReservation->check_in_date?->format('M d, Y') ?? '—' }}</p>
-                                        <p class="text-xs text-gray-400">– {{ $activeReservation->check_out_date?->format('M d, Y') ?? '—' }}</p>
-                                    @else
-                                        <span class="text-xs text-gray-400">—</span>
-                                    @endif
-                                </td>
-                                <td class="px-5 py-3">
-                                    <span class="px-2 py-0.5 rounded-full text-xs font-medium {{ $isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-600' }}">
-                                        {{ $isActive ? 'Active' : 'Inactive' }}
-                                    </span>
-                                </td>
-                                <td class="px-5 py-3">
-                                    <div class="flex justify-end gap-1.5">
-                                        <button type="button"
-                                                class="h-7 w-7 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-500"
-                                                title="View"
-                                                @click="openView({{ \Illuminate\Support\Js::from($payload) }})">
-                                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/></svg>
-                                        </button>
-                                        <button type="button"
-                                                class="h-7 w-7 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-orange-50 text-gray-500 hover:text-orange-500"
-                                                title="Edit"
-                                                @click="openEdit({{ \Illuminate\Support\Js::from($payload) }})">
-                                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M16.862 4.487a2.1 2.1 0 0 1 2.97 2.97L8.416 18.873l-4.5.5.5-4.5 12.446-10.386Z"/></svg>
-                                        </button>
-                                        @if ($profile)
-                                            <form method="POST" action="{{ route('admin.tenant-profiles.destroy', $profile) }}"
-                                                  onsubmit="return confirm('Delete this tenant profile? The user account will remain.')">
-                                                @csrf @method('DELETE')
-                                                <button type="submit" title="Delete profile" class="h-7 w-7 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-rose-50 text-gray-400 hover:text-rose-500">
-                                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16"/></svg>
-                                                </button>
-                                            </form>
+                            $assignedHouse = $leaseReservation?->boardingHouse?->name
+                                ?: ($hasBoardingHouseUserColumn ? $tenant->boardingHouse?->name : null);
+                            $assignedRoom = $leaseReservation?->room?->effective_room_number ?: ($tenant->room_number ?? null);
+                            $tenantPhone = $phoneFor($tenant);
+                            $tenantImage = $imageFor($tenant);
+                            $active = $isActiveTenant($tenant);
+                            $payload = [
+                                'name' => $tenant->name,
+                                'email' => $tenant->email,
+                                'phone' => $tenantPhone,
+                                'assigned_house' => $assignedHouse,
+                                'assigned_room' => $assignedRoom,
+                                'lease_status' => $leaseStatus['label'],
+                                'status' => $active ? 'Active' : 'Inactive',
+                                'student_id' => $profile?->student_id,
+                                'school_company' => $profile?->school_company,
+                                'course_or_position' => $profile?->course_or_position,
+                                'valid_id_type' => $profile?->valid_id_type,
+                                'valid_id_number' => $profile?->valid_id_number,
+                                'emergency_contact_name' => $profile?->emergency_contact_name,
+                                'emergency_contact_number' => $profile?->emergency_contact_number,
+                                'preferred_language' => $profile?->preferred_language,
+                                'id_verified' => (bool) ($profile?->id_verified),
+                                'photo_url' => $tenantImage,
+                                'update_url' => route('admin.tenant-profiles.update', $tenant),
+                            ];
+                        @endphp
+                        <tr class="transition hover:bg-slate-50/80">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 text-sm font-bold text-blue-700">
+                                        @if ($tenantImage)
+                                            <img src="{{ $tenantImage }}" alt="{{ $tenant->name }}" class="h-full w-full object-cover">
+                                        @else
+                                            {{ $initialsFor($tenant->name) }}
                                         @endif
                                     </div>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr><td colspan="6" class="px-5 py-10 text-center text-gray-400">No tenants found.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-            <div class="border-t border-gray-100 px-5 py-4 flex items-center justify-between text-sm text-gray-500">
-                <span>Showing {{ $tenants->firstItem() ?? 0 }} to {{ $tenants->lastItem() ?? 0 }} of {{ $tenants->total() }} results</span>
-                {{ $tenants->links() }}
-            </div>
+                                    <div class="min-w-0">
+                                        <p class="truncate font-bold text-slate-950">{{ $tenant->name }}</p>
+                                        <p class="truncate text-sm text-slate-500">{{ $tenant->email }}</p>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-slate-700">{{ $tenantPhone }}</td>
+                            <td class="px-6 py-4">
+                                <p class="font-semibold text-slate-900">{{ $assignedHouse ?: 'Not assigned' }}</p>
+                                <p class="mt-1 text-sm text-slate-500">{{ $assignedRoom ? 'Room '.$assignedRoom : 'No room assigned' }}</p>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="inline-flex items-center gap-2 font-semibold {{ $leaseStatus['text'] }}">
+                                    <span class="h-2 w-2 rounded-full {{ $leaseStatus['dot'] }}"></span>
+                                    {{ $leaseStatus['label'] }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-bold {{ $active ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700' }}">
+                                    {{ $active ? 'Active' : 'Inactive' }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex justify-end gap-2">
+                                    <button
+                                        type="button"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                                        title="View tenant"
+                                        aria-label="View {{ $tenant->name }}"
+                                        @click="openView({{ \Illuminate\Support\Js::from($payload) }})"
+                                    >
+                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.5 12s3.5-6.5 9.5-6.5S21.5 12 21.5 12s-3.5 6.5-9.5 6.5S2.5 12 2.5 12Z"/>
+                                            <circle cx="12" cy="12" r="3" stroke-width="1.8"/>
+                                        </svg>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                                        title="Edit tenant"
+                                        aria-label="Edit {{ $tenant->name }}"
+                                        @click="openEdit({{ \Illuminate\Support\Js::from($payload) }})"
+                                    >
+                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m15.8 4.2 4 4M4 20l4.7-.8L19.3 8.6a2.8 2.8 0 0 0-4-4L4.8 15.2 4 20Z"/>
+                                        </svg>
+                                    </button>
+                                    <form method="POST" action="{{ route('admin.users.destroy', $tenant) }}" onsubmit="return confirm('Delete this tenant account? This action cannot be undone.');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button
+                                            type="submit"
+                                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-rose-600 transition hover:border-rose-200 hover:bg-rose-50"
+                                            title="Delete tenant"
+                                            aria-label="Delete {{ $tenant->name }}"
+                                        >
+                                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M6 7h12m-9 0V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0-.7 12a2 2 0 0 1-2 1.9H9.7a2 2 0 0 1-2-1.9L7 7m3 4v5m4-5v5"/>
+                                            </svg>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6" class="px-6 py-16">
+                                <div class="mx-auto max-w-md text-center">
+                                    <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                                        @include('components.sidebar.partials.admin-icon', ['name' => 'tenants'])
+                                    </div>
+                                    <h2 class="mt-4 text-base font-bold text-slate-950">No tenants found</h2>
+                                    <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">Tenants will appear here once they register or are added by the admin.</p>
+                                    <a href="{{ route('admin.tenants.create') }}" class="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700">
+                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m7-7H5"/>
+                                        </svg>
+                                        Add Tenant
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
 
-        {{-- View Modal --}}
-        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak @click.self="viewOpen = false" @keydown.escape.window="viewOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <div class="bg-white rounded-2xl w-full max-w-2xl p-6 shadow-xl">
-                <div class="flex items-center justify-between mb-5">
-                    <h2 class="text-lg font-semibold text-gray-900">Tenant Profile</h2>
-                    <button type="button" @click="viewOpen = false" class="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-400">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                </div>
-                <dl class="grid gap-3 text-sm md:grid-cols-2">
-                    <div class="py-2 border-b border-gray-100"><dt class="text-xs text-gray-400 uppercase">Tenant</dt><dd class="font-semibold text-gray-800 mt-1" x-text="selected.tenant_name"></dd></div>
-                    <div class="py-2 border-b border-gray-100"><dt class="text-xs text-gray-400 uppercase">Email</dt><dd class="text-gray-700 mt-1" x-text="selected.tenant_email"></dd></div>
-                    <div class="py-2 border-b border-gray-100"><dt class="text-xs text-gray-400 uppercase">Student ID</dt><dd class="text-gray-700 mt-1" x-text="selected.student_id || 'Not set'"></dd></div>
-                    <div class="py-2 border-b border-gray-100"><dt class="text-xs text-gray-400 uppercase">School</dt><dd class="text-gray-700 mt-1" x-text="selected.school_company || 'Not set'"></dd></div>
-                    <div class="py-2 border-b border-gray-100"><dt class="text-xs text-gray-400 uppercase">Course / Position</dt><dd class="text-gray-700 mt-1" x-text="selected.course_or_position || 'Not set'"></dd></div>
-                    <div class="py-2 border-b border-gray-100"><dt class="text-xs text-gray-400 uppercase">Valid ID</dt><dd class="text-gray-700 mt-1" x-text="`${selected.valid_id_type || 'ID'} ${selected.valid_id_number || ''}`"></dd></div>
-                    <div class="py-2 border-b border-gray-100"><dt class="text-xs text-gray-400 uppercase">Emergency Contact</dt><dd class="text-gray-700 mt-1" x-text="`${selected.emergency_contact_name || 'Not set'} ${selected.emergency_contact_number || ''}`"></dd></div>
-                    <div class="py-2 border-b border-gray-100"><dt class="text-xs text-gray-400 uppercase">Verification</dt><dd class="mt-1"><span :class="selected.id_verified ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'" class="px-2 py-0.5 rounded-full text-xs font-medium" x-text="selected.id_verified ? 'Verified' : 'Needs Review'"></span></dd></div>
-                </dl>
-                <div class="mt-6 flex justify-end">
-                    <button type="button" @click="viewOpen = false" class="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">Close</button>
-                </div>
-            </div>
-        </div>
-
-        {{-- Edit Modal --}}
-        <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak
-             @click.self="editOpen = false" @keydown.escape.window="editOpen = false"
-             class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <form method="POST" :action="selected.update_url"
-                  enctype="multipart/form-data"
-                  class="bg-white rounded-2xl max-h-[90vh] w-full max-w-2xl overflow-y-auto p-6 shadow-xl">
-                @csrf @method('PATCH')
-                <div class="flex items-center justify-between mb-5">
-                    <h2 class="text-lg font-semibold text-gray-900">Edit Tenant</h2>
-                    <button type="button" @click="editOpen = false"
-                            class="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-400">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                </div>
-
-                {{-- Photo upload --}}
-                <div class="flex flex-col items-center gap-3 mb-5">
-                    <div class="relative">
-                        <div class="h-20 w-20 rounded-full bg-gray-100 border-2 border-gray-200 overflow-hidden flex items-center justify-center text-2xl font-bold text-gray-400">
-                            <template x-if="photoPreview || selected.photo_url">
-                                <img :src="photoPreview || selected.photo_url" class="h-full w-full object-cover" alt="">
-                            </template>
-                            <template x-if="!photoPreview && !selected.photo_url">
-                                <span x-text="(selected.tenant_name || 'T').charAt(0).toUpperCase()"></span>
-                            </template>
-                        </div>
-                    </div>
-                    <label class="cursor-pointer">
-                        <span class="text-xs text-orange-600 font-semibold border border-orange-200 bg-orange-50 px-3 py-1.5 rounded-lg hover:bg-orange-100 transition-colors">
-                            Change Photo
+        <div class="flex flex-col gap-3 border-t border-slate-200 px-6 py-4 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+            <p>Showing {{ $tenants->firstItem() ?? 0 }} to {{ $tenants->lastItem() ?? 0 }} of {{ $tenants->total() }} results</p>
+            @if ($tenants->hasPages())
+                <nav class="flex flex-wrap items-center gap-2" aria-label="Tenant pagination">
+                    @if ($tenants->onFirstPage())
+                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-300">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 18-6-6 6-6"/></svg>
                         </span>
-                        <input type="file" name="profile_image" accept="image/*" class="sr-only"
-                               @change="photoPreview = $event.target.files[0] ? URL.createObjectURL($event.target.files[0]) : null">
-                    </label>
-                    <p class="text-xs text-gray-400">JPG, PNG or WEBP · max 2 MB</p>
-                </div>
+                    @else
+                        <a href="{{ $tenants->previousPageUrl() }}" class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 18-6-6 6-6"/></svg>
+                        </a>
+                    @endif
 
-                <div class="border-t border-gray-100 pt-4 mb-4">
-                    <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Account Info</p>
-                    <div class="grid gap-3 md:grid-cols-2">
-                        <label class="text-sm font-medium text-gray-700">Full Name
-                            <input name="name" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" :value="selected.tenant_name">
-                        </label>
-                        <label class="text-sm font-medium text-gray-700">Phone Number
-                            <input name="phone" type="tel" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" :value="selected.tenant_phone" placeholder="09XX XXX XXXX">
-                        </label>
-                    </div>
-                </div>
+                    @php($lastPage = $tenants->lastPage())
+                    @php($currentPage = $tenants->currentPage())
+                    @foreach ($tenants->getUrlRange(1, $lastPage) as $page => $url)
+                        @if ($page === $currentPage)
+                            <span class="inline-flex h-10 min-w-10 items-center justify-center rounded-lg bg-blue-600 px-3 font-bold text-white shadow-sm">{{ $page }}</span>
+                        @elseif ($lastPage <= 7 || $page <= 2 || $page === $lastPage || abs($page - $currentPage) <= 1)
+                            <a href="{{ $url }}" class="inline-flex h-10 min-w-10 items-center justify-center rounded-lg border border-slate-200 px-3 font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">{{ $page }}</a>
+                        @elseif ($page === 3 || $page === $lastPage - 1)
+                            <span class="px-1 text-slate-400">...</span>
+                        @endif
+                    @endforeach
 
-                <div class="border-t border-gray-100 pt-4">
-                    <p class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Profile Details</p>
-                    <div class="grid gap-3 md:grid-cols-2">
-                        <label class="text-sm font-medium text-gray-700">Student ID
-                            <input name="student_id" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" :value="selected.student_id">
-                        </label>
-                        <label class="text-sm font-medium text-gray-700">School / Company
-                            <input name="school_company" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" :value="selected.school_company">
-                        </label>
-                        <label class="text-sm font-medium text-gray-700 md:col-span-2">Course / Position
-                            <input name="course_or_position" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" :value="selected.course_or_position">
-                        </label>
-                        <label class="text-sm font-medium text-gray-700">Valid ID Type
-                            <input name="valid_id_type" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" :value="selected.valid_id_type">
-                        </label>
-                        <label class="text-sm font-medium text-gray-700">Valid ID Number
-                            <input name="valid_id_number" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" :value="selected.valid_id_number">
-                        </label>
-                        <label class="text-sm font-medium text-gray-700">Emergency Contact
-                            <input name="emergency_contact_name" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" :value="selected.emergency_contact_name">
-                        </label>
-                        <label class="text-sm font-medium text-gray-700">Emergency Number
-                            <input name="emergency_contact_number" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" :value="selected.emergency_contact_number">
-                        </label>
-                        <label class="text-sm font-medium text-gray-700 md:col-span-2">Preferred Language
-                            <input name="preferred_language" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" :value="selected.preferred_language">
-                        </label>
-                        <label class="md:col-span-2 flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                            <input type="hidden" name="id_verified" value="0">
-                            <input type="checkbox" name="id_verified" value="1" :checked="selected.id_verified"
-                                   class="rounded border-gray-300 text-orange-500 focus:ring-orange-400">
-                            <span>Mark ID as <strong>Verified</strong></span>
-                        </label>
-                    </div>
-                </div>
-
-                <div class="mt-6 flex justify-end gap-2">
-                    <button type="button" @click="editOpen = false"
-                            class="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-                    <button type="submit"
-                            class="px-4 py-2 rounded-lg bg-orange-500 text-white text-sm font-medium hover:bg-orange-600">Save Changes</button>
-                </div>
-            </form>
+                    @if ($tenants->hasMorePages())
+                        <a href="{{ $tenants->nextPageUrl() }}" class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 18 6-6-6-6"/></svg>
+                        </a>
+                    @else
+                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-slate-300">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 18 6-6-6-6"/></svg>
+                        </span>
+                    @endif
+                </nav>
+            @endif
         </div>
+    </section>
 
-        {{-- Add Tenant Modal --}}
-        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak
-             @click.self="addOpen = false" @keydown.escape.window="addOpen = false"
-             class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <form method="POST" action="{{ route('admin.users.store') }}"
-                  class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl max-h-[90vh] overflow-y-auto">
-                @csrf
-                <input type="hidden" name="role" value="user">
-
-                <div class="flex items-center justify-between mb-5">
-                    <div>
-                        <h2 class="text-lg font-semibold text-gray-900">Add Tenant</h2>
-                        <p class="text-sm text-gray-400 mt-0.5">Create a new tenant user account</p>
-                    </div>
-                    <button type="button" @click="addOpen = false"
-                            class="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-400">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
+    <div
+        data-modal-root
+        role="dialog"
+        aria-modal="true"
+        x-show="viewOpen"
+        x-cloak
+        x-transition
+        @click.self="viewOpen = false"
+        @keydown.escape.window="viewOpen = false"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+    >
+        <div class="w-full max-w-2xl rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">Tenant Details</p>
+                    <h2 class="mt-2 text-xl font-bold text-slate-950" x-text="selected.name"></h2>
+                    <p class="mt-1 text-sm text-slate-500" x-text="selected.email"></p>
                 </div>
+                <button type="button" @click="viewOpen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
 
-                <div class="grid gap-4 md:grid-cols-2">
-                    <label class="md:col-span-2 text-sm font-medium text-gray-700">Full Name <span class="text-rose-400">*</span>
-                        <input name="name" required class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" placeholder="Juan dela Cruz">
-                    </label>
-                    <label class="text-sm font-medium text-gray-700">Email Address <span class="text-rose-400">*</span>
-                        <input name="email" type="email" required class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" placeholder="juan@email.com">
-                    </label>
-                    <label class="text-sm font-medium text-gray-700">Phone Number
-                        <input name="phone" type="tel" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" placeholder="09XX XXX XXXX">
-                    </label>
-                    <label class="text-sm font-medium text-gray-700">Password <span class="text-rose-400">*</span>
-                        <input name="password" type="password" required minlength="8" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" placeholder="Min. 8 characters">
-                    </label>
-                    <label class="text-sm font-medium text-gray-700">Confirm Password <span class="text-rose-400">*</span>
-                        <input name="password_confirmation" type="password" required minlength="8" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" placeholder="Re-enter password">
-                    </label>
-                    <label class="md:col-span-2 flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                        <input type="checkbox" name="is_active" value="1" checked class="rounded border-gray-300 text-orange-500 focus:ring-orange-400">
-                        <span>Set account as <strong>Active</strong> immediately</span>
-                    </label>
-                </div>
-
-                <div class="mt-6 flex justify-end gap-2">
-                    <button type="button" @click="addOpen = false"
-                            class="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-                    <button type="submit"
-                            class="px-4 py-2 rounded-lg bg-orange-500 text-white text-sm font-medium hover:bg-orange-600">Create Tenant</button>
-                </div>
-            </form>
+            <dl class="mt-6 grid gap-4 text-sm sm:grid-cols-2">
+                <div class="rounded-xl border border-slate-100 bg-slate-50 p-4"><dt class="font-semibold text-slate-500">Contact</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.phone"></dd></div>
+                <div class="rounded-xl border border-slate-100 bg-slate-50 p-4"><dt class="font-semibold text-slate-500">Status</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.status"></dd></div>
+                <div class="rounded-xl border border-slate-100 bg-slate-50 p-4"><dt class="font-semibold text-slate-500">Assigned Room</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.assigned_house || 'Not assigned'"></dd><dd class="text-slate-500" x-text="selected.assigned_room ? 'Room ' + selected.assigned_room : 'No room assigned'"></dd></div>
+                <div class="rounded-xl border border-slate-100 bg-slate-50 p-4"><dt class="font-semibold text-slate-500">Lease</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.lease_status"></dd></div>
+                <div class="rounded-xl border border-slate-100 bg-slate-50 p-4"><dt class="font-semibold text-slate-500">School</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.school_company || 'Not set'"></dd></div>
+                <div class="rounded-xl border border-slate-100 bg-slate-50 p-4"><dt class="font-semibold text-slate-500">Student ID</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.student_id || 'Not set'"></dd></div>
+            </dl>
         </div>
-
     </div>
+
+    <div
+        data-modal-root
+        role="dialog"
+        aria-modal="true"
+        x-show="editOpen"
+        x-cloak
+        x-transition
+        @click.self="editOpen = false"
+        @keydown.escape.window="editOpen = false"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+    >
+        <form method="POST" :action="selected.update_url" enctype="multipart/form-data" class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+            @csrf
+            @method('PATCH')
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">Edit Tenant</p>
+                    <h2 class="mt-2 text-xl font-bold text-slate-950" x-text="selected.name"></h2>
+                </div>
+                <button type="button" @click="editOpen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <div class="mt-6 grid gap-4 sm:grid-cols-2">
+                <label class="text-sm font-semibold text-slate-700">Full Name
+                    <input name="name" :value="selected.name" class="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100">
+                </label>
+                <label class="text-sm font-semibold text-slate-700">Phone
+                    <input name="phone" :value="selected.phone" class="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100">
+                </label>
+                <label class="text-sm font-semibold text-slate-700">Student ID
+                    <input name="student_id" :value="selected.student_id" class="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100">
+                </label>
+                <label class="text-sm font-semibold text-slate-700">School / Company
+                    <input name="school_company" :value="selected.school_company" class="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100">
+                </label>
+                <label class="sm:col-span-2 text-sm font-semibold text-slate-700">Course / Position
+                    <input name="course_or_position" :value="selected.course_or_position" class="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100">
+                </label>
+                <label class="text-sm font-semibold text-slate-700">Valid ID Type
+                    <input name="valid_id_type" :value="selected.valid_id_type" class="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100">
+                </label>
+                <label class="text-sm font-semibold text-slate-700">Valid ID Number
+                    <input name="valid_id_number" :value="selected.valid_id_number" class="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100">
+                </label>
+                <label class="text-sm font-semibold text-slate-700">Emergency Contact
+                    <input name="emergency_contact_name" :value="selected.emergency_contact_name" class="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100">
+                </label>
+                <label class="text-sm font-semibold text-slate-700">Emergency Number
+                    <input name="emergency_contact_number" :value="selected.emergency_contact_number" class="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100">
+                </label>
+                <label class="sm:col-span-2 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                    <input type="hidden" name="id_verified" value="0">
+                    <input type="checkbox" name="id_verified" value="1" :checked="selected.id_verified" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                    Mark ID as verified
+                </label>
+            </div>
+
+            <div class="mt-6 flex justify-end gap-2">
+                <button type="button" @click="editOpen = false" class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50">Cancel</button>
+                <button type="submit" class="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-bold text-white transition hover:bg-blue-700">Save Changes</button>
+            </div>
+        </form>
+    </div>
+
+    <div
+        data-modal-root
+        role="dialog"
+        aria-modal="true"
+        x-show="addOpen"
+        x-cloak
+        x-transition
+        @click.self="addOpen = false"
+        @keydown.escape.window="addOpen = false"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+    >
+        <form method="POST" action="{{ route('admin.users.store') }}" class="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+            @csrf
+            <input type="hidden" name="role" value="user">
+
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">New Tenant</p>
+                    <h2 class="mt-2 text-xl font-bold text-slate-950">Add Tenant</h2>
+                    <p class="mt-1 text-sm text-slate-500">Create a tenant account for BoardMatch.</p>
+                </div>
+                <button type="button" @click="addOpen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <div class="mt-6 grid gap-4 sm:grid-cols-2">
+                <label class="sm:col-span-2 text-sm font-semibold text-slate-700">Full Name
+                    <input name="name" required class="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100" placeholder="Juan Dela Cruz">
+                </label>
+                <label class="text-sm font-semibold text-slate-700">Email
+                    <input name="email" type="email" required class="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100" placeholder="tenant@example.com">
+                </label>
+                <label class="text-sm font-semibold text-slate-700">Phone
+                    <input name="phone" class="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100" placeholder="09XX XXX XXXX">
+                </label>
+                <label class="text-sm font-semibold text-slate-700">Password
+                    <input name="password" type="password" required class="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100" placeholder="Strong password">
+                </label>
+                <label class="text-sm font-semibold text-slate-700">Confirm Password
+                    <input name="password_confirmation" type="password" required class="mt-1 h-11 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100" placeholder="Confirm password">
+                </label>
+                <label class="sm:col-span-2 flex items-center gap-2 text-sm font-semibold text-slate-700">
+                    <input type="checkbox" name="is_active" value="1" checked class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                    Set account as active
+                </label>
+            </div>
+
+            <div class="mt-6 flex justify-end gap-2">
+                <button type="button" @click="addOpen = false" class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50">Cancel</button>
+                <button type="submit" class="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-bold text-white transition hover:bg-blue-700">Create Tenant</button>
+            </div>
+        </form>
+    </div>
+</div>
 </x-admin.shell>
 </x-layouts.dashboard>

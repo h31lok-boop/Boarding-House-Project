@@ -45,13 +45,19 @@ test('user registration creates a tenant profile', function () {
     $response = $this->post(route('register'), [
         'name' => 'User Example',
         'email' => 'user-example@example.com',
+        'role' => 'user',
         'phone' => '09170000000',
-        'institution_name' => 'DSSC',
-        'password' => 'password',
-        'password_confirmation' => 'password',
+        'school' => 'DSSC',
+        'course_year' => 'BSIT 3',
+        'preferred_location' => 'Digos City',
+        'rental_budget' => 3500,
+        'lifestyle_info' => 'Quiet student who prefers a tidy boarding house.',
+        'password' => 'BoardSafe9!',
+        'password_confirmation' => 'BoardSafe9!',
+        'terms' => '1',
     ]);
 
-    $response->assertRedirect(route('dashboard', absolute: false));
+    $response->assertRedirect(route('user.dashboard', absolute: false));
 
     $userId = User::query()->where('email', 'user-example@example.com')->value('id');
 
@@ -60,5 +66,7 @@ test('user registration creates a tenant profile', function () {
     $this->assertDatabaseHas('tenant_profiles', [
         'user_id' => $userId,
         'school_company' => 'DSSC',
+        'school_university' => 'DSSC',
+        'rental_budget' => 3500,
     ]);
 });

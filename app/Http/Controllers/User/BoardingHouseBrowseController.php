@@ -10,6 +10,7 @@ use App\Models\CityMunicipality;
 use App\Services\BoardingHouseRecommendationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class BoardingHouseBrowseController extends Controller
@@ -31,9 +32,9 @@ class BoardingHouseBrowseController extends Controller
             $tenant?->loadMissing('tenantMatchProfile');
         }
 
-        $canRecommend = $hasMatchProfiles
-            && $tenant?->isTenant()
-            && (bool) $tenant->tenantMatchProfile?->completed_at;
+        $hasRecommendationPreferences = $tenant?->isTenant()
+            && $this->recommendationService->hasPreferences($tenant);
+        $canRecommend = (bool) $hasRecommendationPreferences;
 
         $q           = trim((string) $request->query('q', ''));
         $minPrice    = $this->normalizePrice($request->query('min_price'));
@@ -66,11 +67,16 @@ class BoardingHouseBrowseController extends Controller
             'min_rating'     => $minRating,
         ];
 
+        if ($sort === 'recommended' && $canRecommend) {
+            $this->recommendationService->generateForUser($tenant);
+        }
+
         $housesQuery = $this->buildBrowseQuery(
             $filters,
             $nearMe ? $providedLat : null,
             $nearMe ? $providedLng : null,
-            $nearMe
+            $nearMe,
+            $sort === 'recommended' && $canRecommend ? (int) $tenant->id : null
         );
 
         $houses = $housesQuery->paginate(12)->withQueryString();
@@ -120,7 +126,8 @@ class BoardingHouseBrowseController extends Controller
             $filters,
             $nearMe ? $providedLat : null,
             $nearMe ? $providedLng : null,
-            $nearMe
+            $nearMe,
+            $sort === 'recommended' && $canRecommend ? (int) $tenant->id : null
         )->limit(250)->get();
 
         $mapHouses = $mapCollection
@@ -131,7 +138,7 @@ class BoardingHouseBrowseController extends Controller
                 'address' => $house->address,
                 'latitude' => (float) $house->latitude,
                 'longitude' => (float) $house->longitude,
-                'url' => route('user.browse.show', $house),
+                'url' => route('user.boarding-houses.show', $house),
                 'price' => $house->rooms->min('price') ?? $house->roomCategories->min('monthly_rate') ?? $house->price,
                 'available_rooms' => max(
                     (int) ($house->available_rooms ?? 0),
@@ -158,7 +165,8 @@ class BoardingHouseBrowseController extends Controller
                 $filters,
                 $nearMe ? $providedLat : null,
                 $nearMe ? $providedLng : null,
-                $nearMe
+                $nearMe,
+                null
             )->limit(100)->get();
 
             $recommendedHouses = $this->recommendationService
@@ -179,6 +187,10 @@ class BoardingHouseBrowseController extends Controller
             'nearMe'            => $nearMe,
             'nearestHouse'      => $nearestHouse,
             'recommendedHouses' => $recommendedHouses,
+            'hasRecommendationPreferences' => $hasRecommendationPreferences,
+            'recommendationNotice' => $sort === 'recommended' && ! $hasRecommendationPreferences
+                ? 'Complete your preferences to improve recommendations.'
+                : null,
         ]);
     }
 
@@ -246,7 +258,7 @@ class BoardingHouseBrowseController extends Controller
             'match_label'     => $house->match_label ?? 'Good Match',
             'distance_km'     => $house->distance_km,
             'image_url'       => $this->resolveImageUrl($house),
-            'url'             => route('user.browse.show', $house),
+            'url'             => route('user.boarding-houses.show', $house),
             'rating'          => round((float) ($house->reviews_avg_rating ?? 0), 1),
             'reviews_count'   => (int) ($house->reviews_count ?? 0),
         ];
@@ -286,49 +298,290 @@ class BoardingHouseBrowseController extends Controller
         return ['score' => $score, 'label' => $this->matchLabel($score)];
     }
 
-    public function show(Request $request, BoardingHouse $boardingHouse)
+    public function show(Request $request, $boardingHouse)
     {
+        $boardingHouse = BoardingHouse::query()->find($boardingHouse);
+
+        if (! $boardingHouse) {
+            return response()->view('user.boarding-houses.show', [
+                'house' => null,
+                'notFound' => true,
+            ], 404);
+        }
+
         $boardingHouse->load([
             'amenities:id,name',
             'rooms' => fn ($query) => $query->orderBy('room_no'),
             'roomCategories' => fn ($query) => $query->orderBy('monthly_rate'),
             'reviews.user:id,name',
-            'images',
+            'images:id,boarding_house_id,image_path,is_primary,sort_order',
+            'photos:id,boarding_house_id,photo_path',
             'region:id,region_name',
             'province:id,province_name',
             'city:id,city_name',
             'barangay:id,barangay_name',
-            'owner:id,name,phone,contact_number',
+            'owner:id,name,email,phone,phone_number,contact_number',
         ])->loadCount([
             'rooms',
             'rooms as available_rooms_count' => fn ($query) => $query->available(),
             'roomCategories',
+            'reviews',
         ])->loadSum('roomCategories as room_categories_available_rooms_sum', 'available_rooms')
             ->loadAvg('reviews', 'rating');
 
         $userId = $request->user()?->id;
         $todayStr = now()->toDateString(); // e.g. "2026-05-29"
 
-        // Use DB::table() so no Eloquent scopes / soft-delete filters interfere
         $alreadyReservedToday = $userId
-            ? \Illuminate\Support\Facades\DB::table('reservations')
+            ? DB::table('reservations')
                 ->where('user_id', $userId)
                 ->whereDate('created_at', $todayStr)
                 ->exists()
             : false;
 
         $alreadyInquiredToday = $userId
-            ? \Illuminate\Support\Facades\DB::table('inquiries')
+            ? DB::table('inquiries')
                 ->where('user_id', $userId)
                 ->whereDate('created_at', $todayStr)
                 ->exists()
             : false;
 
-        return view('user.browse-show', [
+        $displayPrice = $this->displayPrice($boardingHouse);
+        $availableRooms = $this->availableRoomCount($boardingHouse);
+        $galleryImages = $this->galleryImageUrls($boardingHouse);
+        $primaryRoom = $boardingHouse->rooms
+            ->filter(fn ($room) => (float) ($room->price ?? 0) > 0)
+            ->sortBy('price')
+            ->first() ?? $boardingHouse->rooms->first();
+        $primaryCategory = $boardingHouse->roomCategories
+            ->filter(fn ($category) => (float) ($category->monthly_rate ?? 0) > 0)
+            ->sortBy('monthly_rate')
+            ->first() ?? $boardingHouse->roomCategories->first();
+        $roomTypeLabel = $primaryCategory?->name ?: $this->propertyTypeLabel($boardingHouse->property_type);
+
+        $canRecommend = Schema::hasTable('tenant_match_profiles')
+            && $request->user()?->isTenant()
+            && (bool) $request->user()?->tenantMatchProfile?->completed_at;
+
+        $matchScore = null;
+        if ($canRecommend) {
+            $matchScore = (int) ($this->recommendationService->score(
+                $request->user(),
+                $boardingHouse,
+                self::DEFAULT_LAT,
+                self::DEFAULT_LNG,
+            )['recommendation_percent'] ?? 0);
+        }
+
+        $isSaved = $userId && Schema::hasTable('favorites')
+            ? DB::table('favorites')
+                ->where('user_id', $userId)
+                ->where('boarding_house_id', $boardingHouse->id)
+                ->exists()
+            : false;
+
+        return view('user.boarding-houses.show', [
             'house'                 => $boardingHouse,
+            'boardingHouse'         => $boardingHouse,
             'alreadyReservedToday'  => $alreadyReservedToday,
             'alreadyInquiredToday'  => $alreadyInquiredToday,
+            'availableRooms'        => $availableRooms,
+            'displayPrice'          => $displayPrice,
+            'galleryImages'         => $galleryImages,
+            'isSaved'               => $isSaved,
+            'matchScore'            => $matchScore,
+            'primaryRoom'           => $primaryRoom,
+            'primaryCategory'       => $primaryCategory,
+            'roomTypeLabel'         => $roomTypeLabel,
+            'similarHouses'         => $this->similarHouses($boardingHouse, $displayPrice),
         ]);
+    }
+
+    public function favorite(Request $request, BoardingHouse $boardingHouse)
+    {
+        if (! Schema::hasTable('favorites')) {
+            return back()->with('error', 'Saved boarding houses are not available yet.');
+        }
+
+        $userId = (int) $request->user()->id;
+        $attributes = [
+            'user_id' => $userId,
+            'boarding_house_id' => $boardingHouse->id,
+        ];
+        $existingFavorite = DB::table('favorites')->where($attributes);
+
+        if ($existingFavorite->exists()) {
+            $existingFavorite->delete();
+
+            return back()->with('success', 'Boarding house removed from saved listings.');
+        }
+
+        $values = [];
+        $columns = Schema::getColumnListing('favorites');
+
+        if (in_array('tenant_profile_id', $columns, true)) {
+            $values['tenant_profile_id'] = DB::table('tenant_profiles')->where('user_id', $userId)->value('id');
+        }
+
+        if (in_array('notes', $columns, true)) {
+            $values['notes'] = 'Saved from boarding house details page.';
+        }
+
+        if (in_array('created_at', $columns, true)) {
+            $values['created_at'] = now();
+        }
+
+        if (in_array('updated_at', $columns, true)) {
+            $values['updated_at'] = now();
+        }
+
+        DB::table('favorites')->updateOrInsert($attributes, $values);
+
+        return back()->with('success', 'Boarding house saved.');
+    }
+
+    private function displayPrice(BoardingHouse $house): ?float
+    {
+        $roomMin = $house->relationLoaded('rooms')
+            ? $house->rooms->where('price', '>', 0)->min('price')
+            : null;
+        $categoryMin = $house->relationLoaded('roomCategories')
+            ? $house->roomCategories->where('monthly_rate', '>', 0)->min('monthly_rate')
+            : null;
+
+        return $roomMin
+            ?? $categoryMin
+            ?? (($house->price ?? 0) > 0 ? (float) $house->price : null)
+            ?? (($house->monthly_payment ?? 0) > 0 ? (float) $house->monthly_payment : null);
+    }
+
+    private function availableRoomCount(BoardingHouse $house): int
+    {
+        return max(
+            (int) ($house->available_rooms ?? 0),
+            (int) ($house->available_rooms_count ?? 0),
+            (int) ($house->room_categories_available_rooms_sum ?? 0),
+            (int) $house->rooms->sum(fn ($room) => max((int) ($room->available_slots ?? 0), 0)),
+        );
+    }
+
+    private function galleryImageUrls(BoardingHouse $house)
+    {
+        $paths = collect();
+
+        if ($house->relationLoaded('images')) {
+            $paths = $paths->merge($house->images->pluck('image_path'));
+        }
+
+        if ($house->relationLoaded('photos')) {
+            $paths = $paths->merge($house->photos->pluck('photo_path'));
+        }
+
+        $paths = $paths->merge([
+            $house->featured_image,
+            $house->exterior_image,
+            $house->room_image,
+            $house->cr_image,
+            $house->kitchen_image,
+        ]);
+
+        $urls = $paths
+            ->filter()
+            ->map(fn ($path) => $this->imageUrlFromPath((string) $path))
+            ->filter()
+            ->unique()
+            ->values();
+
+        return $urls->isNotEmpty()
+            ? $urls
+            : collect([asset('images/boarding-house-placeholder.svg')]);
+    }
+
+    private function imageUrlFromPath(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://') || str_starts_with($path, '/')) {
+            return $path;
+        }
+
+        return asset('storage/'.$path);
+    }
+
+    private function propertyTypeLabel(?string $propertyType): string
+    {
+        return match ($propertyType) {
+            'dormitory' => 'Dormitory',
+            'apartment' => 'Apartment / Studio',
+            'bedspace' => 'Bed Space',
+            'other' => 'Transient / Resort',
+            default => 'Private Room',
+        };
+    }
+
+    private function similarHouses(BoardingHouse $house, ?float $displayPrice)
+    {
+        $hasRelatedFilter = $house->barangay_id || $house->city_id || $house->property_type || $displayPrice !== null;
+
+        $query = BoardingHouse::query()
+            ->with([
+                'amenities:id,name',
+                'images:id,boarding_house_id,image_path,is_primary,sort_order',
+                'city:id,city_name',
+                'barangay:id,barangay_name',
+                'roomCategories:id,boarding_house_id,name,monthly_rate,available_rooms,is_available',
+                'rooms:id,boarding_house_id,room_no,price,status,available_slots',
+            ])
+            ->withCount([
+                'rooms',
+                'rooms as available_rooms_count' => fn ($roomQuery) => $roomQuery->available(),
+                'reviews',
+            ])
+            ->withSum('roomCategories as room_categories_available_rooms_sum', 'available_rooms')
+            ->withAvg('reviews', 'rating')
+            ->whereKeyNot($house->id)
+            ->where(function ($scope) {
+                $scope->where('status', 'approved')
+                    ->orWhere('approval_status', 'approved');
+            })
+            ->where('is_active', true)
+            ->when($hasRelatedFilter, function ($listingQuery) use ($house, $displayPrice) {
+                $listingQuery->where(function ($related) use ($house, $displayPrice) {
+                    $related
+                        ->when($house->barangay_id, fn ($q) => $q->orWhere('barangay_id', $house->barangay_id))
+                        ->when($house->city_id, fn ($q) => $q->orWhere('city_id', $house->city_id))
+                        ->when($house->property_type, fn ($q) => $q->orWhere('property_type', $house->property_type));
+
+                    if ($displayPrice !== null) {
+                        $min = max(0, $displayPrice - 1000);
+                        $max = $displayPrice + 1000;
+                        $related->orWhereBetween('price', [$min, $max])
+                            ->orWhereHas('roomCategories', fn ($category) => $category->whereBetween('monthly_rate', [$min, $max]))
+                            ->orWhereHas('rooms', fn ($room) => $room->whereBetween('price', [$min, $max]));
+                    }
+                });
+            })
+            ->orderByDesc('reviews_avg_rating')
+            ->orderByDesc('boarding_houses.created_at')
+            ->limit(3)
+            ->get();
+
+        return $query->map(function (BoardingHouse $relatedHouse) {
+            $price = $this->displayPrice($relatedHouse);
+
+            return [
+                'id' => $relatedHouse->id,
+                'name' => $relatedHouse->name,
+                'location' => collect([$relatedHouse->barangay?->barangay_name, $relatedHouse->city?->city_name])->filter()->implode(', '),
+                'price' => $price,
+                'price_label' => $price !== null ? '₱'.number_format($price).'/month' : 'Price TBD',
+                'rating' => $relatedHouse->reviews_avg_rating ? number_format((float) $relatedHouse->reviews_avg_rating, 1) : 'N/A',
+                'image_url' => $this->resolveImageUrl($relatedHouse) ?: asset('images/boarding-house-placeholder.svg'),
+                'url' => route('user.boarding-houses.show', $relatedHouse),
+            ];
+        });
     }
 
     public function compare(Request $request)
@@ -341,7 +594,7 @@ class BoardingHouseBrowseController extends Controller
 
         if ($ids->count() < 2) {
             return redirect()
-                ->route('user.browse')
+                ->route('user.boarding-houses.index')
                 ->with('error', 'Select at least 2 boarding houses to compare.');
         }
 
@@ -433,7 +686,7 @@ class BoardingHouseBrowseController extends Controller
         return round($angle * $earthRadius, 2);
     }
 
-    private function buildBrowseQuery(array $filters, ?float $distanceLat, ?float $distanceLng, bool $nearMe): Builder
+    private function buildBrowseQuery(array $filters, ?float $distanceLat, ?float $distanceLng, bool $nearMe, ?int $recommendedUserId = null): Builder
     {
         $query = BoardingHouse::query()
             ->with([
@@ -443,6 +696,7 @@ class BoardingHouseBrowseController extends Controller
                 'images:id,boarding_house_id,image_path,is_primary,sort_order',
                 'city:id,city_name',
                 'barangay:id,barangay_name',
+                'province:id,province_name',
             ])
             ->withCount([
                 'rooms',
@@ -524,7 +778,15 @@ class BoardingHouseBrowseController extends Controller
 
         $sort = $filters['sort'] ?? 'newest';
 
-        if ($nearMe && $distanceLat !== null && $distanceLng !== null) {
+        if (($filters['sort'] ?? null) === 'recommended' && $recommendedUserId && Schema::hasTable('boarding_house_matches')) {
+            $query->leftJoin('boarding_house_matches as recommendation_matches', function ($join) use ($recommendedUserId) {
+                $join->on('recommendation_matches.boarding_house_id', '=', 'boarding_houses.id')
+                    ->where('recommendation_matches.user_id', '=', $recommendedUserId);
+            })
+                ->select('boarding_houses.*')
+                ->orderByDesc('recommendation_matches.match_score')
+                ->orderByDesc('boarding_houses.created_at');
+        } elseif ($nearMe && $distanceLat !== null && $distanceLng !== null) {
             $distanceSql = '(6371 * ACOS(COS(RADIANS(?)) * COS(RADIANS(latitude)) * COS(RADIANS(longitude) - RADIANS(?)) + SIN(RADIANS(?)) * SIN(RADIANS(latitude))))';
             $query->select('boarding_houses.*')
                 ->selectRaw($distanceSql.' as distance_km_calc', [$distanceLat, $distanceLng, $distanceLat])

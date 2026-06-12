@@ -6,7 +6,7 @@
                 <h2 class="text-xl font-semibold">Boarding House Comparison</h2>
                 <p class="text-sm ui-muted">Reference point: {{ $referencePoint['lat'] }}, {{ $referencePoint['lng'] }}</p>
             </div>
-            <a href="{{ route('user.browse') }}" class="px-4 py-2 rounded-lg border ui-border text-sm">Back to Browse</a>
+            <a href="{{ route('user.boarding-houses.index') }}" class="px-4 py-2 rounded-lg border ui-border text-sm">Back to Browse</a>
         </div>
 
         <div class="ui-card overflow-x-auto">
@@ -60,7 +60,7 @@
                         <td class="px-4 py-3 font-semibold">Action</td>
                         @foreach($houses as $house)
                             <td class="px-4 py-3">
-                                <a href="{{ route('user.browse.show', $house) }}" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs">View</a>
+                                <a href="{{ route('user.boarding-houses.show', $house) }}" class="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs">View</a>
                             </td>
                         @endforeach
                     </tr>

@@ -1,8 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" role="img" aria-label="Boarding house placeholder">
   <defs>
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#fff7ed"/>
-      <stop offset="100%" stop-color="#ffedd5"/>
+      <stop offset="0%" stop-color="#eff6ff"/>
+      <stop offset="100%" stop-color="#dbeafe"/>
     </linearGradient>
     <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#ffffff"/>
@@ -33,10 +33,10 @@
   <rect x="160" y="170" width="480" height="240" fill="url(#wall)" rx="4" stroke="#f3f4f6" stroke-width="1.5"/>
 
   <!-- Roof -->
-  <polygon points="130,172 400,55 670,172" fill="#f97316"/>
-  <polygon points="130,172 400,75 670,172" fill="#ea580c" opacity="0.25"/>
+  <polygon points="130,172 400,55 670,172" fill="#1d4ed8"/>
+  <polygon points="130,172 400,75 670,172" fill="#0f172a" opacity="0.25"/>
   <!-- Roof ridge shadow -->
-  <line x1="400" y1="55" x2="400" y2="172" stroke="#ea580c" stroke-width="2" opacity="0.3"/>
+  <line x1="400" y1="55" x2="400" y2="172" stroke="#0f172a" stroke-width="2" opacity="0.3"/>
 
   <!-- Chimney -->
   <rect x="530" y="80" width="32" height="60" fill="#d1d5db" rx="2"/>
@@ -86,8 +86,8 @@
   <circle cx="622" cy="398" r="13" fill="#4ade80"/>
 
   <!-- "No Photo Available" pill -->
-  <rect x="285" y="445" width="230" height="34" rx="17" fill="#f97316" opacity="0.12"/>
+  <rect x="285" y="445" width="230" height="34" rx="17" fill="#2563eb" opacity="0.12"/>
   <text x="400" y="467" text-anchor="middle"
         font-family="system-ui,-apple-system,sans-serif"
-        font-size="14" font-weight="600" fill="#f97316" opacity="0.85">No Photo Available</text>
+        font-size="14" font-weight="600" fill="#1d4ed8" opacity="0.85">No Photo Available</text>
 </svg>

@@ -1,111 +1,152 @@
 @php
-    $navBase     = 'flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors';
-    $navActive   = $navBase . ' ui-surface-2 text-[color:var(--text)] font-medium border ui-border';
-    $navInactive = $navBase . ' text-[color:var(--muted)] hover:bg-[color:var(--surface-2)]';
+    $r = function ($name, $params = [], $fallback = null) {
+        if (\Illuminate\Support\Facades\Route::has($name)) {
+            return route($name, $params);
+        }
 
-    $currentTab = request('tab', '');
+        return $fallback && \Illuminate\Support\Facades\Route::has($fallback)
+            ? route($fallback, $params)
+            : url()->current();
+    };
 
-    $menus = [
+    $isPath = fn (...$patterns) => collect($patterns)->contains(
+        fn ($pattern) => request()->is($pattern)
+    );
+
+    $unreadNotificationsCount = 0;
+    if (\Illuminate\Support\Facades\Schema::hasTable('notifications') && auth()->id()) {
+        $notificationsQuery = \Illuminate\Support\Facades\DB::table('notifications')
+            ->where('user_id', auth()->id());
+
+        if (\Illuminate\Support\Facades\Schema::hasColumn('notifications', 'is_read')) {
+            $notificationsQuery->where('is_read', false);
+        } elseif (\Illuminate\Support\Facades\Schema::hasColumn('notifications', 'read_at')) {
+            $notificationsQuery->whereNull('read_at');
+        }
+
+        $unreadNotificationsCount = (int) $notificationsQuery->count();
+    }
+
+    $navBase = 'group/sidebar-item relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400/70';
+    $navActive = $navBase . ' bg-[#2563EB] text-white shadow-[0_10px_22px_rgba(37,99,235,0.3)]';
+    $navInactive = $navBase . ' text-[#CBD5E1] hover:bg-white/10 hover:text-white';
+
+    $sections = [
         [
-            'label' => 'Dashboard',
-            'icon'  => 'dashboard',
-            'route' => 'admin.dashboard',
-            'match' => ['admin.dashboard'],
+            'label' => 'MAIN',
+            'items' => [
+                [
+                    'key' => 'dashboard',
+                    'label' => 'Dashboard',
+                    'href' => $r('admin.dashboard'),
+                    'icon' => 'dashboard',
+                    'active' => request()->routeIs('admin.dashboard'),
+                ],
+                [
+                    'key' => 'boarding-houses',
+                    'label' => 'Boarding Houses',
+                    'href' => $r('admin.boarding-houses.index', [], 'admin.boarding-houses'),
+                    'icon' => 'boarding-house',
+                    'active' => $isPath('admin/boarding-houses*'),
+                ],
+            ],
         ],
         [
-            'label' => 'Boarding Houses',
-            'icon'  => 'boarding-house',
-            'route' => 'admin.boarding-houses',
-            'match' => ['admin.boarding-houses*', 'admin.listings*'],
+            'label' => 'MANAGEMENT',
+            'items' => [
+                [
+                    'key' => 'reservations',
+                    'label' => 'Reservations',
+                    'href' => $r('admin.reservations.index', [], 'admin.reservations'),
+                    'icon' => 'reservations',
+                    'active' => $isPath('admin/reservations*'),
+                ],
+                [
+                    'key' => 'tenants',
+                    'label' => 'Tenants',
+                    'href' => $r('admin.tenants.index', [], 'admin.tenant-profiles'),
+                    'icon' => 'tenants',
+                    'active' => $isPath('admin/tenants*', 'admin/tenant-profiles*'),
+                ],
+                [
+                    'key' => 'inquiries',
+                    'label' => 'Inquiries',
+                    'href' => $r('admin.inquiries', [], 'admin.inquiries.index'),
+                    'icon' => 'inquiries',
+                    'active' => $isPath('admin/inquiries*'),
+                ],
+                [
+                    'key' => 'transactions',
+                    'label' => 'Transactions',
+                    'href' => $r('admin.transactions.index', [], 'admin.payments'),
+                    'icon' => 'transactions',
+                    'active' => $isPath('admin/transactions*'),
+                ],
+                [
+                    'key' => 'messages',
+                    'label' => 'Messages',
+                    'href' => $r('admin.messages', [], 'admin.messages.index'),
+                    'icon' => 'messages',
+                    'active' => $isPath('admin/messages*'),
+                ],
+                [
+                    'key' => 'notifications',
+                    'label' => 'Notifications',
+                    'href' => $r('admin.notifications.index', [], 'admin.notifications'),
+                    'icon' => 'notifications',
+                    'active' => $isPath('admin/notifications*'),
+                    'badge' => $unreadNotificationsCount,
+                ],
+                [
+                    'key' => 'reports',
+                    'label' => 'Reports',
+                    'href' => $r('admin.reports.index', [], 'admin.reports'),
+                    'icon' => 'reports',
+                    'active' => $isPath('admin/reports*'),
+                ],
+            ],
         ],
         [
-            'label' => 'Reservations',
-            'icon'  => 'reservations',
-            'route' => 'admin.reservations',
-            'match' => ['admin.reservations*'],
-        ],
-        [
-            'label' => 'Tenants',
-            'icon'  => 'tenants',
-            'route' => 'admin.tenant-profiles',
-            'match' => ['admin.tenant-profiles*'],
-        ],
-        [
-            'label' => 'Inquiries',
-            'icon'  => 'inquiries',
-            'route' => 'admin.inquiries',
-            'match' => ['admin.inquiries*'],
-        ],
-        [
-            'label'  => 'Transactions',
-            'icon'   => 'transactions',
-            'route'  => 'admin.payments',
-            'params' => ['tab' => 'transactions'],
-            'match'  => ['admin.payments*'],
-        ],
-        [
-            'label' => 'Messages',
-            'icon'  => 'messages',
-            'route' => 'admin.messages',
-            'match' => ['admin.messages*'],
-        ],
-        [
-            'label' => 'Notifications',
-            'icon'  => 'notifications',
-            'route' => 'admin.notifications',
-            'match' => ['admin.notifications*'],
-        ],
-        [
-            'label' => 'Reports',
-            'icon'  => 'reports',
-            'route' => 'admin.reports',
-            'match' => ['admin.reports*'],
-        ],
-        [
-            'label' => 'Profile Settings',
-            'icon'  => 'settings',
-            'route' => 'admin.settings',
-            'match' => ['admin.settings*'],
+            'label' => 'ACCOUNT',
+            'items' => [
+                [
+                    'key' => 'settings',
+                    'label' => 'Settings',
+                    'href' => $r('admin.settings.index', [], 'admin.settings'),
+                    'icon' => 'settings',
+                    'active' => $isPath('admin/settings*'),
+                ],
+            ],
         ],
     ];
 @endphp
 
-<nav class="flex-1 space-y-1 py-3 px-2 text-sm sidebar-nav" aria-label="Admin navigation">
-    <p class="text-xs uppercase ui-muted mb-2 px-1 sidebar-group">Main Navigation</p>
-
-    @foreach ($menus as $menu)
-        @php
-            $isActive = request()->routeIs(...$menu['match']);
-            $href = \Illuminate\Support\Facades\Route::has($menu['route'])
-                ? route($menu['route'], $menu['params'] ?? [])
-                : '#';
-        @endphp
-        <a href="{{ $href }}"
-           class="{{ $isActive ? $navActive : $navInactive }}"
-           title="{{ $menu['label'] }}">
-            <span class="sidebar-icon h-4 w-4 shrink-0">
-                @include('components.sidebar.partials.admin-icon', ['name' => $menu['icon']])
-            </span>
-            <span class="sidebar-text">{{ $menu['label'] }}</span>
-        </a>
+<nav class="sidebar-nav admin-sidebar-nav flex-1 space-y-4 pr-1 text-sm" aria-label="Admin navigation">
+    @foreach ($sections as $section)
+        <section class="space-y-1.5">
+            <p class="sidebar-group px-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">{{ $section['label'] }}</p>
+            <div class="space-y-1">
+                @foreach ($section['items'] as $menu)
+                    @php($isActive = (bool) ($menu['active'] ?? false))
+                    <a
+                        href="{{ $menu['href'] }}"
+                        class="{{ $isActive ? $navActive : $navInactive }}"
+                        data-sidebar-key="{{ $menu['key'] }}"
+                        title="{{ $menu['label'] }}"
+                        @if($isActive) aria-current="page" @endif
+                    >
+                        <span class="sidebar-icon flex h-5 w-5 shrink-0 items-center justify-center">
+                            @include('components.sidebar.partials.admin-icon', ['name' => $menu['icon']])
+                        </span>
+                        <span class="sidebar-text min-w-0 flex-1 truncate">{{ $menu['label'] }}</span>
+                        @if ((int) ($menu['badge'] ?? 0) > 0)
+                            <span class="sidebar-badge inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                                {{ (int) $menu['badge'] > 99 ? '99+' : (int) $menu['badge'] }}
+                            </span>
+                        @endif
+                    </a>
+                @endforeach
+            </div>
+        </section>
     @endforeach
 </nav>
-
-{{-- Help box — matches tenant sidebar style --}}
-<div class="sidebar-help mx-2 mb-3 rounded-xl border ui-border bg-orange-50/70 p-4 text-sm shrink-0 dark:bg-orange-950/20">
-    <div class="flex items-start gap-3">
-        <span class="sidebar-icon h-4 w-4 shrink-0 text-orange-500 mt-0.5">
-            @include('components.sidebar.partials.admin-icon', ['name' => 'support'])
-        </span>
-        <div class="min-w-0 sidebar-text">
-            <p class="font-semibold text-orange-700 dark:text-orange-200">Need Help?</p>
-            <p class="mt-1 text-xs ui-muted">Contact system support</p>
-            <a href="{{ \Illuminate\Support\Facades\Route::has('admin.messages') ? route('admin.messages') : '#' }}"
-               class="mt-3 inline-flex rounded-lg bg-orange-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-orange-600 transition-colors">
-                Go to Messages
-            </a>
-        </div>
-    </div>
-</div>
-
-<p class="text-xs ui-muted text-center pb-3 sidebar-footer">&copy; {{ date('Y') }} BoardMatch</p>

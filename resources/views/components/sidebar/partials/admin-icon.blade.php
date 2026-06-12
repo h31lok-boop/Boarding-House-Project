@@ -16,6 +16,13 @@
         </svg>
         @break
 
+    @case('search')
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <circle cx="10.5" cy="10.5" r="6.5" stroke-width="1.7"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="m16 16 4 4"/>
+        </svg>
+        @break
+
     @case('rooms')
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <rect x="3" y="4" width="18" height="16" rx="2" stroke-width="1.7"/>
@@ -54,6 +61,15 @@
         </svg>
         @break
 
+    @case('preferences')
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-width="1.7" d="M4 7h4M14 7h6M4 12h9M17 12h3M4 17h6M14 17h6"/>
+            <circle cx="11" cy="7" r="2.2" stroke-width="1.7"/>
+            <circle cx="15" cy="12" r="2.2" stroke-width="1.7"/>
+            <circle cx="12" cy="17" r="2.2" stroke-width="1.7"/>
+        </svg>
+        @break
+
     @case('payments')
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <rect x="3" y="6" width="18" height="14" rx="2" stroke-width="1.7"/>
@@ -65,13 +81,6 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M5 7h14v10H5z"/>
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M5 10h14M8 15h3"/>
-        </svg>
-        @break
-
-    @case('payouts')
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <circle cx="12" cy="12" r="9" stroke-width="1.7"/>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M12 7v2m0 6v2m-3-5h5.5a1.5 1.5 0 0 1 0 3H9a1.5 1.5 0 0 1 0-3h1"/>
         </svg>
         @break
 
@@ -93,6 +102,14 @@
     @case('notifications')
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M15 17H9m0 0-3-9a6 6 0 1 1 12 0l-3 9m-6 0v1a3 3 0 0 0 6 0v-1"/>
+        </svg>
+        @break
+
+    @case('support')
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M5 12a7 7 0 0 1 14 0v4a3 3 0 0 1-3 3h-2"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M5 12v3a2 2 0 0 0 2 2h1v-7H7a2 2 0 0 0-2 2ZM19 12v3a2 2 0 0 1-2 2h-1v-7h1a2 2 0 0 1 2 2Z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M11 19h3"/>
         </svg>
         @break
 

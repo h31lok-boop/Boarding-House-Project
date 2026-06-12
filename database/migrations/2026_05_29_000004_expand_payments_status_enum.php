@@ -13,6 +13,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (! in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            return;
+        }
+
         DB::statement("
             ALTER TABLE `payments`
             MODIFY COLUMN `status`
@@ -24,6 +28,10 @@ return new class extends Migration
     public function down(): void
     {
         // Revert — rows with the new values will become '' (empty/truncated)
+        if (! in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            return;
+        }
+
         DB::statement("
             ALTER TABLE `payments`
             MODIFY COLUMN `status`

@@ -11,6 +11,14 @@ class OwnerProfile extends Model
 
     protected $fillable = [
         'user_id',
+        'boarding_house_name',
+        'boarding_house_address',
+        'contact_number',
+        'room_types',
+        'monthly_rent_range',
+        'amenities',
+        'house_rules',
+        'proof_of_ownership',
         'company_name',
         'business_permit_number',
         'valid_id_type',

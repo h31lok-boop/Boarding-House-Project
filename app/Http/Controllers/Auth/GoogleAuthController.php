@@ -62,9 +62,22 @@ class GoogleAuthController extends Controller
         if (! $user && $email) {
             $user = User::where('email', $email)->first();
 
-            // Link google_id to the existing account
-            if ($user && $hasGoogleIdCol && ! $user->google_id) {
-                $user->forceFill(['google_id' => $googleId])->save();
+            if ($user) {
+                $updates = [];
+
+                if ($hasGoogleIdCol && ! $user->google_id) {
+                    $updates['google_id'] = $googleId;
+                }
+                if (! $user->hasVerifiedEmail()) {
+                    $updates['email_verified_at'] = now();
+                }
+                if (Schema::hasColumn('users', 'username') && blank($user->username)) {
+                    $updates['username'] = $this->uniqueUsernameFromEmail($email);
+                }
+
+                if ($updates !== []) {
+                    $user->forceFill($updates)->save();
+                }
             }
         }
 
@@ -81,7 +94,7 @@ class GoogleAuthController extends Controller
         $isNew = $user->wasRecentlyCreated;
 
         return $isNew
-            ? redirect()->route('user.settings')
+            ? redirect()->route('user.settings.index')
                 ->with('status', 'Welcome to BoardMatch! Please complete your profile.')
             : redirect()->intended(route('dashboard', absolute: false));
     }
@@ -119,6 +132,9 @@ class GoogleAuthController extends Controller
         if (Schema::hasColumn('users', 'password_hash')) {
             $attrs['password_hash'] = $hashedPwd;
         }
+        if (Schema::hasColumn('users', 'username')) {
+            $attrs['username'] = $this->uniqueUsernameFromEmail($email);
+        }
 
         $user = new User;
         $user->forceFill($attrs)->save();
@@ -152,5 +168,27 @@ class GoogleAuthController extends Controller
         }
 
         return $user;
+    }
+
+    private function uniqueUsernameFromEmail(string $email): string
+    {
+        $base = strtolower(preg_replace('/[^a-z0-9_]+/', '_', Str::before($email, '@')) ?? '');
+        $base = trim($base, '_');
+
+        if (strlen($base) < 3) {
+            $base = 'boardmatch_user';
+        }
+
+        $base = substr($base, 0, 50);
+        $candidate = $base;
+        $suffix = 1;
+
+        while (User::query()->where('username', $candidate)->exists()) {
+            $suffix++;
+            $stem = substr($base, 0, max(1, 80 - strlen((string) $suffix) - 1));
+            $candidate = $stem.'_'.$suffix;
+        }
+
+        return $candidate;
     }
 }

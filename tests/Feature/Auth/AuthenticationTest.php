@@ -21,6 +21,21 @@ test('users are redirected to their role dashboard after login', function () {
     $response->assertRedirect(route($user->dashboardRouteName(), absolute: false));
 });
 
+test('users can authenticate with their username', function () {
+    $user = User::factory()->create([
+        'username' => 'student',
+        'role' => 'user',
+    ]);
+
+    $response = $this->post('/login', [
+        'email' => 'student',
+        'password' => 'password',
+    ]);
+
+    $this->assertAuthenticatedAs($user);
+    $response->assertRedirect(route($user->dashboardRouteName(), absolute: false));
+});
+
 test('users can not authenticate with invalid password', function () {
     $user = User::factory()->create();
 

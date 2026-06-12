@@ -1,4 +1,4 @@
-﻿<x-layouts.dashboard>
+<x-layouts.dashboard>
 <x-admin.shell>
     @php
         $badge = fn ($active) => $active ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-rose-100 text-rose-700 border-rose-200';

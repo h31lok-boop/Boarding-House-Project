@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign In | BoardMatch</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script>
         (function () {
@@ -32,10 +33,16 @@
         .brand-mark {
             width: 56px; height: 56px;
             border-radius: 16px;
-            background: linear-gradient(135deg, var(--brand-500), var(--accent-500));
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 8px 24px rgba(255, 126, 95, 0.30);
+            display: block;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(37, 99, 235, 0.28);
             margin: 0 auto 1rem;
+        }
+
+        .brand-mark img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
         /* ── Card ── */
@@ -84,7 +91,7 @@
 
         .field-input:focus {
             border-color: var(--brand-500);
-            box-shadow: 0 0 0 3px rgba(255, 126, 95, 0.12);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
         }
 
         .field-input::placeholder { color: #9ca3af; }
@@ -150,7 +157,7 @@
         .btn-signin:hover {
             opacity: .9;
             transform: translateY(-1px);
-            box-shadow: 0 8px 20px rgba(255, 126, 95, 0.28);
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.28);
         }
         .btn-signin:active { transform: translateY(0); }
         .btn-signin:disabled { opacity: .65; cursor: not-allowed; transform: none; }
@@ -208,9 +215,7 @@
         {{-- ── Brand ── --}}
         <div style="text-align:center; margin-bottom:1.75rem">
             <div class="brand-mark">
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-                </svg>
+                <img src="{{ asset('images/boardmatch-mark.svg') }}" alt="BoardMatch">
             </div>
             <h1 style="font-size:1.5rem; font-weight:800; color:var(--text); margin:0 0 .25rem">BoardMatch</h1>
             <p style="font-size:0.875rem; color:var(--muted); margin:0">Sign in to your account</p>
@@ -242,22 +247,22 @@
             <form method="POST" action="{{ route('login') }}" id="loginForm">
                 @csrf
 
-                {{-- Email --}}
+                {{-- Email / Username --}}
                 <div style="margin-bottom:1rem">
-                    <label for="email" class="field-label">Email Address</label>
+                    <label for="email" class="field-label">Email or Username</label>
                     <div class="field-wrap">
                         <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
                         </svg>
                         <input id="email"
                                class="field-input"
-                               type="email"
+                               type="text"
                                name="email"
                                value="{{ old('email') }}"
                                required
                                autofocus
-                               autocomplete="email"
-                               placeholder="you@example.com">
+                               autocomplete="username"
+                               placeholder="owner, student, or you@example.com">
                     </div>
                 </div>
 

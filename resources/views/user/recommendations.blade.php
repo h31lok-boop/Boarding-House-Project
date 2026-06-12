@@ -6,6 +6,7 @@
     if (!isset($preferredLocation))    { $preferredLocation    = null; }
     if (!isset($lifestyleText))        { $lifestyleText        = null; }
     if (!isset($tenant))               { $tenant               = auth()->user(); }
+    if (!isset($houseFilters))         { $houseFilters         = ['house_sort' => 'highest_match', 'room_type' => null]; }
 
     $profile = $tenant?->tenantMatchProfile;
 
@@ -120,7 +121,7 @@
                     </div>
                 </div>
             </div>
-            <a href="{{ route('user.profile') }}"
+            <a href="{{ route('user.preferences.index') }}"
                class="flex shrink-0 items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
                 <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>
                 Edit Preferences
@@ -145,11 +146,28 @@
                     @endif
                 </div>
                 @if ($hasPreferences)
-                <a href="{{ route('user.browse') }}"
-                   class="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
-                    <svg class="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                    Browse All
-                </a>
+                <div class="flex flex-wrap items-center gap-2">
+                    <form method="GET" action="{{ route('user.matchmaking.index') }}" class="flex flex-wrap items-center gap-2">
+                        <select name="house_sort" class="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
+                            <option value="highest_match" @selected(($houseFilters['house_sort'] ?? 'highest_match') === 'highest_match')>Highest Match</option>
+                            <option value="lowest_rent" @selected(($houseFilters['house_sort'] ?? '') === 'lowest_rent')>Lowest Rent</option>
+                            <option value="nearest_location" @selected(($houseFilters['house_sort'] ?? '') === 'nearest_location')>Nearest Location</option>
+                        </select>
+                        <select name="room_type" class="rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-600 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100">
+                            <option value="any" @selected(empty($houseFilters['room_type']))>Room Type</option>
+                            <option value="private" @selected(($houseFilters['room_type'] ?? '') === 'private')>Private</option>
+                            <option value="shared" @selected(($houseFilters['room_type'] ?? '') === 'shared')>Shared</option>
+                            <option value="bedspace" @selected(($houseFilters['room_type'] ?? '') === 'bedspace')>Bed Space</option>
+                            <option value="studio" @selected(($houseFilters['room_type'] ?? '') === 'studio')>Studio</option>
+                        </select>
+                        <button type="submit" class="rounded-xl bg-indigo-600 px-3 py-2 text-xs font-bold text-white hover:bg-indigo-700">Apply</button>
+                    </form>
+                    <a href="{{ route('user.boarding-houses.index') }}"
+                       class="flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors">
+                        <svg class="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        Browse All
+                    </a>
+                </div>
                 @endif
             </div>
 
@@ -161,7 +179,7 @@
                 </div>
                 <h3 class="text-base font-semibold text-gray-800 mb-1">No preferences saved yet</h3>
                 <p class="text-sm text-gray-400 mb-5">Set your preferred location, budget, and lifestyle to get AI-powered boarding house matches.</p>
-                <a href="{{ route('user.profile') }}" class="inline-block rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors">Set Preferences</a>
+                <a href="{{ route('user.preferences.index') }}" class="inline-block rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors">Set Preferences</a>
             </div>
 
             {{-- Preferences set but no matching houses found --}}
@@ -172,7 +190,7 @@
                 </div>
                 <h3 class="text-base font-semibold text-gray-800 mb-1">No matching boarding houses found.</h3>
                 <p class="text-sm text-gray-400 mb-5">Try updating your preferences — a different location or budget range may unlock more results.</p>
-                <a href="{{ route('user.profile') }}" class="inline-block rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors">Update Preferences</a>
+                <a href="{{ route('user.preferences.index') }}" class="inline-block rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors">Update Preferences</a>
             </div>
 
             @else
@@ -189,6 +207,10 @@
                 $affordPct    = isset($rec['scores']['budget'])    ? (int)round($rec['scores']['budget'] * 100)    : $pct;
                 $lifestylePct = isset($rec['scores']['lifestyle']) ? (int)round($rec['scores']['lifestyle'] * 100) : $pct;
                 $locPct       = isset($rec['scores']['location'])  ? (int)round($rec['scores']['location'] * 100)  : $pct;
+                $roomPct      = isset($rec['scores']['room_type']) ? (int)round($rec['scores']['room_type'] * 100) : $pct;
+                $amenityPct   = isset($rec['scores']['amenities']) ? (int)round($rec['scores']['amenities'] * 100) : $pct;
+                $safetyPct    = isset($rec['scores']['safety'])    ? (int)round($rec['scores']['safety'] * 100)    : $pct;
+                $distancePct  = isset($rec['scores']['distance'])  ? (int)round($rec['scores']['distance'] * 100)  : $pct;
             @endphp
             <div class="rec-card overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
                 <div class="flex flex-col sm:grid sm:grid-cols-[140px_1fr_150px_1fr]">
@@ -267,13 +289,20 @@
                     {{-- Scores + AI reason + buttons --}}
                     <div class="px-4 py-4 flex flex-col justify-between">
                         <div class="space-y-2.5">
-                            <div>
-                                <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Affordability Match</p>
-                                <p class="text-2xl font-bold {{ $textColorClass($affordPct) }}">{{ $affordPct }}%</p>
-                            </div>
-                            <div>
-                                <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Lifestyle Match</p>
-                                <p class="text-2xl font-bold {{ $textColorClass($lifestylePct) }}">{{ $lifestylePct }}%</p>
+                            <div class="grid grid-cols-2 gap-2">
+                                @foreach([
+                                    'Budget' => $affordPct,
+                                    'Room Type' => $roomPct,
+                                    'Amenities' => $amenityPct,
+                                    'Safety' => $safetyPct,
+                                    'Lifestyle' => $lifestylePct,
+                                    'Distance' => $distancePct,
+                                ] as $label => $score)
+                                    <div>
+                                        <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{{ $label }}</p>
+                                        <p class="text-sm font-bold {{ $textColorClass($score) }}">{{ $score }}%</p>
+                                    </div>
+                                @endforeach
                             </div>
                             <div>
                                 <p class="text-[10px] font-semibold uppercase tracking-wide text-gray-400">AI Reason</p>
@@ -281,8 +310,11 @@
                             </div>
                         </div>
                         <div class="mt-3 flex items-center gap-2 flex-wrap">
-                            <a href="{{ route('user.browse.show', $house) }}" class="btn-outline">View Details</a>
-                            <button class="btn-outline">Save</button>
+                            <a href="{{ route('user.boarding-houses.show', $house) }}" class="btn-outline">View Details</a>
+                            <form method="POST" action="{{ route('user.boarding-houses.favorite', $house) }}">
+                                @csrf
+                                <button type="submit" class="btn-outline">Save</button>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -328,10 +360,13 @@
                 <p class="mt-1 text-xs text-gray-400">Each recommendation is scored on:</p>
                 <ul class="mt-3 space-y-2">
                     @foreach([
-                        ['icon'=>'budget',    'text'=>'Preferred budget range (40%)'],
-                        ['icon'=>'location',  'text'=>'Preferred location / area (35%)'],
-                        ['icon'=>'lifestyle', 'text'=>'Lifestyle & environment fit (15%)'],
-                        ['icon'=>'avail',     'text'=>'Room availability (10%)'],
+                        ['icon'=>'budget',    'text'=>'Budget match (25%)'],
+                        ['icon'=>'location',  'text'=>'Location / barangay match (20%)'],
+                        ['icon'=>'room',      'text'=>'Room type match (15%)'],
+                        ['icon'=>'amenity',   'text'=>'Amenities match (15%)'],
+                        ['icon'=>'safety',    'text'=>'Safety match (10%)'],
+                        ['icon'=>'lifestyle', 'text'=>'Lifestyle match (10%)'],
+                        ['icon'=>'distance',  'text'=>'Distance match (5%)'],
                     ] as $item)
                     <li class="flex items-center gap-2 text-xs text-gray-700">
                         <svg class="h-3.5 w-3.5 shrink-0 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
@@ -352,7 +387,7 @@
                         <p class="text-xs text-gray-500 mt-0.5 leading-relaxed">Update your preferences to get better recommendations. Changes take effect immediately.</p>
                     </div>
                 </div>
-                <a href="{{ route('user.profile') }}"
+                <a href="{{ route('user.preferences.index') }}"
                    class="flex w-full items-center justify-center rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors">
                     Update Preferences
                 </a>

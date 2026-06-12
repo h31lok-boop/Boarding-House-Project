@@ -1,4 +1,4 @@
-﻿<x-layouts.dashboard>
+<x-layouts.dashboard>
 <x-admin.shell>
     <div x-data="{ detailOpen: false, selected: {} }" class="space-y-6">
         <div class="ui-card p-6">

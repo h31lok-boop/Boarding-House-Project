@@ -34,9 +34,19 @@ Boarding House Project is a Laravel web application for managing boarding-house 
 4. Configure the application and database values in `.env`.
 5. Run `php artisan key:generate`.
 6. Run `php artisan migrate`.
-7. Run `npm install`.
-8. Run `npm run dev`.
-9. Start the application with `php artisan serve`.
+7. Run `php artisan db:seed`.
+8. Run `npm install`.
+9. Run `npm run dev`.
+10. Start the application with `php artisan serve`.
+
+## Demo Credentials
+
+After seeding, use these local demo accounts:
+
+- Owner / Admin: username `owner`, password `Password123!`
+- Tenant / Student: username `student`, password `Password123!`
+
+The owner account is stored with the canonical `admin` role, and the tenant/student account is stored with the canonical `user` role.
 
 ## Notes
 

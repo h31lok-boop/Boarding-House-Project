@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Rules\BoardMatchStrongPassword;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules;
 use Illuminate\View\View;
@@ -33,7 +35,7 @@ class NewPasswordController extends Controller
         $request->validate([
             'token' => ['required'],
             'email' => ['required', 'email'],
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'password' => ['required', 'confirmed', Rules\Password::defaults(), new BoardMatchStrongPassword],
         ]);
 
         // Here we will attempt to reset the user's password. If it is successful we
@@ -42,10 +44,17 @@ class NewPasswordController extends Controller
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function (User $user) use ($request) {
-                $user->forceFill([
-                    'password' => Hash::make($request->password),
+                $hashed = Hash::make($request->password);
+                $attributes = [
+                    'password' => $hashed,
                     'remember_token' => Str::random(60),
-                ])->save();
+                ];
+
+                if (Schema::hasColumn('users', 'password_hash')) {
+                    $attributes['password_hash'] = $hashed;
+                }
+
+                $user->forceFill($attributes)->save();
 
                 event(new PasswordReset($user));
             }

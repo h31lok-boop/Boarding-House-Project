@@ -9,7 +9,6 @@ use App\Models\User;
 use App\Services\BoardingHouseRecommendationService;
 use App\Services\CompatibilityService;
 use App\Services\DeepSeekService;
-use App\Services\TenantPreferenceRecommendationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
@@ -24,7 +23,6 @@ class RecommendationController extends Controller
         private readonly CompatibilityService $compatibilityService,
         private readonly BoardingHouseRecommendationService $boardingHouseRecommendationService,
         private readonly DeepSeekService $deepSeekService,
-        private readonly TenantPreferenceRecommendationService $preferenceRecommendationService,
     ) {}
 
     public function index(Request $request): View
@@ -34,15 +32,16 @@ class RecommendationController extends Controller
 
         $tenant->loadMissing('tenantMatchProfile', 'boardingHouse:id,name');
 
-        $hasPreferences  = $this->preferenceRecommendationService->hasPreferences($tenant);
+        $hasPreferences  = $this->boardingHouseRecommendationService->hasPreferences($tenant);
         $profile         = $tenant->tenantMatchProfile;
-        $notes           = (string) ($profile?->additional_notes ?? '');
-        $preferredLocation = $this->preferenceRecommendationService->extractPreferredLocation($notes);
-        $lifestyleText   = $this->preferenceRecommendationService->extractLifestyleText($notes);
+        $preferenceSummary = $this->boardingHouseRecommendationService->preferenceSummary($tenant);
+        $preferredLocation = $preferenceSummary['preferred_location_label'] ?: null;
+        $lifestyleText   = $preferenceSummary['lifestyle_text'] ?: null;
+        $houseFilters    = $this->houseFilters($request);
 
         // House recommendations — always available once a tenant has any preferences
         $houseRecommendations = $hasPreferences
-            ? $this->preferenceRecommendationService->rank($tenant)
+            ? $this->applyHouseFilters($this->boardingHouseRecommendationService->rank($tenant), $houseFilters)
             : collect();
 
         // Roommate matches — only if match profile is fully completed
@@ -91,6 +90,7 @@ class RecommendationController extends Controller
             'lifestyleText'            => $lifestyleText,
             'houseRecommendations'     => $houseRecommendations,
             'houseRecommendationCount' => $houseRecommendations->count(),
+            'houseFilters'             => $houseFilters,
             'matches'                  => $filteredMatches->take(20),
             'matchCount'               => $filteredMatches->count(),
             'totalMatchCount'          => $matches->count(),
@@ -105,7 +105,7 @@ class RecommendationController extends Controller
         $tenant = $request->user();
         $tenant?->loadMissing('tenantMatchProfile');
         if (! $tenant?->tenantMatchProfile?->completed_at) {
-            return redirect()->route('user.profile')
+            return redirect()->route('user.preferences.index')
                 ->with('status', 'Please complete your match profile before viewing recommendations.');
         }
 
@@ -117,7 +117,7 @@ class RecommendationController extends Controller
         $tenant = $request->user();
         $tenant?->loadMissing('tenantMatchProfile');
         if (! $tenant?->tenantMatchProfile?->completed_at) {
-            return redirect()->route('user.profile')
+            return redirect()->route('user.preferences.index')
                 ->with('status', 'Please complete your match profile before viewing recommendations.');
         }
 
@@ -174,6 +174,73 @@ class RecommendationController extends Controller
             'direction' => $latest->sender_id === $tenant->id ? 'outgoing' : 'incoming',
             'request' => $latest,
         ];
+    }
+
+    private function houseFilters(Request $request): array
+    {
+        $sort = $this->allowedFilterValue($request->query('house_sort'), [
+            'highest_match',
+            'lowest_rent',
+            'nearest_location',
+        ]) ?? 'highest_match';
+
+        $roomType = $this->allowedFilterValue($request->query('room_type'), [
+            'any',
+            'private',
+            'shared',
+            'bedspace',
+            'studio',
+        ]);
+
+        return [
+            'house_sort' => $sort,
+            'room_type' => $roomType === 'any' ? null : $roomType,
+        ];
+    }
+
+    private function applyHouseFilters($recommendations, array $filters)
+    {
+        $items = collect($recommendations);
+
+        if (! empty($filters['room_type'])) {
+            $items = $items->filter(fn ($item) => $this->houseMatchesRoomType($item['house'], $filters['room_type']));
+        }
+
+        $items = match ($filters['house_sort']) {
+            'lowest_rent' => $items->sortBy(fn ($item) => $item['recommendation']['price'] ?? INF),
+            'nearest_location' => $items->sortByDesc(fn ($item) => $item['recommendation']['scores']['distance'] ?? 0),
+            default => $items->sortByDesc(fn ($item) => $item['recommendation']['overall_score'] ?? 0),
+        };
+
+        return $items->values();
+    }
+
+    private function houseMatchesRoomType(BoardingHouse $house, string $roomType): bool
+    {
+        $needle = match ($roomType) {
+            'private' => ['private', 'single'],
+            'shared' => ['shared'],
+            'bedspace' => ['bed', 'bedspace'],
+            'studio' => ['studio', 'apartment'],
+            default => [],
+        };
+
+        if ($needle === []) {
+            return true;
+        }
+
+        $text = strtolower(trim(implode(' ', array_filter([
+            $house->property_type ?? null,
+            $house->roomCategories?->pluck('name')->implode(' '),
+        ]))));
+
+        foreach ($needle as $term) {
+            if (str_contains($text, $term)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function matchFilters(Request $request): array

@@ -1,4 +1,18 @@
 <x-guest-layout>
+    @php
+        $user = auth()->user();
+        $isVerified = $user?->hasVerifiedEmail();
+    @endphp
+
+    <div class="mb-4 rounded-md border px-4 py-3 text-sm {{ $isVerified ? 'border-green-200 bg-green-50 text-green-700' : 'border-amber-200 bg-amber-50 text-amber-700' }}">
+        <p class="font-semibold">
+            {{ $isVerified ? 'Verified Account' : 'Pending Verification' }}
+        </p>
+        <p class="mt-1">
+            {{ $isVerified ? 'Your email is verified and your account is ready.' : 'Email Not Verified. Please verify your email before accessing the system.' }}
+        </p>
+    </div>
+
     <div class="mb-4 text-sm text-gray-600">
         {{ __('Thanks for signing up! Before getting started, could you verify your email address by clicking on the link we just emailed to you? If you didn\'t receive the email, we will gladly send you another.') }}
     </div>

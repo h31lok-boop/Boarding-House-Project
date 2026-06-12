@@ -3,8 +3,14 @@
 @php
     $options               = $fieldOptions ?? [];
     $matchProfilesAvailable = $matchProfilesAvailable ?? true;
+    $tenantPreference      = $tenantPreference ?? null;
     $selectedHobbies       = old('hobbies', $profile->hobbies ?? ['reading', 'coding']);
     $selectedAmenityIds    = collect(old('preferred_amenity_ids', $profile->preferred_amenity_ids ?? []))->map(fn($id) => (int)$id)->all();
+    $selectedAmenityNames  = collect(old('preferred_amenities', $tenantPreference?->amenities ?? []))
+        ->map(fn($name) => trim((string) $name))
+        ->filter()
+        ->values()
+        ->all();
 
     $fallbackAmenities = collect(['Wi-Fi','Study Table','Air Conditioning','Kitchen','Laundry','Parking','CCTV','Water Included','Electricity Included','Security Guard','Pet Friendly']);
     $visibleAmenities  = ($amenities ?? collect())->isNotEmpty()
@@ -22,7 +28,23 @@
     $dash   = round($circ * $completionPct / 100, 2);
     $gap    = round($circ - $dash, 2);
 
-    $locationTags = ['Poblacion', 'Aplaya', 'Mahayahay', 'Zone 1', 'Zone 2'];
+    if (!$selectedAmenityNames && $selectedAmenityIds) {
+        $selectedAmenityNames = collect($amenities ?? [])
+            ->whereIn('id', $selectedAmenityIds)
+            ->pluck('name')
+            ->values()
+            ->all();
+    }
+
+    $locationTags = collect(old('preferred_location')
+            ? explode(',', old('preferred_location'))
+            : ($tenantPreference?->preferred_locations ?? ['Poblacion', 'Aplaya', 'Mahayahay', 'Zone 1', 'Zone 2']))
+        ->map(fn($location) => trim((string) $location))
+        ->filter()
+        ->values()
+        ->all();
+    $selectedAmenityNames = $selectedAmenityNames ?: ['Wi-Fi','Study Table','Aircon','Laundry','Parking','Kitchen'];
+    $savedSafetyPreference = collect($tenantPreference?->safety_preferences ?? [])->first(fn($item) => in_array($item, ['standard', 'high', 'very_high'], true)) ?: 'high';
 
     $priceRanges = [
         ['₱20,000 – ₱50,000', '₱50,000 – ₱100,000', 'Below ₱20,000', 'Above ₱100,000'],
@@ -61,16 +83,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
 
 <div
     x-data="{
-        roomType:      '{{ old('room_type',      $profile->room_type      ?? 'shared') }}',
+        roomType:      '{{ old('room_type',      $tenantPreference?->room_type ?? 'shared') }}',
         studyHabits:   '{{ old('study_habits',   $profile->study_habits   ?? 'quiet_focus') }}',
         cleanliness:   {{ (int) old('cleanliness_level', $profile->cleanliness_level ?? 3) }},
-        safetyPref:    'high',
-        distanceKm:    1.0,
-        noiseTolerance:{{ (int) old('noise_tolerance', $profile->noise_tolerance ?? 30) }},
+        safetyPref:    '{{ old('safety_preference', $savedSafetyPreference) }}',
+        distanceKm:    {{ (float) old('preferred_distance', $tenantPreference?->distance_from_school ?? 1.0) }},
+        noiseTolerance:{{ (int) old('noise_tolerance', (($profile->noise_tolerance ?? 2) <= 5 ? (($profile->noise_tolerance ?? 2) * 20) : ($profile->noise_tolerance ?? 30))) }},
         locationTags:  {{ \Illuminate\Support\Js::from($locationTags) }},
         locationSearch:'',
         amenityOpen:   false,
-        selectedAmenities: ['Wi-Fi','Study Table','Aircon','Laundry','Parking','Kitchen'],
+        selectedAmenities: {{ \Illuminate\Support\Js::from($selectedAmenityNames) }},
         addLocation(loc){ loc=loc.trim(); if(loc&&!this.locationTags.includes(loc)) this.locationTags.push(loc); this.locationSearch=''; },
         removeLocation(loc){ this.locationTags=this.locationTags.filter(l=>l!==loc); },
         toggleAmenity(name){ const i=this.selectedAmenities.indexOf(name); if(i===-1) this.selectedAmenities.push(name); else this.selectedAmenities.splice(i,1); },
@@ -91,6 +113,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
         <p class="mt-1 text-sm text-gray-500">Tell us about your lifestyle and needs so we can recommend the best boarding houses for you.</p>
     </div>
 
+    @if(session('success'))
+    <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
+        {{ session('success') }}
+    </div>
+    @endif
+
+    @if(session('error'))
+    <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+        {{ session('error') }}
+    </div>
+    @endif
+
     @if(!$matchProfilesAvailable)
     <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
         <svg class="inline h-4 w-4 mr-1 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
@@ -100,7 +134,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
 
 
     {{-- Two-column layout --}}
-    <form method="POST" action="{{ route('user.profile.update') }}" class="grid gap-5 xl:grid-cols-[1fr_280px]">
+    <form method="POST" action="{{ route('user.preferences.update') }}" class="grid gap-5 xl:grid-cols-[1fr_280px]">
         @csrf @method('PUT')
 
         {{-- ════ LEFT: Main Form Card ════ --}}
@@ -342,9 +376,6 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
                 @foreach((array)$selectedHobbies as $hobby)
                 <input type="hidden" name="hobbies[]" value="{{ $hobby }}">
                 @endforeach
-                @foreach($selectedAmenityIds as $aid)
-                <input type="hidden" name="preferred_amenity_ids[]" value="{{ $aid }}">
-                @endforeach
 
             </div>
 
@@ -445,7 +476,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
                 <p class="text-center text-sm font-bold text-gray-800 mb-1">Your preferences are ready!</p>
                 <p class="text-center text-xs text-gray-400 mb-4">We have enough information to provide accurate recommendations.</p>
 
-                <a href="{{ route('user.recommendations') }}"
+                <a href="{{ route('user.matchmaking.index') }}"
                    class="flex items-center justify-center gap-2 w-full rounded-xl border border-gray-200 py-2.5 text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors">
                     <svg class="h-3.5 w-3.5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/></svg>
                     Learn how it works

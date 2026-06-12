@@ -77,7 +77,7 @@ class AccountController extends Controller
         $tenant->save();
 
         return redirect()
-            ->route('user.settings')
+            ->route('user.settings.index')
             ->with('status', 'tenant-account-updated');
     }
 

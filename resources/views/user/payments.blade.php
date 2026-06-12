@@ -143,7 +143,7 @@
         <div class="ui-card overflow-hidden">
             <div class="flex items-center justify-between px-6 py-4 border-b ui-border">
                 <h2 class="text-base font-bold text-gray-900">Recent Transactions</h2>
-                <a href="{{ route('user.payments') }}" class="text-sm font-semibold text-indigo-600 hover:underline">View All</a>
+                <a href="{{ route('user.payments.index') }}" class="text-sm font-semibold text-indigo-600 hover:underline">View All</a>
             </div>
 
             <div class="overflow-x-auto">
@@ -254,7 +254,7 @@
                 </div>
             @else
                 <div class="border-t ui-border px-6 py-4 text-center">
-                    <a href="{{ route('user.payments') }}"
+                    <a href="{{ route('user.payments.index') }}"
                        class="text-sm font-semibold text-indigo-600 hover:underline">
                         View All Transactions
                     </a>
@@ -505,7 +505,7 @@
                 <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Filter by Status</p>
                 <div class="flex flex-wrap gap-2">
                     @foreach([''=>'All', 'pending'=>'Pending', 'paid'=>'Paid', 'overdue'=>'Overdue', 'cancelled'=>'Cancelled'] as $val=>$lbl)
-                        <a href="{{ route('user.payments', array_filter(['status'=>$val ?: null])) }}"
+                        <a href="{{ route('user.payments.index', array_filter(['status'=>$val ?: null])) }}"
                            class="px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors
                                {{ request('status') === ($val ?: null) || (!request('status') && !$val)
                                    ? 'bg-indigo-600 text-white border-indigo-600'
@@ -757,7 +757,7 @@
         </div>
         <div class="flex items-center gap-1 text-sm text-gray-500 sm:shrink-0">
             Need help with payments?
-            <a href="{{ route('user.messages') }}" class="ml-1 font-semibold text-indigo-600 hover:underline">Contact Support</a>
+            <a href="{{ route('user.messages.index') }}" class="ml-1 font-semibold text-indigo-600 hover:underline">Contact Support</a>
         </div>
     </div>
 

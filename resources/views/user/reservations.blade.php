@@ -67,7 +67,7 @@
                 <h1 class="mt-1 text-2xl font-bold text-gray-900">Bookings & Reservations</h1>
                 <p class="mt-0.5 text-sm ui-muted">Track and manage all your boarding house booking requests.</p>
             </div>
-            <a href="{{ route('user.browse') }}"
+            <a href="{{ route('user.boarding-houses.index') }}"
                class="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white transition-all hover:opacity-90"
                style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
@@ -134,7 +134,7 @@
                     @php
                         $isActive = request('status') === $status || (!request('status') && $status === null);
                     @endphp
-                    <a href="{{ route('user.reservations', array_filter(['status' => $status])) }}"
+                    <a href="{{ route('user.reservations.index', array_filter(['status' => $status])) }}"
                        class="whitespace-nowrap px-4 py-3 text-sm font-semibold border-b-2 transition-colors {{ $isActive ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
                         {{ $tab }}
                         @if($tab === 'All' && $totalRes > 0)
@@ -266,7 +266,7 @@
                         </div>
                         <h3 class="text-base font-bold text-gray-800 mb-1">No reservations found</h3>
                         <p class="text-sm ui-muted mb-5">Browse approved boarding houses and send a reservation request to get started.</p>
-                        <a href="{{ route('user.browse') }}"
+                        <a href="{{ route('user.boarding-houses.index') }}"
                            class="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white"
                            style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
                             Browse Listings
@@ -342,21 +342,21 @@
                 <div class="ui-card p-5">
                     <h3 class="text-sm font-bold text-gray-800 mb-3">Quick Actions</h3>
                     <div class="space-y-2">
-                        <a href="{{ route('user.browse') }}"
+                        <a href="{{ route('user.boarding-houses.index') }}"
                            class="flex items-center gap-3 rounded-xl p-3 text-sm font-medium hover:bg-gray-50 transition-colors text-gray-700 border border-gray-100">
                             <div class="h-8 w-8 rounded-lg bg-indigo-50 flex items-center justify-center">
                                 <svg class="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                             </div>
                             Find New Boarding House
                         </a>
-                        <a href="{{ route('user.messages') }}"
+                        <a href="{{ route('user.messages.index') }}"
                            class="flex items-center gap-3 rounded-xl p-3 text-sm font-medium hover:bg-gray-50 transition-colors text-gray-700 border border-gray-100">
                             <div class="h-8 w-8 rounded-lg bg-violet-50 flex items-center justify-center">
                                 <svg class="h-4 w-4 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
                             </div>
                             Message an Owner
                         </a>
-                        <a href="{{ route('user.payments') }}"
+                        <a href="{{ route('user.payments.index') }}"
                            class="flex items-center gap-3 rounded-xl p-3 text-sm font-medium hover:bg-gray-50 transition-colors text-gray-700 border border-gray-100">
                             <div class="h-8 w-8 rounded-lg bg-emerald-50 flex items-center justify-center">
                                 <svg class="h-4 w-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="14" rx="2" stroke-width="1.7"/><path stroke-linecap="round" stroke-width="1.7" d="M3 10h18"/></svg>
@@ -381,7 +381,7 @@
             </div>
             <div class="flex items-center gap-1 text-sm text-gray-500 sm:shrink-0">
                 Need help?
-                <a href="{{ route('user.messages') }}" class="ml-1 font-semibold text-indigo-600 hover:underline">Contact Support</a>
+                <a href="{{ route('user.messages.index') }}" class="ml-1 font-semibold text-indigo-600 hover:underline">Contact Support</a>
             </div>
         </div>
 

@@ -28,8 +28,23 @@ class GeoBoardAccessSeeder extends Seeder
             ->whereNotIn('name', ['admin', 'user'])
             ->delete();
 
-        $admin = $this->upsertUser('Jani', $this->seedEmailFor('jani', 'jani@example.com'), $this->seedPasswordFor('jani'), 'admin', '09170000002');
-        $user = $this->upsertUser('Hazel', $this->seedEmailFor('hazel', 'hazel@example.com'), $this->seedPasswordFor('hazel'), 'user', '09170000006');
+        $admin = $this->upsertUser(
+            'Jani',
+            $this->seedEmailFor('owner', 'jani@example.com', ['jani']),
+            $this->seedPasswordFor('owner', ['admin', 'jani']),
+            'admin',
+            '09170000002',
+            $this->seedUsernameFor('owner', 'owner')
+        );
+
+        $user = $this->upsertUser(
+            'Hazel',
+            $this->seedEmailFor('student', 'hazel@example.com', ['tenant', 'hazel']),
+            $this->seedPasswordFor('student', ['user', 'tenant', 'hazel']),
+            'user',
+            '09170000006',
+            $this->seedUsernameFor('student', 'student')
+        );
 
         foreach ([$admin, $user] as $account) {
             $account->syncRoles([$account->role]);
@@ -42,12 +57,19 @@ class GeoBoardAccessSeeder extends Seeder
         $this->removeOtherAccounts($admin, $user);
     }
 
-    private function upsertUser(string $name, string $email, string $password, string $role, string $contactNumber): User
+    private function upsertUser(
+        string $name,
+        string $email,
+        string $password,
+        string $role,
+        string $contactNumber,
+        ?string $username = null
+    ): User
     {
         $hashed = Hash::make($password);
 
         $user = User::firstOrNew(['email' => $email]);
-        $user->forceFill([
+        $attributes = [
             'name' => $name,
             'password' => $hashed,
             'password_hash' => $hashed,
@@ -57,7 +79,18 @@ class GeoBoardAccessSeeder extends Seeder
             'status' => 'active',
             'is_active' => true,
             'email_verified_at' => now(),
-        ])->save();
+        ];
+
+        if ($username && Schema::hasColumn('users', 'username')) {
+            User::query()
+                ->where('username', $username)
+                ->where('email', '<>', $email)
+                ->update(['username' => null]);
+
+            $attributes['username'] = $username;
+        }
+
+        $user->forceFill($attributes)->save();
 
         return $user;
     }
@@ -209,20 +242,39 @@ class GeoBoardAccessSeeder extends Seeder
         }
     }
 
-    private function seedPasswordFor(string $role): string
+    /**
+     * @param  array<int, string>  $aliases
+     */
+    private function seedPasswordFor(string $account, array $aliases = []): string
     {
-        $roleKey = 'SEED_PASSWORD_'.strtoupper($role);
-        $password = (string) env($roleKey, '');
-        if ($password !== '') {
-            return $password;
+        foreach (array_unique([$account, ...$aliases]) as $key) {
+            $password = (string) env('SEED_PASSWORD_'.strtoupper($key), '');
+            if ($password !== '') {
+                return $password;
+            }
         }
 
         return (string) env('SEED_DEFAULT_PASSWORD', 'Password123!');
     }
 
-    private function seedEmailFor(string $user, string $fallback): string
+    /**
+     * @param  array<int, string>  $aliases
+     */
+    private function seedEmailFor(string $user, string $fallback, array $aliases = []): string
     {
-        return (string) env('SEED_EMAIL_'.strtoupper($user), $fallback);
+        foreach (array_unique([$user, ...$aliases]) as $key) {
+            $email = (string) env('SEED_EMAIL_'.strtoupper($key), '');
+            if ($email !== '') {
+                return $email;
+            }
+        }
+
+        return $fallback;
+    }
+
+    private function seedUsernameFor(string $user, string $fallback): string
+    {
+        return (string) env('SEED_USERNAME_'.strtoupper($user), $fallback);
     }
 
     private function ensureSafeSeedPasswordUsage(): void

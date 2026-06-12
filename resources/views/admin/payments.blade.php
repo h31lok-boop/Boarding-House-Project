@@ -7,26 +7,24 @@
             'overdue'           => 'bg-rose-100 text-rose-700 border-rose-200',
             default             => 'bg-slate-100 text-slate-700 border-slate-200',
         };
+
+        $paymentsUrl = route('admin.payments');
+        $transactionsUrl = \Illuminate\Support\Facades\Route::has('admin.transactions.index')
+            ? route('admin.transactions.index')
+            : route('admin.payments', ['tab' => 'transactions']);
     @endphp
 
     <div x-data="{ addOpen: false, detailOpen: false, selected: {} }" class="space-y-6">
 
         {{-- Header --}}
-        <div class="ui-card p-6">
+        <div class="ui-card rounded-2xl p-6 shadow-sm">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                    <p class="text-sm font-semibold uppercase tracking-[0.18em] text-[color:var(--brand-600)]">Finance</p>
-                    <h1 class="mt-2 text-2xl font-bold">
-                        @if ($tab === 'payouts') Payouts
-                        @elseif ($tab === 'transactions') Transactions
-                        @else Payments
-                        @endif
-                    </h1>
+                    <p class="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">Finance</p>
+                    <h1 class="mt-2 text-2xl font-bold">{{ $tab === 'transactions' ? 'Transactions' : 'Payments' }}</h1>
                     <p class="mt-2 text-sm ui-muted">Track rental payment status, due dates, references, and payment history.</p>
                 </div>
-                @if ($tab !== 'payouts')
-                    <button type="button" @click="addOpen = true" class="btn-primary">Record Payment</button>
-                @endif
+                <button type="button" @click="addOpen = true" class="btn-primary">Record Payment</button>
             </div>
         </div>
 
@@ -36,11 +34,15 @@
                 $tabs = [
                     ''             => 'Payments',
                     'transactions' => 'Transactions',
-                    'payouts'      => 'Payouts',
+                ];
+
+                $tabUrls = [
+                    ''             => $paymentsUrl,
+                    'transactions' => $transactionsUrl,
                 ];
             @endphp
             @foreach ($tabs as $tabKey => $tabLabel)
-                <a href="{{ route('admin.payments', $tabKey ? ['tab' => $tabKey] : []) }}"
+                <a href="{{ $tabUrls[$tabKey] }}"
                    class="py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap
                           {{ $tab === $tabKey ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500 hover:text-gray-700' }}">
                     {{ $tabLabel }}
@@ -48,55 +50,11 @@
             @endforeach
         </div>
 
-        @if ($tab === 'payouts')
-            {{-- Payouts Tab --}}
-            <div class="ui-card overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="min-w-full text-sm">
-                        <thead class="bg-[color:var(--surface-2)] text-xs uppercase ui-muted">
-                            <tr>
-                                <th class="px-5 py-3 text-left">Boarding House</th>
-                                <th class="px-5 py-3 text-left">Payments Collected</th>
-                                <th class="px-5 py-3 text-left">Total Revenue</th>
-                                <th class="px-5 py-3 text-left">Last Payment</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y ui-border">
-                            @forelse ($payouts as $payout)
-                                <tr class="hover:bg-gray-50">
-                                    <td class="px-5 py-4 font-semibold text-gray-800">{{ $payout['house'] }}</td>
-                                    <td class="px-5 py-4 ui-muted">{{ $payout['count'] }} {{ Str::plural('payment', $payout['count']) }}</td>
-                                    <td class="px-5 py-4 font-semibold text-emerald-600">PHP {{ number_format($payout['total'], 2) }}</td>
-                                    <td class="px-5 py-4 ui-muted text-xs">
-                                        {{ $payout['last_paid'] ? \Carbon\Carbon::parse($payout['last_paid'])->format('M d, Y') : '—' }}
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="4" class="px-5 py-12 text-center ui-muted">No paid transactions recorded yet.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                        @if ($payouts->isNotEmpty())
-                            <tfoot class="bg-[color:var(--surface-2)]">
-                                <tr>
-                                    <td class="px-5 py-3 text-xs font-semibold uppercase ui-muted">Total</td>
-                                    <td class="px-5 py-3 font-semibold">{{ $payouts->sum('count') }} payments</td>
-                                    <td class="px-5 py-3 font-bold text-emerald-600">PHP {{ number_format($payouts->sum('total'), 2) }}</td>
-                                    <td></td>
-                                </tr>
-                            </tfoot>
-                        @endif
-                    </table>
-                </div>
-            </div>
-
-        @else
-            {{-- Payments / Transactions Tab --}}
+        {{-- Payments / Transactions Tab --}}
             <form method="GET"
-                  action="{{ route('admin.payments', $tab ? ['tab' => $tab] : []) }}"
+                  action="{{ $tab === 'transactions' ? $transactionsUrl : $paymentsUrl }}"
                   class="ui-card p-4 grid gap-3 md:grid-cols-[180px_auto]">
-                @if ($tab)
+                @if ($tab === 'transactions' && ! \Illuminate\Support\Facades\Route::has('admin.transactions.index'))
                     <input type="hidden" name="tab" value="{{ $tab }}">
                 @endif
                 <select name="status" class="ui-input text-sm">
@@ -162,7 +120,15 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="px-5 py-8 text-center ui-muted">No payment records found.</td>
+                                    <td colspan="6" class="px-5 py-10">
+                                        <div class="mx-auto max-w-sm text-center">
+                                            <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                                                @include('components.sidebar.partials.admin-icon', ['name' => 'transactions'])
+                                            </div>
+                                            <p class="mt-3 font-semibold text-slate-900">No transactions found</p>
+                                            <p class="mt-1 text-sm text-slate-500">Rental payment records will appear here once payments are recorded.</p>
+                                        </div>
+                                    </td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -170,8 +136,6 @@
                 </div>
                 <div class="border-t ui-border px-5 py-4">{{ $payments->links() }}</div>
             </div>
-        @endif
-
         {{-- Record Payment Modal --}}
         <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak
              @click.self="addOpen = false" @keydown.escape.window="addOpen = false"
@@ -229,7 +193,7 @@
                   class="ui-card w-full max-w-lg overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
                 @csrf @method('PATCH')
 
-                {{-- ── Modal Header ── --}}
+                {{-- Modal Header --}}
                 <div class="flex items-center justify-between px-6 py-4 border-b ui-border">
                     <div class="flex items-center gap-3">
                         <div class="h-9 w-9 rounded-xl flex items-center justify-center"
@@ -249,7 +213,7 @@
                     </button>
                 </div>
 
-                {{-- ── Scrollable body ── --}}
+                {{-- Scrollable Body --}}
                 <div class="overflow-y-auto flex-1">
 
                     {{-- Payment info (read-only) --}}
@@ -258,11 +222,11 @@
                         <div class="grid grid-cols-2 gap-3 text-sm">
                             <div>
                                 <p class="text-xs ui-muted">Tenant</p>
-                                <p class="font-semibold text-gray-900 mt-0.5" x-text="selected.tenant || '—'"></p>
+                                <p class="font-semibold text-gray-900 mt-0.5" x-text="selected.tenant || '-'"></p>
                             </div>
                             <div>
                                 <p class="text-xs ui-muted">Boarding House</p>
-                                <p class="font-medium text-gray-800 mt-0.5" x-text="selected.house || '—'"></p>
+                                <p class="font-medium text-gray-800 mt-0.5" x-text="selected.house || '-'"></p>
                             </div>
                             <div>
                                 <p class="text-xs ui-muted">Amount</p>
@@ -270,7 +234,7 @@
                             </div>
                             <div>
                                 <p class="text-xs ui-muted">Due Date</p>
-                                <p class="font-medium text-gray-800 mt-0.5" x-text="selected.due_date || '—'"></p>
+                                <p class="font-medium text-gray-800 mt-0.5" x-text="selected.due_date || '-'"></p>
                             </div>
                             <div>
                                 <p class="text-xs ui-muted">Current Status</p>
@@ -351,13 +315,13 @@
                             <span class="text-sm font-medium text-gray-700">Notes</span>
                             <textarea name="notes" rows="3"
                                       class="ui-input mt-1.5 text-sm resize-none"
-                                      placeholder="Add any notes about this payment…"
+                                      placeholder="Add any notes about this payment..."
                                       x-effect="$el.value = selected.notes || ''"></textarea>
                         </label>
                     </div>
                 </div>
 
-                {{-- ── Footer ── --}}
+                {{-- Footer --}}
                 <div class="flex items-center justify-between gap-3 px-6 py-4 border-t ui-border bg-[color:var(--surface-2)]">
                     <p class="text-xs ui-muted hidden sm:block">Changes will be saved immediately.</p>
                     <div class="flex gap-2 ml-auto">

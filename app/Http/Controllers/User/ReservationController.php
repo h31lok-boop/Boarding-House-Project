@@ -12,7 +12,7 @@ class ReservationController extends Controller
 {
     public function store(Request $request, BoardingHouse $boardingHouse)
     {
-        // ── Daily limit: one reservation request per user per day ────────────
+        // Daily limit: one reservation request per user per day.
         $alreadySentToday = Reservation::where('user_id', $request->user()->id)
             ->whereDate('created_at', today())
             ->exists();
@@ -28,6 +28,7 @@ class ReservationController extends Controller
             'room_id' => ['nullable', 'integer', 'exists:rooms,id'],
             'check_in_date' => ['nullable', 'date'],
             'check_out_date' => ['nullable', 'date', 'after_or_equal:check_in_date'],
+            'occupants' => ['nullable', 'integer', 'min:1', 'max:20'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -48,13 +49,18 @@ class ReservationController extends Controller
             }
         }
 
+        $notes = isset($data['notes']) ? strip_tags(trim((string) $data['notes'])) : null;
+        if (! empty($data['occupants'])) {
+            $notes = trim('Occupants: '.$data['occupants'].($notes ? "\n".$notes : ''));
+        }
+
         Reservation::create([
             'user_id' => $request->user()->id,
             'boarding_house_id' => $boardingHouse->id,
             'room_id' => $data['room_id'] ?? null,
             'check_in_date' => $data['check_in_date'] ?? null,
             'check_out_date' => $data['check_out_date'] ?? null,
-            'notes' => isset($data['notes']) ? strip_tags(trim((string) $data['notes'])) : null,
+            'notes' => $notes,
             'status' => 'pending',
         ]);
 

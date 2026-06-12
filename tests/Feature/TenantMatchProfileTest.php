@@ -11,9 +11,9 @@ test('user can view the match profile form', function () {
     ]);
 
     $this->actingAs($user)
-        ->get(route('user.profile'))
+        ->get(route('user.preferences.index'))
         ->assertOk()
-        ->assertSee('Match Profile');
+        ->assertSee('My Preferences');
 });
 
 test('admin cannot access the user match profile form', function () {
@@ -24,7 +24,7 @@ test('admin cannot access the user match profile form', function () {
     ]);
 
     $this->actingAs($admin)
-        ->get(route('user.profile'))
+        ->get(route('user.preferences.index'))
         ->assertForbidden();
 });
 
@@ -39,7 +39,7 @@ test('user can save matchmaking preferences', function () {
     ]);
 
     $this->actingAs($user)
-        ->put(route('user.profile.update'), [
+        ->put(route('user.preferences.update'), [
             'budget_min' => 2500,
             'budget_max' => 4500,
             'gender_preference' => 'no_preference',
@@ -55,7 +55,7 @@ test('user can save matchmaking preferences', function () {
             'preferred_amenity_ids' => [$wifi->id, $laundry->id],
             'additional_notes' => 'Prefers quiet evenings and shared cleaning routines.',
         ])
-        ->assertRedirect(route('user.profile'));
+        ->assertRedirect(route('user.preferences.index'));
 
     $this->assertDatabaseHas('tenant_match_profiles', [
         'user_id' => $user->id,
@@ -76,11 +76,19 @@ test('registration creates a user match profile', function () {
     $this->post(route('register'), [
         'name' => 'Match Ready User',
         'email' => 'match-ready@example.com',
+        'role' => 'user',
         'phone' => '09179999999',
-        'institution_name' => 'DSSC',
-        'password' => 'password',
-        'password_confirmation' => 'password',
-    ])->assertRedirect(route('dashboard', absolute: false));
+        'school' => 'DSSC',
+        'course_year' => 'BSIT 3',
+        'preferred_location' => 'Digos City',
+        'rental_budget' => 2500,
+        'budget_min' => 2500,
+        'budget_max' => 4500,
+        'lifestyle_info' => 'Prefers quiet evenings and reliable internet.',
+        'password' => 'BoardSafe9!',
+        'password_confirmation' => 'BoardSafe9!',
+        'terms' => '1',
+    ])->assertRedirect(route('user.dashboard', absolute: false));
 
     $user = User::query()->where('email', 'match-ready@example.com')->first();
 

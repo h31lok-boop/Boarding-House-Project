@@ -40,7 +40,7 @@
             'avatar'      => $avatarFor($ownerName),
             'unread'      => $index < 2 ? (2 - $index) : 0,
             'online'      => in_array($index, [3, 5]),
-            'details_url' => $house ? route('user.browse.show', $house) : route('user.messages'),
+            'details_url' => $house ? route('user.boarding-houses.show', $house) : route('user.messages.index'),
         ];
     });
 

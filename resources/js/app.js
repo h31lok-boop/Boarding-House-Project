@@ -27,10 +27,153 @@ const applyTheme = (theme) => {
     });
 };
 
+const sidebarMobileMedia = window.matchMedia('(max-width: 768px)');
+let sidebarControlsReady = false;
+
+const getStorageItem = (key) => {
+    try {
+        return localStorage.getItem(key);
+    } catch (error) {
+        return null;
+    }
+};
+
+const setStorageItem = (key, value) => {
+    try {
+        localStorage.setItem(key, value);
+    } catch (error) {
+        // Keep the UI usable if browser storage is unavailable.
+    }
+};
+
+const sidebarShellName = () => {
+    if (document.querySelector('.admin-shell')) {
+        return 'admin';
+    }
+
+    if (document.querySelector('.user-shell')) {
+        return 'user';
+    }
+
+    return 'default';
+};
+
+const sidebarStorageKey = () => `boardmatch:${sidebarShellName()}:sidebar`;
+
+const storedSidebarState = () => {
+    const stored = getStorageItem(sidebarStorageKey());
+
+    return stored === 'collapsed' ? 'collapsed' : 'expanded';
+};
+
+const syncSidebarControls = () => {
+    const isMobile = sidebarMobileMedia.matches;
+    const mobileOpen = document.documentElement.getAttribute('data-sidebar-mobile') === 'open';
+    const desktopExpanded = document.documentElement.getAttribute('data-sidebar') !== 'collapsed';
+    const expanded = isMobile ? mobileOpen : desktopExpanded;
+
+    document.querySelectorAll('[data-sidebar-toggle]').forEach((btn) => {
+        btn.setAttribute('aria-expanded', String(expanded));
+        btn.setAttribute('aria-label', isMobile
+            ? (mobileOpen ? 'Close sidebar' : 'Open sidebar')
+            : (desktopExpanded ? 'Collapse sidebar' : 'Expand sidebar'));
+    });
+
+    document.documentElement.classList.toggle('sidebar-mobile-open', isMobile && mobileOpen);
+    document.body?.classList.toggle('sidebar-mobile-open', isMobile && mobileOpen);
+};
+
 const applySidebar = (state) => {
-    const resolved = state || localStorage.getItem('sidebar') || 'expanded';
+    const resolved = ['expanded', 'collapsed'].includes(state) ? state : storedSidebarState();
+
     document.documentElement.setAttribute('data-sidebar', resolved);
-    localStorage.setItem('sidebar', resolved);
+    setStorageItem(sidebarStorageKey(), resolved);
+    syncSidebarControls();
+};
+
+const applyMobileSidebar = (state = 'closed') => {
+    const resolved = state === 'open' ? 'open' : 'closed';
+
+    document.documentElement.setAttribute('data-sidebar-mobile', resolved);
+    syncSidebarControls();
+};
+
+const toggleSidebar = () => {
+    if (sidebarMobileMedia.matches) {
+        const current = document.documentElement.getAttribute('data-sidebar-mobile') || 'closed';
+        applyMobileSidebar(current === 'open' ? 'closed' : 'open');
+        return;
+    }
+
+    const current = document.documentElement.getAttribute('data-sidebar') || 'expanded';
+    applySidebar(current === 'collapsed' ? 'expanded' : 'collapsed');
+};
+
+const setupSidebarControls = () => {
+    const shell = document.querySelector('.user-shell, .admin-shell');
+
+    if (!shell || !document.querySelector('[data-sidebar-toggle]')) {
+        return;
+    }
+
+    if (sidebarControlsReady) {
+        syncSidebarControls();
+        return;
+    }
+
+    sidebarControlsReady = true;
+    applySidebar();
+    applyMobileSidebar('closed');
+
+    const closestFromEvent = (event, selector) => (
+        event.target instanceof Element ? event.target.closest(selector) : null
+    );
+
+    document.addEventListener('click', (event) => {
+        const toggle = closestFromEvent(event, '[data-sidebar-toggle]');
+        if (toggle) {
+            event.preventDefault();
+            toggleSidebar();
+            return;
+        }
+
+        if (closestFromEvent(event, '[data-sidebar-overlay]')) {
+            applyMobileSidebar('closed');
+            return;
+        }
+
+        const navLink = closestFromEvent(event, '.user-sidebar-nav a[href], .admin-sidebar-nav a[href]');
+        if (sidebarMobileMedia.matches && navLink) {
+            applyMobileSidebar('closed');
+            return;
+        }
+
+        const sidebarOpen = document.documentElement.getAttribute('data-sidebar-mobile') === 'open';
+        const clickedInsideSidebar = closestFromEvent(event, '.user-sidebar, .admin-sidebar');
+        if (sidebarMobileMedia.matches && sidebarOpen && !clickedInsideSidebar) {
+            applyMobileSidebar('closed');
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && sidebarMobileMedia.matches) {
+            applyMobileSidebar('closed');
+        }
+    });
+
+    const onBreakpointChange = () => {
+        if (!sidebarMobileMedia.matches) {
+            applyMobileSidebar('closed');
+        }
+
+        syncSidebarControls();
+    };
+
+    if (typeof sidebarMobileMedia.addEventListener === 'function') {
+        sidebarMobileMedia.addEventListener('change', onBreakpointChange);
+    } else {
+        sidebarMobileMedia.addListener(onBreakpointChange);
+    }
 };
 
 const setupModalIsolation = () => {
@@ -38,9 +181,28 @@ const setupModalIsolation = () => {
     let focusBeforeOpen = null;
     let queued = false;
     const lockedElements = new Map();
-    const modalSelector = '[data-modal-root], [role="dialog"], .fixed.inset-0.z-50';
+    const modalSelector = [
+        '[data-modal-root]',
+        '[role="dialog"]',
+        '.fixed.inset-0',
+        '.fixed.inset-x-0.inset-y-0',
+    ].join(',');
+    const modalNamePattern = /(modal|dialog|overlay|confirm)/i;
+    const modalContentSelector = [
+        '[data-modal-panel]',
+        'form',
+        '.ui-card',
+        '.rounded-lg',
+        '.rounded-xl',
+        '.rounded-2xl',
+        '.bg-white',
+    ].join(',');
 
     const isVisible = (el) => {
+        if (el.hidden || el.classList.contains('hidden') || el.style.display === 'none') {
+            return false;
+        }
+
         const style = window.getComputedStyle(el);
 
         return style.display !== 'none'
@@ -48,8 +210,32 @@ const setupModalIsolation = () => {
             && el.getClientRects().length > 0;
     };
 
+    const fillsViewport = (el) => {
+        if (!el.classList.contains('fixed')) {
+            return false;
+        }
+
+        return el.classList.contains('inset-0')
+            || (el.classList.contains('inset-x-0') && el.classList.contains('inset-y-0'));
+    };
+
+    const hasHighZIndex = (el) => {
+        const classBased = [...el.classList].some((className) => (
+            className === 'z-40'
+            || className === 'z-50'
+            || className.startsWith('z-[')
+        ));
+        const zIndex = Number.parseInt(window.getComputedStyle(el).zIndex, 10);
+
+        return classBased || (!Number.isNaN(zIndex) && zIndex >= 40);
+    };
+
     const isModalCandidate = (el) => {
         if (!(el instanceof HTMLElement)) {
+            return false;
+        }
+
+        if (el.matches('[data-modal-skip], [data-modal-backdrop]')) {
             return false;
         }
 
@@ -57,13 +243,19 @@ const setupModalIsolation = () => {
             return true;
         }
 
-        return el.classList.contains('fixed')
-            && el.classList.contains('inset-0')
-            && el.classList.contains('z-50')
+        const modalIdentity = [
+            el.id,
+            el.getAttribute('aria-label'),
+            el.getAttribute('x-data'),
+            el.getAttribute('x-show'),
+        ].filter(Boolean).join(' ');
+
+        return fillsViewport(el)
+            && hasHighZIndex(el)
             && (
                 el.hasAttribute('x-show')
-                || /modal/i.test(el.id || '')
-                || Boolean(el.querySelector('form, .ui-card'))
+                || modalNamePattern.test(modalIdentity)
+                || Boolean(el.querySelector(modalContentSelector))
             );
     };
 
@@ -152,6 +344,7 @@ const setupModalIsolation = () => {
         const modals = openModals();
         const topModal = modals.at(-1) || null;
         const newlyOpened = topModal && topModal !== activeModal;
+        const modalChanged = topModal !== activeModal;
 
         if (newlyOpened) {
             focusBeforeOpen = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -168,10 +361,15 @@ const setupModalIsolation = () => {
             topModal.setAttribute('data-modal-active', 'true');
             topModal.setAttribute('role', topModal.getAttribute('role') || 'dialog');
             topModal.setAttribute('aria-modal', 'true');
+            topModal.setAttribute('aria-hidden', 'false');
         }
 
+        document.documentElement.classList.toggle('modal-open', Boolean(topModal));
         document.body.classList.toggle('modal-open', Boolean(topModal));
-        lockBackground(topModal);
+
+        if (modalChanged) {
+            lockBackground(topModal);
+        }
 
         if (newlyOpened) {
             window.setTimeout(() => focusModal(topModal), 0);
@@ -282,7 +480,7 @@ const setupModalIsolation = () => {
 
     new MutationObserver(queueModalState).observe(document.body, {
         attributes: true,
-        attributeFilter: ['class', 'style', 'hidden'],
+        attributeFilter: ['aria-hidden', 'class', 'open', 'style', 'hidden'],
         childList: true,
         subtree: true,
     });
@@ -292,19 +490,13 @@ const setupModalIsolation = () => {
 
 document.addEventListener('DOMContentLoaded', () => {
     applyTheme();
-    applySidebar();
+    setupSidebarControls();
     setupModalIsolation();
 
     document.querySelectorAll('[data-theme-toggle]').forEach((btn) => {
         btn.addEventListener('click', () => {
             const current = document.documentElement.getAttribute('data-theme') || 'light';
             applyTheme(current === 'dark' ? 'light' : 'dark');
-        });
-    });
-    document.querySelectorAll('[data-sidebar-toggle]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const current = document.documentElement.getAttribute('data-sidebar') || 'expanded';
-            applySidebar(current === 'collapsed' ? 'expanded' : 'collapsed');
         });
     });
 });

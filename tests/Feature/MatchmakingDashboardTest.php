@@ -4,7 +4,7 @@ use App\Models\RoommateMatchRequest;
 use App\Models\TenantMatchProfile;
 use App\Models\User;
 
-test('admin dashboard shows matchmaking analytics cards', function () {
+test('admin dashboard keeps matchmaking analytics off the simplified dashboard', function () {
     $admin = User::factory()->create([
         'role' => 'admin',
         'is_active' => true,
@@ -14,8 +14,9 @@ test('admin dashboard shows matchmaking analytics cards', function () {
     $this->actingAs($admin)
         ->get(route('admin.dashboard'))
         ->assertOk()
-        ->assertSee('Total Match Requests')
-        ->assertSee('Acceptance Rate');
+        ->assertDontSee('Total Match Requests')
+        ->assertDontSee('Acceptance Rate')
+        ->assertSee('Latest Reservations');
 });
 
 test('user dashboard shows roommate match status section', function () {

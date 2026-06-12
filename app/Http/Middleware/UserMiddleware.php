@@ -17,7 +17,7 @@ class UserMiddleware
         }
 
         if (! $user->isUser()) {
-            abort(403, 'You are not authorized to access this page.');
+            abort(403, 'Access denied. This page is only for tenants.');
         }
 
         return $next($request);

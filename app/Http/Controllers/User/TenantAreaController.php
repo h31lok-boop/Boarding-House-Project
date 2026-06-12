@@ -327,7 +327,7 @@ class TenantAreaController extends Controller
         });
 
         if (! $result) {
-            return redirect()->route('user.payments')
+            return redirect()->route('user.payments.index')
                 ->with('error', 'Payment could not be processed. Please try again.');
         }
 
@@ -335,7 +335,7 @@ class TenantAreaController extends Controller
             . ($payMethod->last_four     ? ' ••••' . $payMethod->last_four    : '')
             . ($payMethod->account_number ? ' ' . $payMethod->account_number  : '');
 
-        return redirect()->route('user.payments')
+        return redirect()->route('user.payments.index')
             ->with('payment_confirmed', true)
             ->with('payment_ref', $result)
             ->with('payment_method_label', $methodLabel);

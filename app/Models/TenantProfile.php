@@ -11,6 +11,11 @@ class TenantProfile extends Model
 
     protected $fillable = [
         'user_id',
+        'school_university',
+        'course_year_level',
+        'preferred_location',
+        'rental_budget',
+        'lifestyle_information',
         'student_id',
         'school_company',
         'course_or_position',
@@ -27,6 +32,7 @@ class TenantProfile extends Model
 
     protected $casts = [
         'id_verified' => 'boolean',
+        'rental_budget' => 'decimal:2',
         'verified_at' => 'datetime',
     ];
 

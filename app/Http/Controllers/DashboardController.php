@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\BoardingHouse;
 use App\Models\Room;
 use App\Models\User;
-use App\Services\TenantPreferenceRecommendationService;
+use App\Services\BoardingHouseRecommendationService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\Schema;
 class DashboardController extends Controller
 {
     public function __construct(
-        private readonly TenantPreferenceRecommendationService $recommendationService,
+        private readonly BoardingHouseRecommendationService $recommendationService,
     ) {}
     public function index()
     {
@@ -480,7 +480,7 @@ class DashboardController extends Controller
                 'title' => 'Review maintenance queue',
                 'detail' => number_format($openRequestsCount).' open requests',
                 'date' => 'Today',
-                'href' => route('admin.notifications'),
+                'href' => route('admin.notifications.index'),
             ];
         }
 
@@ -514,7 +514,7 @@ class DashboardController extends Controller
                 'title' => 'Maintenance update',
                 'detail' => number_format($openRequestsCount).' open maintenance requests in queue.',
                 'time' => 'Today',
-                'href' => route('admin.notifications'),
+                'href' => route('admin.notifications.index'),
             ];
         }
 
@@ -1400,7 +1400,7 @@ class DashboardController extends Controller
                 'type' => 'ticket',
                 'title' => $title,
                 'subtitle' => ! empty($meta) ? implode(' | ', $meta) : 'Ticket match for "'.$keyword.'"',
-                'url' => route('admin.notifications', ['ticket' => $ticketId ?: null]),
+                'url' => route('admin.notifications.index', ['ticket' => $ticketId ?: null]),
             ];
         })->values()->all();
     }

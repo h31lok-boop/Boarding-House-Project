@@ -6,11 +6,8 @@
 @php
     $title = $title ?? 'User Dashboard';
     $r = fn($name, $params = []) => \Illuminate\Support\Facades\Route::has($name) ? route($name, $params) : url()->current();
-    $navBase = 'block px-3 py-2 rounded-lg';
-    $navActive = $navBase . ' ui-surface-2 text-[color:var(--text)] font-medium border ui-border';
-    $navInactive = $navBase . ' text-[color:var(--muted)] hover:bg-[color:var(--surface-2)]';
     $currentUser = auth()->user();
-    $profileImage = $currentUser?->profile_image;
+    $profileImage = $currentUser?->profile_photo ?: $currentUser?->profile_image;
     $accountImageUrl = $profileImage
         ? (\Illuminate\Support\Str::startsWith($profileImage, ['http://', 'https://', '/'])
             ? $profileImage
@@ -18,24 +15,33 @@
         : asset('images/boardmatch-mark.svg');
 @endphp
 
-<div class="min-h-screen flex w-full bg-[#f7f8fb]">
+<div class="user-shell w-full bg-[#f7f8fb]">
     {{-- Sidebar --}}
-    <aside class="sidebar w-[280px] shrink-0 h-screen sticky top-0 bg-white border-r border-[#edf1f5] px-5 py-6 flex flex-col">
+    <div class="sidebar-overlay" data-sidebar-overlay aria-hidden="true"></div>
+
+    <aside id="userSidebar" class="sidebar user-sidebar fixed inset-y-0 left-0 z-50 h-screen w-[240px] shrink-0 overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#0F172A_0%,#111827_48%,#0B1224_100%)] px-3 py-4 shadow-2xl shadow-slate-950/30 flex flex-col" aria-label="Tenant sidebar">
         <div class="sidebar-header">
             <x-sidebar.brand />
-            <button class="h-10 w-10 rounded-full bg-white border border-[#e5e9f0] flex items-center justify-center shadow-sm" data-sidebar-toggle>
+            <button type="button" class="h-9 w-9 rounded-lg border border-white/10 bg-white/5 text-slate-200 shadow-sm transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-400/70 flex items-center justify-center" data-sidebar-toggle aria-controls="userSidebar" aria-expanded="true" aria-label="Toggle sidebar">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16M4 12h16M4 18h16"/></svg>
             </button>
         </div>
         <x-sidebar.user-panel />
     </aside>
 
-    <main class="flex-1 min-w-0 bg-[#f7f8fb]">
+    <main class="user-dashboard-main min-w-0 bg-[#f7f8fb]">
+        <div class="sticky top-0 z-30 mb-4 border-b border-slate-200 bg-[#f7f8fb]/95 px-4 py-3 backdrop-blur md:hidden">
+            <button type="button" class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400/70" data-sidebar-toggle aria-controls="userSidebar" aria-expanded="false" aria-label="Open sidebar">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                <span>Menu</span>
+            </button>
+        </div>
+
         <div class="max-w-[1600px] mx-auto px-4 sm:px-6 2xl:px-8 py-6 space-y-6">
             {{-- Header --}}
-            @if ($topBar && request()->routeIs('user.dashboard'))
+            @if ($topBar && request()->routeIs('user.dashboard') && !request()->is('admin/*'))
                 <div class="ui-card p-4 flex items-center gap-4">
-                    <form method="GET" action="{{ $r('user.browse') }}" class="flex flex-1 gap-3">
+                    <form method="GET" action="{{ $r('user.boarding-houses.index') }}" class="flex flex-1 gap-3">
                         <input name="q" type="text" placeholder="{{ $searchPlaceholder }}" class="flex-1 ui-input text-sm">
                         <button class="rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700">Search</button>
                     </form>
@@ -57,8 +63,8 @@
                                     <p class="text-xs ui-muted">{{ auth()->user()->email ?? '' }}</p>
                                 </div>
                                 <div class="py-2 text-sm">
-                                    <a href="{{ $r('user.settings') }}" class="block px-4 py-2 hover:bg-[color:var(--surface-2)]">Profile Settings</a>
-                                    <a href="{{ $r('user.profile') }}" class="block px-4 py-2 hover:bg-[color:var(--surface-2)]">Match Preferences</a>
+                                    <a href="{{ $r('user.settings.index') }}" class="block px-4 py-2 hover:bg-[color:var(--surface-2)]">Settings</a>
+                                    <a href="{{ $r('user.preferences.index') }}" class="block px-4 py-2 hover:bg-[color:var(--surface-2)]">Match Preferences</a>
                                     <button @click="confirm = true; open = false" class="w-full text-left px-4 py-2 text-rose-600 hover:bg-rose-50">Log out</button>
                                 </div>
                             </div>

@@ -1,0 +1,99 @@
+{
+  "$schema": "vscode://schemas/color-theme",
+  "name": "VSCode Pets Winter",
+  "type": "dark",
+  "colors": {
+    "editor.background": "#0B1330",
+    "editor.foreground": "#E9F1FF",
+    "editorCursor.foreground": "#A7D8FF",
+    "editor.lineHighlightBackground": "#16204B",
+    "editor.selectionBackground": "#3F5A96",
+    "editor.inactiveSelectionBackground": "#273B6B",
+    "editor.selectionHighlightBackground": "#4B699E50",
+    "editor.wordHighlightBackground": "#5C84CF50",
+    "editorIndentGuide.background": "#1A2751",
+    "editorIndentGuide.activeBackground": "#4A78C2",
+    "sideBar.background": "#0F1833",
+    "sideBar.foreground": "#D7E4FF",
+    "activityBar.background": "#0D1530",
+    "activityBar.foreground": "#A9C8FF",
+    "activityBar.activeBorder": "#66B2FF",
+    "statusBar.background": "#0A1228",
+    "statusBar.foreground": "#B8D4FF",
+    "titleBar.activeBackground": "#0D1732",
+    "titleBar.activeForeground": "#E5EEFF",
+    "editorGroupHeader.tabsBackground": "#101A33",
+    "tab.activeBackground": "#13214A",
+    "tab.inactiveBackground": "#0D1630",
+    "tab.activeForeground": "#E7F0FF",
+    "tab.inactiveForeground": "#8BA2CF",
+    "scrollbarSlider.background": "#5C7CB840",
+    "scrollbarSlider.hoverBackground": "#7091C470",
+    "scrollbarSlider.activeBackground": "#82A5F370"
+  },
+  "tokenColors": [
+    {
+      "scope": ["comment", "punctuation.definition.comment", "string.comment"],
+      "settings": {
+        "foreground": "#6B87B6",
+        "fontStyle": "italic"
+      }
+    },
+    {
+      "scope": ["keyword", "storage.type", "storage.modifier"],
+      "settings": {
+        "foreground": "#A7D8FF",
+        "fontStyle": "bold"
+      }
+    },
+    {
+      "scope": ["string", "constant.other.symbol", "constant.character.escape"],
+      "settings": {
+        "foreground": "#8CD2FF"
+      }
+    },
+    {
+      "scope": ["variable", "variable.parameter", "meta.definition.variable.name"],
+      "settings": {
+        "foreground": "#D0E8FF"
+      }
+    },
+    {
+      "scope": ["constant.numeric", "constant.language", "constant.character", "support.constant"],
+      "settings": {
+        "foreground": "#B6D6FF"
+      }
+    },
+    {
+      "scope": ["entity.name.function", "support.function", "meta.function-call"],
+      "settings": {
+        "foreground": "#D3B2FF"
+      }
+    },
+    {
+      "scope": ["entity.name.type", "support.class", "storage.type.class"],
+      "settings": {
+        "foreground": "#9FB8FF"
+      }
+    },
+    {
+      "scope": ["punctuation.section.embedded", "meta.embedded", "source.groovy.embedded"],
+      "settings": {
+        "foreground": "#86C1FF"
+      }
+    },
+    {
+      "scope": ["invalid", "invalid.illegal", "markup.deleted"],
+      "settings": {
+        "foreground": "#FF7F8F",
+        "background": "#5C1F27"
+      }
+    },
+    {
+      "scope": ["markup.inserted", "string.regexp", "markup.changed"],
+      "settings": {
+        "foreground": "#7EE0B0"
+      }
+    }
+  ]
+}
