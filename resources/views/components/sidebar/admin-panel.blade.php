@@ -83,6 +83,13 @@
                     'active' => $isPath('admin/transactions*'),
                 ],
                 [
+                    'key' => 'payment-verification',
+                    'label' => 'Payment Verification',
+                    'href' => $r('admin.payment-receipts.index'),
+                    'icon' => 'payments',
+                    'active' => $isPath('admin/payment-verification*'),
+                ],
+                [
                     'key' => 'messages',
                     'label' => 'Messages',
                     'href' => $r('admin.messages', [], 'admin.messages.index'),

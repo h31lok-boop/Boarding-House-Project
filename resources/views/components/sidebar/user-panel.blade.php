@@ -37,15 +37,19 @@
                 ],
                 [
                     'label' => 'Find Boarding Houses',
-                    'href' => $r('user.boarding-houses.index'),
+                    'href' => $r('user.boarding-houses.index', ['tab' => 'recommended']),
                     'icon' => 'search',
-                    'active' => $isUserPath('user/boarding-houses') || $isUserPath('user/browse-listings') || request()->routeIs('user.browse*'),
+                    'active' => ($isUserPath('user/boarding-houses') || $isUserPath('user/browse-listings') || request()->routeIs('user.browse*'))
+                        && request()->query('tab', 'recommended') !== 'matchmaking',
                 ],
                 [
                     'label' => 'Matchmaking',
-                    'href' => $r('user.matchmaking.index'),
+                    'href' => $r('user.boarding-houses.index', ['tab' => 'matchmaking']),
                     'icon' => 'matchmaking',
-                    'active' => $isUserPath('user/matchmaking') || $isUserPath('user/recommendations') || request()->routeIs('user.recommendations*', 'user.match-requests*'),
+                    'active' => $isUserPath('user/matchmaking')
+                        || $isUserPath('user/recommendations')
+                        || request()->query('tab') === 'matchmaking'
+                        || request()->routeIs('user.recommendations*', 'user.matchmaking*', 'user.match-requests*'),
                 ],
                 [
                     'label' => 'My Preferences',
@@ -143,5 +147,22 @@
         </section>
     @endforeach
 </nav>
+
+<div class="sidebar-help mt-2 overflow-hidden rounded-xl border border-white/10 bg-white/[0.06] p-2.5 shadow-lg shadow-slate-950/20">
+    <div class="flex items-center gap-2">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-500/20 text-blue-200 ring-1 ring-blue-400/20">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M18 8a3 3 0 1 0-2.83-4H8.83A3 3 0 1 0 6 8c.35 0 .69-.06 1-.17v8.34A3 3 0 1 0 8.83 20h6.34A3 3 0 1 0 18 16c-.35 0-.69.06-1 .17V7.83c.31.11.65.17 1 .17Z" />
+            </svg>
+        </span>
+        <div class="sidebar-text min-w-0">
+            <p class="text-[11px] font-bold text-white">Refer a Friend</p>
+            <p class="mt-0.5 text-[10px] leading-3 text-slate-400">Earn rewards when friends book.</p>
+        </div>
+    </div>
+    <a href="{{ $r('user.help-center.index') }}" class="sidebar-text mt-2 inline-flex h-7 w-full items-center justify-center rounded-lg bg-blue-600 px-3 text-[11px] font-bold text-white shadow-sm transition hover:bg-blue-500">
+        Learn More
+    </a>
+</div>
 
 <p class="sidebar-footer mt-3 text-center text-[11px] leading-4 text-slate-500">&copy; 2026 BoardMatch<br>All rights reserved.</p>

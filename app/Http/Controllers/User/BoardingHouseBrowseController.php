@@ -8,109 +8,128 @@ use App\Models\Barangay;
 use App\Models\BoardingHouse;
 use App\Models\CityMunicipality;
 use App\Services\BoardingHouseRecommendationService;
+use App\Services\LocationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class BoardingHouseBrowseController extends Controller
 {
-    private const DEFAULT_LAT = 6.7440000;
+    private const DEFAULT_LAT = 6.7587400;
 
-    private const DEFAULT_LNG = 125.3550000;
+    private const DEFAULT_LNG = 125.3090900;
 
     public function __construct(
         private readonly BoardingHouseRecommendationService $recommendationService,
+        private readonly LocationService $locationService,
     ) {}
 
     public function index(Request $request)
     {
         $tenant = $request->user();
-        $hasMatchProfiles = Schema::hasTable('tenant_match_profiles');
-
-        if ($hasMatchProfiles) {
-            $tenant?->loadMissing('tenantMatchProfile');
-        }
-
         $hasRecommendationPreferences = $tenant?->isTenant()
             && $this->recommendationService->hasPreferences($tenant);
-        $canRecommend = (bool) $hasRecommendationPreferences;
+        $preferenceSummary = $hasRecommendationPreferences
+            ? $this->recommendationService->preferenceSummary($tenant)
+            : [];
 
-        $q           = trim((string) $request->query('q', ''));
-        $minPrice    = $this->normalizePrice($request->query('min_price'));
-        $maxPrice    = $this->normalizePrice($request->query('max_price'));
-        $amenityIds  = collect((array) $request->query('amenities', []))
+        $q = trim((string) $request->query('q', ''));
+        $minPrice = $this->normalizePrice($request->query('min_price'));
+        $maxPrice = $this->normalizePrice($request->query('max_price'));
+        $amenityIds = collect((array) $request->query('amenities', []))
             ->map(fn ($id) => (int) $id)->filter(fn ($id) => $id > 0)->values()->all();
-        $cityId      = (int) $request->query('city_id', 0);
-        $barangayId  = (int) $request->query('barangay_id', 0);
-        $roomType    = (string) $request->query('room_type', '');
+        $cityId = (int) $request->query('city_id', 0);
+        $rawBarangay = (string) $request->query('barangay_id', '');
+        $barangayId = ctype_digit($rawBarangay) ? (int) $rawBarangay : 0;
+        $roomType = (string) $request->query('room_type', '');
         $availableOnly = $request->boolean('available_only');
-        $nearMe      = $request->boolean('near_me');
-        $sort        = $request->query('sort', 'newest');
-        $minRating   = $this->normalizePrice($request->query('min_rating'));
+        $nearMe = $request->boolean('near_me');
+        $dsscAreaFromBarangay = match ($rawBarangay) {
+            'dssc:all' => 'near',
+            'dssc:matti' => 'matti',
+            'dssc:purok-3-matti' => 'purok-3-matti',
+            'dssc:mahayahay' => 'mahayahay',
+            'dssc:tres-de-mayo' => 'tres-de-mayo',
+            'dssc:city-proper' => 'city-proper',
+            default => null,
+        };
+        $dsscArea = $this->allowedFilterValue($request->query('dssc_area'), [
+            'near',
+            'matti',
+            'purok-3-matti',
+            'mahayahay',
+            'tres-de-mayo',
+            'city-proper',
+        ]) ?? $dsscAreaFromBarangay;
+        $requestedDsscRadius = (int) $request->query('dssc_radius', 0);
+        $dsscRadius = in_array($requestedDsscRadius, [1, 3, 5], true) ? $requestedDsscRadius : null;
+        if ($dsscRadius !== null && $dsscArea === null) {
+            $dsscArea = 'near';
+        }
+        $sort = (string) $request->query('sort', $dsscArea ? 'distance_dssc' : 'newest');
+        $minRating = $this->normalizePrice($request->query('min_rating'));
 
         $providedLat = $this->normalizeCoordinate($request->query('lat'), -90, 90);
         $providedLng = $this->normalizeCoordinate($request->query('lng'), -180, 180);
-        $refLat      = $providedLat ?? self::DEFAULT_LAT;
-        $refLng      = $providedLng ?? self::DEFAULT_LNG;
+        $refLat = $providedLat ?? self::DEFAULT_LAT;
+        $refLng = $providedLng ?? self::DEFAULT_LNG;
 
         $filters = [
-            'q'              => $q,
-            'min_price'      => $minPrice,
-            'max_price'      => $maxPrice,
-            'amenity_ids'    => $amenityIds,
+            'q' => $q,
+            'min_price' => $minPrice,
+            'max_price' => $maxPrice,
+            'amenity_ids' => $amenityIds,
             'available_only' => $availableOnly,
-            'city_id'        => $cityId > 0 ? $cityId : null,
-            'barangay_id'    => $barangayId > 0 ? $barangayId : null,
-            'room_type'      => $roomType !== '' ? $roomType : null,
-            'sort'           => $sort,
-            'min_rating'     => $minRating,
+            'city_id' => $cityId > 0 ? $cityId : null,
+            'barangay_id' => $barangayId > 0 ? $barangayId : null,
+            'room_type' => $roomType !== '' ? $roomType : null,
+            'dssc_area' => $dsscArea,
+            'dssc_radius' => $dsscRadius,
+            'sort' => $sort,
+            'min_rating' => $minRating,
         ];
 
-        if ($sort === 'recommended' && $canRecommend) {
-            $this->recommendationService->generateForUser($tenant);
-        }
+        $hasManualFilters = $this->hasManualFilters($filters, $nearMe);
+        $requestedTab = (string) $request->query('tab', '');
+        $activeTab = in_array($requestedTab, ['recommended', 'all', 'matchmaking'], true)
+            ? $requestedTab
+            : ($hasManualFilters ? 'all' : 'recommended');
+        $showMatchScores = in_array($activeTab, ['recommended', 'matchmaking'], true) && $hasRecommendationPreferences;
 
-        $housesQuery = $this->buildBrowseQuery(
-            $filters,
-            $nearMe ? $providedLat : null,
-            $nearMe ? $providedLng : null,
-            $nearMe,
-            $sort === 'recommended' && $canRecommend ? (int) $tenant->id : null
+        $candidateHouses = in_array($activeTab, ['recommended', 'matchmaking'], true) && ! $hasRecommendationPreferences
+            ? collect()
+            : $this->buildBrowseQuery(
+                $filters,
+                $nearMe ? $providedLat : null,
+                $nearMe ? $providedLng : null,
+                $nearMe
+            )->limit(400)->get();
+
+        $rankedHouses = $candidateHouses
+            ->map(fn (BoardingHouse $house) => $this->decorateBrowseHouse(
+                $house,
+                $tenant,
+                $showMatchScores,
+                $filters,
+                $refLat,
+                $refLng
+            ));
+
+        $rankedHouses = $this->sortBrowseHouses(
+            $rankedHouses,
+            $showMatchScores ? 'recommended' : $sort,
+            $showMatchScores,
+            $request->has('sort'),
+            $nearMe
         );
 
-        $houses = $housesQuery->paginate(12)->withQueryString();
-
-        $houses->getCollection()->transform(function ($house) use ($refLat, $refLng, $tenant, $canRecommend, $filters) {
-            $computedDistance    = $this->distanceKm($refLat, $refLng, $house->latitude, $house->longitude);
-            $house->distance_km  = isset($house->distance_km_calc) && is_numeric($house->distance_km_calc)
-                ? round((float) $house->distance_km_calc, 2) : $computedDistance;
-            // Use the lowest positive price, skipping 0 values (daily-rate-only listings store monthly_rate=0)
-            $house->min_room_price     = $house->rooms->where('price', '>', 0)->min('price');
-            $house->min_category_price = $house->roomCategories->where('monthly_rate', '>', 0)->min('monthly_rate');
-            $house->display_price      = $house->min_room_price
-                                      ?? $house->min_category_price
-                                      ?? (($house->price > 0) ? (float) $house->price : null)
-                                      ?? (($house->monthly_payment > 0) ? (float) $house->monthly_payment : null);
-            $house->computed_available_rooms = max(
-                (int) ($house->available_rooms ?? 0),
-                (int) ($house->available_rooms_count ?? 0),
-                (int) ($house->room_categories_available_rooms_sum ?? 0),
-            );
-
-            if ($canRecommend) {
-                $house->recommendation = $this->recommendationService->score($tenant, $house, $refLat, $refLng);
-                $pct = $house->recommendation['recommendation_percent'] ?? 0;
-                $house->match_score = (int) $pct;
-                $house->match_label = $this->matchLabel((int) $pct);
-            } else {
-                $match = $this->computeFilterMatchScore($house, $filters);
-                $house->match_score = $match['score'];
-                $house->match_label = $match['label'];
-            }
-
-            return $house;
-        });
+        $perPage = in_array((int) $request->query('per_page', 12), [8, 12, 24], true)
+            ? (int) $request->query('per_page', 12)
+            : 12;
+        $houses = $this->paginateCollection($rankedHouses, $perPage, $request);
 
         // AJAX: return JSON for dynamic filter updates
         if ($request->ajax() || $request->wantsJson()) {
@@ -122,15 +141,8 @@ class BoardingHouseBrowseController extends Controller
             ]);
         }
 
-        $mapCollection = $this->buildBrowseQuery(
-            $filters,
-            $nearMe ? $providedLat : null,
-            $nearMe ? $providedLng : null,
-            $nearMe,
-            $sort === 'recommended' && $canRecommend ? (int) $tenant->id : null
-        )->limit(250)->get();
-
-        $mapHouses = $mapCollection
+        $mapHouses = $rankedHouses
+            ->take(250)
             ->filter(fn ($house) => $house->latitude !== null && $house->longitude !== null)
             ->map(fn ($house) => [
                 'id' => $house->id,
@@ -145,8 +157,14 @@ class BoardingHouseBrowseController extends Controller
                     (int) ($house->available_rooms_count ?? 0),
                     (int) ($house->room_categories_available_rooms_sum ?? 0),
                 ),
-                'image_url'   => $this->resolveImageUrl($house),
+                'image_url' => $this->resolveImageUrl($house),
                 'distance_km' => $this->distanceKm($refLat, $refLng, $house->latitude, $house->longitude),
+                'distance_from_dssc' => $house->dssc_distance_km,
+                'distance_from_dssc_label' => $house->dssc_distance_label,
+                'availability_label' => $house->computed_available_rooms > 0
+                    ? $house->computed_available_rooms.' available'
+                    : 'Fully occupied',
+                'match_score' => (int) ($house->match_score ?? 0),
             ])
             ->values();
 
@@ -159,39 +177,229 @@ class BoardingHouseBrowseController extends Controller
             $nearestHouse = $houses->getCollection()->sortBy('distance_km')->first();
         }
 
-        $recommendedHouses = collect();
-        if ($canRecommend) {
-            $recommendationCandidates = $this->buildBrowseQuery(
-                $filters,
-                $nearMe ? $providedLat : null,
-                $nearMe ? $providedLng : null,
-                $nearMe,
-                null
-            )->limit(100)->get();
+        $recommendedHouses = $showMatchScores
+            ? $rankedHouses->take(6)->map(fn (BoardingHouse $house) => [
+                'house' => $house,
+                'image_url' => $this->resolveImageUrl($house),
+                'recommendation' => $house->recommendation,
+            ])->values()
+            : collect();
 
-            $recommendedHouses = $this->recommendationService
-                ->rank($tenant, $recommendationCandidates, $refLat, $refLng)
-                ->take(6);
+        if ($activeTab === 'matchmaking') {
+            return view('user.recommendations', [
+                'tenant' => $tenant,
+                'houseRecommendations' => $recommendedHouses,
+                'houseRecommendationCount' => $recommendedHouses->count(),
+                'hasPreferences' => $hasRecommendationPreferences,
+                'preferenceSummary' => $preferenceSummary,
+                'houseFilters' => [
+                    'house_sort' => $request->query('house_sort', $request->query('sort', 'highest_match')),
+                    'room_type' => $request->query('room_type') ?: null,
+                    'dssc_area' => $request->query('dssc_area') ?: null,
+                ],
+                'matchmakingActionUrl' => route('user.boarding-houses.index'),
+                'matchmakingRefreshRedirect' => 'boarding_houses',
+                'deepSeekConfigured' => filled(config('services.deepseek.api_key')),
+            ]);
         }
 
         $initialHouses = $houses->getCollection()->map(fn ($h) => $this->houseToArray($h));
 
         return view('user.browse-listings', [
-            'houses'            => $houses,
-            'initialHouses'     => $initialHouses,
-            'amenities'         => $amenities,
-            'cities'            => $cities,
-            'barangays'         => $barangays,
-            'mapHouses'         => $mapHouses,
-            'referencePoint'    => ['lat' => $refLat, 'lng' => $refLng],
-            'nearMe'            => $nearMe,
-            'nearestHouse'      => $nearestHouse,
+            'houses' => $houses,
+            'initialHouses' => $initialHouses,
+            'amenities' => $amenities,
+            'cities' => $cities,
+            'barangays' => $barangays,
+            'mapHouses' => $mapHouses,
+            'referencePoint' => ['lat' => $refLat, 'lng' => $refLng],
+            'nearMe' => $nearMe,
+            'nearestHouse' => $nearestHouse,
             'recommendedHouses' => $recommendedHouses,
             'hasRecommendationPreferences' => $hasRecommendationPreferences,
-            'recommendationNotice' => $sort === 'recommended' && ! $hasRecommendationPreferences
-                ? 'Complete your preferences to improve recommendations.'
-                : null,
+            'preferenceSummary' => $preferenceSummary,
+            'activeTab' => $activeTab,
+            'showMatchScores' => $showMatchScores,
+            'showRecommendationPreferenceEmptyState' => in_array($activeTab, ['recommended', 'matchmaking'], true) && ! $hasRecommendationPreferences,
+            'showNoCompatibleState' => in_array($activeTab, ['recommended', 'matchmaking'], true)
+                && $hasRecommendationPreferences
+                && $rankedHouses->isEmpty(),
+            'activeFilters' => $filters,
+            'hasManualFilters' => $hasManualFilters,
+            'dsscArea' => $dsscArea,
+            'dsscRadius' => $dsscRadius,
+            'dsscLandmark' => [
+                'name' => config('dssc.landmark'),
+                'address' => config('dssc.address'),
+                'latitude' => (float) config('dssc.latitude', self::DEFAULT_LAT),
+                'longitude' => (float) config('dssc.longitude', self::DEFAULT_LNG),
+                'sample_coordinates' => true,
+            ],
+            'showNoDsscState' => $dsscArea !== null && $rankedHouses->isEmpty(),
+            'usedFlexibleFallback' => false,
+            'recommendationNotice' => null,
         ]);
+    }
+
+    public function recommended(Request $request)
+    {
+        $request->merge(['tab' => 'recommended']);
+
+        return $this->index($request);
+    }
+
+    private function decorateBrowseHouse(
+        BoardingHouse $house,
+        $tenant,
+        bool $canRecommend,
+        array $filters,
+        float $refLat,
+        float $refLng
+    ): BoardingHouse {
+        $computedDistance = $this->distanceKm($refLat, $refLng, $house->latitude, $house->longitude);
+        $house->distance_km = isset($house->distance_km_calc) && is_numeric($house->distance_km_calc)
+            ? round((float) $house->distance_km_calc, 2)
+            : $computedDistance;
+        $house->min_room_price = $house->rooms->where('price', '>', 0)->min('price');
+        $house->min_category_price = $house->roomCategories->where('monthly_rate', '>', 0)->min('monthly_rate');
+        $house->display_price = $house->min_room_price
+            ?? $house->min_category_price
+            ?? (($house->price > 0) ? (float) $house->price : null)
+            ?? (($house->monthly_payment > 0) ? (float) $house->monthly_payment : null);
+        $house->computed_available_rooms = max(
+            (int) ($house->available_rooms ?? 0),
+            (int) ($house->available_rooms_count ?? 0),
+            (int) ($house->room_categories_available_rooms_sum ?? 0),
+            (int) $house->rooms
+                ->filter(fn ($room) => strtolower((string) $room->status) === 'available')
+                ->sum(fn ($room) => max((int) ($room->available_slots ?? 1), 1)),
+        );
+        $house->dssc_distance_km = $this->recommendationService->distanceFromDssc($house);
+        $house->dssc_distance_label = $this->locationService->distanceLabel($house->dssc_distance_km);
+
+        if ($canRecommend) {
+            $house->recommendation = $this->recommendationService->score($tenant, $house, $refLat, $refLng);
+            $house->match_score = (int) ($house->recommendation['recommendation_percent'] ?? 0);
+            $house->match_label = $this->matchLabel($house->match_score);
+        } else {
+            $match = $this->computeFilterMatchScore($house, $filters);
+            $house->match_score = $match['score'];
+            $house->match_label = $match['label'];
+        }
+
+        return $house;
+    }
+
+    private function sortBrowseHouses(
+        Collection $houses,
+        string $sort,
+        bool $canRecommend,
+        bool $sortWasSelected,
+        bool $nearMe
+    ): Collection {
+        if ($nearMe) {
+            return $houses->sortBy(fn (BoardingHouse $house) => $house->distance_km ?? INF)->values();
+        }
+
+        if ($canRecommend && (! $sortWasSelected || $sort === 'recommended')) {
+            return $houses->sortByDesc('match_score')->values();
+        }
+
+        return match ($sort) {
+            'price_asc' => $houses->sortBy(fn (BoardingHouse $house) => $house->display_price ?? INF)->values(),
+            'price_desc' => $houses->sortByDesc(fn (BoardingHouse $house) => $house->display_price ?? 0)->values(),
+            'rating' => $houses->sortByDesc(fn (BoardingHouse $house) => $house->reviews_avg_rating ?? 0)->values(),
+            'available' => $houses->sortByDesc('computed_available_rooms')->values(),
+            'distance_dssc' => $houses->sortBy(fn (BoardingHouse $house) => $house->dssc_distance_km ?? INF)->values(),
+            default => $houses->sortByDesc('created_at')->values(),
+        };
+    }
+
+    private function paginateCollection(Collection $houses, int $perPage, Request $request): LengthAwarePaginator
+    {
+        $page = LengthAwarePaginator::resolveCurrentPage();
+
+        return new LengthAwarePaginator(
+            $houses->forPage($page, $perPage)->values(),
+            $houses->count(),
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]
+        );
+    }
+
+    private function isExactPreferenceMatch(array $recommendation, array $preferences): bool
+    {
+        $scores = $recommendation['scores'] ?? [];
+        $checks = [];
+
+        if (($preferences['preferred_rental_budget'] ?? null) !== null
+            || ($preferences['budget_min'] ?? null) !== null
+            || ($preferences['budget_max'] ?? null) !== null) {
+            $checks[] = ($scores['budget'] ?? 0) >= 0.8;
+        }
+
+        if (! empty($preferences['preferred_locations'])) {
+            $checks[] = ($scores['location'] ?? 0) >= 0.8;
+        }
+
+        if (! empty($preferences['room_type']) && $preferences['room_type'] !== 'any') {
+            $checks[] = ($scores['room_type'] ?? 0) >= 0.8;
+        }
+
+        if (! empty($preferences['amenities'])) {
+            $checks[] = ($scores['amenities'] ?? 0) >= 0.5;
+        }
+
+        if (($preferences['distance_from_school'] ?? null) !== null
+            && (float) $preferences['distance_from_school'] > 0) {
+            $checks[] = ($scores['distance'] ?? 0) >= 0.8;
+        }
+
+        return $checks !== [] && ! in_array(false, $checks, true);
+    }
+
+    private function hasManualFilters(array $filters, bool $nearMe): bool
+    {
+        return $filters['q'] !== ''
+            || $filters['min_price'] !== null
+            || $filters['max_price'] !== null
+            || $filters['amenity_ids'] !== []
+            || $filters['city_id'] !== null
+            || $filters['barangay_id'] !== null
+            || $filters['room_type'] !== null
+            || $filters['dssc_area'] !== null
+            || $filters['dssc_radius'] !== null
+            || $filters['min_rating'] !== null
+            || $nearMe;
+    }
+
+    private function emptyBrowseFilters(string $sort): array
+    {
+        return [
+            'q' => '',
+            'min_price' => null,
+            'max_price' => null,
+            'amenity_ids' => [],
+            'available_only' => true,
+            'city_id' => null,
+            'barangay_id' => null,
+            'room_type' => null,
+            'dssc_area' => null,
+            'dssc_radius' => null,
+            'sort' => $sort,
+            'min_rating' => null,
+        ];
+    }
+
+    private function allowedFilterValue(mixed $value, array $allowed): ?string
+    {
+        $value = is_string($value) ? trim($value) : '';
+
+        return in_array($value, $allowed, true) ? $value : null;
     }
 
     /**
@@ -200,35 +408,9 @@ class BoardingHouseBrowseController extends Controller
      *           featured_image → exterior_image → room_image column.
      * Returns a fully-qualified URL, or null when nothing is found.
      */
-    private function resolveImageUrl(BoardingHouse $house): ?string
+    private function resolveImageUrl(BoardingHouse $house): string
     {
-        $path = null;
-
-        if ($house->relationLoaded('images') && $house->images->isNotEmpty()) {
-            $img  = $house->images->firstWhere('is_primary', true)
-                 ?? $house->images->sortBy('sort_order')->first()
-                 ?? $house->images->first();
-            $path = $img?->image_path ?: null;
-        }
-
-        if (! $path) {
-            foreach (['featured_image', 'exterior_image', 'room_image'] as $col) {
-                if (! empty($house->{$col})) {
-                    $path = $house->{$col};
-                    break;
-                }
-            }
-        }
-
-        if (! $path) {
-            return null;
-        }
-
-        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://') || str_starts_with($path, '/')) {
-            return $path;
-        }
-
-        return asset('storage/'.$path);
+        return $house->cover_image_url;
     }
 
     private function houseToArray($house): array
@@ -247,7 +429,7 @@ class BoardingHouseBrowseController extends Controller
             'name'            => $house->name,
             'address'         => $house->full_address ?? $house->address ?? '',
             'city_name'       => $house->city?->city_name ?? 'Digos City',
-            'barangay_name'   => $house->barangay?->barangay_name ?? '',
+            'barangay_name'   => $house->display_barangay ?? '',
             'display_price'   => (float) ($house->display_price ?? 0),
             'price_label'     => $house->display_price ? '₱'.number_format((float) $house->display_price) : 'Price TBD',
             'available_rooms' => (int) ($house->computed_available_rooms ?? 0),
@@ -257,6 +439,8 @@ class BoardingHouseBrowseController extends Controller
             'match_score'     => (int) ($house->match_score ?? 70),
             'match_label'     => $house->match_label ?? 'Good Match',
             'distance_km'     => $house->distance_km,
+            'distance_from_dssc' => $house->dssc_distance_km,
+            'distance_from_dssc_label' => $house->dssc_distance_label,
             'image_url'       => $this->resolveImageUrl($house),
             'url'             => route('user.boarding-houses.show', $house),
             'rating'          => round((float) ($house->reviews_avg_rating ?? 0), 1),
@@ -319,7 +503,7 @@ class BoardingHouseBrowseController extends Controller
             'region:id,region_name',
             'province:id,province_name',
             'city:id,city_name',
-            'barangay:id,barangay_name',
+            'barangayReference:id,barangay_name',
             'owner:id,name,email,phone,phone_number,contact_number',
         ])->loadCount([
             'rooms',
@@ -359,9 +543,8 @@ class BoardingHouseBrowseController extends Controller
             ->first() ?? $boardingHouse->roomCategories->first();
         $roomTypeLabel = $primaryCategory?->name ?: $this->propertyTypeLabel($boardingHouse->property_type);
 
-        $canRecommend = Schema::hasTable('tenant_match_profiles')
-            && $request->user()?->isTenant()
-            && (bool) $request->user()?->tenantMatchProfile?->completed_at;
+        $canRecommend = $request->user()?->isTenant()
+            && $this->recommendationService->hasPreferences($request->user());
 
         $matchScore = null;
         if ($canRecommend) {
@@ -530,7 +713,7 @@ class BoardingHouseBrowseController extends Controller
                 'amenities:id,name',
                 'images:id,boarding_house_id,image_path,is_primary,sort_order',
                 'city:id,city_name',
-                'barangay:id,barangay_name',
+                'barangayReference:id,barangay_name',
                 'roomCategories:id,boarding_house_id,name,monthly_rate,available_rooms,is_available',
                 'rooms:id,boarding_house_id,room_no,price,status,available_slots',
             ])
@@ -574,7 +757,7 @@ class BoardingHouseBrowseController extends Controller
             return [
                 'id' => $relatedHouse->id,
                 'name' => $relatedHouse->name,
-                'location' => collect([$relatedHouse->barangay?->barangay_name, $relatedHouse->city?->city_name])->filter()->implode(', '),
+                'location' => collect([$relatedHouse->display_barangay, $relatedHouse->city?->city_name])->filter()->implode(', '),
                 'price' => $price,
                 'price_label' => $price !== null ? '₱'.number_format($price).'/month' : 'Price TBD',
                 'rating' => $relatedHouse->reviews_avg_rating ? number_format((float) $relatedHouse->reviews_avg_rating, 1) : 'N/A',
@@ -686,7 +869,7 @@ class BoardingHouseBrowseController extends Controller
         return round($angle * $earthRadius, 2);
     }
 
-    private function buildBrowseQuery(array $filters, ?float $distanceLat, ?float $distanceLng, bool $nearMe, ?int $recommendedUserId = null): Builder
+    private function buildBrowseQuery(array $filters, ?float $distanceLat, ?float $distanceLng, bool $nearMe): Builder
     {
         $query = BoardingHouse::query()
             ->with([
@@ -695,7 +878,7 @@ class BoardingHouseBrowseController extends Controller
                 'roomCategories:id,boarding_house_id,name,monthly_rate,available_rooms,is_available',
                 'images:id,boarding_house_id,image_path,is_primary,sort_order',
                 'city:id,city_name',
-                'barangay:id,barangay_name',
+                'barangayReference:id,barangay_name',
                 'province:id,province_name',
             ])
             ->withCount([
@@ -706,11 +889,12 @@ class BoardingHouseBrowseController extends Controller
             ])
             ->withSum('roomCategories as room_categories_available_rooms_sum', 'available_rooms')
             ->withAvg('reviews', 'rating')
-            ->where(function ($scope) {
-                $scope->where('status', 'approved')
-                    ->orWhere('approval_status', 'approved');
-            })
             ->where('is_active', true)
+            ->where(function ($availableQuery) {
+                $availableQuery->where('available_rooms', '>', 0)
+                    ->orWhereHas('rooms', fn ($roomQuery) => $roomQuery->available())
+                    ->orWhereHas('roomCategories', fn ($categoryQuery) => $categoryQuery->where('available_rooms', '>', 0));
+            })
             ->when($filters['q'] !== '', function ($listingQuery) use ($filters) {
                 $keyword = $filters['q'];
                 $listingQuery->where(function ($inner) use ($keyword) {
@@ -721,6 +905,51 @@ class BoardingHouseBrowseController extends Controller
             })
             ->when($filters['city_id'] !== null, fn ($listingQuery) => $listingQuery->where('city_id', $filters['city_id']))
             ->when($filters['barangay_id'] !== null, fn ($listingQuery) => $listingQuery->where('barangay_id', $filters['barangay_id']))
+            ->when($filters['dssc_area'] !== null, function ($listingQuery) use ($filters) {
+                if ($filters['dssc_area'] === 'near') {
+                    $radius = (float) ($filters['dssc_radius'] ?? config('dssc.nearby_radius_km', 5));
+                    $listingQuery->where(function ($nearDssc) use ($filters, $radius) {
+                        $nearDssc->whereBetween('distance_from_dssc', [0, $radius]);
+
+                        if ($filters['dssc_radius'] === null || $radius >= 5) {
+                            $nearDssc->orWhere('is_near_dssc', true);
+                        }
+
+                        if ($filters['dssc_radius'] === null) {
+                            $nearDssc->orWhere(function ($fallback) {
+                                $fallback->whereNull('distance_from_dssc')
+                                    ->where(function ($addressQuery) {
+                                        foreach (['DSSC', 'Matti', 'Mahayahay', 'Tres de Mayo', 'Poblacion', 'City Proper'] as $area) {
+                                            $addressQuery->orWhere('barangay', 'like', '%'.$area.'%')
+                                                ->orWhere('address', 'like', '%'.$area.'%')
+                                                ->orWhere('full_address', 'like', '%'.$area.'%')
+                                                ->orWhere('nearby_landmark', 'like', '%'.$area.'%');
+                                        }
+                                    });
+                            });
+                        }
+                    });
+
+                    return;
+                }
+
+                $area = match ($filters['dssc_area']) {
+                    'matti' => 'Matti',
+                    'purok-3-matti' => 'Purok 3, Matti',
+                    'mahayahay' => 'Mahayahay',
+                    'tres-de-mayo' => 'Tres de Mayo',
+                    'city-proper' => 'Poblacion / City Proper',
+                };
+
+                $listingQuery->where(function ($areaQuery) use ($area) {
+                    $areaQuery->whereHas(
+                        'barangayReference',
+                        fn ($barangayQuery) => $barangayQuery->where('barangay_name', $area)
+                    )->orWhere('barangay', 'like', '%'.$area.'%')
+                        ->orWhere('address', 'like', '%'.$area.'%')
+                        ->orWhere('full_address', 'like', '%'.$area.'%');
+                });
+            })
             ->when($filters['min_price'] !== null, function ($listingQuery) use ($filters) {
                 $listingQuery->where(function ($priceQuery) use ($filters) {
                     $priceQuery->where('price', '>=', $filters['min_price'])
@@ -749,44 +978,49 @@ class BoardingHouseBrowseController extends Controller
                     fn ($amenityQuery) => $amenityQuery->whereIn('amenities.id', $filters['amenity_ids'])
                 )
             )
+            ->when($filters['min_rating'] !== null, function ($listingQuery) use ($filters) {
+                $listingQuery->whereHas('reviews', fn ($reviewQuery) => $reviewQuery->where('rating', '>=', $filters['min_rating']));
+            })
             ->when($filters['room_type'] !== null, function ($listingQuery) use ($filters) {
                 $type = $filters['room_type'];
-                // Map UI filter values to DB property_type or room category names
+                $hasPropertyType = Schema::hasColumn('boarding_houses', 'property_type');
                 $propertyTypeMap = [
                     'dormitory' => 'dormitory',
                     'studio'    => 'apartment',
                     'bedspace'  => 'bedspace',
                 ];
-                if (isset($propertyTypeMap[$type])) {
+
+                if ($hasPropertyType && isset($propertyTypeMap[$type])) {
                     $listingQuery->where('property_type', $propertyTypeMap[$type]);
                 } else {
-                    // single / shared / private — filter by room category names
                     $keyword = match ($type) {
                         'single'  => 'Single',
                         'shared'  => 'Shared',
                         'private' => 'Private',
+                        'studio' => 'Studio',
+                        'bedspace' => 'Bed',
+                        'dormitory' => 'Dorm',
                         default   => null,
                     };
+
                     if ($keyword) {
-                        $listingQuery->where(function ($inner) use ($keyword) {
-                            $inner->where('property_type', 'boarding_house')
-                                ->orWhereHas('roomCategories', fn ($rc) => $rc->where('name', 'like', "%{$keyword}%"));
-                        });
+                        $listingQuery->whereHas(
+                            'roomCategories',
+                            fn ($categoryQuery) => $categoryQuery->where('name', 'like', "%{$keyword}%")
+                        );
                     }
                 }
             });
 
+        if (Schema::hasColumn('boarding_houses', 'approval_status')) {
+            $query->where('approval_status', 'approved');
+        } elseif (Schema::hasColumn('boarding_houses', 'status')) {
+            $query->where('status', 'approved');
+        }
+
         $sort = $filters['sort'] ?? 'newest';
 
-        if (($filters['sort'] ?? null) === 'recommended' && $recommendedUserId && Schema::hasTable('boarding_house_matches')) {
-            $query->leftJoin('boarding_house_matches as recommendation_matches', function ($join) use ($recommendedUserId) {
-                $join->on('recommendation_matches.boarding_house_id', '=', 'boarding_houses.id')
-                    ->where('recommendation_matches.user_id', '=', $recommendedUserId);
-            })
-                ->select('boarding_houses.*')
-                ->orderByDesc('recommendation_matches.match_score')
-                ->orderByDesc('boarding_houses.created_at');
-        } elseif ($nearMe && $distanceLat !== null && $distanceLng !== null) {
+        if ($nearMe && $distanceLat !== null && $distanceLng !== null) {
             $distanceSql = '(6371 * ACOS(COS(RADIANS(?)) * COS(RADIANS(latitude)) * COS(RADIANS(longitude) - RADIANS(?)) + SIN(RADIANS(?)) * SIN(RADIANS(latitude))))';
             $query->select('boarding_houses.*')
                 ->selectRaw($distanceSql.' as distance_km_calc', [$distanceLat, $distanceLng, $distanceLat])

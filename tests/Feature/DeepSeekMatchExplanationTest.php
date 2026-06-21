@@ -1,7 +1,10 @@
 <?php
 
+use App\Models\BoardingHouse;
 use App\Models\TenantMatchProfile;
 use App\Models\User;
+use App\Models\UserPreference;
+use Illuminate\Support\Facades\Http;
 
 test('user can open deepseek explanation page without an api key', function () {
     config()->set('services.deepseek.api_key', null);
@@ -58,4 +61,81 @@ test('user can open deepseek explanation page without an api key', function () {
         ->assertOk()
         ->assertSee('DeepSeek Match Explanation')
         ->assertSee('DeepSeek API key is not configured.');
+});
+
+test('generate recommendations stores and displays DeepSeek boarding house explanations', function () {
+    config()->set('services.deepseek.api_key', 'test-deepseek-key');
+    config()->set('services.deepseek.model', 'deepseek-v4-flash');
+
+    $user = User::factory()->create([
+        'role' => 'user',
+        'is_active' => true,
+        'email_verified_at' => now(),
+    ]);
+
+    UserPreference::create([
+        'user_id' => $user->id,
+        'preferred_rental_budget' => 3000,
+        'preferred_locations' => ['Matti'],
+        'preferred_landmark' => 'DSSC Main Campus',
+        'distance_from_school' => 3,
+        'room_type' => 'any',
+        'study_habits' => 'quiet_focus',
+        'sleeping_schedule' => 'balanced',
+        'cleanliness_level' => 4,
+        'noise_tolerance' => 2,
+        'amenities' => ['Wi-Fi'],
+    ]);
+
+    $house = BoardingHouse::factory()->create([
+        'name' => 'DeepSeek DSSC Test House',
+        'address' => 'Matti, Digos City',
+        'price' => 2500,
+        'available_rooms' => 2,
+        'distance_from_dssc' => 0.8,
+        'is_near_dssc' => true,
+        'is_active' => true,
+        'approval_status' => 'approved',
+        'status' => 'approved',
+    ]);
+
+    $explanation = 'This listing is close to DSSC and fits the selected budget. Its recorded availability makes it a practical option.';
+
+    Http::fake([
+        'api.deepseek.com/chat/completions' => Http::response([
+            'model' => 'deepseek-v4-flash',
+            'choices' => [[
+                'message' => [
+                    'role' => 'assistant',
+                    'content' => json_encode([
+                        'recommendations' => [
+                            (string) $house->id => $explanation,
+                        ],
+                    ]),
+                ],
+            ]],
+        ]),
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('user.matchmaking.generate'))
+        ->assertRedirect(route('user.matchmaking.index'))
+        ->assertSessionHas('success');
+
+    $this->assertDatabaseHas('boarding_house_matches', [
+        'user_id' => $user->id,
+        'boarding_house_id' => $house->id,
+        'ai_explanation' => $explanation,
+        'ai_model' => 'deepseek-v4-flash',
+    ]);
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://api.deepseek.com/chat/completions'
+        && $request['model'] === 'deepseek-v4-flash'
+        && data_get($request->data(), 'response_format.type') === 'json_object');
+
+    $this->actingAs($user)
+        ->get(route('user.matchmaking.index'))
+        ->assertOk()
+        ->assertSee('DeepSeek AI insight')
+        ->assertSee($explanation);
 });

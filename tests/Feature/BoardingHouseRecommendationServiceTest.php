@@ -113,4 +113,13 @@ test('boarding house recommendations rank houses by user preferences and occupan
         $ranked->last()['recommendation']['recommendation_percent']
     );
     expect($ranked->first()['recommendation']['reasons'])->toContain('Matches your preferred amenities');
+    expect(collect($ranked->first()['recommendation']['breakdown'])->pluck('weight')->all())->toBe([
+        0.25,
+        0.20,
+        0.15,
+        0.15,
+        0.10,
+        0.10,
+        0.05,
+    ]);
 });

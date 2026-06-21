@@ -40,12 +40,22 @@ return [
         'base_url' => env('DEEPSEEK_BASE_URL', 'https://api.deepseek.com'),
         'model' => env('DEEPSEEK_MODEL', 'deepseek-v4-flash'),
         'timeout' => env('DEEPSEEK_TIMEOUT', 30),
+        'connect_timeout' => env('DEEPSEEK_CONNECT_TIMEOUT', 20),
     ],
 
     'google' => [
-        'client_id'     => env('GOOGLE_CLIENT_ID'),
+        'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
-        'redirect'      => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
+        'redirect' => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
+    ],
+
+    'google_maps' => [
+        'api_key' => env('GOOGLE_MAPS_API_KEY'),
+        'map_id' => env('GOOGLE_MAPS_MAP_ID', 'DEMO_MAP_ID'),
+        'language' => env('GOOGLE_MAPS_LANGUAGE', 'en'),
+        'region' => env('GOOGLE_MAPS_REGION', 'PH'),
+        'driving_routing_url' => env('BOARDMATCH_DRIVING_ROUTING_URL', 'https://routing.openstreetmap.de/routed-car'),
+        'walking_routing_url' => env('BOARDMATCH_WALKING_ROUTING_URL', 'https://routing.openstreetmap.de/routed-foot'),
     ],
 
 ];

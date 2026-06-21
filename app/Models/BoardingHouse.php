@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class BoardingHouse extends Model
 {
@@ -27,6 +29,11 @@ class BoardingHouse extends Model
         'province_id',
         'city_id',
         'barangay_id',
+        'barangay',
+        'nearby_landmark',
+        'distance_from_dssc',
+        'is_near_dssc',
+        'location_status',
         'description',
         'house_rules',
         'landlord_info',
@@ -57,6 +64,8 @@ class BoardingHouse extends Model
         'is_active' => 'boolean',
         'price' => 'decimal:2',
         'available_rooms' => 'integer',
+        'distance_from_dssc' => 'decimal:2',
+        'is_near_dssc' => 'boolean',
     ];
 
     public function setPriceAttribute($value): void
@@ -182,9 +191,14 @@ class BoardingHouse extends Model
         return $this->belongsTo(CityMunicipality::class, 'city_id');
     }
 
-    public function barangay()
+    public function barangayReference()
     {
-        return $this->belongsTo(Barangay::class);
+        return $this->belongsTo(Barangay::class, 'barangay_id');
+    }
+
+    public function getDisplayBarangayAttribute(): ?string
+    {
+        return $this->barangay ?: $this->barangayReference?->barangay_name;
     }
 
     public function tenants()
@@ -217,9 +231,53 @@ class BoardingHouse extends Model
         return $this->hasMany(BoardingHouseImage::class)->orderBy('is_primary', 'desc')->orderBy('sort_order');
     }
 
+    public function coverImage()
+    {
+        return $this->hasOne(BoardingHouseImage::class)
+            ->orderByDesc('is_primary')
+            ->orderBy('sort_order')
+            ->orderBy('id');
+    }
+
     public function photos()
     {
         return $this->hasMany(BoardingHousePhoto::class);
+    }
+
+    public function getCoverImagePathAttribute(): ?string
+    {
+        $image = $this->relationLoaded('images')
+            ? $this->images->firstWhere('is_primary', true) ?? $this->images->first()
+            : $this->coverImage()->first();
+
+        if ($image?->image_path) {
+            return $image->image_path;
+        }
+
+        foreach (['featured_image', 'exterior_image', 'room_image', 'cr_image', 'kitchen_image'] as $column) {
+            if (filled($this->{$column} ?? null)) {
+                return $this->{$column};
+            }
+        }
+
+        return $this->relationLoaded('photos')
+            ? $this->photos->first()?->photo_path
+            : null;
+    }
+
+    public function getCoverImageUrlAttribute(): string
+    {
+        $path = $this->cover_image_path;
+
+        if (! $path) {
+            return asset('images/boarding-house-placeholder.svg');
+        }
+
+        if (Str::startsWith($path, ['http://', 'https://', '/'])) {
+            return $path;
+        }
+
+        return Storage::disk('public')->url($path);
     }
 
     public function favorites()
@@ -250,6 +308,11 @@ class BoardingHouse extends Model
     public function payments()
     {
         return $this->hasMany(Payment::class);
+    }
+
+    public function paymentReceipts()
+    {
+        return $this->hasManyThrough(PaymentReceipt::class, Booking::class);
     }
 
     public function scopeApproved($query)

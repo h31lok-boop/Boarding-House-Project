@@ -435,8 +435,9 @@ class AdminOwnerController extends Controller
         $houses = BoardingHouse::withCount(['rooms', 'inquiries', 'reservations', 'reviews'])
             ->with([
                 'amenities:id,name',
-                'barangay:id,barangay_name',
+                'barangayReference:id,barangay_name',
                 'city:id,city_name',
+                'images:id,boarding_house_id,image_path,is_primary,sort_order',
                 'owner:id,name,email,phone,contact_number',
                 'ownerProfile',
                 'province:id,province_name',
@@ -444,6 +445,12 @@ class AdminOwnerController extends Controller
                 'roomCategories:id,boarding_house_id,name,monthly_rate,total_rooms,available_rooms,occupied_rooms,reserved_rooms,maintenance_rooms,is_available',
                 'rooms:id,boarding_house_id,room_no,room_number,name,price,capacity,available_slots,status',
             ])
+            ->when($request->query('owner') === 'mine', function ($query) use ($request) {
+                $query->where(function ($ownerQuery) use ($request) {
+                    $ownerQuery->where('owner_id', $request->user()->id)
+                        ->orWhereNull('owner_id');
+                });
+            })
             ->when($request->filled('q'), function ($query) use ($request) {
                 $term = '%'.$request->query('q').'%';
                 $query->where(fn ($q) => $q
@@ -451,7 +458,7 @@ class AdminOwnerController extends Controller
                     ->orWhere('address', 'like', $term)
                     ->orWhere('full_address', 'like', $term)
                     ->orWhereHas('city', fn ($city) => $city->where('city_name', 'like', $term))
-                    ->orWhereHas('barangay', fn ($barangay) => $barangay->where('barangay_name', 'like', $term)));
+                    ->orWhereHas('barangayReference', fn ($barangay) => $barangay->where('barangay_name', 'like', $term)));
             })
             ->when($request->filled('status'), function ($query) use ($request) {
                 $status = $request->query('status');
@@ -473,8 +480,9 @@ class AdminOwnerController extends Controller
                 $query->where(function ($q) use ($location) {
                     $q->where('address', 'like', $location)
                         ->orWhere('full_address', 'like', $location)
+                        ->orWhere('barangay', 'like', $location)
                         ->orWhereHas('city', fn ($city) => $city->where('city_name', 'like', $location))
-                        ->orWhereHas('barangay', fn ($barangay) => $barangay->where('barangay_name', 'like', $location));
+                        ->orWhereHas('barangayReference', fn ($barangay) => $barangay->where('barangay_name', 'like', $location));
                 });
             })
             ->latest()
@@ -621,18 +629,18 @@ class AdminOwnerController extends Controller
         abort_unless($user->isUser(), 404);
 
         $data = $request->validate([
-            'name'                    => ['nullable', 'string', 'max:255'],
-            'phone'                   => ['nullable', 'string', 'max:50'],
-            'student_id'              => ['nullable', 'string', 'max:100'],
-            'school_company'          => ['nullable', 'string', 'max:255'],
-            'course_or_position'      => ['nullable', 'string', 'max:255'],
-            'valid_id_type'           => ['nullable', 'string', 'max:100'],
-            'valid_id_number'         => ['nullable', 'string', 'max:100'],
-            'emergency_contact_name'  => ['nullable', 'string', 'max:255'],
-            'emergency_contact_number'=> ['nullable', 'string', 'max:100'],
-            'preferred_language'      => ['nullable', 'string', 'max:100'],
-            'id_verified'             => ['nullable', 'boolean'],
-            'profile_image'           => ['nullable', 'image', 'max:2048'],
+            'name' => ['nullable', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'student_id' => ['nullable', 'string', 'max:100'],
+            'school_company' => ['nullable', 'string', 'max:255'],
+            'course_or_position' => ['nullable', 'string', 'max:255'],
+            'valid_id_type' => ['nullable', 'string', 'max:100'],
+            'valid_id_number' => ['nullable', 'string', 'max:100'],
+            'emergency_contact_name' => ['nullable', 'string', 'max:255'],
+            'emergency_contact_number' => ['nullable', 'string', 'max:100'],
+            'preferred_language' => ['nullable', 'string', 'max:100'],
+            'id_verified' => ['nullable', 'boolean'],
+            'profile_image' => ['nullable', 'image', 'max:2048'],
         ]);
 
         // Update user basic info
@@ -657,17 +665,17 @@ class AdminOwnerController extends Controller
         // Update tenant profile
         $verified = $request->boolean('id_verified');
         $profileData = [
-            'student_id'               => $data['student_id'] ?? null,
-            'school_company'           => $data['school_company'] ?? null,
-            'course_or_position'       => $data['course_or_position'] ?? null,
-            'valid_id_type'            => $data['valid_id_type'] ?? null,
-            'valid_id_number'          => $data['valid_id_number'] ?? null,
-            'emergency_contact_name'   => $data['emergency_contact_name'] ?? null,
+            'student_id' => $data['student_id'] ?? null,
+            'school_company' => $data['school_company'] ?? null,
+            'course_or_position' => $data['course_or_position'] ?? null,
+            'valid_id_type' => $data['valid_id_type'] ?? null,
+            'valid_id_number' => $data['valid_id_number'] ?? null,
+            'emergency_contact_name' => $data['emergency_contact_name'] ?? null,
             'emergency_contact_number' => $data['emergency_contact_number'] ?? null,
-            'preferred_language'       => $data['preferred_language'] ?? null,
-            'id_verified'              => $verified,
-            'verified_by'              => $verified ? $request->user()->id : null,
-            'verified_at'              => $verified ? now() : null,
+            'preferred_language' => $data['preferred_language'] ?? null,
+            'id_verified' => $verified,
+            'verified_by' => $verified ? $request->user()->id : null,
+            'verified_at' => $verified ? now() : null,
         ];
 
         if (Schema::hasTable('tenant_profiles')) {
@@ -2215,6 +2223,7 @@ class AdminOwnerController extends Controller
 
         if ($existing) {
             DB::table('notifications')->where('id', $existing->id)->update($values);
+
             return;
         }
 

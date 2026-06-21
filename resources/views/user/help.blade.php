@@ -141,21 +141,17 @@
 
 <div class="space-y-6">
     <div class="space-y-4">
-        <nav class="flex items-center gap-1.5 text-xs text-gray-400">
-            <a href="{{ route('user.dashboard') }}" class="hover:text-gray-600 transition-colors">Dashboard</a>
-            <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-            <span class="font-medium text-gray-700">Help Center</span>
-        </nav>
-
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-                <h1 class="text-2xl font-bold text-gray-900">Help Center</h1>
-                <p class="mt-1 text-sm ui-muted">Find answers, guides, and support for using your BoardMatch Student Housing account.</p>
-            </div>
-            <a href="#support-request" data-scroll-target="#support-request" class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
-                Submit Request
-            </a>
-        </div>
+        <x-user.page-header
+            eyebrow="Support"
+            title="Help Center"
+            subtitle="Find answers, guides, and support for using your BoardMatch Student Housing account."
+        >
+            <x-slot:actions>
+                <a href="#support-request" data-scroll-target="#support-request" class="inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700">
+                    Submit Request
+                </a>
+            </x-slot:actions>
+        </x-user.page-header>
 
         <div class="relative">
             <svg class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.2-5.2m1.7-4.3a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>

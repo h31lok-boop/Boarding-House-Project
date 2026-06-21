@@ -15,12 +15,16 @@ class BoardingHouseMatch extends Model
         'match_score',
         'match_reasons',
         'score_breakdown',
+        'ai_explanation',
+        'ai_model',
+        'ai_generated_at',
     ];
 
     protected $casts = [
         'match_score' => 'decimal:2',
         'match_reasons' => 'array',
         'score_breakdown' => 'array',
+        'ai_generated_at' => 'datetime',
     ];
 
     public function user()

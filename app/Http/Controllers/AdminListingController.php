@@ -13,6 +13,7 @@ class AdminListingController extends Controller
         abort_unless($request->user()?->isAdmin(), 403);
 
         $houses = BoardingHouse::query()
+            ->with(['images:id,boarding_house_id,image_path,is_primary,sort_order'])
             ->orderByDesc('created_at')
             ->paginate(50);
 
@@ -23,15 +24,9 @@ class AdminListingController extends Controller
     {
         abort_unless($request->user()?->isAdmin(), 403);
 
-        $houses = BoardingHouse::query()
-            ->where(function ($query) use ($request) {
-                $query->where('owner_id', $request->user()->id)
-                    ->orWhereNull('owner_id');
-            })
-            ->orderByDesc('created_at')
-            ->paginate(50);
+        $request->query->set('owner', 'mine');
 
-        return view('admin.my-boarding-house', compact('houses'));
+        return app(AdminOwnerController::class)->boardingHouses($request);
     }
 
     public function rooms(Request $request)

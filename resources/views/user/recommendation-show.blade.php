@@ -12,7 +12,7 @@
                     @endif
                 </div>
                 <div class="flex gap-3">
-                    <a href="{{ route('user.matchmaking.index') }}" class="rounded-lg border ui-border px-4 py-2 text-sm">Back to Recommendations</a>
+                    <a href="{{ route('user.boarding-houses.index', ['tab' => 'recommended']) }}" class="rounded-lg border ui-border px-4 py-2 text-sm">Back to Find Boarding Houses</a>
                     <a href="{{ route('user.matchmaking.explain', $candidate) }}" class="rounded-lg border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-700 hover:bg-sky-100">Explain with DeepSeek</a>
                     <a href="{{ route('user.preferences.index') }}" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">Update Profile</a>
                 </div>

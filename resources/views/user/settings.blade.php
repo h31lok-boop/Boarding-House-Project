@@ -71,16 +71,11 @@
          class="fixed right-4 top-4 z-[9999] rounded-xl border border-indigo-100 bg-white px-4 py-3 text-sm font-semibold text-indigo-700 shadow-lg"
          x-text="toast"></div>
 
-    <nav class="flex items-center gap-1.5 text-xs text-gray-400">
-        <a href="{{ route('user.dashboard') }}" class="transition-colors hover:text-gray-600">Dashboard</a>
-        <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-        <span class="font-medium text-gray-700">Profile Settings</span>
-    </nav>
-
-    <div>
-        <h1 class="text-2xl font-bold text-gray-900">Profile Settings</h1>
-        <p class="mt-1 text-sm text-gray-500">Manage your account information, security, notifications, and privacy preferences.</p>
-    </div>
+    <x-user.page-header
+        eyebrow="Account Center"
+        title="Profile Settings"
+        subtitle="Manage your account information, security, notifications, and privacy preferences."
+    />
 
     <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_350px_252px]">
         <div class="space-y-5">
@@ -107,7 +102,7 @@
                                         <img :src="photoPreview" alt="{{ $displayName }}" class="h-full w-full object-cover">
                                     </template>
                                     <template x-if="!photoPreview">
-                                        <div class="flex h-full w-full items-center justify-center text-lg font-bold text-white" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">
+                                        <div class="flex h-full w-full items-center justify-center bg-blue-600 text-lg font-bold text-white">
                                             <span x-text="initials">{{ $initials }}</span>
                                         </div>
                                     </template>

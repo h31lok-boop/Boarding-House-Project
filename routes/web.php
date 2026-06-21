@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\PaymentReceiptVerificationController;
 use App\Http\Controllers\AdminListingController;
 use App\Http\Controllers\AdminOwnerController;
 use App\Http\Controllers\BoardingHouseController;
@@ -10,12 +11,14 @@ use App\Http\Controllers\RoomController;
 use App\Http\Controllers\User\BoardingHouseBrowseController;
 use App\Http\Controllers\User\HelpCenterController;
 use App\Http\Controllers\User\InquiryController;
-use App\Http\Controllers\User\MatchProfileController;
+use App\Http\Controllers\User\PaymentReceiptController;
 use App\Http\Controllers\User\RecommendationController;
 use App\Http\Controllers\User\ReservationController;
 use App\Http\Controllers\User\RoommateMatchRequestController;
 use App\Http\Controllers\User\TenantAreaController;
+use App\Http\Controllers\User\TransactionController;
 use App\Http\Controllers\User\UserNotificationController;
+use App\Http\Controllers\User\UserPreferenceController;
 use App\Http\Controllers\User\UserSettingsController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -37,6 +40,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('user')
             ->name('user.listings');
     });
+
+    Route::get('/payment-receipts/{receipt}', [PaymentReceiptController::class, 'show'])->name('payment-receipts.show');
+    Route::get('/payment-receipts/{receipt}/download', [PaymentReceiptController::class, 'download'])->name('payment-receipts.download');
 
     Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [AdminOwnerController::class, 'dashboard'])->name('dashboard');
@@ -86,6 +92,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/transactions', [AdminOwnerController::class, 'payments'])->name('transactions.index');
         Route::post('/payments', [AdminOwnerController::class, 'storePayment'])->name('payments.store');
         Route::patch('/payments/{payment}', [AdminOwnerController::class, 'updatePayment'])->name('payments.update');
+        Route::get('/payment-verification', [PaymentReceiptVerificationController::class, 'index'])->name('payment-receipts.index');
+        Route::patch('/payment-verification/{receipt}/approve', [PaymentReceiptVerificationController::class, 'approve'])->name('payment-receipts.approve');
+        Route::patch('/payment-verification/{receipt}/reject', [PaymentReceiptVerificationController::class, 'reject'])->name('payment-receipts.reject');
 
         Route::get('/reviews', [AdminOwnerController::class, 'reviews'])->name('reviews');
         Route::patch('/reviews/{review}', [AdminOwnerController::class, 'updateReview'])->name('reviews.update');
@@ -97,6 +106,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/notifications/{notification}', [AdminOwnerController::class, 'updateNotification'])->name('notifications.update');
         Route::delete('/notifications/{notification}', [AdminOwnerController::class, 'destroyNotification'])->name('notifications.destroy');
 
+        Route::get('/settings/account', [AdminOwnerController::class, 'settings'])->name('settings');
         Route::get('/settings', [AdminOwnerController::class, 'settings'])->name('settings.index');
         Route::put('/settings/profile', [AdminOwnerController::class, 'updateSettingsProfile'])->name('settings.profile.update');
         Route::patch('/settings/profile', [AdminOwnerController::class, 'updateSettingsProfile'])->name('settings.profile');
@@ -110,6 +120,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'userDashboard'])->name('dashboard');
 
         Route::get('/boarding-houses', [BoardingHouseBrowseController::class, 'index'])->name('boarding-houses.index');
+        Route::get('/boarding-houses/recommended', [BoardingHouseBrowseController::class, 'recommended'])->name('boarding-houses.recommended');
         Route::get('/boarding-houses/compare', [BoardingHouseBrowseController::class, 'compare'])->name('boarding-houses.compare');
         Route::get('/boarding-houses/{boardingHouse}', [BoardingHouseBrowseController::class, 'show'])->name('boarding-houses.show');
         Route::get('/browse-listings', [BoardingHouseBrowseController::class, 'index'])->name('browse');
@@ -117,6 +128,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/browse-listings/{boardingHouse}', [BoardingHouseBrowseController::class, 'show'])->name('browse.show');
 
         Route::get('/matchmaking', [RecommendationController::class, 'index'])->name('matchmaking.index');
+        Route::post('/matchmaking/generate', [RecommendationController::class, 'generate'])->name('matchmaking.generate');
         Route::get('/matchmaking/{candidate}', [RecommendationController::class, 'show'])->name('matchmaking.show');
         Route::get('/matchmaking/{candidate}/explain', [RecommendationController::class, 'explain'])->name('matchmaking.explain');
         Route::post('/matchmaking/{candidate}/requests', [RoommateMatchRequestController::class, 'store'])->name('matchmaking.requests.store');
@@ -133,12 +145,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/reservations/{reservation}/cancel', [TenantAreaController::class, 'cancelReservation'])->name('reservations.cancel');
         Route::get('/payments', [TenantAreaController::class, 'payments'])->name('payments');
         Route::get('/payments', [TenantAreaController::class, 'payments'])->name('payments.index');
-        Route::get('/transactions', [TenantAreaController::class, 'payments'])->name('transactions');
-        Route::get('/transactions', [TenantAreaController::class, 'payments'])->name('transactions.index');
+        Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions');
+        Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
         Route::post('/payment-methods', [TenantAreaController::class, 'storePaymentMethod'])->name('payment-methods.store');
         Route::patch('/payment-methods/{method}/default', [TenantAreaController::class, 'setDefaultPaymentMethod'])->name('payment-methods.default');
         Route::delete('/payment-methods/{method}', [TenantAreaController::class, 'destroyPaymentMethod'])->name('payment-methods.destroy');
         Route::post('/payments/confirm', [TenantAreaController::class, 'confirmPayment'])->name('payments.confirm');
+        Route::post('/payment-receipts', [PaymentReceiptController::class, 'store'])->name('payment-receipts.store');
+        Route::delete('/payment-receipts/{receipt}', [PaymentReceiptController::class, 'destroy'])->name('payment-receipts.destroy');
         Route::get('/messages', [TenantAreaController::class, 'messages'])->name('messages');
         Route::get('/messages', [TenantAreaController::class, 'messages'])->name('messages.index');
         Route::post('/messages', [TenantAreaController::class, 'storeMessage'])->name('messages.store');
@@ -150,11 +164,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/reviews', [TenantAreaController::class, 'storeReview'])->name('reviews.store');
         Route::patch('/reviews/{review}', [TenantAreaController::class, 'updateReview'])->name('reviews.update');
         Route::delete('/reviews/{review}', [TenantAreaController::class, 'destroyReview'])->name('reviews.destroy');
-        Route::get('/preferences', [MatchProfileController::class, 'edit'])->name('preferences.index');
-        Route::post('/preferences', [MatchProfileController::class, 'store'])->name('preferences.store');
-        Route::put('/preferences', [MatchProfileController::class, 'update'])->name('preferences.update');
-        Route::get('/profile', [MatchProfileController::class, 'edit'])->name('profile');
-        Route::put('/profile', [MatchProfileController::class, 'update'])->name('profile.update');
+        Route::get('/preferences', [UserPreferenceController::class, 'edit'])->name('preferences.index');
+        Route::post('/preferences', [UserPreferenceController::class, 'store'])->name('preferences.store');
+        Route::put('/preferences', [UserPreferenceController::class, 'update'])->name('preferences.update');
+        Route::get('/profile', [UserPreferenceController::class, 'edit'])->name('profile');
+        Route::put('/profile', [UserPreferenceController::class, 'update'])->name('profile.update');
         Route::get('/settings', [UserSettingsController::class, 'index'])->name('settings.index');
         Route::put('/settings/personal-information', [UserSettingsController::class, 'updatePersonalInfo'])->name('settings.personal.update');
         Route::put('/settings/contact-information', [UserSettingsController::class, 'updateContactInfo'])->name('settings.contact.update');

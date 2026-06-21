@@ -41,27 +41,20 @@
 
 <style>
 .pg-btn{display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;border-radius:6px;font-size:13px;font-weight:500;border:1px solid #e5e7eb;background:#fff;color:#6b7280;cursor:pointer;transition:all .15s;padding:0 6px;}
-.pg-btn:hover{border-color:#f97316;color:#ea580c;}
-.pg-btn.active{border-color:#f97316;color:#f97316;font-weight:700;}
+.pg-btn:hover{border-color:#2563eb;color:#1d4ed8;}
+.pg-btn.active{border-color:#2563eb;color:#2563eb;font-weight:700;}
 .pg-btn.arrow{color:#9ca3af;border:none;background:transparent;}
-.pg-btn.arrow:hover{color:#ea580c;}
+.pg-btn.arrow:hover{color:#1d4ed8;}
 .pg-btn.ellipsis{border:none;background:transparent;cursor:default;}
 </style>
 
 <div x-data="{ addOpen: false, editOpen: false, selected: {} }" class="space-y-5">
 
-    {{-- Breadcrumb --}}
-    <nav class="flex items-center gap-1.5 text-xs text-gray-400">
-        <a href="{{ route('user.dashboard') }}" class="hover:text-gray-600 transition-colors">Dashboard</a>
-        <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-        <span class="text-gray-500">Feedback & Reviews</span>
-    </nav>
-
-    {{-- Title --}}
-    <div>
-        <h1 class="text-2xl font-bold text-gray-900">Feedback & Reviews</h1>
-        <p class="mt-1 text-sm text-gray-500">Read and manage reviews from tenants and share your experience to help others.</p>
-    </div>
+    <x-user.page-header
+        eyebrow="Feedback"
+        title="Feedback & Reviews"
+        subtitle="Read and manage reviews from tenants and share your experience to help others."
+    />
 
     {{-- Overall Rating Card --}}
     <div class="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">

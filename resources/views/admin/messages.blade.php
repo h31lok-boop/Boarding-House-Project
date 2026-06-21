@@ -170,7 +170,7 @@
                         name="query"
                         value="{{ request('query') }}"
                         class="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-12 pr-12 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
-                        placeholder="Search anything..."
+                        placeholder="Search conversations..."
                     >
                     <span class="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

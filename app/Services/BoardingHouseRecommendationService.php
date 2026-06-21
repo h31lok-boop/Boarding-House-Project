@@ -6,8 +6,8 @@ use App\Models\Amenity;
 use App\Models\BoardingHouse;
 use App\Models\BoardingHouseMatch;
 use App\Models\TenantMatchProfile;
-use App\Models\TenantPreference;
 use App\Models\User;
+use App\Models\UserPreference;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -15,19 +15,23 @@ use Illuminate\Support\Str;
 
 class BoardingHouseRecommendationService
 {
-    private const DEFAULT_LAT = 6.7440000;
+    private const DEFAULT_LAT = 6.7587400;
 
-    private const DEFAULT_LNG = 125.3550000;
+    private const DEFAULT_LNG = 125.3090900;
 
     private const WEIGHTS = [
         'budget' => 0.25,
         'location' => 0.20,
         'room_type' => 0.15,
         'amenities' => 0.15,
-        'safety' => 0.10,
+        'availability' => 0.10,
         'lifestyle' => 0.10,
-        'distance' => 0.05,
+        'other' => 0.05,
     ];
+
+    public function __construct(
+        private readonly LocationService $locationService,
+    ) {}
 
     public function rank(
         User $tenant,
@@ -82,6 +86,8 @@ class BoardingHouseRecommendationService
                 'reasons' => [],
                 'warnings' => ['Complete your preferences to get personalized boarding house recommendations.'],
                 'price' => $this->housePrice($house),
+                'distance_from_dssc' => $this->distanceFromDssc($house),
+                'distance_from_dssc_label' => $this->locationService->distanceLabel($this->distanceFromDssc($house)),
             ];
         }
 
@@ -90,9 +96,9 @@ class BoardingHouseRecommendationService
             'location' => $this->scoreLocation($preference, $house),
             'room_type' => $this->scoreRoomType($preference, $house),
             'amenities' => $this->scoreAmenities($preference, $house),
-            'safety' => $this->scoreSafety($preference, $house),
+            'availability' => $this->scoreAvailability($house),
             'lifestyle' => $this->scoreLifestyle($preference, $house),
-            'distance' => $this->scoreDistance($preference, $house, $referenceLat, $referenceLng),
+            'other' => $this->scoreOtherPreferences($preference, $house, $referenceLat, $referenceLng),
         ];
 
         $overall = 0.0;
@@ -112,7 +118,7 @@ class BoardingHouseRecommendationService
         }
 
         $percent = (int) round(max(0.0, min(1.0, $overall)) * 100);
-        $reasons = $this->matchReasons($scores);
+        $reasons = $this->matchReasons($preference, $house, $scores);
         $warnings = $this->matchWarnings($scores);
 
         $result = [
@@ -127,6 +133,8 @@ class BoardingHouseRecommendationService
             'match_reasons' => $reasons,
             'warnings' => $warnings,
             'price' => $this->housePrice($house),
+            'distance_from_dssc' => $this->distanceFromDssc($house),
+            'distance_from_dssc_label' => $this->locationService->distanceLabel($this->distanceFromDssc($house)),
         ];
 
         if ($persist) {
@@ -149,7 +157,7 @@ class BoardingHouseRecommendationService
                 'roomCategories:id,boarding_house_id,name,monthly_rate,available_rooms,is_available',
                 'images:id,boarding_house_id,image_path,is_primary,sort_order',
                 'city:id,city_name',
-                'barangay:id,barangay_name',
+                'barangayReference:id,barangay_name',
                 'province:id,province_name',
             ])
             ->withCount([
@@ -165,18 +173,17 @@ class BoardingHouseRecommendationService
             $query->where('is_active', true);
         }
 
-        if (Schema::hasColumn('boarding_houses', 'approval_status') || Schema::hasColumn('boarding_houses', 'status')) {
-            $query->where(function ($statusQuery) {
-                if (Schema::hasColumn('boarding_houses', 'approval_status')) {
-                    $statusQuery->where('approval_status', 'approved');
-                }
-
-                if (Schema::hasColumn('boarding_houses', 'status')) {
-                    $method = Schema::hasColumn('boarding_houses', 'approval_status') ? 'orWhere' : 'where';
-                    $statusQuery->{$method}('status', 'approved');
-                }
-            });
+        if (Schema::hasColumn('boarding_houses', 'approval_status')) {
+            $query->where('approval_status', 'approved');
+        } elseif (Schema::hasColumn('boarding_houses', 'status')) {
+            $query->where('status', 'approved');
         }
+
+        $query->where(function ($availableQuery) {
+            $availableQuery->where('available_rooms', '>', 0)
+                ->orWhereHas('rooms', fn ($roomQuery) => $roomQuery->available())
+                ->orWhereHas('roomCategories', fn ($categoryQuery) => $categoryQuery->where('available_rooms', '>', 0));
+        });
 
         return $query->orderBy('name')->limit($limit)->get();
     }
@@ -196,11 +203,27 @@ class BoardingHouseRecommendationService
         return [
             'budget_min' => $payload['budget_min'],
             'budget_max' => $payload['budget_max'],
+            'preferred_rental_budget' => $payload['preferred_rental_budget'],
             'preferred_locations' => $payload['preferred_locations'],
             'preferred_location_label' => collect($payload['preferred_locations'])->filter()->implode(', '),
+            'preferred_landmark' => $payload['preferred_landmark'],
+            'dssc_selected' => $this->preferenceTargetsDssc($payload),
+            'distance_from_school' => $payload['distance_from_school'],
             'lifestyle_text' => $payload['lifestyle_notes'],
             'room_type' => $payload['room_type'],
+            'study_habits' => $payload['study_habits'],
+            'sleeping_schedule' => $payload['sleeping_schedule'],
+            'cleanliness_level' => $payload['cleanliness_level'],
             'amenities' => $payload['amenities'],
+            'safety_preferences' => $payload['safety_preferences'],
+            'gender_preference' => $payload['gender_preference'],
+            'smoking_preference' => $payload['smoking_preference'],
+            'drinking_preference' => $payload['drinking_preference'],
+            'pets_preference' => $payload['pets_preference'],
+            'internet_usage' => $payload['internet_usage'],
+            'hobbies' => $payload['hobbies'],
+            'ai_ready' => $this->payloadIsAiReady($payload),
+            'ai_completion_percentage' => $this->aiCompletionPercentage($payload),
         ];
     }
 
@@ -238,6 +261,11 @@ class BoardingHouseRecommendationService
         return $prices->filter(fn ($price) => $price !== null && $price > 0)->min();
     }
 
+    public function distanceFromDssc(BoardingHouse $house): ?float
+    {
+        return $this->locationService->boardingHouseDistance($house);
+    }
+
     public function imageUrl(BoardingHouse $house): ?string
     {
         $path = null;
@@ -271,27 +299,19 @@ class BoardingHouseRecommendationService
 
     public function matchLabel(int $percent): string
     {
-        if ($percent >= 90) {
-            return 'Top Match';
+        if ($percent >= 80) {
+            return 'High Match';
         }
 
-        if ($percent >= 75) {
-            return 'Great Match';
-        }
-
-        if ($percent >= 50) {
-            return 'Good Match';
-        }
-
-        return 'Low Match';
+        return $percent >= 60 ? 'Medium Match' : 'Low Match';
     }
 
     private function loadTenantPreferences(User $tenant): void
     {
         $relations = [];
 
-        if (Schema::hasTable('tenant_preferences')) {
-            $relations[] = 'tenantPreference';
+        if (Schema::hasTable('user_preferences')) {
+            $relations[] = 'preference';
         }
 
         if (Schema::hasTable('tenant_match_profiles')) {
@@ -311,20 +331,24 @@ class BoardingHouseRecommendationService
             'roomCategories:id,boarding_house_id,name,monthly_rate,available_rooms,is_available',
             'images:id,boarding_house_id,image_path,is_primary,sort_order',
             'city:id,city_name',
-            'barangay:id,barangay_name',
+            'barangayReference:id,barangay_name',
             'province:id,province_name',
         ]);
     }
 
     private function preferencePayload(User $tenant): array
     {
-        $preference = Schema::hasTable('tenant_preferences') ? $tenant->tenantPreference : null;
+        $preference = Schema::hasTable('user_preferences') ? $tenant->preference : null;
+        $profile = Schema::hasTable('tenant_match_profiles') ? $tenant->tenantMatchProfile : null;
 
-        if ($preference instanceof TenantPreference) {
+        if ($preference instanceof UserPreference) {
             return [
+                'preferred_rental_budget' => $this->toFloat($preference->preferred_rental_budget),
                 'budget_min' => $this->toFloat($preference->preferred_rental_budget_min),
-                'budget_max' => $this->toFloat($preference->preferred_rental_budget_max),
+                'budget_max' => $this->toFloat($preference->preferred_rental_budget_max)
+                    ?? $this->toFloat($preference->preferred_rental_budget),
                 'preferred_locations' => $this->arrayValues($preference->preferred_locations),
+                'preferred_landmark' => $preference->preferred_landmark,
                 'distance_from_school' => $this->toFloat($preference->distance_from_school),
                 'room_type' => $preference->room_type,
                 'study_habits' => $preference->study_habits,
@@ -334,10 +358,14 @@ class BoardingHouseRecommendationService
                 'safety_preferences' => $this->arrayValues($preference->safety_preferences),
                 'amenities' => $this->arrayValues($preference->amenities),
                 'lifestyle_notes' => trim((string) $preference->lifestyle_notes),
+                'gender_preference' => $profile?->gender_preference,
+                'smoking_preference' => $profile?->smoking_preference,
+                'drinking_preference' => $profile?->drinking_preference,
+                'pets_preference' => $profile?->pets_preference,
+                'internet_usage' => $profile?->internet_usage,
+                'hobbies' => $this->arrayValues($profile?->hobbies),
             ];
         }
-
-        $profile = Schema::hasTable('tenant_match_profiles') ? $tenant->tenantMatchProfile : null;
 
         if (! $profile instanceof TenantMatchProfile) {
             return $this->emptyPreferencePayload();
@@ -348,9 +376,11 @@ class BoardingHouseRecommendationService
         $location = $this->extractPreferredLocation($notes);
 
         return [
+            'preferred_rental_budget' => $this->toFloat($profile->budget_max) ?? $this->toFloat($profile->budget_min),
             'budget_min' => $this->toFloat($profile->budget_min),
             'budget_max' => $this->toFloat($profile->budget_max),
             'preferred_locations' => $location ? [$location] : [],
+            'preferred_landmark' => $this->extractPreferredLandmark($notes),
             'distance_from_school' => null,
             'room_type' => null,
             'study_habits' => $profile->study_habits,
@@ -362,15 +392,23 @@ class BoardingHouseRecommendationService
             ])),
             'amenities' => $amenities,
             'lifestyle_notes' => $this->extractLifestyleText($notes) ?: '',
+            'gender_preference' => $profile->gender_preference,
+            'smoking_preference' => $profile->smoking_preference,
+            'drinking_preference' => $profile->drinking_preference,
+            'pets_preference' => $profile->pets_preference,
+            'internet_usage' => $profile->internet_usage,
+            'hobbies' => $this->arrayValues($profile->hobbies),
         ];
     }
 
     private function emptyPreferencePayload(): array
     {
         return [
+            'preferred_rental_budget' => null,
             'budget_min' => null,
             'budget_max' => null,
             'preferred_locations' => [],
+            'preferred_landmark' => null,
             'distance_from_school' => null,
             'room_type' => null,
             'study_habits' => null,
@@ -380,14 +418,22 @@ class BoardingHouseRecommendationService
             'safety_preferences' => [],
             'amenities' => [],
             'lifestyle_notes' => '',
+            'gender_preference' => null,
+            'smoking_preference' => null,
+            'drinking_preference' => null,
+            'pets_preference' => null,
+            'internet_usage' => null,
+            'hobbies' => [],
         ];
     }
 
     private function payloadHasPreferences(array $payload): bool
     {
-        return $payload['budget_min'] !== null
+        return $payload['preferred_rental_budget'] !== null
+            || $payload['budget_min'] !== null
             || $payload['budget_max'] !== null
             || $payload['preferred_locations'] !== []
+            || $payload['preferred_landmark']
             || $payload['room_type']
             || $payload['amenities'] !== []
             || $payload['safety_preferences'] !== []
@@ -436,14 +482,15 @@ class BoardingHouseRecommendationService
             ->filter(fn ($location) => strlen($location) >= 2)
             ->values();
 
-        if ($locations->isEmpty()) {
+        if ($locations->isEmpty() && ! $this->preferenceTargetsDssc($preference)) {
             return 0.5;
         }
 
         $houseText = $this->normalizeText(implode(' ', array_filter([
-            $house->barangay?->barangay_name,
+            $house->display_barangay,
             $house->city?->city_name,
             $house->province?->province_name,
+            $house->nearby_landmark,
             $house->full_address,
             $house->address,
         ])));
@@ -453,10 +500,24 @@ class BoardingHouseRecommendationService
         }
 
         $best = 0.0;
+        $genericDsscSelection = $locations->contains(
+            fn (string $location) => str_contains($location, 'dssc')
+                || str_contains($location, 'all nearby dssc')
+        ) || str_contains($this->normalizeText($preference['preferred_landmark']), 'dssc');
+        $specificNearbySelection = $locations->contains(
+            fn (string $location) => collect(config('dssc.areas', []))
+                ->map(fn ($area) => $this->normalizeText($area))
+                ->contains($location)
+        );
 
         foreach ($locations as $location) {
+            if (str_contains($location, 'dssc') || str_contains($location, 'all nearby dssc')) {
+                continue;
+            }
+
             if (str_contains($houseText, $location)) {
                 $best = max($best, 1.0);
+
                 continue;
             }
 
@@ -470,6 +531,13 @@ class BoardingHouseRecommendationService
 
             $matched = $words->filter(fn ($word) => str_contains($houseText, $word))->count();
             $best = max($best, $matched > 0 ? 0.4 + (($matched / $words->count()) * 0.4) : 0.0);
+        }
+
+        if ($this->preferenceTargetsDssc($preference)) {
+            $dsscScore = $this->dsscLocationScore($house, $houseText);
+            $best = max($best, $genericDsscSelection || ! $specificNearbySelection
+                ? $dsscScore
+                : $dsscScore * 0.85);
         }
 
         return $best;
@@ -556,7 +624,7 @@ class BoardingHouseRecommendationService
             'no smoking' => ['no smoking', 'non smoking', 'smoke free'],
         ];
 
-        $requested = $safety->flatMap(function ($item) use ($keywords) {
+        $requested = $safety->flatMap(function ($item) {
             if (str_contains($item, 'very high') || str_contains($item, 'high')) {
                 return ['cctv', 'gate', 'secure'];
             }
@@ -615,6 +683,26 @@ class BoardingHouseRecommendationService
                 : ($this->containsAny($houseText, ['curfew', 'quiet hours', 'no loud']) ? 0.85 : 0.6);
         }
 
+        if ($preference['smoking_preference'] === 'non_smoker_only') {
+            $checks[] = $this->containsAny($houseText, ['no smoking', 'non smoking', 'smoke free']) ? 1.0 : 0.35;
+        } elseif ($preference['smoking_preference'] === 'outdoor_only') {
+            $checks[] = $this->containsAny($houseText, ['outdoor smoking', 'designated smoking']) ? 1.0 : 0.55;
+        }
+
+        if ($preference['drinking_preference'] === 'no_alcohol') {
+            $checks[] = $this->containsAny($houseText, ['no alcohol', 'no drinking', 'liquor prohibited']) ? 1.0 : 0.45;
+        }
+
+        if ($preference['pets_preference'] === 'no_pets') {
+            $checks[] = $this->containsAny($houseText, ['no pets', 'pets prohibited']) ? 1.0 : 0.65;
+        } elseif (in_array($preference['pets_preference'], ['cat_ok', 'dog_ok', 'pet_friendly'], true)) {
+            $checks[] = $this->containsAny($houseText, ['pets allowed', 'pet friendly', 'cats allowed', 'dogs allowed']) ? 1.0 : 0.4;
+        }
+
+        if (in_array($preference['internet_usage'], ['heavy', 'remote_work'], true)) {
+            $checks[] = $this->containsAny($houseText, ['wi fi', 'wifi', 'internet', 'fiber']) ? 1.0 : 0.25;
+        }
+
         if (strlen($notes) >= 8) {
             $noteWords = collect(preg_split('/\s+/', $notes) ?: [])
                 ->filter(fn ($word) => strlen($word) >= 4)
@@ -634,6 +722,31 @@ class BoardingHouseRecommendationService
         return array_sum($checks) / count($checks);
     }
 
+    private function scoreOtherPreferences(
+        array $preference,
+        BoardingHouse $house,
+        ?float $referenceLat,
+        ?float $referenceLng
+    ): float {
+        $checks = [
+            $this->scoreDistance($preference, $house, $referenceLat, $referenceLng),
+            $this->scoreSafety($preference, $house),
+        ];
+
+        $hobbies = collect($preference['hobbies'])
+            ->map(fn ($hobby) => $this->normalizeText($hobby))
+            ->filter()
+            ->values();
+
+        if ($hobbies->isNotEmpty()) {
+            $houseText = $this->houseText($house);
+            $matched = $hobbies->filter(fn ($hobby) => str_contains($houseText, $hobby))->count();
+            $checks[] = $matched > 0 ? min(1.0, 0.5 + ($matched / $hobbies->count())) : 0.5;
+        }
+
+        return array_sum($checks) / count($checks);
+    }
+
     private function scoreDistance(array $preference, BoardingHouse $house, ?float $referenceLat, ?float $referenceLng): float
     {
         $preferredDistance = $this->toFloat($preference['distance_from_school']);
@@ -642,7 +755,9 @@ class BoardingHouseRecommendationService
             return 0.5;
         }
 
-        $distance = $this->toFloat($house->distance_from_school ?? null);
+        $distance = $this->preferenceTargetsDssc($preference)
+            ? $this->distanceFromDssc($house)
+            : $this->toFloat($house->distance_from_school ?? null);
 
         if ($distance === null) {
             $lat = $referenceLat ?? self::DEFAULT_LAT;
@@ -661,9 +776,83 @@ class BoardingHouseRecommendationService
         return max(0.0, 1.0 - (($distance - $preferredDistance) / max($preferredDistance, 5.0)));
     }
 
-    private function matchReasons(array $scores): array
+    private function scoreHouseRules(array $preference, BoardingHouse $house): float
+    {
+        $rules = $this->normalizeText($house->house_rules ?? '');
+
+        if ($rules === '') {
+            return 0.5;
+        }
+
+        $checks = [];
+        $safety = collect($preference['safety_preferences'])->map(fn ($item) => $this->normalizeText($item));
+
+        if ($safety->contains(fn ($item) => str_contains($item, 'no smoking'))) {
+            $checks[] = $this->containsAny($rules, ['no smoking', 'non smoking', 'smoke free']) ? 1.0 : 0.35;
+        }
+
+        if ($safety->contains(fn ($item) => str_contains($item, 'curfew'))) {
+            $checks[] = str_contains($rules, 'curfew') ? 1.0 : 0.45;
+        }
+
+        if (is_numeric($preference['noise_tolerance']) && (int) $preference['noise_tolerance'] <= 40) {
+            $checks[] = $this->containsAny($rules, ['quiet hours', 'no loud', 'no noise', 'curfew']) ? 1.0 : 0.4;
+        }
+
+        if ($this->normalizeText($preference['study_habits']) === 'quiet focus') {
+            $checks[] = $this->containsAny($rules, ['quiet', 'study', 'no loud', 'no noise']) ? 1.0 : 0.45;
+        }
+
+        return $checks === [] ? 0.65 : array_sum($checks) / count($checks);
+    }
+
+    private function scoreAvailability(BoardingHouse $house): float
+    {
+        $available = collect([
+            (int) ($house->available_rooms ?? 0),
+            (int) ($house->available_rooms_count ?? 0),
+            (int) ($house->room_categories_available_rooms_sum ?? 0),
+        ])->max();
+
+        if ($house->relationLoaded('rooms')) {
+            $available = max(
+                $available,
+                $house->rooms
+                    ->filter(fn ($room) => strtolower((string) $room->status) === 'available'
+                        || (int) ($room->available_slots ?? 0) > 0)
+                    ->count()
+            );
+        }
+
+        if ($house->relationLoaded('roomCategories')) {
+            $available = max(
+                $available,
+                (int) $house->roomCategories->sum('available_rooms'),
+                $house->roomCategories->where('is_available', true)->count()
+            );
+        }
+
+        return match (true) {
+            $available <= 0 => 0.0,
+            $available <= 2 => 0.75,
+            default => 1.0,
+        };
+    }
+
+    private function matchReasons(array $preference, BoardingHouse $house, array $scores): array
     {
         $reasons = [];
+
+        $distanceFromDssc = $this->distanceFromDssc($house);
+        if ($this->preferenceTargetsDssc($preference) && $distanceFromDssc !== null) {
+            if ($distanceFromDssc <= 1) {
+                $reasons[] = 'Very near DSSC Main Campus.';
+            } elseif ($distanceFromDssc <= 3) {
+                $reasons[] = 'Within a short trip of DSSC Main Campus.';
+            } elseif ($distanceFromDssc <= 5) {
+                $reasons[] = 'Within 5 km of DSSC Main Campus.';
+            }
+        }
 
         if (($scores['budget'] ?? 0) >= 0.8) {
             $reasons[] = 'Matches your preferred budget range.';
@@ -678,19 +867,31 @@ class BoardingHouseRecommendationService
         }
 
         if (($scores['amenities'] ?? 0) >= 0.65) {
-            $reasons[] = 'Includes several of your preferred amenities.';
-        }
+            $reasons[] = 'Matches your preferred amenities';
+            $available = $house->amenities
+                ->pluck('name')
+                ->filter(fn ($name) => collect($preference['amenities'])->contains(
+                    fn ($wanted) => str_contains($this->normalizeText($name), $this->normalizeText($wanted))
+                        || str_contains($this->normalizeText($wanted), $this->normalizeText($name))
+                ))
+                ->take(3)
+                ->implode(', ');
 
-        if (($scores['safety'] ?? 0) >= 0.65) {
-            $reasons[] = 'Matches your safety preferences.';
+            if ($available !== '') {
+                $reasons[] = 'Includes preferred amenities: '.$available.'.';
+            }
         }
 
         if (($scores['lifestyle'] ?? 0) >= 0.65) {
-            $reasons[] = 'Fits your study and lifestyle preferences.';
+            $reasons[] = 'House rules fit your lifestyle preferences.';
         }
 
-        if (($scores['distance'] ?? 0) >= 0.8) {
-            $reasons[] = 'Within your preferred school distance.';
+        if (($scores['availability'] ?? 0) >= 0.75) {
+            $reasons[] = 'Has available rooms or slots.';
+        }
+
+        if (($scores['other'] ?? 0) >= 0.75) {
+            $reasons[] = 'Matches your distance, safety, or other preferences.';
         }
 
         return $reasons ?: ['Worth reviewing based on your saved preferences.'];
@@ -710,6 +911,10 @@ class BoardingHouseRecommendationService
 
         if (($scores['location'] ?? 1) <= 0.25) {
             $warnings[] = 'Location may not match your preferred area.';
+        }
+
+        if (($scores['availability'] ?? 1) <= 0.0) {
+            $warnings[] = 'No available rooms are currently recorded.';
         }
 
         return $warnings;
@@ -740,17 +945,31 @@ class BoardingHouseRecommendationService
             return;
         }
 
-        BoardingHouseMatch::updateOrCreate(
-            [
-                'user_id' => $tenant->id,
-                'boarding_house_id' => $house->id,
-            ],
-            [
-                'match_score' => $result['recommendation_percent'],
-                'match_reasons' => $result['reasons'],
-                'score_breakdown' => $result['breakdown'],
-            ]
-        );
+        $match = BoardingHouseMatch::firstOrNew([
+            'user_id' => $tenant->id,
+            'boarding_house_id' => $house->id,
+        ]);
+        $aiIsStale = $match->exists
+            && (
+                (int) round((float) $match->match_score) !== (int) $result['recommendation_percent']
+                || ($match->match_reasons ?? []) !== $result['reasons']
+            );
+
+        $match->fill([
+            'match_score' => $result['recommendation_percent'],
+            'match_reasons' => $result['reasons'],
+            'score_breakdown' => $result['breakdown'],
+        ]);
+
+        if ($aiIsStale) {
+            $match->fill([
+                'ai_explanation' => null,
+                'ai_model' => null,
+                'ai_generated_at' => null,
+            ]);
+        }
+
+        $match->save();
     }
 
     private function houseText(BoardingHouse $house): string
@@ -769,8 +988,9 @@ class BoardingHouseRecommendationService
             $house->house_rules,
             $house->address,
             $house->full_address,
+            $house->nearby_landmark,
             $house->property_type ?? null,
-            $house->barangay?->barangay_name,
+            $house->display_barangay,
             $house->city?->city_name,
             $amenities,
             $roomCategories,
@@ -842,11 +1062,108 @@ class BoardingHouseRecommendationService
             'location' => 'Location Match',
             'room_type' => 'Room Type Match',
             'amenities' => 'Amenities Match',
-            'safety' => 'Safety Match',
-            'lifestyle' => 'Lifestyle Match',
-            'distance' => 'Distance Match',
+            'availability' => 'Availability',
+            'lifestyle' => 'House Rules / Lifestyle',
+            'other' => 'Other Preferences',
             default => Str::headline($criterion),
         };
+    }
+
+    private function extractPreferredLandmark(string $notes): ?string
+    {
+        if (preg_match('/Preferred Landmark:\s*(.+?)(?:\n|$)/i', $notes, $matches)) {
+            return trim($matches[1]) ?: null;
+        }
+
+        return null;
+    }
+
+    private function preferenceTargetsDssc(array $preference): bool
+    {
+        if (str_contains($this->normalizeText($preference['preferred_landmark'] ?? ''), 'dssc')) {
+            return true;
+        }
+
+        $nearbyAreas = collect(config('dssc.areas', []))
+            ->map(fn ($area) => $this->normalizeText($area))
+            ->push('dssc main campus')
+            ->push('all nearby dssc areas');
+
+        return collect($preference['preferred_locations'] ?? [])
+            ->map(fn ($location) => $this->normalizeText($location))
+            ->contains(fn ($location) => $nearbyAreas->contains($location));
+    }
+
+    private function dsscLocationScore(BoardingHouse $house, ?string $houseText = null): float
+    {
+        $houseText ??= $this->houseText($house);
+        $distance = $this->distanceFromDssc($house);
+
+        if (str_contains($houseText, 'purok 3') && str_contains($houseText, 'matti')) {
+            return 0.95;
+        }
+
+        if (str_contains($houseText, 'matti')) {
+            return 1.0;
+        }
+
+        if (str_contains($houseText, 'mahayahay')) {
+            return 0.82;
+        }
+
+        if (str_contains($houseText, 'tres de mayo')) {
+            return 0.68;
+        }
+
+        if (str_contains($houseText, 'poblacion') || str_contains($houseText, 'city proper')) {
+            return $distance !== null && $distance <= 3 ? 0.65 : 0.52;
+        }
+
+        return match (true) {
+            $distance === null => 0.2,
+            $distance <= 1 => 0.92,
+            $distance <= 2 => 0.84,
+            $distance <= 3 => 0.72,
+            $distance <= 5 => 0.55,
+            default => 0.15,
+        };
+    }
+
+    private function payloadIsAiReady(array $payload): bool
+    {
+        return collect(UserPreference::AI_REQUIRED_FIELDS)
+            ->every(function (string $field) use ($payload): bool {
+                $value = match ($field) {
+                    'preferred_rental_budget' => $payload['preferred_rental_budget']
+                        ?? $payload['budget_max']
+                        ?? $payload['budget_min'],
+                    default => $payload[$field] ?? null,
+                };
+
+                return is_array($value)
+                    ? collect($value)->filter(fn ($item) => $item !== null && $item !== '')->isNotEmpty()
+                    : $value !== null && $value !== '';
+            });
+    }
+
+    private function aiCompletionPercentage(array $payload): int
+    {
+        $filled = collect(UserPreference::AI_REQUIRED_FIELDS)
+            ->filter(function (string $field) use ($payload): bool {
+                $value = match ($field) {
+                    'preferred_rental_budget' => $payload['preferred_rental_budget']
+                        ?? $payload['budget_max']
+                        ?? $payload['budget_min'],
+                    default => $payload[$field] ?? null,
+                };
+
+                return is_array($value)
+                    ? collect($value)->filter(fn ($item) => $item !== null && $item !== '')->isNotEmpty()
+                    : $value !== null && $value !== '';
+            })
+            ->count();
+
+        return (int) round(($filled / count(UserPreference::AI_REQUIRED_FIELDS)) * 100);
     }
 
     private function containsAny(string $haystack, array $needles): bool

@@ -19,8 +19,7 @@
                 $navLinks[] = ['label' => 'Listings', 'route' => 'admin.listings', 'icon' => 'LST', 'active' => 'admin.listings*'];
                 $navLinks[] = ['label' => 'Rooms', 'route' => 'admin.rooms', 'icon' => 'ROM', 'active' => 'admin.rooms*'];
             } elseif ($user->isUser()) {
-                $navLinks[] = ['label' => 'Browse Listings', 'route' => 'user.boarding-houses.index', 'icon' => 'BHS', 'active' => 'user.boarding-houses*'];
-                $navLinks[] = ['label' => 'Recommendations', 'route' => 'user.matchmaking.index', 'icon' => 'REC', 'active' => 'user.matchmaking*'];
+                $navLinks[] = ['label' => 'Find Boarding Houses', 'route' => 'user.boarding-houses.index', 'params' => ['tab' => 'recommended'], 'icon' => 'BHS', 'active' => ['user.boarding-houses*', 'user.browse*', 'user.matchmaking*', 'user.recommendations*']];
                 $navLinks[] = ['label' => 'Reservations', 'route' => 'user.reservations.index', 'icon' => 'RES', 'active' => 'user.reservations.index'];
             }
         }
@@ -54,8 +53,8 @@
     <div class="flex-1 overflow-hidden">
         <div class="px-4 py-6 space-y-1">
             @foreach($navLinks as $link)
-                <a href="{{ route($link['route']) }}"
-                   class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ request()->routeIs($link['active']) ? 'bg-[color:var(--surface-2)] text-[color:var(--text)] border ui-border shadow' : 'text-[color:var(--muted)] hover:bg-[color:var(--surface-2)] hover:text-[color:var(--text)] border border-transparent' }}">
+                <a href="{{ route($link['route'], $link['params'] ?? []) }}"
+                   class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition {{ request()->routeIs(...(array) $link['active']) ? 'bg-[color:var(--surface-2)] text-[color:var(--text)] border ui-border shadow' : 'text-[color:var(--muted)] hover:bg-[color:var(--surface-2)] hover:text-[color:var(--text)] border border-transparent' }}">
                     <span class="text-[10px] font-semibold tracking-wide px-2 py-1 rounded-full ui-surface-2">{{ $link['icon'] }}</span>
                     <span>{{ $link['label'] }}</span>
                 </a>

@@ -16,7 +16,10 @@
             ? 'bg-emerald-500 text-emerald-600'
             : ($percent >= 45 ? 'bg-amber-500 text-amber-600' : 'bg-blue-500 text-blue-600');
 
-        $locationOptions = ['Davao City', 'Digos City', 'Buhangin', 'Matina', 'Talomo'];
+        $locationOptions = collect(config('dssc.areas', []))
+            ->push('Other nearby Digos City area')
+            ->unique()
+            ->values();
 
         $summaryCards = [
             [
@@ -49,14 +52,106 @@
             viewOpen: false,
             editOpen: false,
             selected: {},
+            createPhotos: [],
+            editPhotos: [],
+            createCoverSelection: '',
+            editCoverSelection: '',
             showDetails(house) {
                 this.selected = house;
                 this.viewOpen = true;
                 this.$nextTick(() => window.dispatchEvent(new CustomEvent('boarding-house-map:show', { detail: house })));
             },
             editDetails(house) {
-                this.selected = house;
+                this.selected = JSON.parse(JSON.stringify(house));
+                this.selected.images = (this.selected.images || []).map(image => ({ ...image, removed: false }));
+                this.editPhotos = [];
+                this.editCoverSelection = this.selected.images.find(image => image.is_cover)
+                    ? `existing:${this.selected.images.find(image => image.is_cover).id}`
+                    : '';
                 this.editOpen = true;
+            },
+            handlePhotoFiles(event, mode) {
+                const existingCount = mode === 'edit'
+                    ? (this.selected.images || []).filter(image => !image.removed).length
+                    : 0;
+                const files = Array.from(event.target.files || []);
+                const allowedCount = Math.max(0, 10 - existingCount);
+
+                if (files.length > allowedCount) {
+                    alert(`You may upload up to ${allowedCount} more photo${allowedCount === 1 ? '' : 's'}.`);
+                }
+
+                const accepted = files.slice(0, allowedCount);
+                const photos = accepted.map(file => ({
+                    file,
+                    name: file.name,
+                    url: URL.createObjectURL(file),
+                }));
+
+                if (mode === 'create') {
+                    this.createPhotos.forEach(photo => URL.revokeObjectURL(photo.url));
+                    this.createPhotos = photos;
+                    this.createCoverSelection = photos.length ? 'new:0' : '';
+                    this.syncPhotoInput('create');
+                } else {
+                    this.editPhotos.forEach(photo => URL.revokeObjectURL(photo.url));
+                    this.editPhotos = photos;
+                    if (!this.editCoverSelection && photos.length) this.editCoverSelection = 'new:0';
+                    this.syncPhotoInput('edit');
+                }
+            },
+            removeNewPhoto(mode, index) {
+                const photos = mode === 'create' ? this.createPhotos : this.editPhotos;
+                URL.revokeObjectURL(photos[index].url);
+                photos.splice(index, 1);
+                const current = mode === 'create' ? this.createCoverSelection : this.editCoverSelection;
+                if (current === `new:${index}`) {
+                    const fallback = photos.length ? 'new:0' : '';
+                    if (mode === 'create') this.createCoverSelection = fallback;
+                    else this.editCoverSelection = fallback;
+                } else if (current.startsWith('new:')) {
+                    const currentIndex = Number(current.split(':')[1]);
+                    if (currentIndex > index) {
+                        if (mode === 'create') this.createCoverSelection = `new:${currentIndex - 1}`;
+                        else this.editCoverSelection = `new:${currentIndex - 1}`;
+                    }
+                }
+                this.syncPhotoInput(mode);
+            },
+            moveNewPhoto(mode, index, direction) {
+                const photos = mode === 'create' ? this.createPhotos : this.editPhotos;
+                const target = index + direction;
+                if (target < 0 || target >= photos.length) return;
+                [photos[index], photos[target]] = [photos[target], photos[index]];
+                const current = mode === 'create' ? this.createCoverSelection : this.editCoverSelection;
+                if (current === `new:${index}`) {
+                    if (mode === 'create') this.createCoverSelection = `new:${target}`;
+                    else this.editCoverSelection = `new:${target}`;
+                } else if (current === `new:${target}`) {
+                    if (mode === 'create') this.createCoverSelection = `new:${index}`;
+                    else this.editCoverSelection = `new:${index}`;
+                }
+                this.syncPhotoInput(mode);
+            },
+            syncPhotoInput(mode) {
+                const input = mode === 'create' ? this.$refs.createPhotoInput : this.$refs.editPhotoInput;
+                const photos = mode === 'create' ? this.createPhotos : this.editPhotos;
+                if (!input || typeof DataTransfer === 'undefined') return;
+                const transfer = new DataTransfer();
+                photos.forEach(photo => transfer.items.add(photo.file));
+                input.files = transfer.files;
+            },
+            moveExistingPhoto(index, direction) {
+                const target = index + direction;
+                if (target < 0 || target >= this.selected.images.length) return;
+                [this.selected.images[index], this.selected.images[target]] = [this.selected.images[target], this.selected.images[index]];
+            },
+            toggleExistingPhoto(image) {
+                image.removed = !image.removed;
+                if (image.removed && this.editCoverSelection === `existing:${image.id}`) {
+                    const fallback = (this.selected.images || []).find(candidate => !candidate.removed);
+                    this.editCoverSelection = fallback ? `existing:${fallback.id}` : (this.editPhotos.length ? 'new:0' : '');
+                }
             }
         }"
         class="space-y-6"
@@ -66,8 +161,8 @@
             <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                     <p class="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">Property Management</p>
-                    <h1 class="mt-2 text-3xl font-bold tracking-tight text-slate-950">Boarding Houses</h1>
-                    <p class="mt-2 text-sm text-slate-500">Manage registered boarding houses and room availability.</p>
+                    <h1 class="mt-2 text-3xl font-bold tracking-tight text-slate-950">{{ request('owner') === 'mine' ? 'My Listings' : 'Boarding Houses' }}</h1>
+                    <p class="mt-2 text-sm text-slate-500">{{ request('owner') === 'mine' ? 'Manage your boarding house details, photos, status, and availability.' : 'Manage registered boarding houses and room availability.' }}</p>
                 </div>
                 <a href="{{ route('admin.boarding-houses.create') }}" class="btn-primary w-full justify-center sm:w-auto">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
@@ -143,7 +238,7 @@
                                     $house->province?->province_name,
                                 ])->filter()->implode(', ') ?: ($house->address ? explode(',', $house->address)[0] : 'CDO');
                                 $fullLocation = collect([
-                                    $house->barangay?->barangay_name,
+                                    $house->display_barangay,
                                     $house->city?->city_name,
                                     $house->province?->province_name,
                                 ])->filter()->implode(', ') ?: ($house->full_address ?: ($house->address ?: 'Location not set'));
@@ -156,12 +251,7 @@
                                     (int) ($house->available_rooms ?? 0),
                                     (int) $house->roomCategories->sum('available_rooms')
                                 );
-                                $thumbnail = $house->cover_image ?? $house->image ?? $house->photo ?? null;
-                                $thumbnailUrl = $thumbnail
-                                    ? (\Illuminate\Support\Str::startsWith($thumbnail, ['http://', 'https://', '/'])
-                                        ? $thumbnail
-                                        : asset('storage/'.$thumbnail))
-                                    : null;
+                                $thumbnailUrl = $house->cover_image_url;
                                 $approvalDate = $house->approval_date
                                     ? \Illuminate\Support\Carbon::parse($house->approval_date)->format('M d, Y')
                                     : null;
@@ -170,7 +260,12 @@
                                     'name' => $house->name,
                                     'address' => $house->address ?: $house->full_address,
                                     'full_address' => $house->full_address ?: $house->address,
-                                    'location_label' => collect([$house->barangay?->barangay_name, $house->city?->city_name, $house->province?->province_name, $house->region?->region_name])->filter()->implode(', '),
+                                    'barangay' => $house->barangay ?: $house->display_barangay,
+                                    'nearby_landmark' => $house->nearby_landmark,
+                                    'distance_from_dssc' => $house->distance_from_dssc !== null ? (float) $house->distance_from_dssc : null,
+                                    'is_near_dssc' => (bool) $house->is_near_dssc,
+                                    'location_status' => $house->location_status ?: 'approximate',
+                                    'location_label' => collect([$house->display_barangay, $house->city?->city_name, $house->province?->province_name, $house->region?->region_name])->filter()->implode(', '),
                                     'latitude' => $house->latitude !== null ? (float) $house->latitude : null,
                                     'longitude' => $house->longitude !== null ? (float) $house->longitude : null,
                                     'description' => $house->description,
@@ -196,6 +291,13 @@
                                     'active_label' => $visibleStatus,
                                     'approval_date' => $approvalDate,
                                     'rejection_reason' => $house->rejection_reason,
+                                    'cover_image_url' => $house->cover_image_url,
+                                    'images' => $house->images->map(fn ($image) => [
+                                        'id' => $image->id,
+                                        'url' => $image->url,
+                                        'is_cover' => (bool) $image->is_primary,
+                                        'sort_order' => (int) $image->sort_order,
+                                    ])->values(),
                                     'amenities' => $house->amenities->pluck('name')->values(),
                                     'room_categories' => $house->roomCategories->map(fn ($category) => [
                                         'name' => $category->name,
@@ -224,15 +326,14 @@
                                 <td class="px-5 py-4">
                                     <div class="flex min-w-[260px] items-center gap-4">
                                         <div class="flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-blue-50 text-blue-500">
-                                            @if ($thumbnailUrl)
-                                                <img src="{{ $thumbnailUrl }}" class="h-full w-full object-cover" alt="{{ $house->name }}">
-                                            @else
-                                                @include('components.sidebar.partials.admin-icon', ['name' => 'boarding-house'])
-                                            @endif
+                                            <img src="{{ $thumbnailUrl }}" class="h-full w-full object-cover" alt="{{ $house->name }}" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}'">
                                         </div>
                                         <div class="min-w-0">
                                             <p class="truncate font-bold text-slate-950">{{ $house->name }}</p>
                                             <p class="mt-1 text-xs font-semibold text-slate-500">ID: BH-{{ str_pad($house->id, 4, '0', STR_PAD_LEFT) }}</p>
+                                            <p class="mt-1 text-xs font-semibold {{ $house->images->isEmpty() ? 'text-amber-700' : 'text-blue-600' }}">
+                                                {{ $house->images->isEmpty() ? 'No photo uploaded' : $house->images->count().' '.\Illuminate\Support\Str::plural('photo', $house->images->count()) }}
+                                            </p>
                                         </div>
                                     </div>
                                 </td>
@@ -269,7 +370,7 @@
                                         <button type="button" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" title="View" @click="showDetails({{ \Illuminate\Support\Js::from($payload) }})">
                                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/></svg>
                                         </button>
-                                        <button type="button" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" title="Edit" @click="editDetails({{ \Illuminate\Support\Js::from($payload) }})">
+                                        <button type="button" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" title="Edit listing and manage photos" @click="editDetails({{ \Illuminate\Support\Js::from($payload) }})">
                                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M16.862 4.487a2.1 2.1 0 0 1 2.97 2.97L8.416 18.873l-4.5.5.5-4.5 12.446-10.386Z"/></svg>
                                         </button>
                                         <form method="POST" action="{{ route('admin.listings.destroy', $house) }}" onsubmit="return confirm('Delete this boarding house?')">
@@ -333,7 +434,7 @@
         </div>
 
         <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak @click.self="addOpen = false" @keydown.escape.window="addOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <form method="POST" action="{{ route('admin.listings.store') }}" class="ui-card max-h-[90vh] w-full max-w-3xl overflow-y-auto p-6">
+            <form method="POST" action="{{ route('admin.listings.store') }}" enctype="multipart/form-data" class="ui-card max-h-[90vh] w-full max-w-3xl overflow-y-auto p-6">
                 @csrf
                 <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Add Boarding House</h2><button type="button" @click="addOpen = false" class="text-xl ui-muted">x</button></div>
                 <div class="mt-5 grid gap-4 md:grid-cols-2">
@@ -350,9 +451,6 @@
                     <label class="text-sm">Capacity<input name="capacity" type="number" min="1" class="ui-input mt-1"></label>
                     <label class="text-sm">Available Rooms<input name="available_rooms" type="number" min="0" class="ui-input mt-1"></label>
                     <label class="text-sm">Approval<select name="approval_status" class="ui-input mt-1"><option value="approved">Approved</option><option value="pending">Pending</option><option value="rejected">Rejected</option></select></label>
-                    <label class="text-sm md:col-span-2">Address<input name="address" required class="ui-input mt-1"></label>
-                    <label class="text-sm">Latitude<input name="latitude" type="number" step="0.0000001" min="-90" max="90" class="ui-input mt-1" placeholder="6.7440000"></label>
-                    <label class="text-sm">Longitude<input name="longitude" type="number" step="0.0000001" min="-180" max="180" class="ui-input mt-1" placeholder="125.3550000"></label>
                     <label class="text-sm">Owner / Landlord<input name="landlord_info" class="ui-input mt-1"></label>
                     <label class="text-sm">Contact Person<input name="contact_name" class="ui-input mt-1"></label>
                     <label class="text-sm">Contact Number<input name="contact_phone" class="ui-input mt-1"></label>
@@ -360,6 +458,77 @@
                     <label class="text-sm md:col-span-2">House Rules<textarea name="house_rules" rows="3" class="ui-input mt-1"></textarea></label>
                     <label class="md:col-span-2 flex items-center gap-2 text-sm"><input type="hidden" name="is_active" value="0"><input type="checkbox" name="is_active" value="1" checked> Active listing</label>
                 </div>
+                <section class="mt-6 rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-950">Location</h3>
+                            <p class="mt-1 text-xs text-slate-500">Use DSSC Main Campus in Matti as the distance reference.</p>
+                        </div>
+                        <button type="button" class="btn-secondary justify-center" data-location-picker="create">Pick Location on Map</button>
+                    </div>
+                    <div class="mt-4 grid gap-4 md:grid-cols-2">
+                        <label class="text-sm md:col-span-2">Complete Address<input id="create-address" name="address" required class="ui-input mt-1" placeholder="Near DSSC Main Campus, Matti, Digos City"></label>
+                        <label class="text-sm">Barangay
+                            <input id="create-barangay" name="barangay" list="dssc-location-options" class="ui-input mt-1" placeholder="Matti">
+                        </label>
+                        <label class="text-sm">Nearby Landmark<input id="create-landmark" name="nearby_landmark" class="ui-input mt-1" value="{{ config('dssc.landmark') }}"></label>
+                        <label class="text-sm">Distance from DSSC Main Campus (km)<input id="create-distance" name="distance_from_dssc" type="number" min="0" max="100" step="0.01" class="ui-input mt-1"></label>
+                        <label class="text-sm">Location Status
+                            <select id="create-location-status" name="location_status" class="ui-input mt-1">
+                                <option value="exact">Exact</option>
+                                <option value="approximate" selected>Approximate</option>
+                            </select>
+                        </label>
+                        <label class="text-sm">Latitude<input id="create-latitude" name="latitude" type="number" step="0.0000001" min="-90" max="90" class="ui-input mt-1" placeholder="{{ config('dssc.latitude') }}"></label>
+                        <label class="text-sm">Longitude<input id="create-longitude" name="longitude" type="number" step="0.0000001" min="-180" max="180" class="ui-input mt-1" placeholder="{{ config('dssc.longitude') }}"></label>
+                        <label class="md:col-span-2 flex items-center gap-2 text-sm">
+                            <input type="hidden" name="is_near_dssc" value="0">
+                            <input id="create-near-dssc" type="checkbox" name="is_near_dssc" value="1">
+                            Is this near DSSC?
+                        </label>
+                    </div>
+                    <div id="create-location-map" class="mt-4 hidden h-80 w-full overflow-hidden rounded-xl border border-blue-200 bg-white"></div>
+                </section>
+                <datalist id="dssc-location-options">
+                    @foreach ($locationOptions as $locationOption)
+                        <option value="{{ $locationOption }}"></option>
+                    @endforeach
+                </datalist>
+                <section class="mt-6 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-950">Boarding House Photos</h3>
+                            <p class="mt-1 text-xs text-slate-500">Upload up to 10 JPG, PNG, or WEBP photos. Maximum 5 MB each.</p>
+                        </div>
+                        <label class="btn-secondary cursor-pointer justify-center">
+                            Upload Photos
+                            <input x-ref="createPhotoInput" type="file" name="photos[]" multiple accept="image/jpeg,image/png,image/webp" class="sr-only" @change="handlePhotoFiles($event, 'create')">
+                        </label>
+                    </div>
+                    <input type="hidden" name="cover_selection" :value="createCoverSelection">
+                    <div x-show="createPhotos.length" class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        <template x-for="(photo, index) in createPhotos" :key="photo.url">
+                            <article class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                                <div class="relative">
+                                    <img :src="photo.url" :alt="photo.name" class="h-32 w-full object-cover">
+                                    <span x-show="createCoverSelection === `new:${index}`" class="absolute left-2 top-2 rounded-full bg-blue-600 px-2.5 py-1 text-[10px] font-bold text-white">Cover Photo</span>
+                                </div>
+                                <div class="space-y-2 p-3">
+                                    <p class="truncate text-xs font-semibold text-slate-700" x-text="photo.name"></p>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <button type="button" class="rounded-lg bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-700" @click="createCoverSelection = `new:${index}`">Set as Cover</button>
+                                        <button type="button" class="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-600" @click="moveNewPhoto('create', index, -1)" :disabled="index === 0">Up</button>
+                                        <button type="button" class="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-600" @click="moveNewPhoto('create', index, 1)" :disabled="index === createPhotos.length - 1">Down</button>
+                                        <button type="button" class="rounded-lg bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-600" @click="removeNewPhoto('create', index)">Remove</button>
+                                    </div>
+                                </div>
+                            </article>
+                        </template>
+                    </div>
+                    <p x-show="!createPhotos.length" class="mt-4 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-6 text-center text-xs text-slate-500">No photos selected. A placeholder will be shown until photos are uploaded.</p>
+                    @error('photos')<p class="mt-2 text-xs font-semibold text-rose-600">{{ $message }}</p>@enderror
+                    @error('photos.*')<p class="mt-2 text-xs font-semibold text-rose-600">{{ $message }}</p>@enderror
+                </section>
                 <div class="mt-6 flex justify-end gap-2"><button type="button" @click="addOpen = false" class="btn-secondary">Cancel</button><button class="btn-primary">Save Listing</button></div>
             </form>
         </div>
@@ -377,6 +546,10 @@
                             <div><dt class="ui-muted">Listing Status</dt><dd x-text="selected.active_label || (selected.is_active ? 'Active' : 'Inactive')"></dd></div>
                             <div><dt class="ui-muted">Approval</dt><dd x-text="selected.approval_status || 'Pending'"></dd></div>
                             <div class="md:col-span-2"><dt class="ui-muted">Address</dt><dd x-text="selected.full_address || selected.address || 'Not set'"></dd></div>
+                            <div><dt class="ui-muted">Barangay</dt><dd x-text="selected.barangay || 'Not set'"></dd></div>
+                            <div><dt class="ui-muted">Nearby Landmark</dt><dd x-text="selected.nearby_landmark || 'Not set'"></dd></div>
+                            <div><dt class="ui-muted">Distance from DSSC</dt><dd x-text="selected.distance_from_dssc !== null ? `${selected.distance_from_dssc} km` : 'Not set'"></dd></div>
+                            <div><dt class="ui-muted">Location Status</dt><dd class="capitalize" x-text="selected.location_status || 'Approximate'"></dd></div>
                             <div x-show="selected.location_label" class="md:col-span-2"><dt class="ui-muted">Location Scope</dt><dd x-text="selected.location_label"></dd></div>
                             <div><dt class="ui-muted">Latitude</dt><dd x-text="selected.latitude ?? 'Not set'"></dd></div>
                             <div><dt class="ui-muted">Longitude</dt><dd x-text="selected.longitude ?? 'Not set'"></dd></div>
@@ -413,6 +586,17 @@
                     </div>
 
                     <div class="space-y-5">
+                        <div>
+                            <h3 class="text-sm font-semibold">Photos</h3>
+                            <div class="mt-3 grid grid-cols-2 gap-3">
+                                <template x-for="image in selected.images || []" :key="image.id">
+                                    <img :src="image.url" :alt="selected.name" class="h-32 w-full rounded-xl border border-slate-200 object-cover">
+                                </template>
+                                <template x-if="!selected.images || selected.images.length === 0">
+                                    <img src="{{ asset('images/boarding-house-placeholder.svg') }}" alt="No Photo Available" class="col-span-2 h-48 w-full rounded-xl border border-slate-200 object-cover">
+                                </template>
+                            </div>
+                        </div>
                         <div>
                             <div class="flex items-center justify-between gap-3">
                                 <h3 class="text-sm font-semibold">Map Location</h3>
@@ -490,7 +674,7 @@
         </div>
 
         <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak @click.self="editOpen = false" @keydown.escape.window="editOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <form method="POST" :action="selected.update_url" class="ui-card max-h-[90vh] w-full max-w-3xl overflow-y-auto p-6">
+            <form method="POST" :action="selected.update_url" enctype="multipart/form-data" class="ui-card max-h-[90vh] w-full max-w-3xl overflow-y-auto p-6">
                 @csrf @method('PUT')
                 <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Edit Boarding House</h2><button type="button" @click="editOpen = false" class="text-xl ui-muted">x</button></div>
                 <div class="mt-5 grid gap-4 md:grid-cols-2">
@@ -507,9 +691,6 @@
                     <label class="text-sm">Capacity<input name="capacity" type="number" min="1" class="ui-input mt-1" :value="selected.capacity"></label>
                     <label class="text-sm">Available Rooms<input name="available_rooms" type="number" min="0" class="ui-input mt-1" :value="selected.available_rooms"></label>
                     <label class="text-sm">Approval<select name="approval_status" class="ui-input mt-1" :value="selected.approval_status"><option value="approved">Approved</option><option value="pending">Pending</option><option value="rejected">Rejected</option></select></label>
-                    <label class="text-sm md:col-span-2">Address<input name="address" required class="ui-input mt-1" :value="selected.address"></label>
-                    <label class="text-sm">Latitude<input name="latitude" type="number" step="0.0000001" min="-90" max="90" class="ui-input mt-1" :value="selected.latitude"></label>
-                    <label class="text-sm">Longitude<input name="longitude" type="number" step="0.0000001" min="-180" max="180" class="ui-input mt-1" :value="selected.longitude"></label>
                     <label class="text-sm">Owner / Landlord<input name="landlord_info" class="ui-input mt-1" :value="selected.landlord_info"></label>
                     <label class="text-sm">Contact Person<input name="contact_name" class="ui-input mt-1" :value="selected.contact_name"></label>
                     <label class="text-sm">Contact Number<input name="contact_phone" class="ui-input mt-1" :value="selected.contact_phone"></label>
@@ -517,6 +698,95 @@
                     <label class="text-sm md:col-span-2">House Rules<textarea name="house_rules" rows="3" class="ui-input mt-1" x-text="selected.house_rules"></textarea></label>
                     <label class="md:col-span-2 flex items-center gap-2 text-sm"><input type="hidden" name="is_active" value="0"><input type="checkbox" name="is_active" value="1" :checked="selected.is_active"> Active listing</label>
                 </div>
+                <section class="mt-6 rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-950">Location</h3>
+                            <p class="mt-1 text-xs text-slate-500">Selecting a map point recalculates the DSSC distance automatically.</p>
+                        </div>
+                        <button type="button" class="btn-secondary justify-center" data-location-picker="edit">Pick Location on Map</button>
+                    </div>
+                    <div class="mt-4 grid gap-4 md:grid-cols-2">
+                        <label class="text-sm md:col-span-2">Complete Address<input id="edit-address" name="address" required class="ui-input mt-1" :value="selected.address"></label>
+                        <label class="text-sm">Barangay<input id="edit-barangay" name="barangay" list="dssc-location-options" class="ui-input mt-1" :value="selected.barangay"></label>
+                        <label class="text-sm">Nearby Landmark<input id="edit-landmark" name="nearby_landmark" class="ui-input mt-1" :value="selected.nearby_landmark"></label>
+                        <label class="text-sm">Distance from DSSC Main Campus (km)<input id="edit-distance" name="distance_from_dssc" type="number" min="0" max="100" step="0.01" class="ui-input mt-1" :value="selected.distance_from_dssc"></label>
+                        <label class="text-sm">Location Status
+                            <select id="edit-location-status" name="location_status" class="ui-input mt-1" :value="selected.location_status || 'approximate'">
+                                <option value="exact">Exact</option>
+                                <option value="approximate">Approximate</option>
+                            </select>
+                        </label>
+                        <label class="text-sm">Latitude<input id="edit-latitude" name="latitude" type="number" step="0.0000001" min="-90" max="90" class="ui-input mt-1" :value="selected.latitude"></label>
+                        <label class="text-sm">Longitude<input id="edit-longitude" name="longitude" type="number" step="0.0000001" min="-180" max="180" class="ui-input mt-1" :value="selected.longitude"></label>
+                        <label class="md:col-span-2 flex items-center gap-2 text-sm">
+                            <input type="hidden" name="is_near_dssc" value="0">
+                            <input id="edit-near-dssc" type="checkbox" name="is_near_dssc" value="1" :checked="selected.is_near_dssc">
+                            Is this near DSSC?
+                        </label>
+                    </div>
+                    <div id="edit-location-map" class="mt-4 hidden h-80 w-full overflow-hidden rounded-xl border border-blue-200 bg-white"></div>
+                </section>
+                <section class="mt-6 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-950">Boarding House Photos</h3>
+                            <p class="mt-1 text-xs text-slate-500">Set a cover, reorder photos, remove old images, or upload replacements.</p>
+                        </div>
+                        <label class="btn-secondary cursor-pointer justify-center">
+                            Upload Photos
+                            <input x-ref="editPhotoInput" type="file" name="photos[]" multiple accept="image/jpeg,image/png,image/webp" class="sr-only" @change="handlePhotoFiles($event, 'edit')">
+                        </label>
+                    </div>
+
+                    <input type="hidden" name="cover_selection" :value="editCoverSelection">
+                    <template x-for="image in (selected.images || []).filter(image => image.removed)" :key="`removed-${image.id}`">
+                        <input type="hidden" name="remove_image_ids[]" :value="image.id">
+                    </template>
+                    <template x-for="image in (selected.images || []).filter(image => !image.removed)" :key="`order-${image.id}`">
+                        <input type="hidden" name="image_order[]" :value="image.id">
+                    </template>
+
+                    <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        <template x-for="(image, index) in selected.images || []" :key="image.id">
+                            <article class="overflow-hidden rounded-xl border bg-white shadow-sm" :class="image.removed ? 'border-rose-200 opacity-60' : 'border-slate-200'">
+                                <div class="relative">
+                                    <img :src="image.url" :alt="selected.name" class="h-32 w-full object-cover">
+                                    <span x-show="!image.removed && editCoverSelection === `existing:${image.id}`" class="absolute left-2 top-2 rounded-full bg-blue-600 px-2.5 py-1 text-[10px] font-bold text-white">Cover Photo</span>
+                                    <span x-show="image.removed" class="absolute inset-0 flex items-center justify-center bg-white/75 text-xs font-bold text-rose-700">Will be removed</span>
+                                </div>
+                                <div class="flex flex-wrap gap-1.5 p-3">
+                                    <button x-show="!image.removed" type="button" class="rounded-lg bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-700" @click="editCoverSelection = `existing:${image.id}`">Set as Cover</button>
+                                    <button x-show="!image.removed" type="button" class="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-600" @click="moveExistingPhoto(index, -1)" :disabled="index === 0">Up</button>
+                                    <button x-show="!image.removed" type="button" class="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-600" @click="moveExistingPhoto(index, 1)" :disabled="index === selected.images.length - 1">Down</button>
+                                    <button type="button" class="rounded-lg px-2 py-1 text-[11px] font-bold" :class="image.removed ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'" @click="toggleExistingPhoto(image)" x-text="image.removed ? 'Undo' : 'Remove'"></button>
+                                </div>
+                            </article>
+                        </template>
+
+                        <template x-for="(photo, index) in editPhotos" :key="photo.url">
+                            <article class="overflow-hidden rounded-xl border border-blue-200 bg-white shadow-sm">
+                                <div class="relative">
+                                    <img :src="photo.url" :alt="photo.name" class="h-32 w-full object-cover">
+                                    <span class="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-[10px] font-bold text-blue-700">New</span>
+                                    <span x-show="editCoverSelection === `new:${index}`" class="absolute left-2 top-2 rounded-full bg-blue-600 px-2.5 py-1 text-[10px] font-bold text-white">Cover Photo</span>
+                                </div>
+                                <div class="space-y-2 p-3">
+                                    <p class="truncate text-xs font-semibold text-slate-700" x-text="photo.name"></p>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <button type="button" class="rounded-lg bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-700" @click="editCoverSelection = `new:${index}`">Set as Cover</button>
+                                        <button type="button" class="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-600" @click="moveNewPhoto('edit', index, -1)" :disabled="index === 0">Up</button>
+                                        <button type="button" class="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-600" @click="moveNewPhoto('edit', index, 1)" :disabled="index === editPhotos.length - 1">Down</button>
+                                        <button type="button" class="rounded-lg bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-600" @click="removeNewPhoto('edit', index)">Remove</button>
+                                    </div>
+                                </div>
+                            </article>
+                        </template>
+                    </div>
+                    <p x-show="(!selected.images || selected.images.every(image => image.removed)) && !editPhotos.length" class="mt-4 rounded-xl border border-dashed border-amber-300 bg-amber-50 px-4 py-4 text-center text-xs font-semibold text-amber-800">This listing will use the “No Photo Available” placeholder. Upload a real photo to improve visibility.</p>
+                    @error('photos')<p class="mt-2 text-xs font-semibold text-rose-600">{{ $message }}</p>@enderror
+                    @error('photos.*')<p class="mt-2 text-xs font-semibold text-rose-600">{{ $message }}</p>@enderror
+                </section>
                 <div class="mt-6 flex justify-end gap-2"><button type="button" @click="editOpen = false" class="btn-secondary">Cancel</button><button class="btn-primary">Save Changes</button></div>
             </form>
         </div>
@@ -528,6 +798,12 @@
         document.addEventListener('DOMContentLoaded', () => {
             let detailMap = null;
             let detailMarker = null;
+            const dssc = {
+                lat: {{ (float) config('dssc.latitude') }},
+                lng: {{ (float) config('dssc.longitude') }},
+                name: @js(config('dssc.landmark')),
+            };
+            const pickerMaps = {};
 
             const setMapEmpty = (isEmpty) => {
                 const mapEl = document.getElementById('boardingHouseDetailMap');
@@ -544,6 +820,144 @@
                 '"': '&quot;',
                 "'": '&#039;',
             }[char]));
+
+            const pickerFields = (mode) => ({
+                address: document.getElementById(`${mode}-address`),
+                barangay: document.getElementById(`${mode}-barangay`),
+                landmark: document.getElementById(`${mode}-landmark`),
+                distance: document.getElementById(`${mode}-distance`),
+                latitude: document.getElementById(`${mode}-latitude`),
+                longitude: document.getElementById(`${mode}-longitude`),
+                nearDssc: document.getElementById(`${mode}-near-dssc`),
+                locationStatus: document.getElementById(`${mode}-location-status`),
+                map: document.getElementById(`${mode}-location-map`),
+            });
+
+            const distanceFromDssc = (lat, lng) => {
+                const earthRadius = 6371;
+                const toRadians = (value) => value * Math.PI / 180;
+                const latDelta = toRadians(lat - dssc.lat);
+                const lngDelta = toRadians(lng - dssc.lng);
+                const startLat = toRadians(dssc.lat);
+                const endLat = toRadians(lat);
+                const angle = 2 * Math.asin(Math.sqrt(
+                    Math.sin(latDelta / 2) ** 2
+                    + Math.cos(startLat) * Math.cos(endLat) * Math.sin(lngDelta / 2) ** 2
+                ));
+
+                return earthRadius * angle;
+            };
+
+            const updateLocationFields = (mode, lat, lng, markExact = false) => {
+                const fields = pickerFields(mode);
+                const distance = distanceFromDssc(lat, lng);
+
+                fields.latitude.value = Number(lat).toFixed(7);
+                fields.longitude.value = Number(lng).toFixed(7);
+                fields.distance.value = distance.toFixed(2);
+                fields.nearDssc.checked = distance <= 5;
+                if (fields.nearDssc.checked && !fields.landmark.value.trim()) {
+                    fields.landmark.value = dssc.name;
+                }
+                if (markExact) {
+                    fields.locationStatus.value = 'exact';
+                }
+            };
+
+            const reverseGeocode = async (mode, lat, lng) => {
+                const fields = pickerFields(mode);
+                if (fields.address.value.trim()) return;
+
+                try {
+                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`, {
+                        headers: { Accept: 'application/json' },
+                    });
+                    if (!response.ok) return;
+                    const result = await response.json();
+                    fields.address.value = result.display_name || fields.address.value;
+                    fields.barangay.value = result.address?.village
+                        || result.address?.suburb
+                        || result.address?.quarter
+                        || fields.barangay.value;
+                } catch (error) {
+                    // Coordinates and distance remain usable when reverse geocoding is unavailable.
+                }
+            };
+
+            const placePickerMarker = (mode, lat, lng, reverseAddress = false, markExact = true) => {
+                const picker = pickerMaps[mode];
+                if (!picker) return;
+
+                if (!picker.marker) {
+                    picker.marker = L.marker([lat, lng], { draggable: true }).addTo(picker.map);
+                    picker.marker.on('dragend', (event) => {
+                        const point = event.target.getLatLng();
+                        updateLocationFields(mode, point.lat, point.lng, true);
+                        reverseGeocode(mode, point.lat, point.lng);
+                    });
+                } else {
+                    picker.marker.setLatLng([lat, lng]);
+                }
+
+                picker.marker.bindPopup('<strong>Boarding house location</strong><br>Drag or click the map to adjust.').openPopup();
+                updateLocationFields(mode, lat, lng, markExact);
+                if (reverseAddress) reverseGeocode(mode, lat, lng);
+            };
+
+            const openLocationPicker = (mode) => {
+                const fields = pickerFields(mode);
+                if (!fields.map || !window.L) return;
+
+                fields.map.classList.remove('hidden');
+                const fieldLat = Number(fields.latitude.value);
+                const fieldLng = Number(fields.longitude.value);
+                const startLat = Number.isFinite(fieldLat) && fields.latitude.value !== '' ? fieldLat : dssc.lat;
+                const startLng = Number.isFinite(fieldLng) && fields.longitude.value !== '' ? fieldLng : dssc.lng;
+
+                if (!pickerMaps[mode]) {
+                    const map = L.map(fields.map).setView([startLat, startLng], 15);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        maxZoom: 19,
+                        attribution: '&copy; OpenStreetMap contributors',
+                    }).addTo(map);
+                    L.circle([dssc.lat, dssc.lng], {
+                        radius: 5000,
+                        color: '#2563eb',
+                        fillColor: '#60a5fa',
+                        fillOpacity: 0.07,
+                        weight: 2,
+                    }).addTo(map);
+                    L.circleMarker([dssc.lat, dssc.lng], {
+                        radius: 9,
+                        color: '#991b1b',
+                        fillColor: '#dc2626',
+                        fillOpacity: 1,
+                        weight: 3,
+                    }).addTo(map).bindPopup(`<strong>${escapeHtml(dssc.name)}</strong><br>Matti, Digos City`);
+                    map.on('click', (event) => {
+                        placePickerMarker(mode, event.latlng.lat, event.latlng.lng, true);
+                    });
+                    pickerMaps[mode] = { map, marker: null };
+                }
+
+                placePickerMarker(mode, startLat, startLng, false, false);
+                window.setTimeout(() => pickerMaps[mode].map.invalidateSize(), 100);
+            };
+
+            document.querySelectorAll('[data-location-picker]').forEach((button) => {
+                button.addEventListener('click', () => openLocationPicker(button.dataset.locationPicker));
+            });
+
+            ['create', 'edit'].forEach((mode) => {
+                const fields = pickerFields(mode);
+                [fields.latitude, fields.longitude].forEach((input) => input?.addEventListener('change', () => {
+                    const lat = Number(fields.latitude.value);
+                    const lng = Number(fields.longitude.value);
+                    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+                    updateLocationFields(mode, lat, lng);
+                    if (pickerMaps[mode]) placePickerMarker(mode, lat, lng);
+                }));
+            });
 
             window.addEventListener('boarding-house-map:show', (event) => {
                 window.setTimeout(() => {

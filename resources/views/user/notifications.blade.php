@@ -40,18 +40,12 @@
 @endphp
 
 <div x-data="{ detailOpen: false, selected: {} }" class="space-y-6">
-    <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
-        <nav class="flex items-center gap-1.5 text-xs text-gray-400">
-            <a href="{{ route('user.dashboard') }}" class="transition-colors hover:text-gray-600">Dashboard</a>
-            <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-            <span class="font-medium text-gray-700">Notifications</span>
-        </nav>
-
-        <div class="mt-4 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-                <h1 class="text-2xl font-bold text-gray-900">Notifications</h1>
-                <p class="mt-1 text-sm text-gray-500">Stay updated with your reservations, payments, inquiries, messages, and system alerts.</p>
-            </div>
+    <x-user.page-header
+        eyebrow="Notification Center"
+        title="Notifications"
+        subtitle="Stay updated with your reservations, payments, inquiries, messages, and system alerts."
+    >
+        <x-slot:actions>
             <div class="flex flex-col gap-2 sm:flex-row">
                 <form method="POST" action="{{ route('user.notifications.readAll') }}">
                     @csrf
@@ -71,8 +65,8 @@
                     </button>
                 </form>
             </div>
-        </div>
-    </section>
+        </x-slot:actions>
+    </x-user.page-header>
 
     <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
         @foreach ($summaryCards as $key => $card)

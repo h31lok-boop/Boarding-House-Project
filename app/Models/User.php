@@ -4,8 +4,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
@@ -123,6 +123,16 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasOne(\App\Models\TenantPreference::class);
     }
 
+    public function userPreference()
+    {
+        return $this->hasOne(\App\Models\UserPreference::class);
+    }
+
+    public function preference()
+    {
+        return $this->hasOne(\App\Models\UserPreference::class);
+    }
+
     public function ownedBoardingHouses()
     {
         return $this->hasMany(\App\Models\BoardingHouse::class, 'owner_id');
@@ -196,6 +206,11 @@ class User extends Authenticatable implements MustVerifyEmail
     public function userNotifications()
     {
         return $this->hasMany(\App\Models\UserNotification::class);
+    }
+
+    public function paymentReceipts()
+    {
+        return $this->hasMany(\App\Models\PaymentReceipt::class);
     }
 
     /**

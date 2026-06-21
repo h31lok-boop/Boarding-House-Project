@@ -21,7 +21,7 @@ test('user matchmaking page prompts for saved preferences when none exist', func
         ->get(route('user.matchmaking.index'))
         ->assertOk()
         ->assertSee('No preferences saved yet')
-        ->assertSee('Set Preferences');
+        ->assertSee('Set My Preferences');
 });
 
 test('user matchmaking page ranks boarding house recommendations', function () {
@@ -83,11 +83,6 @@ test('user matchmaking page ranks boarding house recommendations', function () {
     $response->assertOk()
         ->assertSee('Recommended for You')
         ->assertSee('Strong Fit House')
-        ->assertSee('Weak Fit House')
+        ->assertDontSee('Weak Fit House')
         ->assertSee(route('user.boarding-houses.show', $strongHouse), false);
-
-    $content = $response->getContent();
-
-    expect(strpos($content, 'Strong Fit House'))->toBeLessThan(strpos($content, 'Weak Fit House'));
 });
-

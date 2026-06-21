@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
+use App\Models\Booking;
 use App\Models\BoardingHouse;
 use App\Models\Inquiry;
 use App\Models\Payment;
+use App\Models\PaymentReceipt;
 use App\Models\Reservation;
 use App\Models\Review;
 use App\Models\TenantPaymentMethod;
@@ -19,14 +21,35 @@ class TenantAreaController extends Controller
     {
         $tenant = $this->tenant($request);
 
-        $reservations = Reservation::with(['boardingHouse.images', 'room'])
-            ->where('user_id', $tenant->id)
+        $reservationRelations = [
+            'boardingHouse.images',
+            'boardingHouse.owner',
+            'boardingHouse.ownerProfile',
+            'room',
+        ];
+
+        $baseReservationQuery = Reservation::with($reservationRelations)
+            ->where('user_id', $tenant->id);
+
+        $reservations = (clone $baseReservationQuery)
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->query('status')))
             ->latest()
             ->paginate(12)
             ->withQueryString();
 
-        return view('user.reservations', compact('reservations'));
+        $currentReservation = (clone $baseReservationQuery)
+            ->whereNotIn(DB::raw('LOWER(status)'), ['cancelled', 'canceled', 'rejected'])
+            ->orderByRaw("CASE WHEN check_in_date IS NULL THEN 1 ELSE 0 END")
+            ->orderBy('check_in_date')
+            ->latest('id')
+            ->first()
+            ?: (clone $baseReservationQuery)->latest()->first();
+
+        $latestReceipt = Schema::hasTable('payment_receipts')
+            ? PaymentReceipt::where('user_id', $tenant->id)->latest()->first()
+            : null;
+
+        return view('user.reservations', compact('reservations', 'currentReservation', 'latestReceipt'));
     }
 
     public function cancelReservation(Request $request, Reservation $reservation)
@@ -50,39 +73,7 @@ class TenantAreaController extends Controller
     {
         $tenant = $this->tenant($request);
 
-        // ── Payment methods ─────────────────────────────────────────────────
-        $paymentMethods = Schema::hasTable('tenant_payment_methods')
-            ? TenantPaymentMethod::where('user_id', $tenant->id)->orderByDesc('is_default')->orderBy('created_at')->get()
-            : collect();
-
-        // ── Payment records ──────────────────────────────────────────────────
-        if (! Schema::hasTable('payments')) {
-            $payments = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 12);
-            $payments->withPath($request->url())->appends($request->query());
-            return view('user.payments', compact('payments', 'paymentMethods'));
-        }
-
-        $hasTenantPayments = Schema::hasTable('tenants') && Schema::hasColumn('payments', 'tenant_id');
-        $hasUserPayments   = Schema::hasColumn('payments', 'user_id');
-
-        $payments = Payment::with(['tenant.user', 'boardingHouse'])
-            ->where(function ($query) use ($hasTenantPayments, $hasUserPayments, $tenant) {
-                if ($hasTenantPayments) {
-                    $query->whereHas('tenant', fn ($q) => $q->where('user_id', $tenant->id));
-                }
-                if ($hasUserPayments) {
-                    $query->orWhere('user_id', $tenant->id);
-                }
-                if (! $hasTenantPayments && ! $hasUserPayments) {
-                    $query->whereRaw('1 = 0');
-                }
-            })
-            ->when($request->filled('status'), fn ($query) => $query->where('status', $request->query('status')))
-            ->latest()
-            ->paginate(12)
-            ->withQueryString();
-
-        return view('user.payments', compact('payments', 'paymentMethods'));
+        return view('user.payments', $this->paymentDashboardData($tenant->id));
     }
 
     // ── Payment Methods CRUD ─────────────────────────────────────────────────
@@ -480,6 +471,107 @@ class TenantAreaController extends Controller
         $review->delete();
 
         return back()->with('success', 'Review deleted.');
+    }
+
+    private function paymentDashboardData(int $tenantId): array
+    {
+        $latestReceipt = Schema::hasTable('payment_receipts')
+            ? PaymentReceipt::where('user_id', $tenantId)->latest()->first()
+            : null;
+
+        $bookings = Schema::hasTable('bookings') && Schema::hasColumn('bookings', 'user_id')
+            ? Booking::with('room.boardingHouse')->where('user_id', $tenantId)->latest()->limit(10)->get()
+            : collect();
+
+        return [
+            'stats' => [
+                [
+                    'label' => 'Total Payments',
+                    'amount' => 15000,
+                    'decimals' => 2,
+                    'meta' => '5 payments made',
+                    'icon' => 'credit-card',
+                ],
+                [
+                    'label' => 'Paid Amount',
+                    'amount' => 12000,
+                    'decimals' => 2,
+                    'meta' => 'Rent from January-March',
+                    'icon' => 'check-circle',
+                ],
+                [
+                    'label' => 'Pending Amount',
+                    'amount' => 3000,
+                    'decimals' => 2,
+                    'meta' => 'Due this month',
+                    'icon' => 'clock',
+                ],
+                [
+                    'label' => 'Next Payment Due',
+                    'value' => 'July 5, 2026',
+                    'meta' => 'Monthly Rent',
+                    'icon' => 'calendar',
+                ],
+            ],
+            'recentTransactions' => [
+                ['date' => 'Jun 05, 2026', 'description' => 'Monthly Rent - June', 'reference' => 'BM-20260605-001', 'amount' => 3000, 'status' => 'Paid'],
+                ['date' => 'May 05, 2026', 'description' => 'Monthly Rent - May', 'reference' => 'BM-20260505-001', 'amount' => 3000, 'status' => 'Paid'],
+                ['date' => 'Apr 05, 2026', 'description' => 'Monthly Rent - April', 'reference' => 'BM-20260405-001', 'amount' => 3000, 'status' => 'Paid'],
+                ['date' => 'Mar 05, 2026', 'description' => 'Deposit', 'reference' => 'BM-20260305-001', 'amount' => 3000, 'status' => 'Paid'],
+                ['date' => 'Feb 05, 2026', 'description' => 'Monthly Rent - February', 'reference' => 'BM-20260205-001', 'amount' => 3000, 'status' => 'Paid'],
+            ],
+            'receipt' => [
+                'title' => 'GCash Payment - June',
+                'filename' => 'gcash-payment-june.pdf',
+                'uploaded_at' => 'Jun 05, 2026 - 10:24 AM',
+                'status' => 'Under Review',
+            ],
+            'latestReceipt' => $latestReceipt,
+            'bookings' => $bookings,
+            'paymentSchedule' => [
+                ['due_date' => 'Jul 05, 2026', 'type' => 'Monthly Rent', 'amount' => 3000, 'status' => 'Pending'],
+                ['due_date' => 'Aug 05, 2026', 'type' => 'Monthly Rent', 'amount' => 3000, 'status' => 'Upcoming'],
+                ['due_date' => 'Sep 05, 2026', 'type' => 'Monthly Rent', 'amount' => 3000, 'status' => 'Upcoming'],
+            ],
+            'paymentMethodsList' => [
+                [
+                    'type' => 'cash',
+                    'name' => 'Cash Payment',
+                    'detail' => 'Pay in person at the boarding house',
+                    'badge' => 'Default',
+                ],
+                [
+                    'type' => 'gcash',
+                    'name' => 'GCash',
+                    'detail' => '0912 345 6789',
+                    'subdetail' => 'Juan Dela Cruz',
+                    'badge' => 'Verified',
+                ],
+                [
+                    'type' => 'maya',
+                    'name' => 'Maya',
+                    'detail' => 'juan.delacruz@example.com',
+                    'badge' => 'Verified',
+                ],
+                [
+                    'type' => 'bank',
+                    'name' => 'Bank Transfer',
+                    'detail' => 'BDO **** 1234',
+                    'subdetail' => 'Juan Dela Cruz',
+                    'badge' => 'Verified',
+                ],
+            ],
+            'summaryItems' => [
+                ['label' => 'Deposit', 'amount' => 3000],
+                ['label' => 'Monthly Rent', 'amount' => 3000],
+            ],
+            'summaryTotal' => 6000,
+            'statusGuide' => [
+                ['label' => 'Submitted', 'description' => 'Receipt uploaded'],
+                ['label' => 'Under Review', 'description' => 'Landlord is checking'],
+                ['label' => 'Approved or Rejected', 'description' => 'Decision is sent'],
+            ],
+        ];
     }
 
     private function tenant(Request $request)

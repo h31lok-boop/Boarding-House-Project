@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\BoardingHouse;
+use App\Models\BoardingHouseImage;
 use App\Models\BoardingHousePhoto;
 use App\Models\OwnerProfile;
 use App\Models\TenantMatchProfile;
@@ -102,6 +103,14 @@ class RegisteredUserController extends Controller
                         'photo_path' => $photoPath,
                     ]));
 
+                    BoardingHouseImage::create([
+                        'boarding_house_id' => $boardingHouse->id,
+                        'image_path' => $photoPath,
+                        'image_label' => Str::limit(pathinfo($photo->getClientOriginalName(), PATHINFO_FILENAME), 100, ''),
+                        'is_primary' => $index === 0,
+                        'sort_order' => $index,
+                    ]);
+
                     if ($index === 0) {
                         $boardingHouse->forceFill(['featured_image' => $photoPath])->save();
                     }
@@ -182,8 +191,8 @@ class RegisteredUserController extends Controller
             $rules['amenities'] = ['required', 'array', 'min:1'];
             $rules['amenities.*'] = ['string', 'max:50'];
             $rules['house_rules'] = ['required', 'string', 'max:5000'];
-            $rules['photos'] = ['nullable', 'array'];
-            $rules['photos.*'] = ['image', 'mimes:jpg,jpeg,png', 'max:2048'];
+            $rules['photos'] = ['nullable', 'array', 'max:10'];
+            $rules['photos.*'] = ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'];
             $rules['proof_of_ownership'] = ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:2048'];
         }
 
@@ -229,8 +238,9 @@ class RegisteredUserController extends Controller
             'amenities.min' => 'Select at least one amenity.',
             'house_rules.required' => 'House rules are required.',
             'photos.*.image' => 'Each boarding house photo must be an image.',
-            'photos.*.mimes' => 'Each photo must be a JPG or PNG image.',
-            'photos.*.max' => 'Each photo may not exceed 2 MB.',
+            'photos.max' => 'You may upload up to 10 boarding house photos.',
+            'photos.*.mimes' => 'Each photo must be a JPG, PNG, or WEBP image.',
+            'photos.*.max' => 'Each photo may not exceed 5 MB.',
             'proof_of_ownership.required' => 'Valid ID or proof of ownership is required.',
             'proof_of_ownership.mimes' => 'Proof of ownership must be a JPG, PNG, or PDF.',
             'proof_of_ownership.max' => 'Proof of ownership may not exceed 2 MB.',

@@ -1,4 +1,6 @@
 import './bootstrap';
+import './boarding-house-map';
+import './boarding-house-browse-map';
 
 import Alpine from 'alpinejs';
 
@@ -27,7 +29,7 @@ const applyTheme = (theme) => {
     });
 };
 
-const sidebarMobileMedia = window.matchMedia('(max-width: 768px)');
+const sidebarMobileMedia = window.matchMedia('(max-width: 767px)');
 let sidebarControlsReady = false;
 
 const getStorageItem = (key) => {
@@ -59,6 +61,8 @@ const sidebarShellName = () => {
 };
 
 const sidebarStorageKey = () => `boardmatch:${sidebarShellName()}:sidebar`;
+
+const sidebarScrollStorageKey = () => `boardmatch:${sidebarShellName()}:sidebar-scroll`;
 
 const storedSidebarState = () => {
     const stored = getStorageItem(sidebarStorageKey());
@@ -109,6 +113,47 @@ const toggleSidebar = () => {
     applySidebar(current === 'collapsed' ? 'expanded' : 'collapsed');
 };
 
+const setupSidebarScrollMemory = () => {
+    const nav = document.querySelector('.user-sidebar-nav, .admin-sidebar-nav');
+
+    if (!nav) {
+        return;
+    }
+
+    const restore = () => {
+        const stored = Number.parseInt(getStorageItem(sidebarScrollStorageKey()) || '0', 10);
+
+        if (Number.isFinite(stored) && stored > 0) {
+            nav.scrollTop = Math.min(stored, nav.scrollHeight - nav.clientHeight);
+        }
+
+        const activeItem = nav.querySelector('[aria-current="page"]');
+        if (activeItem instanceof HTMLElement) {
+            const navRect = nav.getBoundingClientRect();
+            const itemRect = activeItem.getBoundingClientRect();
+            const isVisible = itemRect.top >= navRect.top && itemRect.bottom <= navRect.bottom;
+
+            if (!isVisible) {
+                activeItem.scrollIntoView({ block: 'nearest' });
+                setStorageItem(sidebarScrollStorageKey(), String(nav.scrollTop));
+            }
+        }
+    };
+
+    const save = () => setStorageItem(sidebarScrollStorageKey(), String(nav.scrollTop));
+
+    window.requestAnimationFrame(restore);
+    window.setTimeout(restore, 120);
+
+    nav.addEventListener('scroll', save, { passive: true });
+    window.addEventListener('pagehide', save);
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') {
+            save();
+        }
+    });
+};
+
 const setupSidebarControls = () => {
     const shell = document.querySelector('.user-shell, .admin-shell');
 
@@ -124,6 +169,7 @@ const setupSidebarControls = () => {
     sidebarControlsReady = true;
     applySidebar();
     applyMobileSidebar('closed');
+    setupSidebarScrollMemory();
 
     const closestFromEvent = (event, selector) => (
         event.target instanceof Element ? event.target.closest(selector) : null
@@ -143,6 +189,13 @@ const setupSidebarControls = () => {
         }
 
         const navLink = closestFromEvent(event, '.user-sidebar-nav a[href], .admin-sidebar-nav a[href]');
+        if (navLink) {
+            const nav = navLink.closest('.user-sidebar-nav, .admin-sidebar-nav');
+            if (nav) {
+                setStorageItem(sidebarScrollStorageKey(), String(nav.scrollTop));
+            }
+        }
+
         if (sidebarMobileMedia.matches && navLink) {
             applyMobileSidebar('closed');
             return;

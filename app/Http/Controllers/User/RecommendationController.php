@@ -4,12 +4,16 @@ namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
 use App\Models\BoardingHouse;
+use App\Models\BoardingHouseMatch;
 use App\Models\RoommateMatchRequest;
 use App\Models\User;
 use App\Services\BoardingHouseRecommendationService;
 use App\Services\CompatibilityService;
 use App\Services\DeepSeekService;
+use App\Services\LocationService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
@@ -23,6 +27,7 @@ class RecommendationController extends Controller
         private readonly CompatibilityService $compatibilityService,
         private readonly BoardingHouseRecommendationService $boardingHouseRecommendationService,
         private readonly DeepSeekService $deepSeekService,
+        private readonly LocationService $locationService,
     ) {}
 
     public function index(Request $request): View
@@ -32,22 +37,23 @@ class RecommendationController extends Controller
 
         $tenant->loadMissing('tenantMatchProfile', 'boardingHouse:id,name');
 
-        $hasPreferences  = $this->boardingHouseRecommendationService->hasPreferences($tenant);
-        $profile         = $tenant->tenantMatchProfile;
+        $hasPreferences = $this->boardingHouseRecommendationService->hasPreferences($tenant);
+        $profile = $tenant->tenantMatchProfile;
         $preferenceSummary = $this->boardingHouseRecommendationService->preferenceSummary($tenant);
         $preferredLocation = $preferenceSummary['preferred_location_label'] ?: null;
-        $lifestyleText   = $preferenceSummary['lifestyle_text'] ?: null;
-        $houseFilters    = $this->houseFilters($request);
+        $lifestyleText = $preferenceSummary['lifestyle_text'] ?: null;
+        $houseFilters = $this->houseFilters($request);
 
         // House recommendations — always available once a tenant has any preferences
         $houseRecommendations = $hasPreferences
             ? $this->applyHouseFilters($this->boardingHouseRecommendationService->rank($tenant), $houseFilters)
             : collect();
+        $houseRecommendations = $this->attachDeepSeekExplanations($tenant, $houseRecommendations);
 
         // Roommate matches — only if match profile is fully completed
-        $matches         = collect();
+        $matches = collect();
         $filteredMatches = collect();
-        $filters         = $this->matchFilters($request);
+        $filters = $this->matchFilters($request);
 
         if (Schema::hasTable('tenant_match_profiles') && $profile?->completed_at) {
             $candidates = User::query()
@@ -70,9 +76,9 @@ class RecommendationController extends Controller
 
             $matches = $candidates
                 ->map(fn (User $candidate) => [
-                    'candidate'    => $candidate,
-                    'compatibility'=> $this->compatibilityService->score($tenant, $candidate),
-                    'context'      => $this->candidateContext($tenant, $candidate),
+                    'candidate' => $candidate,
+                    'compatibility' => $this->compatibilityService->score($tenant, $candidate),
+                    'context' => $this->candidateContext($tenant, $candidate),
                     'requestState' => $this->resolveRequestState($tenant, $candidate, $requests),
                 ])
                 ->sortByDesc(fn ($item) => $item['compatibility']['overall_score'])
@@ -84,20 +90,65 @@ class RecommendationController extends Controller
         }
 
         return view('user.recommendations', [
-            'tenant'                   => $tenant,
-            'hasPreferences'           => $hasPreferences,
-            'preferredLocation'        => $preferredLocation,
-            'lifestyleText'            => $lifestyleText,
-            'houseRecommendations'     => $houseRecommendations,
+            'tenant' => $tenant,
+            'hasPreferences' => $hasPreferences,
+            'preferredLocation' => $preferredLocation,
+            'lifestyleText' => $lifestyleText,
+            'preferenceSummary' => $preferenceSummary,
+            'houseRecommendations' => $houseRecommendations,
             'houseRecommendationCount' => $houseRecommendations->count(),
-            'houseFilters'             => $houseFilters,
-            'matches'                  => $filteredMatches->take(20),
-            'matchCount'               => $filteredMatches->count(),
-            'totalMatchCount'          => $matches->count(),
-            'referencePoint'           => $this->referencePoint($request),
-            'filters'                  => $filters,
-            'filterOptions'            => $this->filterOptions(),
+            'houseFilters' => $houseFilters,
+            'deepSeekConfigured' => $this->deepSeekService->isConfigured(),
+            'matches' => $filteredMatches->take(20),
+            'matchCount' => $filteredMatches->count(),
+            'totalMatchCount' => $matches->count(),
+            'referencePoint' => $this->referencePoint($request),
+            'filters' => $filters,
+            'filterOptions' => $this->filterOptions(),
         ]);
+    }
+
+    public function generate(Request $request): RedirectResponse
+    {
+        $tenant = $request->user();
+        abort_unless($tenant && $tenant->isUser(), 403);
+
+        if (! $this->boardingHouseRecommendationService->hasPreferences($tenant)) {
+            return redirect()
+                ->route('user.preferences.index')
+                ->with('error', 'Complete your preferences before generating AI recommendations.');
+        }
+
+        $ranked = $this->boardingHouseRecommendationService->generateForUser($tenant);
+        $count = $ranked->count();
+        $deepSeekResult = $this->deepSeekService->explainBoardingHouseRecommendations(
+            $this->boardingHouseAiPayload($tenant, $ranked->take(8))
+        );
+
+        if ($deepSeekResult['success'] ?? false) {
+            $this->persistDeepSeekExplanations(
+                $tenant,
+                $deepSeekResult['explanations'] ?? [],
+                (string) ($deepSeekResult['model'] ?? config('services.deepseek.model'))
+            );
+        }
+
+        $redirectRoute = $request->input('redirect_to') === 'boarding_houses'
+            ? ['user.boarding-houses.index', ['tab' => 'matchmaking']]
+            : ['user.matchmaking.index', []];
+
+        $redirect = redirect()
+            ->route($redirectRoute[0], $redirectRoute[1])
+            ->with('success', $count > 0
+                ? "Generated {$count} ranked boarding house recommendations"
+                    .(($deepSeekResult['success'] ?? false) ? ' with DeepSeek AI explanations.' : '.')
+                : 'No compatible boarding houses are currently available.');
+
+        if ($count > 0 && $this->deepSeekService->isConfigured() && ! ($deepSeekResult['success'] ?? false)) {
+            $redirect->with('warning', 'The verified recommendation scores were generated, but DeepSeek explanations are temporarily unavailable.');
+        }
+
+        return $redirect;
     }
 
     public function show(Request $request, User $candidate): mixed
@@ -191,10 +242,19 @@ class RecommendationController extends Controller
             'bedspace',
             'studio',
         ]);
+        $dsscArea = $this->allowedFilterValue($request->query('dssc_area'), [
+            'near',
+            'matti',
+            'purok-3-matti',
+            'mahayahay',
+            'tres-de-mayo',
+            'city-proper',
+        ]);
 
         return [
             'house_sort' => $sort,
             'room_type' => $roomType === 'any' ? null : $roomType,
+            'dssc_area' => $dsscArea,
         ];
     }
 
@@ -206,13 +266,129 @@ class RecommendationController extends Controller
             $items = $items->filter(fn ($item) => $this->houseMatchesRoomType($item['house'], $filters['room_type']));
         }
 
+        if (! empty($filters['dssc_area'])) {
+            $items = $items->filter(function ($item) use ($filters): bool {
+                $house = $item['house'];
+                $distance = $item['recommendation']['distance_from_dssc']
+                    ?? $this->locationService->boardingHouseDistance($house);
+
+                if ($filters['dssc_area'] === 'near') {
+                    return $house->is_near_dssc
+                        || ($distance !== null && $distance <= 5)
+                        || $this->locationService->matchesNearbyDsscAddress($house);
+                }
+
+                $area = match ($filters['dssc_area']) {
+                    'matti' => 'matti',
+                    'purok-3-matti' => 'purok 3',
+                    'mahayahay' => 'mahayahay',
+                    'tres-de-mayo' => 'tres de mayo',
+                    'city-proper' => 'city proper',
+                };
+                $location = strtolower(implode(' ', array_filter([
+                    $house->display_barangay,
+                    $house->address,
+                    $house->full_address,
+                ])));
+
+                return str_contains($location, $area)
+                    || ($filters['dssc_area'] === 'city-proper' && str_contains($location, 'poblacion'));
+            });
+        }
+
         $items = match ($filters['house_sort']) {
             'lowest_rent' => $items->sortBy(fn ($item) => $item['recommendation']['price'] ?? INF),
-            'nearest_location' => $items->sortByDesc(fn ($item) => $item['recommendation']['scores']['distance'] ?? 0),
+            'nearest_location' => $items->sortBy(fn ($item) => $item['recommendation']['distance_from_dssc'] ?? INF),
             default => $items->sortByDesc(fn ($item) => $item['recommendation']['overall_score'] ?? 0),
         };
 
         return $items->values();
+    }
+
+    private function attachDeepSeekExplanations(User $tenant, Collection $recommendations): Collection
+    {
+        $houseIds = $recommendations
+            ->pluck('house.id')
+            ->filter()
+            ->values();
+
+        if ($houseIds->isEmpty() || ! Schema::hasTable('boarding_house_matches')) {
+            return $recommendations;
+        }
+
+        $matches = BoardingHouseMatch::query()
+            ->where('user_id', $tenant->id)
+            ->whereIn('boarding_house_id', $houseIds)
+            ->whereNotNull('ai_explanation')
+            ->get()
+            ->keyBy('boarding_house_id');
+
+        return $recommendations->map(function (array $item) use ($matches): array {
+            $match = $matches->get($item['house']->id);
+
+            if ($match) {
+                $item['recommendation']['deepseek_explanation'] = $match->ai_explanation;
+                $item['recommendation']['deepseek_model'] = $match->ai_model;
+                $item['recommendation']['deepseek_generated_at'] = $match->ai_generated_at;
+            }
+
+            return $item;
+        });
+    }
+
+    private function boardingHouseAiPayload(User $tenant, Collection $ranked): array
+    {
+        return [
+            'preferences' => $this->boardingHouseRecommendationService->preferenceSummary($tenant),
+            'recommendations' => $ranked->map(function (array $item): array {
+                $house = $item['house'];
+                $recommendation = $item['recommendation'];
+                $rates = $house->roomCategories->pluck('monthly_rate')
+                    ->merge($house->rooms->pluck('price'))
+                    ->filter(fn ($price) => is_numeric($price) && (float) $price > 0)
+                    ->map(fn ($price) => (float) $price);
+
+                return [
+                    'id' => $house->id,
+                    'name' => $house->name,
+                    'location' => collect([
+                        $house->display_barangay,
+                        $house->city?->city_name,
+                    ])->filter()->implode(', ') ?: ($house->full_address ?: $house->address),
+                    'distance_from_dssc_km' => $recommendation['distance_from_dssc'] ?? null,
+                    'monthly_rent_min' => $rates->min() ?? $recommendation['price'],
+                    'monthly_rent_max' => $rates->max() ?? $recommendation['price'],
+                    'room_types' => $house->roomCategories->pluck('name')->values()->all(),
+                    'amenities' => $house->amenities->pluck('name')->values()->all(),
+                    'available_slots' => max(
+                        (int) ($house->available_rooms ?? 0),
+                        (int) ($house->room_categories_available_rooms_sum ?? 0),
+                        (int) $house->rooms->sum('available_slots')
+                    ),
+                    'match_score' => $recommendation['recommendation_percent'],
+                    'verified_reasons' => $recommendation['reasons'],
+                    'warnings' => $recommendation['warnings'],
+                ];
+            })->values()->all(),
+        ];
+    }
+
+    private function persistDeepSeekExplanations(User $tenant, array $explanations, string $model): void
+    {
+        foreach ($explanations as $boardingHouseId => $explanation) {
+            if (! is_numeric($boardingHouseId) || ! is_string($explanation) || trim($explanation) === '') {
+                continue;
+            }
+
+            BoardingHouseMatch::query()
+                ->where('user_id', $tenant->id)
+                ->where('boarding_house_id', (int) $boardingHouseId)
+                ->update([
+                    'ai_explanation' => trim($explanation),
+                    'ai_model' => $model,
+                    'ai_generated_at' => now(),
+                ]);
+        }
     }
 
     private function houseMatchesRoomType(BoardingHouse $house, string $roomType): bool

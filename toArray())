@@ -17,6 +17,6 @@
       Psy\Exception\ParseErrorException::fromParseError(Object(PhpParser\Error))
 
   2   vendor\psy\psysh\src\CodeCleaner.php:269
-      Psy\CodeCleaner::parse("<?php dump(App\Models\BoardingHouse::query()-,'name','status','approval_status','is_active'])-;
+      Psy\CodeCleaner::parse("<?php dump(\Illuminate\Support\Facades\DB::table('boarding_houses')-,'approval_status','is_active')-;
 ")
 

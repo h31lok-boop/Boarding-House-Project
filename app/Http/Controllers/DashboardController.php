@@ -17,6 +17,7 @@ class DashboardController extends Controller
     public function __construct(
         private readonly BoardingHouseRecommendationService $recommendationService,
     ) {}
+
     public function index()
     {
         $roleMeta = [
@@ -121,13 +122,15 @@ class DashboardController extends Controller
         abort_unless($user && $user->isUser(), 403);
 
         $aiRecommendations = $this->recommendationService->rank($user);
-        $hasPreferences    = $this->recommendationService->hasPreferences($user);
+        $hasPreferences = $this->recommendationService->hasPreferences($user);
+        $preferenceSummary = $this->recommendationService->preferenceSummary($user);
 
         return view('user.dashboard', array_merge(
             $this->buildTenantDashboardData($user),
             [
                 'aiRecommendations' => $aiRecommendations,
-                'hasPreferences'    => $hasPreferences,
+                'hasPreferences' => $hasPreferences,
+                'preferenceSummary' => $preferenceSummary,
             ]
         ));
     }
