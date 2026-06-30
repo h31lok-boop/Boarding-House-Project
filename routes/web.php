@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\PaymentReceiptVerificationController;
+use App\Http\Controllers\Admin\AdminHelpCenterController;
 use App\Http\Controllers\AdminListingController;
 use App\Http\Controllers\AdminOwnerController;
 use App\Http\Controllers\BoardingHouseController;
@@ -105,6 +106,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/notifications/clear-all', [AdminOwnerController::class, 'clearNotifications'])->name('notifications.clear');
         Route::patch('/notifications/{notification}', [AdminOwnerController::class, 'updateNotification'])->name('notifications.update');
         Route::delete('/notifications/{notification}', [AdminOwnerController::class, 'destroyNotification'])->name('notifications.destroy');
+        Route::get('/help-center', [AdminHelpCenterController::class, 'index'])->name('help');
+        Route::get('/help-center', [AdminHelpCenterController::class, 'index'])->name('help-center.index');
 
         Route::get('/settings/account', [AdminOwnerController::class, 'settings'])->name('settings');
         Route::get('/settings', [AdminOwnerController::class, 'settings'])->name('settings.index');

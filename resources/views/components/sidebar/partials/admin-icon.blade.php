@@ -126,6 +126,13 @@
         </svg>
         @break
 
+    @case('occupancy')
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M4 18h16"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M7 18V9m5 9V6m5 12v-4"/>
+        </svg>
+        @break
+
     @case('users')
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <circle cx="9" cy="7" r="3.5" stroke-width="1.7"/>

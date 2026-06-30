@@ -65,7 +65,7 @@
     ], $sessionDetails ?? []);
 @endphp
 
-<div x-data="settingsPage()" class="space-y-6">
+<div x-data="settingsPage()" class="space-y-5">
 
     <div x-show="toast" x-transition x-cloak
          class="fixed right-4 top-4 z-[9999] rounded-xl border border-indigo-100 bg-white px-4 py-3 text-sm font-semibold text-indigo-700 shadow-lg"
@@ -77,32 +77,32 @@
         subtitle="Manage your account information, security, notifications, and privacy preferences."
     />
 
-    <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_350px_252px]">
-        <div class="space-y-5">
+    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_330px_240px]">
+        <div class="space-y-4">
             <form method="POST" action="{{ route('user.settings.personal.update') }}" enctype="multipart/form-data" class="rounded-2xl border border-gray-200 bg-white shadow-sm">
                 @csrf
                 @method('PUT')
                 <input type="file" id="avatarPicker" name="profile_photo" accept="image/jpeg,image/png,image/gif" class="sr-only"
                        x-on:change="const file = $event.target.files[0]; if (file) photoPreview = URL.createObjectURL(file);">
 
-                <div class="flex items-center gap-2.5 border-b border-gray-100 px-6 py-4">
+                <div class="flex items-center gap-2.5 border-b border-gray-100 px-5 py-3.5">
                     <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50">
                         <svg class="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
                     </div>
                     <h2 class="text-sm font-semibold text-gray-900">Personal Information</h2>
                 </div>
 
-                <div class="space-y-5 px-6 py-5">
+                <div class="space-y-4 px-5 py-4">
                     <div>
-                        <p class="mb-3 text-xs font-medium text-gray-500">Profile Photo</p>
-                        <div class="flex items-end gap-4">
+                        <p class="mb-2.5 text-xs font-medium text-gray-500">Profile Photo</p>
+                        <div class="flex items-end gap-3">
                             <div class="relative shrink-0">
-                                <div class="h-[72px] w-[72px] overflow-hidden rounded-full border-4 border-white shadow-md ring-2 ring-gray-100">
+                                <div class="h-16 w-16 overflow-hidden rounded-full border-4 border-white shadow-md ring-2 ring-gray-100">
                                     <template x-if="photoPreview">
                                         <img :src="photoPreview" alt="{{ $displayName }}" class="h-full w-full object-cover">
                                     </template>
                                     <template x-if="!photoPreview">
-                                        <div class="flex h-full w-full items-center justify-center bg-blue-600 text-lg font-bold text-white">
+                                        <div class="flex h-full w-full items-center justify-center bg-blue-600 text-base font-bold text-white">
                                             <span x-text="initials">{{ $initials }}</span>
                                         </div>
                                     </template>
@@ -123,11 +123,11 @@
                         </div>
                     </div>
 
-                    <div class="grid gap-4 sm:grid-cols-2">
+                    <div class="grid gap-3.5 sm:grid-cols-2">
                         <div>
                             <label for="first_name" class="mb-1.5 block text-xs font-medium text-gray-500">First Name</label>
                             <input id="first_name" name="first_name" x-model="firstName" required
-                                   class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                                   class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
                                    placeholder="First name">
                             @error('first_name')
                                 <p class="mt-1 text-xs font-medium text-rose-600">{{ $message }}</p>
@@ -144,11 +144,11 @@
                         </div>
                     </div>
 
-                    <div class="grid gap-4 sm:grid-cols-2">
+                    <div class="grid gap-3.5 sm:grid-cols-2">
                         <div>
                             <label for="date_of_birth" class="mb-1.5 block text-xs font-medium text-gray-500">Date of Birth</label>
                             <input id="date_of_birth" type="date" name="date_of_birth" value="{{ $dateOfBirth }}"
-                                   class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 transition focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100">
+                                   class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 transition focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100">
                             @error('date_of_birth')
                                 <p class="mt-1 text-xs font-medium text-rose-600">{{ $message }}</p>
                             @enderror
@@ -157,7 +157,7 @@
                             <label for="gender" class="mb-1.5 block text-xs font-medium text-gray-500">Gender</label>
                             <div class="relative">
                                 <select id="gender" name="gender"
-                                        class="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 transition focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100">
+                                        class="w-full appearance-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 transition focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100">
                                     <option value="">Select gender</option>
                                     @foreach (['Male', 'Female', 'Other', 'Prefer not to say'] as $option)
                                         <option value="{{ $option }}" @selected($gender === $option)>{{ $option }}</option>
@@ -172,7 +172,7 @@
                     </div>
 
                     <div class="flex justify-end">
-                        <button type="submit" class="rounded-lg bg-indigo-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1">
+                        <button type="submit" class="rounded-lg bg-indigo-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1">
                             Save Personal Info
                         </button>
                     </div>
@@ -182,18 +182,18 @@
             <form method="POST" action="{{ route('user.settings.contact.update') }}" class="rounded-2xl border border-gray-200 bg-white shadow-sm">
                 @csrf
                 @method('PUT')
-                <div class="flex items-center gap-2.5 border-b border-gray-100 px-6 py-4">
+                <div class="flex items-center gap-2.5 border-b border-gray-100 px-5 py-3.5">
                     <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50">
                         <svg class="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
                     </div>
                     <h2 class="text-sm font-semibold text-gray-900">Contact Information</h2>
                 </div>
 
-                <div class="space-y-4 px-6 py-5">
+                <div class="space-y-3.5 px-5 py-4">
                     <div>
                         <label for="email" class="mb-1.5 block text-xs font-medium text-gray-500">Email Address</label>
                         <input id="email" name="email" type="email" required value="{{ $email }}"
-                               class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                               class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
                                placeholder="you@email.com">
                         @error('email')
                             <p class="mt-1 text-xs font-medium text-rose-600">{{ $message }}</p>
@@ -202,11 +202,11 @@
                     <div>
                         <label for="phone_number" class="mb-1.5 block text-xs font-medium text-gray-500">Phone Number</label>
                         <div class="flex gap-2">
-                            <div class="flex shrink-0 items-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm font-medium text-gray-700">
+                            <div class="flex shrink-0 items-center rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-700">
                                 +63
                             </div>
                             <input id="phone_number" name="phone_number" type="tel" value="{{ $phone }}"
-                                   class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                                   class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
                                    placeholder="912 345 6789">
                         </div>
                         @error('phone_number')
@@ -216,14 +216,14 @@
                     <div>
                         <label for="current_address" class="mb-1.5 block text-xs font-medium text-gray-500">Current Address</label>
                         <textarea id="current_address" name="current_address" rows="2"
-                                  class="w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                                  class="w-full resize-none rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
                                   placeholder="Street, Barangay, City, Province, ZIP">{{ $currentAddress }}</textarea>
                         @error('current_address')
                             <p class="mt-1 text-xs font-medium text-rose-600">{{ $message }}</p>
                         @enderror
                     </div>
                     <div class="flex justify-end">
-                        <button type="submit" class="rounded-lg bg-indigo-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1">
+                        <button type="submit" class="rounded-lg bg-indigo-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1">
                             Save Contact Info
                         </button>
                     </div>
@@ -231,7 +231,7 @@
             </form>
 
             <div class="rounded-2xl border border-gray-200 bg-white shadow-sm">
-                <div class="flex items-center gap-2.5 border-b border-gray-100 px-6 py-4">
+                <div class="flex items-center gap-2.5 border-b border-gray-100 px-5 py-3.5">
                     <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50">
                         <svg class="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/></svg>
                     </div>
@@ -240,16 +240,16 @@
                         <p class="text-xs text-gray-400">Choose how you want to be notified.</p>
                     </div>
                 </div>
-                <div class="grid gap-x-6 px-6 py-5 sm:grid-cols-2">
+                <div class="grid gap-x-5 px-5 py-4 sm:grid-cols-2">
                     @foreach ([
                         ['field' => 'email_notifications', 'model' => 'emailNotify', 'label' => 'Email Notifications', 'desc' => 'Receive important updates via email.'],
                         ['field' => 'booking_reminders', 'model' => 'bookingReminders', 'label' => 'Booking Reminders', 'desc' => 'Get reminders for upcoming bookings.'],
                         ['field' => 'sms_notifications', 'model' => 'smsNotify', 'label' => 'SMS Notifications', 'desc' => 'Receive important updates via SMS.'],
                         ['field' => 'promotions_updates', 'model' => 'promoUpdates', 'label' => 'Promotions & Updates', 'desc' => 'Receive news, tips, and special offers.'],
                     ] as $index => $notif)
-                        <div class="flex items-center justify-between gap-4 {{ $index >= 2 ? 'border-t border-gray-100 pt-4 sm:mt-4' : 'pb-4' }}">
+                        <div class="flex items-center justify-between gap-4 {{ $index >= 2 ? 'border-t border-gray-100 pt-3.5 sm:mt-3.5' : 'pb-3.5' }}">
                             <div>
-                                <p class="text-sm font-medium text-gray-800">{{ $notif['label'] }}</p>
+                                <p class="text-[13px] font-medium text-gray-800">{{ $notif['label'] }}</p>
                                 <p class="text-xs text-gray-400">{{ $notif['desc'] }}</p>
                             </div>
                             <button type="button"
@@ -272,21 +272,21 @@
                 <input type="hidden" name="allow_owner_messages" :value="allowOwnerMessages ? 1 : 0">
                 <input type="hidden" name="allow_matchmaking_data" :value="allowMatchmakingData ? 1 : 0">
 
-                <div class="flex items-center gap-2.5 border-b border-gray-100 px-6 py-4">
+                <div class="flex items-center gap-2.5 border-b border-gray-100 px-5 py-3.5">
                     <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50">
                         <svg class="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>
                     </div>
                     <h2 class="text-sm font-semibold text-gray-900">Privacy Settings</h2>
                 </div>
-                <div class="space-y-4 px-6 py-5">
+                <div class="space-y-3.5 px-5 py-4">
                     @foreach ([
                         ['model' => 'showProfileToOwners', 'label' => 'Show my profile to property owners', 'desc' => 'Allow verified owners to review your basic profile for inquiries and reservations.'],
                         ['model' => 'allowOwnerMessages', 'label' => 'Allow owners to message me', 'desc' => 'Permit property owners to contact you about rooms, viewing schedules, and requests.'],
                         ['model' => 'allowMatchmakingData', 'label' => 'Use my preferences for matchmaking', 'desc' => 'Allow BoardMatch to use your preferences for better recommendations.'],
                     ] as $index => $item)
-                        <div class="flex items-center justify-between gap-4 {{ $index > 0 ? 'border-t border-gray-100 pt-4' : '' }}">
+                        <div class="flex items-center justify-between gap-4 {{ $index > 0 ? 'border-t border-gray-100 pt-3.5' : '' }}">
                             <div>
-                                <p class="text-sm font-medium text-gray-800">{{ $item['label'] }}</p>
+                                <p class="text-[13px] font-medium text-gray-800">{{ $item['label'] }}</p>
                                 <p class="text-xs text-gray-400">{{ $item['desc'] }}</p>
                             </div>
                             <button type="button"
@@ -300,7 +300,7 @@
                         </div>
                     @endforeach
                     <div class="flex justify-end">
-                        <button type="submit" class="rounded-lg bg-indigo-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1">
+                        <button type="submit" class="rounded-lg bg-indigo-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1">
                             Save Privacy
                         </button>
                     </div>
@@ -308,26 +308,26 @@
             </form>
         </div>
 
-        <div class="space-y-5">
+        <div class="space-y-4">
             <div class="rounded-2xl border border-gray-200 bg-white shadow-sm">
-                <div class="flex items-center gap-2.5 border-b border-gray-100 px-6 py-4">
+                <div class="flex items-center gap-2.5 border-b border-gray-100 px-5 py-3.5">
                     <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50">
                         <svg class="h-4 w-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg>
                     </div>
                     <h2 class="text-sm font-semibold text-gray-900">Account Security</h2>
                 </div>
 
-                <form method="POST" action="{{ route('user.settings.password.update') }}" class="border-b border-gray-100 px-6 py-5">
+                <form method="POST" action="{{ route('user.settings.password.update') }}" class="border-b border-gray-100 px-5 py-4">
                     @csrf
                     @method('PUT')
                     <h3 class="mb-0.5 text-sm font-semibold text-gray-900">Change Password</h3>
-                    <p class="mb-4 text-xs text-gray-400">Ensure your account is using a strong password to stay secure.</p>
+                    <p class="mb-3.5 text-xs text-gray-400">Ensure your account is using a strong password to stay secure.</p>
                     <div class="space-y-3">
                         <div>
                             <label for="settings_current_password" class="mb-1.5 block text-xs font-medium text-gray-500">Current Password</label>
                             <div class="relative">
                                 <input id="settings_current_password" name="current_password" :type="showCurPwd ? 'text' : 'password'" autocomplete="current-password"
-                                       class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 pr-10 text-sm text-gray-900 placeholder-gray-400 transition focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                                       class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 pr-10 text-sm text-gray-900 placeholder-gray-400 transition focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
                                        placeholder="Current password">
                                 <button type="button" x-on:click="showCurPwd = !showCurPwd" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                                     <svg x-show="!showCurPwd" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -342,7 +342,7 @@
                             <label for="settings_password" class="mb-1.5 block text-xs font-medium text-gray-500">New Password</label>
                             <div class="relative">
                                 <input id="settings_password" name="password" :type="showNewPwd ? 'text' : 'password'" x-on:input="checkStrength($event.target.value)" autocomplete="new-password"
-                                       class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 pr-10 text-sm text-gray-900 placeholder-gray-400 transition focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                                       class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 pr-10 text-sm text-gray-900 placeholder-gray-400 transition focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
                                        placeholder="New password">
                                 <button type="button" x-on:click="showNewPwd = !showNewPwd" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                                     <svg x-show="!showNewPwd" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -367,7 +367,7 @@
                             <label for="settings_password_confirmation" class="mb-1.5 block text-xs font-medium text-gray-500">Confirm New Password</label>
                             <div class="relative">
                                 <input id="settings_password_confirmation" name="password_confirmation" :type="showConPwd ? 'text' : 'password'" autocomplete="new-password"
-                                       class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 pr-10 text-sm text-gray-900 placeholder-gray-400 transition focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                                       class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 pr-10 text-sm text-gray-900 placeholder-gray-400 transition focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
                                        placeholder="Confirm new password">
                                 <button type="button" x-on:click="showConPwd = !showConPwd" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
                                     <svg x-show="!showConPwd" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -378,16 +378,16 @@
                                 <p class="mt-1 text-xs font-medium text-rose-600">{{ $message }}</p>
                             @enderror
                         </div>
-                        <button type="submit" class="mt-1 w-full rounded-lg bg-indigo-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1">
+                        <button type="submit" class="mt-1 w-full rounded-lg bg-indigo-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1">
                             Update Password
                         </button>
                     </div>
                 </form>
 
-                <div class="border-b border-gray-100 px-6 py-5">
+                <div class="border-b border-gray-100 px-5 py-4">
                     <h3 class="mb-0.5 text-sm font-semibold text-gray-900">Two-Factor Authentication</h3>
-                    <p class="mb-4 text-xs text-gray-400">Add an extra layer of security to your account.</p>
-                    <div class="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <p class="mb-3.5 text-xs text-gray-400">Add an extra layer of security to your account.</p>
+                    <div class="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3.5">
                         <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-100 bg-white shadow-sm">
                             <svg class="h-5 w-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 8.25h3m-3 3.75h3m-3 3.75h3"/></svg>
                         </div>
@@ -405,10 +405,10 @@
                     </div>
                 </div>
 
-                <div class="px-6 py-5">
+                <div class="px-5 py-4">
                     <h3 class="mb-0.5 text-sm font-semibold text-gray-900">Active Sessions</h3>
-                    <p class="mb-4 text-xs text-gray-400">Manage your active sessions on different devices.</p>
-                    <div class="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <p class="mb-3.5 text-xs text-gray-400">Manage your active sessions on different devices.</p>
+                    <div class="flex items-center gap-3 rounded-xl border border-gray-100 bg-gray-50 p-3.5">
                         <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-gray-100 bg-white shadow-sm">
                             <svg class="h-5 w-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0H3"/></svg>
                         </div>
@@ -424,12 +424,12 @@
                     <form method="POST" action="{{ route('user.settings.logout-other-devices') }}" class="mt-3 space-y-2">
                         @csrf
                         <input name="logout_current_password" type="password" autocomplete="current-password"
-                               class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 transition focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                               class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 transition focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
                                placeholder="Current password">
                         @error('logout_current_password')
                             <p class="text-xs font-medium text-rose-600">{{ $message }}</p>
                         @enderror
-                        <button type="submit" class="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-200">
+                        <button type="submit" class="w-full rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-200">
                             Log out from other devices
                         </button>
                     </form>
@@ -437,16 +437,16 @@
             </div>
         </div>
 
-        <div class="space-y-5">
+        <div class="space-y-4">
             <div class="rounded-2xl border border-gray-200 bg-white shadow-sm">
-                <div class="flex items-center gap-2 border-b border-gray-100 px-5 py-4">
+                <div class="flex items-center gap-2 border-b border-gray-100 px-4 py-3.5">
                     <svg class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     <h2 class="text-sm font-semibold text-gray-900">Account Status</h2>
                 </div>
-                <div class="px-5 py-5">
+                <div class="px-4 py-4">
                     <div class="flex flex-col items-center">
-                        <div class="relative h-28 w-28">
-                            <svg class="h-28 w-28 -rotate-90" viewBox="0 0 100 100">
+                        <div class="relative h-24 w-24">
+                            <svg class="h-24 w-24 -rotate-90" viewBox="0 0 100 100">
                                 <circle cx="50" cy="50" r="45" fill="none" stroke="#f0fdf4" stroke-width="8"/>
                                 <circle cx="50" cy="50" r="45" fill="none" stroke="#22c55e" stroke-width="8"
                                         stroke-dasharray="{{ round($circumference, 2) }}"
@@ -454,10 +454,10 @@
                                         stroke-linecap="round"/>
                             </svg>
                             <div class="absolute inset-0 flex items-center justify-center">
-                                <span class="text-2xl font-bold text-gray-900">{{ $completionPercent }}%</span>
+                                <span class="text-xl font-bold text-gray-900">{{ $completionPercent }}%</span>
                             </div>
                         </div>
-                        <p class="mt-3 text-sm font-semibold text-gray-900">Profile Completeness</p>
+                        <p class="mt-2.5 text-sm font-semibold text-gray-900">Profile Completeness</p>
                         <p class="mt-1 text-center text-xs leading-relaxed text-gray-400">
                             @if ($completionPercent >= 80)
                                 Great job! Your profile is almost complete.
@@ -469,7 +469,7 @@
                         </p>
                     </div>
 
-                    <ul class="mt-5 space-y-2.5">
+                    <ul class="mt-4 space-y-2">
                         @foreach ($completionItems as $item)
                             <li class="flex items-center gap-2.5 text-xs">
                                 @if ($item['done'])
@@ -490,7 +490,7 @@
                         @endforeach
                     </ul>
 
-                    <div class="my-5 border-t border-gray-100"></div>
+                    <div class="my-4 border-t border-gray-100"></div>
 
                     <div class="flex items-start gap-3">
                         <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100">
@@ -505,7 +505,7 @@
                         </div>
                     </div>
 
-                    <div class="mt-4 flex items-start gap-3">
+                    <div class="mt-3.5 flex items-start gap-3">
                         <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100">
                             <svg class="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5zm6-10.125a1.875 1.875 0 11-3.75 0 1.875 1.875 0 013.75 0zm1.294 6.336a6.721 6.721 0 01-3.17.789 6.721 6.721 0 01-3.168-.789 3.376 3.376 0 016.338 0z"/></svg>
                         </div>
@@ -517,7 +517,7 @@
                         </div>
                     </div>
 
-                    <div class="mt-4 flex items-start gap-3">
+                    <div class="mt-3.5 flex items-start gap-3">
                         <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gray-100">
                             <svg class="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg>
                         </div>
@@ -529,12 +529,12 @@
                         </div>
                     </div>
 
-                    <div class="my-5 border-t border-gray-100"></div>
+                    <div class="my-4 border-t border-gray-100"></div>
 
                     <div>
                         <p class="text-xs font-semibold text-gray-700">Need help with your account?</p>
                         <p class="mt-0.5 text-xs text-gray-400">Our support team is here to help.</p>
-                        <a href="{{ route('user.help-center.index') }}" class="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:underline">
+                        <a href="{{ route('user.help-center.index') }}" class="mt-2.5 inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700 hover:underline">
                             Contact Support
                             <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
                         </a>

@@ -11,7 +11,10 @@ use App\Models\PaymentReceipt;
 use App\Models\Reservation;
 use App\Models\Review;
 use App\Models\TenantPaymentMethod;
+use App\Models\UserNotification;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -336,7 +339,10 @@ class TenantAreaController extends Controller
     {
         $tenant = $this->tenant($request);
 
-        $messages = Inquiry::with('boardingHouse.images')
+        $messages = Inquiry::with([
+                'boardingHouse.images',
+                'boardingHouse.owner',
+            ])
             ->where('user_id', $tenant->id)
             ->when($request->filled('q'), function ($query) use ($request) {
                 $term = '%'.$request->query('q').'%';
@@ -350,6 +356,8 @@ class TenantAreaController extends Controller
             ->withQueryString();
 
         $houses = $this->approvedHouses();
+        $threads = $this->buildInquiryThreads($tenant->id, $messages->getCollection());
+        $messages->setCollection($threads);
 
         return view('user.messages', compact('messages', 'houses'));
     }
@@ -476,100 +484,174 @@ class TenantAreaController extends Controller
     private function paymentDashboardData(int $tenantId): array
     {
         $latestReceipt = Schema::hasTable('payment_receipts')
-            ? PaymentReceipt::where('user_id', $tenantId)->latest()->first()
+            ? PaymentReceipt::query()
+                ->where('user_id', $tenantId)
+                ->latest('payment_date')
+                ->latest('id')
+                ->first()
             : null;
 
         $bookings = Schema::hasTable('bookings') && Schema::hasColumn('bookings', 'user_id')
             ? Booking::with('room.boardingHouse')->where('user_id', $tenantId)->latest()->limit(10)->get()
             : collect();
 
+        $paymentRows = $this->tenantPayments($tenantId);
+        $paymentMethods = Schema::hasTable('tenant_payment_methods')
+            ? TenantPaymentMethod::query()
+                ->where('user_id', $tenantId)
+                ->orderByDesc('is_default')
+                ->latest('id')
+                ->get()
+            : collect();
+
+        $approvedReceipts = Schema::hasTable('payment_receipts')
+            ? PaymentReceipt::query()
+                ->where('user_id', $tenantId)
+                ->where('status', PaymentReceipt::STATUS_APPROVED)
+                ->get()
+            : collect();
+
+        $today = now()->startOfDay();
+        $openStatuses = ['pending', 'unpaid', 'overdue'];
+        $paidStatuses = ['paid', 'completed', 'settled'];
+        $paidPayments = $paymentRows->filter(fn (array $payment) => in_array($payment['status_key'], $paidStatuses, true));
+        $openPayments = $paymentRows->filter(fn (array $payment) => in_array($payment['status_key'], $openStatuses, true));
+        $nextDue = $openPayments
+            ->filter(fn (array $payment) => $payment['due_date'] instanceof Carbon)
+            ->sortBy('due_date')
+            ->first();
+
+        $pendingAmount = (float) $openPayments->sum('amount');
+        $paidAmount = (float) $paidPayments->sum('amount');
+        $totalTracked = $paidAmount + $pendingAmount;
+
+        $stats = [
+            [
+                'label' => 'Total Payments',
+                'amount' => $totalTracked,
+                'decimals' => 2,
+                'meta' => $paymentRows->count().' '.str('payment')->plural($paymentRows->count())->toString().' tracked',
+                'icon' => 'credit-card',
+            ],
+            [
+                'label' => 'Paid Amount',
+                'amount' => $paidAmount,
+                'decimals' => 2,
+                'meta' => $paidPayments->count().' settled '.str('entry')->plural($paidPayments->count())->toString(),
+                'icon' => 'check-circle',
+            ],
+            [
+                'label' => 'Pending Amount',
+                'amount' => $pendingAmount,
+                'decimals' => 2,
+                'meta' => $openPayments->count().' outstanding '.str('bill')->plural($openPayments->count())->toString(),
+                'icon' => 'clock',
+            ],
+            [
+                'label' => 'Next Payment Due',
+                'value' => $nextDue['due_date_label'] ?? 'No upcoming due',
+                'meta' => $nextDue
+                    ? ($nextDue['type'].' - PHP '.number_format((float) $nextDue['amount'], 2))
+                    : 'You have no open billing item.',
+                'icon' => 'calendar',
+            ],
+        ];
+
+        $paymentSchedule = $openPayments
+            ->filter(fn (array $payment) => $payment['due_date'] instanceof Carbon)
+            ->sortBy('due_date')
+            ->take(6)
+            ->map(function (array $payment) use ($today) {
+                $status = $payment['status_label'];
+                if ($payment['due_date']->isFuture() && $payment['due_date']->gt($today->copy()->addDays(7))) {
+                    $status = 'Upcoming';
+                } elseif ($payment['due_date']->lt($today)) {
+                    $status = 'Overdue';
+                }
+
+                return [
+                    'due_date' => $payment['due_date_label'],
+                    'type' => $payment['type'],
+                    'amount' => $payment['amount'],
+                    'status' => $status,
+                ];
+            })
+            ->values()
+            ->all();
+
+        $summaryItems = [];
+        if ($nextDue) {
+            $summaryItems[] = [
+                'label' => 'Next bill',
+                'amount' => (float) $nextDue['amount'],
+            ];
+        }
+        if ($latestReceipt) {
+            $summaryItems[] = [
+                'label' => 'Latest receipt',
+                'amount' => (float) $latestReceipt->amount,
+            ];
+        }
+        if ($summaryItems === []) {
+            $summaryItems[] = [
+                'label' => 'No billing items yet',
+                'amount' => 0,
+            ];
+        }
+
+        $paymentMethodOptions = [
+            [
+                'value' => 'visa',
+                'label' => 'Visa',
+            ],
+            [
+                'value' => 'mastercard',
+                'label' => 'Mastercard',
+            ],
+            [
+                'value' => 'gcash',
+                'label' => 'GCash',
+            ],
+            [
+                'value' => 'bank',
+                'label' => 'Bank Transfer',
+            ],
+            [
+                'value' => 'cash',
+                'label' => 'Cash Payment',
+            ],
+            [
+                'value' => 'other',
+                'label' => 'Other',
+            ],
+        ];
+
+        $defaultMethod = $paymentMethods->firstWhere('is_default', true);
+
         return [
-            'stats' => [
-                [
-                    'label' => 'Total Payments',
-                    'amount' => 15000,
-                    'decimals' => 2,
-                    'meta' => '5 payments made',
-                    'icon' => 'credit-card',
-                ],
-                [
-                    'label' => 'Paid Amount',
-                    'amount' => 12000,
-                    'decimals' => 2,
-                    'meta' => 'Rent from January-March',
-                    'icon' => 'check-circle',
-                ],
-                [
-                    'label' => 'Pending Amount',
-                    'amount' => 3000,
-                    'decimals' => 2,
-                    'meta' => 'Due this month',
-                    'icon' => 'clock',
-                ],
-                [
-                    'label' => 'Next Payment Due',
-                    'value' => 'July 5, 2026',
-                    'meta' => 'Monthly Rent',
-                    'icon' => 'calendar',
-                ],
-            ],
-            'recentTransactions' => [
-                ['date' => 'Jun 05, 2026', 'description' => 'Monthly Rent - June', 'reference' => 'BM-20260605-001', 'amount' => 3000, 'status' => 'Paid'],
-                ['date' => 'May 05, 2026', 'description' => 'Monthly Rent - May', 'reference' => 'BM-20260505-001', 'amount' => 3000, 'status' => 'Paid'],
-                ['date' => 'Apr 05, 2026', 'description' => 'Monthly Rent - April', 'reference' => 'BM-20260405-001', 'amount' => 3000, 'status' => 'Paid'],
-                ['date' => 'Mar 05, 2026', 'description' => 'Deposit', 'reference' => 'BM-20260305-001', 'amount' => 3000, 'status' => 'Paid'],
-                ['date' => 'Feb 05, 2026', 'description' => 'Monthly Rent - February', 'reference' => 'BM-20260205-001', 'amount' => 3000, 'status' => 'Paid'],
-            ],
-            'receipt' => [
-                'title' => 'GCash Payment - June',
-                'filename' => 'gcash-payment-june.pdf',
-                'uploaded_at' => 'Jun 05, 2026 - 10:24 AM',
-                'status' => 'Under Review',
-            ],
+            'stats' => $stats,
             'latestReceipt' => $latestReceipt,
             'bookings' => $bookings,
-            'paymentSchedule' => [
-                ['due_date' => 'Jul 05, 2026', 'type' => 'Monthly Rent', 'amount' => 3000, 'status' => 'Pending'],
-                ['due_date' => 'Aug 05, 2026', 'type' => 'Monthly Rent', 'amount' => 3000, 'status' => 'Upcoming'],
-                ['due_date' => 'Sep 05, 2026', 'type' => 'Monthly Rent', 'amount' => 3000, 'status' => 'Upcoming'],
-            ],
-            'paymentMethodsList' => [
-                [
-                    'type' => 'cash',
-                    'name' => 'Cash Payment',
-                    'detail' => 'Pay in person at the boarding house',
-                    'badge' => 'Default',
-                ],
-                [
-                    'type' => 'gcash',
-                    'name' => 'GCash',
-                    'detail' => '0912 345 6789',
-                    'subdetail' => 'Juan Dela Cruz',
-                    'badge' => 'Verified',
-                ],
-                [
-                    'type' => 'maya',
-                    'name' => 'Maya',
-                    'detail' => 'juan.delacruz@example.com',
-                    'badge' => 'Verified',
-                ],
-                [
-                    'type' => 'bank',
-                    'name' => 'Bank Transfer',
-                    'detail' => 'BDO **** 1234',
-                    'subdetail' => 'Juan Dela Cruz',
-                    'badge' => 'Verified',
-                ],
-            ],
-            'summaryItems' => [
-                ['label' => 'Deposit', 'amount' => 3000],
-                ['label' => 'Monthly Rent', 'amount' => 3000],
-            ],
-            'summaryTotal' => 6000,
+            'paymentSchedule' => $paymentSchedule,
+            'paymentMethodsList' => $paymentMethods,
+            'paymentMethodOptions' => $paymentMethodOptions,
+            'summaryItems' => $summaryItems,
+            'summaryTotal' => $nextDue ? (float) $nextDue['amount'] : $pendingAmount,
             'statusGuide' => [
-                ['label' => 'Submitted', 'description' => 'Receipt uploaded'],
-                ['label' => 'Under Review', 'description' => 'Landlord is checking'],
-                ['label' => 'Approved or Rejected', 'description' => 'Decision is sent'],
+                ['label' => 'Submitted', 'description' => 'Receipt uploaded and waiting for review.'],
+                ['label' => 'Under Review', 'description' => 'The landlord is verifying payment details.'],
+                ['label' => 'Approved or Rejected', 'description' => 'You receive a notification once the review is complete.'],
+            ],
+            'confirmPayment' => [
+                'available' => (bool) ($defaultMethod && $nextDue),
+                'amount' => (float) ($nextDue['amount'] ?? 0),
+                'method_id' => $defaultMethod?->id,
+                'method_label' => $defaultMethod?->display_label,
+                'due_date' => $nextDue['due_date_label'] ?? null,
+            ],
+            'paymentStatsMeta' => [
+                'approved_receipts' => $approvedReceipts->count(),
+                'default_method_id' => $paymentMethods->firstWhere('is_default', true)?->id,
             ],
         ];
     }
@@ -603,5 +685,175 @@ class TenantAreaController extends Controller
             ->when(Schema::hasColumn('boarding_houses', 'is_active'), fn ($query) => $query->where('is_active', true))
             ->orderBy('name')
             ->get(['id', 'name']);
+    }
+
+    private function tenantPayments(int $tenantId): Collection
+    {
+        if (! Schema::hasTable('payments')) {
+            return collect();
+        }
+
+        $query = Payment::query()->with('boardingHouse');
+        $hasUserColumn = Schema::hasColumn('payments', 'user_id');
+        $hasTenantColumn = Schema::hasColumn('payments', 'tenant_id');
+        $tenantRecordId = null;
+
+        if ($hasTenantColumn && Schema::hasTable('tenants')) {
+            $tenantRecordId = DB::table('tenants')
+                ->where('user_id', $tenantId)
+                ->latest('id')
+                ->value('id');
+        }
+
+        if ($hasUserColumn && $hasTenantColumn && $tenantRecordId) {
+            $query->where(function ($paymentQuery) use ($tenantId, $tenantRecordId) {
+                $paymentQuery->where('user_id', $tenantId)
+                    ->orWhere('tenant_id', $tenantRecordId);
+            });
+        } elseif ($hasUserColumn) {
+            $query->where('user_id', $tenantId);
+        } elseif ($hasTenantColumn && $tenantRecordId) {
+            $query->where('tenant_id', $tenantRecordId);
+        } else {
+            return collect();
+        }
+
+        $hasPaymentType = Schema::hasColumn('payments', 'payment_type');
+        $hasReferenceNumber = Schema::hasColumn('payments', 'reference_number');
+        $hasPaymentDate = Schema::hasColumn('payments', 'payment_date');
+
+        return $query
+            ->orderByRaw('CASE WHEN due_date IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('due_date')
+            ->orderByDesc('id')
+            ->get()
+            ->map(function (Payment $payment) use ($hasPaymentType, $hasReferenceNumber, $hasPaymentDate) {
+                $dueDate = $payment->due_date ? Carbon::parse($payment->due_date) : null;
+                $paidDate = $payment->paid_at
+                    ? Carbon::parse($payment->paid_at)
+                    : ($hasPaymentDate && $payment->payment_date ? Carbon::parse($payment->payment_date) : null);
+                $statusKey = strtolower(trim((string) ($payment->status ?? 'pending')));
+
+                return [
+                    'id' => $payment->id,
+                    'amount' => (float) $payment->amount,
+                    'status_key' => $statusKey,
+                    'status_label' => str($statusKey !== '' ? $statusKey : 'pending')->replace(['_', '-'], ' ')->title()->toString(),
+                    'type' => $hasPaymentType
+                        ? str((string) ($payment->payment_type ?: 'rent'))->replace(['_', '-'], ' ')->title()->toString()
+                        : 'Rent',
+                    'due_date' => $dueDate,
+                    'due_date_label' => $dueDate?->format('M d, Y') ?? 'Not scheduled',
+                    'paid_date' => $paidDate,
+                    'reference' => $payment->reference_no ?: ($hasReferenceNumber ? $payment->reference_number : null),
+                    'boarding_house_name' => $payment->boardingHouse?->name,
+                ];
+            })
+            ->values();
+    }
+
+    private function buildInquiryThreads(int $tenantId, Collection $messages): Collection
+    {
+        $replyNotifications = $this->inquiryReplyNotifications($tenantId, $messages->pluck('id'));
+
+        return $messages->map(function (Inquiry $message, int $index) use ($replyNotifications) {
+            $house = $message->boardingHouse;
+            $ownerName = trim((string) ($house?->owner?->name ?? 'Property Owner'));
+            $reply = $replyNotifications->get('inquiry:'.$message->id);
+            $statusKey = strtolower(trim((string) ($message->status ?? 'pending')));
+            $messageCreatedAt = $message->created_at ? Carbon::parse($message->created_at) : null;
+            $replyCreatedAt = $reply?->updated_at ? Carbon::parse($reply->updated_at) : null;
+            $timeline = collect([
+                [
+                    'sender' => 'tenant',
+                    'label' => 'You',
+                    'body' => $message->message,
+                    'time' => $messageCreatedAt?->format('M d, Y h:i A') ?? 'Recently',
+                ],
+            ]);
+
+            if ($reply) {
+                $timeline->push([
+                    'sender' => 'owner',
+                    'label' => $ownerName,
+                    'body' => $reply->message,
+                    'time' => $replyCreatedAt?->format('M d, Y h:i A') ?? 'Recently',
+                ]);
+            }
+
+            $unread = $reply && ! $reply->read_at ? 1 : 0;
+            $category = match (true) {
+                str_contains($statusKey, 'payment') => 'payments',
+                str_contains($statusKey, 'support'), str_contains($statusKey, 'ticket') => 'support',
+                default => 'bookings',
+            };
+
+            return [
+                'id' => $message->id,
+                'category' => $category,
+                'house_id' => $house?->id,
+                'owner_name' => $ownerName,
+                'owner_role' => $house?->owner ? 'Property Owner' : 'BoardMatch Support',
+                'property' => $house?->name ?? 'General Inquiry',
+                'location' => trim((string) ($house?->full_address ?? $house?->address ?? 'BoardMatch Support Desk')),
+                'room_type' => $message->boardingHouse?->property_type
+                    ? str((string) $message->boardingHouse->property_type)->replace('_', ' ')->title()->toString()
+                    : 'Inquiry',
+                'monthly_rent' => $house && $house->effective_price
+                    ? 'PHP '.number_format((float) $house->effective_price, 2).' / month'
+                    : 'Rate shared on inquiry',
+                'booking_status' => str($statusKey !== '' ? $statusKey : 'pending')->replace(['_', '-'], ' ')->title()->toString(),
+                'message' => trim((string) ($reply?->message ?: $message->message)),
+                'time' => $replyCreatedAt?->diffForHumans() ?? ($messageCreatedAt?->diffForHumans() ?? 'Recently'),
+                'time_full' => ($replyCreatedAt ?? $messageCreatedAt)?->format('M d, Y h:i A') ?? 'Recently',
+                'avatar' => 'https://ui-avatars.com/api/?name='.urlencode($ownerName).'&background=2563eb&color=fff&size=96&bold=true',
+                'house_image' => $house?->cover_image_url ?? asset('images/boarding-house-placeholder.svg'),
+                'unread' => $unread,
+                'online' => false,
+                'response_time' => $reply ? 'Latest owner response saved' : 'Awaiting reply',
+                'details_url' => $house ? route('user.boarding-houses.show', $house) : route('user.messages.index'),
+                'reservation_url' => route('user.reservations.index'),
+                'payments_url' => route('user.payments.index'),
+                'profile_url' => $house ? route('user.boarding-houses.show', $house) : route('user.messages.index'),
+                'system' => [
+                    'title' => $reply ? 'Latest owner reply' : 'Inquiry submitted',
+                    'body' => $reply
+                        ? 'A property owner has replied to your inquiry.'
+                        : 'Your message has been submitted and is waiting for a response.',
+                    'meta' => $house
+                        ? 'Conversation linked to '.$house->name
+                        : 'BoardMatch support conversation',
+                    'button' => $reply ? 'View Reservation' : 'View Listing',
+                    'url' => $reply ? route('user.reservations.index') : ($house ? route('user.boarding-houses.show', $house) : route('user.messages.index')),
+                ],
+                'progress' => [
+                    ['label' => 'Inquiry Sent', 'state' => 'done'],
+                    ['label' => 'Owner Replied', 'state' => $reply ? 'done' : 'current'],
+                    ['label' => 'Reservation Submitted', 'state' => in_array($statusKey, ['approved', 'confirmed'], true) ? 'done' : 'upcoming'],
+                    ['label' => 'Payment Pending', 'state' => in_array($statusKey, ['approved', 'confirmed'], true) ? 'current' : 'upcoming'],
+                    ['label' => 'Move-in Confirmed', 'state' => in_array($statusKey, ['closed', 'moved_in', 'checked-in', 'checked_in'], true) ? 'done' : 'upcoming'],
+                ],
+                'timeline' => $timeline->values()->all(),
+            ];
+        })->values();
+    }
+
+    private function inquiryReplyNotifications(int $tenantId, Collection $messageIds): Collection
+    {
+        if (! Schema::hasTable('notifications') || $messageIds->isEmpty()) {
+            return collect();
+        }
+
+        $referenceIds = $messageIds
+            ->filter()
+            ->map(fn ($id) => 'inquiry:'.$id)
+            ->values();
+
+        return UserNotification::query()
+            ->where('user_id', $tenantId)
+            ->where('type', 'inquiry')
+            ->whereIn('reference_id', $referenceIds)
+            ->get()
+            ->keyBy('reference_id');
     }
 }

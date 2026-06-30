@@ -1,6 +1,17 @@
 <x-layouts.dashboard>
-<x-admin.shell>
+<x-admin.shell :show-header="false">
     @php
+        $isMineView = request('owner') === 'mine';
+        $pageTitle = $isMineView ? 'My Boarding Houses' : 'Boarding Houses';
+        $pageSubtitle = $isMineView
+            ? 'Manage listing details, photos, room availability, and status from one streamlined workspace.'
+            : 'Review property details, room inventory, and listing status in a cleaner owner workspace.';
+        $sharedRouteParams = array_filter([
+            'owner' => request('owner'),
+        ]);
+        $createListingUrl = route('admin.boarding-houses.create', $sharedRouteParams);
+        $resetFiltersUrl = route('admin.boarding-houses', $sharedRouteParams);
+
         $statusLabel = fn ($house) => strtolower((string) ($house->approval_status ?: $house->status)) === 'pending'
             ? 'Pending'
             : ($house->is_active ? 'Active' : 'Inactive');
@@ -21,29 +32,134 @@
             ->unique()
             ->values();
 
-        $summaryCards = [
-            [
-                'label' => 'Total Boarding Houses',
-                'value' => number_format($totalBoardingHouses ?? 0),
-                'sub' => null,
-                'icon' => 'boarding-house',
-                'tone' => 'bg-blue-50 text-blue-600',
-            ],
-            [
-                'label' => 'Total Rooms',
-                'value' => number_format($totalRooms ?? 0),
-                'sub' => null,
-                'icon' => 'rooms',
-                'tone' => 'bg-emerald-50 text-emerald-600',
-            ],
-            [
-                'label' => 'Occupancy Rate',
-                'value' => ($occupancyRate ?? 0).'%',
-                'sub' => number_format($occupiedRooms ?? 0).' / '.number_format($totalRooms ?? 0).' rooms',
-                'icon' => 'analytics',
-                'tone' => 'bg-violet-50 text-violet-600',
-            ],
-        ];
+        $activeFilters = collect([
+            'Search' => request('q'),
+            'Status' => filled(request('status')) ? ucfirst((string) request('status')) : null,
+            'Location' => request('location'),
+        ])->filter(fn ($value) => filled($value));
+        $houseCollection = method_exists($houses, 'getCollection')
+            ? $houses->getCollection()
+            : collect($houses ?? []);
+        $totalListings = method_exists($houses, 'total') ? $houses->total() : $houseCollection->count();
+        $showingFrom = method_exists($houses, 'firstItem') ? ($houses->firstItem() ?? 0) : ($houseCollection->isEmpty() ? 0 : 1);
+        $showingTo = method_exists($houses, 'lastItem') ? ($houses->lastItem() ?? 0) : $houseCollection->count();
+        $hasPagination = method_exists($houses, 'hasPages') && $houses->hasPages();
+
+        $listingRows = $houseCollection->map(function ($house) use ($statusLabel, $statusBadge, $occupancyTone, $isMineView) {
+            $asString = fn ($value): ?string => is_scalar($value) || $value === null ? ($value !== null ? (string) $value : null) : null;
+            $visibleStatus = $statusLabel($house);
+            $approval = $house->approval_status ?: ($house->status ?: 'pending');
+            $fullLocation = collect([
+                $house->display_barangay,
+                $house->city?->city_name,
+                $house->province?->province_name,
+            ])->filter()->implode(', ') ?: ($house->full_address ?: ($house->address ?: 'Location not set'));
+            $occupiedCount = $house->rooms->filter(fn ($room) => strtolower((string) $room->status) === 'occupied')->count();
+            $totalCount = (int) ($house->rooms_count ?: $house->roomCategories->sum('total_rooms'));
+            $occupancyPct = $totalCount > 0 ? round(($occupiedCount / $totalCount) * 100) : 0;
+            $occupancyClasses = $occupancyTone($occupancyPct);
+            [$barClass, $percentClass] = explode(' ', $occupancyClasses);
+            $availableRooms = max(
+                (int) ($house->available_rooms ?? 0),
+                (int) $house->roomCategories->sum('available_rooms')
+            );
+            $thumbnailUrl = $house->cover_image_url ?: asset('images/boarding-house-placeholder.svg');
+            $approvalDate = $house->approval_date
+                ? \Illuminate\Support\Carbon::parse($house->approval_date)->format('M d, Y')
+                : null;
+            $photoCount = $house->images->count();
+            $payload = [
+                'id' => $house->id,
+                'name' => $house->name,
+                'address' => $house->address ?: $house->full_address,
+                'full_address' => $house->full_address ?: $house->address,
+                'barangay' => $house->barangay ?: $house->display_barangay,
+                'nearby_landmark' => $house->nearby_landmark,
+                'distance_from_dssc' => $house->distance_from_dssc !== null ? (float) $house->distance_from_dssc : null,
+                'is_near_dssc' => (bool) $house->is_near_dssc,
+                'location_status' => $house->location_status ?: 'approximate',
+                'location_label' => collect([$house->display_barangay, $house->city?->city_name, $house->province?->province_name, $house->region?->region_name])->filter()->implode(', '),
+                'latitude' => $house->latitude !== null ? (float) $house->latitude : null,
+                'longitude' => $house->longitude !== null ? (float) $house->longitude : null,
+                'description' => $house->description,
+                'house_rules' => $house->house_rules,
+                'owner_id' => $house->owner_id,
+                'owner_name' => $house->owner?->name,
+                'owner_email' => $house->owner?->email,
+                'owner_phone' => $house->owner?->contact_number ?: $house->owner?->phone,
+                'owner_company' => $house->ownerProfile?->company_name,
+                'landlord_info' => $asString($house->landlord_info ?: ($house->contact_person ?: $house->owner?->name)),
+                'contact_name' => $asString($house->contact_name ?: $house->contact_person),
+                'contact_phone' => $asString($house->contact_phone ?: $house->contact_number),
+                'monthly_payment' => $house->monthly_payment ?: $house->price,
+                'capacity' => $house->capacity ?: $house->max_capacity,
+                'available_rooms' => $availableRooms,
+                'rooms_count' => $house->rooms_count,
+                'reservations_count' => $house->reservations_count,
+                'inquiries_count' => $house->inquiries_count,
+                'reviews_count' => $house->reviews_count,
+                'approval_status' => $approval,
+                'status' => $house->status ?: $approval,
+                'is_active' => (bool) $house->is_active,
+                'active_label' => $visibleStatus,
+                'approval_date' => $approvalDate,
+                'rejection_reason' => $house->rejection_reason,
+                'cover_image_url' => $house->cover_image_url,
+                'images' => $house->images->map(fn ($image) => [
+                    'id' => $image->id,
+                    'url' => $image->url,
+                    'is_cover' => (bool) $image->is_primary,
+                    'sort_order' => (int) $image->sort_order,
+                ])->values(),
+                'amenities' => $house->amenities->pluck('name')->values(),
+                'room_categories' => $house->roomCategories->map(fn ($category) => [
+                    'name' => $category->name,
+                    'monthly_rate' => $category->monthly_rate,
+                    'total_rooms' => $category->total_rooms,
+                    'available_rooms' => $category->available_rooms,
+                    'occupied_rooms' => $category->occupied_rooms,
+                    'reserved_rooms' => $category->reserved_rooms,
+                    'maintenance_rooms' => $category->maintenance_rooms,
+                    'is_available' => (bool) $category->is_available,
+                ])->values(),
+                'rooms' => $house->rooms->map(fn ($room) => [
+                    'name' => $room->room_no ?: ($room->room_number ?: ($room->name ?: 'Room '.$room->id)),
+                    'price' => $room->price,
+                    'capacity' => $room->capacity,
+                    'available_slots' => $room->available_slots,
+                    'status' => $room->status,
+                ])->values(),
+                'google_maps_url' => $house->latitude !== null && $house->longitude !== null
+                    ? 'https://www.google.com/maps/search/?api=1&query='.$house->latitude.','.$house->longitude
+                    : null,
+                'update_url' => route('admin.listings.update', $house),
+            ];
+
+            return [
+                'id' => $house->id,
+                'display_id' => 'BH-'.str_pad($house->id, 4, '0', STR_PAD_LEFT),
+                'name' => $house->name,
+                'thumbnail_url' => $thumbnailUrl,
+                'full_location' => $fullLocation,
+                'available_rooms' => $availableRooms,
+                'occupied_count' => $occupiedCount,
+                'total_count' => $totalCount,
+                'occupancy_pct' => $occupancyPct,
+                'bar_class' => $barClass,
+                'percent_class' => $percentClass,
+                'visible_status' => $visibleStatus,
+                'status_classes' => $statusBadge($visibleStatus),
+                'photo_note' => $photoCount === 0
+                    ? 'No photos yet'
+                    : $photoCount.' '.\Illuminate\Support\Str::plural('photo', $photoCount).' uploaded',
+                'photo_note_classes' => $photoCount === 0 ? 'text-amber-700' : 'text-blue-600',
+                'payload' => $payload,
+                'destroy_url' => route('admin.listings.destroy', array_filter([
+                    'boarding_house' => $house,
+                    'return_to_my_boarding_house' => $isMineView ? 1 : null,
+                ])),
+            ];
+        })->values();
     @endphp
 
     <div
@@ -56,6 +172,10 @@
             editPhotos: [],
             createCoverSelection: '',
             editCoverSelection: '',
+            photoStore() {
+                window.boardingHousePhotoFiles ??= { create: new Map(), edit: new Map() };
+                return window.boardingHousePhotoFiles;
+            },
             showDetails(house) {
                 this.selected = house;
                 this.viewOpen = true;
@@ -64,6 +184,8 @@
             editDetails(house) {
                 this.selected = JSON.parse(JSON.stringify(house));
                 this.selected.images = (this.selected.images || []).map(image => ({ ...image, removed: false }));
+                this.editPhotos.forEach(photo => URL.revokeObjectURL(photo.url));
+                this.photoStore().edit.clear();
                 this.editPhotos = [];
                 this.editCoverSelection = this.selected.images.find(image => image.is_cover)
                     ? `existing:${this.selected.images.find(image => image.is_cover).id}`
@@ -82,11 +204,18 @@
                 }
 
                 const accepted = files.slice(0, allowedCount);
-                const photos = accepted.map(file => ({
-                    file,
-                    name: file.name,
-                    url: URL.createObjectURL(file),
-                }));
+                const store = this.photoStore()[mode];
+                store.clear();
+                const photos = accepted.map((file, index) => {
+                    const id = `${Date.now()}-${index}-${file.name}`;
+                    store.set(id, file);
+
+                    return {
+                        id,
+                        name: file.name,
+                        url: URL.createObjectURL(file),
+                    };
+                });
 
                 if (mode === 'create') {
                     this.createPhotos.forEach(photo => URL.revokeObjectURL(photo.url));
@@ -102,8 +231,13 @@
             },
             removeNewPhoto(mode, index) {
                 const photos = mode === 'create' ? this.createPhotos : this.editPhotos;
-                URL.revokeObjectURL(photos[index].url);
-                photos.splice(index, 1);
+                const [removed] = photos.splice(index, 1);
+
+                if (removed) {
+                    URL.revokeObjectURL(removed.url);
+                    this.photoStore()[mode].delete(removed.id);
+                }
+
                 const current = mode === 'create' ? this.createCoverSelection : this.editCoverSelection;
                 if (current === `new:${index}`) {
                     const fallback = photos.length ? 'new:0' : '';
@@ -138,7 +272,11 @@
                 const photos = mode === 'create' ? this.createPhotos : this.editPhotos;
                 if (!input || typeof DataTransfer === 'undefined') return;
                 const transfer = new DataTransfer();
-                photos.forEach(photo => transfer.items.add(photo.file));
+                const store = this.photoStore()[mode];
+                photos.forEach(photo => {
+                    const file = store.get(photo.id);
+                    if (file) transfer.items.add(file);
+                });
                 input.files = transfer.files;
             },
             moveExistingPhoto(index, direction) {
@@ -154,267 +292,302 @@
                 }
             }
         }"
-        class="space-y-6"
+        class="space-y-5 text-slate-950"
     >
-        {{-- Page Header --}}
-        <div class="ui-card rounded-2xl p-6 shadow-sm">
-            <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                    <p class="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">Property Management</p>
-                    <h1 class="mt-2 text-3xl font-bold tracking-tight text-slate-950">{{ request('owner') === 'mine' ? 'My Listings' : 'Boarding Houses' }}</h1>
-                    <p class="mt-2 text-sm text-slate-500">{{ request('owner') === 'mine' ? 'Manage your boarding house details, photos, status, and availability.' : 'Manage registered boarding houses and room availability.' }}</p>
-                </div>
-                <a href="{{ route('admin.boarding-houses.create') }}" class="btn-primary w-full justify-center sm:w-auto">
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-                    Add Boarding House
-                </a>
-            </div>
-        </div>
-
-        {{-- Filters --}}
-        <form method="GET" class="ui-card grid gap-3 rounded-2xl p-4 shadow-sm lg:grid-cols-[1fr_180px_200px_auto]">
-            <div class="relative min-w-0">
-                <svg class="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                </svg>
-                <input name="q" value="{{ request('q') }}" class="ui-input h-12 pl-11 text-sm" placeholder="Search by boarding house name or location...">
-            </div>
-            <select name="status" class="ui-input h-12 text-sm">
-                <option value="">All Status</option>
-                <option value="active" @selected(request('status') === 'active')>Active</option>
-                <option value="inactive" @selected(request('status') === 'inactive')>Inactive</option>
-                <option value="pending" @selected(request('status') === 'pending')>Pending</option>
-            </select>
-            <select name="location" class="ui-input h-12 text-sm">
-                <option value="">All Locations</option>
-                @foreach ($locationOptions as $locationOption)
-                    <option value="{{ $locationOption }}" @selected(request('location') === $locationOption)>{{ $locationOption }}</option>
-                @endforeach
-            </select>
-            <button class="btn-secondary h-12 justify-center">
-                <svg class="h-4 w-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M3 4h18M6 8h12M9 12h6M12 16h1"/></svg>
-                Filters
-            </button>
-        </form>
-
-        {{-- Summary Cards --}}
-        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            @foreach ($summaryCards as $card)
-                <article class="ui-card flex min-h-[116px] items-center gap-5 rounded-2xl p-5 shadow-sm">
-                    <span class="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl {{ $card['tone'] }}">
-                        @include('components.sidebar.partials.admin-icon', ['name' => $card['icon']])
-                    </span>
+        <section class="overflow-hidden rounded-[1.6rem] border border-slate-200/80 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+            <div class="border-b border-slate-200/80 bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.08),_transparent_30%),linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-5 sm:px-6">
+                <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div class="min-w-0">
-                        <p class="text-sm font-medium text-slate-500">{{ $card['label'] }}</p>
-                        <p class="mt-1 text-2xl font-bold tracking-tight text-slate-950">{{ $card['value'] }}</p>
-                        @if ($card['sub'])
-                            <p class="mt-1 text-xs font-semibold text-slate-500">{{ $card['sub'] }}</p>
-                        @endif
+                        <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-700">Property Management</p>
+                        <h1 class="mt-2 text-[1.95rem] font-semibold tracking-[-0.04em] text-slate-950">{{ $pageTitle }}</h1>
+                        <p class="mt-2 max-w-3xl text-[15px] leading-6 text-slate-600">{{ $pageSubtitle }}</p>
                     </div>
-                </article>
-            @endforeach
-        </div>
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                        <div class="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-[13px] font-medium text-slate-600 shadow-sm">
+                            {{ number_format($totalListings) }} listings
+                        </div>
+                        <a href="{{ $createListingUrl }}" class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                            </svg>
+                            Add Boarding House
+                        </a>
+                    </div>
+                </div>
+            </div>
 
-        {{-- Table --}}
-        <div class="ui-card overflow-hidden rounded-2xl shadow-sm">
-            <div class="overflow-x-auto">
-                <table class="min-w-full text-sm">
-                    <thead class="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                        <tr>
-                            <th class="px-5 py-4 text-left">Boarding House</th>
-                            <th class="px-5 py-4 text-left">Location</th>
-                            <th class="px-5 py-4 text-left">Occupancy</th>
-                            <th class="px-5 py-4 text-left">Status</th>
-                            <th class="px-5 py-4 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-slate-100">
-                        @forelse ($houses as $house)
-                            @php
-                                $visibleStatus = $statusLabel($house);
-                                $approval = $house->approval_status ?: ($house->status ?: 'pending');
-                                $shortLocation = collect([
-                                    $house->city?->city_name,
-                                    $house->province?->province_name,
-                                ])->filter()->implode(', ') ?: ($house->address ? explode(',', $house->address)[0] : 'CDO');
-                                $fullLocation = collect([
-                                    $house->display_barangay,
-                                    $house->city?->city_name,
-                                    $house->province?->province_name,
-                                ])->filter()->implode(', ') ?: ($house->full_address ?: ($house->address ?: 'Location not set'));
-                                $occupiedCount = $house->rooms->filter(fn ($room) => strtolower((string) $room->status) === 'occupied')->count();
-                                $totalCount = (int) ($house->rooms_count ?: $house->roomCategories->sum('total_rooms'));
-                                $occupancyPct = $totalCount > 0 ? round(($occupiedCount / $totalCount) * 100) : 0;
-                                $occupancyClasses = $occupancyTone($occupancyPct);
-                                [$barClass, $percentClass] = explode(' ', $occupancyClasses);
-                                $availableRooms = max(
-                                    (int) ($house->available_rooms ?? 0),
-                                    (int) $house->roomCategories->sum('available_rooms')
-                                );
-                                $thumbnailUrl = $house->cover_image_url;
-                                $approvalDate = $house->approval_date
-                                    ? \Illuminate\Support\Carbon::parse($house->approval_date)->format('M d, Y')
-                                    : null;
-                                $payload = [
-                                    'id' => $house->id,
-                                    'name' => $house->name,
-                                    'address' => $house->address ?: $house->full_address,
-                                    'full_address' => $house->full_address ?: $house->address,
-                                    'barangay' => $house->barangay ?: $house->display_barangay,
-                                    'nearby_landmark' => $house->nearby_landmark,
-                                    'distance_from_dssc' => $house->distance_from_dssc !== null ? (float) $house->distance_from_dssc : null,
-                                    'is_near_dssc' => (bool) $house->is_near_dssc,
-                                    'location_status' => $house->location_status ?: 'approximate',
-                                    'location_label' => collect([$house->display_barangay, $house->city?->city_name, $house->province?->province_name, $house->region?->region_name])->filter()->implode(', '),
-                                    'latitude' => $house->latitude !== null ? (float) $house->latitude : null,
-                                    'longitude' => $house->longitude !== null ? (float) $house->longitude : null,
-                                    'description' => $house->description,
-                                    'house_rules' => $house->house_rules,
-                                    'owner_id' => $house->owner_id,
-                                    'owner_name' => $house->owner?->name,
-                                    'owner_email' => $house->owner?->email,
-                                    'owner_phone' => $house->owner?->contact_number ?: $house->owner?->phone,
-                                    'owner_company' => $house->ownerProfile?->company_name,
-                                    'landlord_info' => $house->landlord_info ?: ($house->contact_person ?: $house->owner?->name),
-                                    'contact_name' => $house->contact_name ?: $house->contact_person,
-                                    'contact_phone' => $house->contact_phone ?: $house->contact_number,
-                                    'monthly_payment' => $house->monthly_payment ?: $house->price,
-                                    'capacity' => $house->capacity ?: $house->max_capacity,
-                                    'available_rooms' => $availableRooms,
-                                    'rooms_count' => $house->rooms_count,
-                                    'reservations_count' => $house->reservations_count,
-                                    'inquiries_count' => $house->inquiries_count,
-                                    'reviews_count' => $house->reviews_count,
-                                    'approval_status' => $approval,
-                                    'status' => $house->status ?: $approval,
-                                    'is_active' => (bool) $house->is_active,
-                                    'active_label' => $visibleStatus,
-                                    'approval_date' => $approvalDate,
-                                    'rejection_reason' => $house->rejection_reason,
-                                    'cover_image_url' => $house->cover_image_url,
-                                    'images' => $house->images->map(fn ($image) => [
-                                        'id' => $image->id,
-                                        'url' => $image->url,
-                                        'is_cover' => (bool) $image->is_primary,
-                                        'sort_order' => (int) $image->sort_order,
-                                    ])->values(),
-                                    'amenities' => $house->amenities->pluck('name')->values(),
-                                    'room_categories' => $house->roomCategories->map(fn ($category) => [
-                                        'name' => $category->name,
-                                        'monthly_rate' => $category->monthly_rate,
-                                        'total_rooms' => $category->total_rooms,
-                                        'available_rooms' => $category->available_rooms,
-                                        'occupied_rooms' => $category->occupied_rooms,
-                                        'reserved_rooms' => $category->reserved_rooms,
-                                        'maintenance_rooms' => $category->maintenance_rooms,
-                                        'is_available' => (bool) $category->is_available,
-                                    ])->values(),
-                                    'rooms' => $house->rooms->map(fn ($room) => [
-                                        'name' => $room->room_no ?: ($room->room_number ?: ($room->name ?: 'Room '.$room->id)),
-                                        'price' => $room->price,
-                                        'capacity' => $room->capacity,
-                                        'available_slots' => $room->available_slots,
-                                        'status' => $room->status,
-                                    ])->values(),
-                                    'google_maps_url' => $house->latitude !== null && $house->longitude !== null
-                                        ? 'https://www.google.com/maps/search/?api=1&query='.$house->latitude.','.$house->longitude
-                                        : null,
-                                    'update_url' => route('admin.listings.update', $house),
-                                ];
-                            @endphp
-                            <tr class="hover:bg-slate-50/70">
-                                <td class="px-5 py-4">
-                                    <div class="flex min-w-[260px] items-center gap-4">
-                                        <div class="flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-blue-50 text-blue-500">
-                                            <img src="{{ $thumbnailUrl }}" class="h-full w-full object-cover" alt="{{ $house->name }}" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}'">
-                                        </div>
+            <div class="space-y-4 px-5 py-5 sm:px-6">
+                <form method="GET" class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/50">
+                    @if (filled(request('owner')))
+                        <input type="hidden" name="owner" value="{{ request('owner') }}">
+                    @endif
+
+                    <div class="flex flex-col gap-3 xl:flex-row xl:items-center">
+                        <label class="relative block min-w-0 flex-1">
+                            <span class="sr-only">Search listings</span>
+                            <svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                            <input name="q" value="{{ request('q') }}" class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-4 text-sm text-slate-700 shadow-none focus:border-slate-400 focus:bg-white focus:ring-0" placeholder="Search boarding houses or locations">
+                        </label>
+
+                        <label class="block xl:w-44">
+                            <span class="sr-only">Status</span>
+                            <select name="status" class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-700 shadow-none focus:border-slate-400 focus:bg-white focus:ring-0">
+                                <option value="">All Status</option>
+                                <option value="active" @selected(request('status') === 'active')>Active</option>
+                                <option value="inactive" @selected(request('status') === 'inactive')>Inactive</option>
+                                <option value="pending" @selected(request('status') === 'pending')>Pending</option>
+                            </select>
+                        </label>
+
+                        <label class="block xl:w-56">
+                            <span class="sr-only">Location</span>
+                            <select name="location" class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/70 text-sm text-slate-700 shadow-none focus:border-slate-400 focus:bg-white focus:ring-0">
+                                <option value="">All Locations</option>
+                                @foreach ($locationOptions as $locationOption)
+                                    <option value="{{ $locationOption }}" @selected(request('location') === $locationOption)>{{ $locationOption }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+
+                        <div class="flex gap-2 xl:shrink-0">
+                            <button class="inline-flex h-11 items-center justify-center rounded-xl border border-blue-600 bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700">
+                                Apply
+                            </button>
+                            @if ($activeFilters->isNotEmpty())
+                                <a href="{{ $resetFiltersUrl }}" class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+                                    Reset
+                                </a>
+                            @endif
+                        </div>
+                    </div>
+                </form>
+
+                @if ($activeFilters->isNotEmpty())
+                    <div class="flex flex-wrap gap-2">
+                        @foreach ($activeFilters as $label => $value)
+                            <span class="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-medium text-slate-600">
+                                {{ $label }}: {{ $value }}
+                            </span>
+                        @endforeach
+                    </div>
+                @endif
+            </div>
+        </section>
+
+        <section class="overflow-hidden rounded-[1.45rem] border border-slate-200/80 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
+            <div class="border-b border-slate-200/80 px-5 py-4">
+                <div class="flex items-center justify-between gap-3">
+                    <h2 class="text-base font-semibold tracking-[-0.02em] text-slate-950">Listings</h2>
+                    <span class="hidden rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-600 sm:inline-flex">{{ number_format($listingRows->count()) }} on this page</span>
+                </div>
+            </div>
+
+            @if ($listingRows->isEmpty())
+                <div class="px-5 py-16">
+                    <div class="mx-auto max-w-sm text-center">
+                        <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">
+                            @include('components.sidebar.partials.admin-icon', ['name' => 'boarding-house'])
+                        </div>
+                        <p class="mt-4 text-base font-semibold tracking-[-0.02em] text-slate-900">No boarding houses yet</p>
+                        <p class="mt-2 text-sm leading-6 text-slate-500">Add your first boarding house to start managing rooms and availability.</p>
+                        <a href="{{ $createListingUrl }}" class="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-medium text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700">
+                            Add Boarding House
+                        </a>
+                    </div>
+                </div>
+            @else
+                <div class="divide-y divide-slate-200 lg:hidden">
+                    @foreach ($listingRows as $listing)
+                        <article class="space-y-4 px-5 py-5">
+                            <div class="flex items-start gap-3">
+                                <div class="flex h-20 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                                    <img src="{{ $listing['thumbnail_url'] }}" class="h-full w-full object-cover" alt="{{ $listing['name'] }}" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}'">
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex flex-wrap items-start justify-between gap-2">
                                         <div class="min-w-0">
-                                            <p class="truncate font-bold text-slate-950">{{ $house->name }}</p>
-                                            <p class="mt-1 text-xs font-semibold text-slate-500">ID: BH-{{ str_pad($house->id, 4, '0', STR_PAD_LEFT) }}</p>
-                                            <p class="mt-1 text-xs font-semibold {{ $house->images->isEmpty() ? 'text-amber-700' : 'text-blue-600' }}">
-                                                {{ $house->images->isEmpty() ? 'No photo uploaded' : $house->images->count().' '.\Illuminate\Support\Str::plural('photo', $house->images->count()) }}
-                                            </p>
+                                            <h3 class="text-sm font-semibold leading-5 tracking-[-0.01em] text-slate-950">{{ $listing['name'] }}</h3>
+                                            <p class="mt-1 text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">{{ $listing['display_id'] }}</p>
                                         </div>
+                                        <span class="inline-flex rounded-full border px-2.5 py-1 text-[10px] font-medium {{ $listing['status_classes'] }}">
+                                            {{ $listing['visible_status'] }}
+                                        </span>
                                     </div>
-                                </td>
-                                <td class="px-5 py-4">
-                                    <div class="flex min-w-[220px] items-center gap-2 text-slate-600">
-                                        <svg class="h-4 w-4 shrink-0 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+
+                                    <div class="mt-2 flex items-start gap-2 text-xs leading-5 text-slate-600">
+                                        <svg class="mt-0.5 h-4 w-4 shrink-0 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 21s7-4.35 7-11a7 7 0 1 0-14 0c0 6.65 7 11 7 11Z"/>
                                             <circle cx="12" cy="10" r="2.5" stroke-width="1.8"/>
                                         </svg>
-                                        <span>{{ $fullLocation }}</span>
+                                        <p>{{ $listing['full_location'] }}</p>
                                     </div>
-                                </td>
-                                <td class="px-5 py-4">
-                                    <div class="min-w-[190px]">
-                                        <div class="flex items-center gap-1 text-sm">
-                                            <span class="font-bold text-slate-950">{{ $occupiedCount }} / {{ $totalCount }}</span>
-                                            <span class="text-slate-500">rooms</span>
-                                        </div>
-                                        <div class="mt-3 flex items-center gap-3">
-                                            <div class="h-2 w-28 overflow-hidden rounded-full bg-slate-100">
-                                                <div class="h-full rounded-full {{ $barClass }}" style="width: {{ min(100, $occupancyPct) }}%"></div>
-                                            </div>
-                                            <span class="text-xs font-bold {{ $percentClass }}">{{ $occupancyPct }}%</span>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td class="px-5 py-4">
-                                    <span class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-bold {{ $statusBadge($visibleStatus) }}">
-                                        {{ $visibleStatus }}
-                                    </span>
-                                </td>
-                                <td class="px-5 py-4">
-                                    <div class="flex justify-end items-center gap-2">
-                                        <button type="button" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" title="View" @click="showDetails({{ \Illuminate\Support\Js::from($payload) }})">
-                                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/></svg>
-                                        </button>
-                                        <button type="button" class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" title="Edit listing and manage photos" @click="editDetails({{ \Illuminate\Support\Js::from($payload) }})">
-                                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M16.862 4.487a2.1 2.1 0 0 1 2.97 2.97L8.416 18.873l-4.5.5.5-4.5 12.446-10.386Z"/></svg>
-                                        </button>
-                                        <form method="POST" action="{{ route('admin.listings.destroy', $house) }}" onsubmit="return confirm('Delete this boarding house?')">
-                                            @csrf @method('DELETE')
-                                            <button class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-rose-500 transition hover:border-rose-200 hover:bg-rose-50" title="Delete">
-                                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16"/></svg>
-                                            </button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                        @empty
+
+                                    <p class="mt-2 text-xs font-medium {{ $listing['photo_note_classes'] }}">{{ $listing['photo_note'] }}</p>
+                                </div>
+                            </div>
+
+                            <div class="grid gap-3 sm:grid-cols-3">
+                                <div class="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-3">
+                                    <p class="text-[11px] uppercase tracking-[0.14em] text-slate-500">Rooms</p>
+                                    <p class="mt-2 text-sm font-semibold text-slate-950">{{ $listing['total_count'] }} total</p>
+                                </div>
+                                <div class="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-3">
+                                    <p class="text-[11px] uppercase tracking-[0.14em] text-slate-500">Available</p>
+                                    <p class="mt-2 text-sm font-semibold text-emerald-600">{{ $listing['available_rooms'] }}</p>
+                                </div>
+                                <div class="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-3">
+                                    <p class="text-[11px] uppercase tracking-[0.14em] text-slate-500">Occupied</p>
+                                    <p class="mt-2 text-sm font-semibold text-slate-950">{{ $listing['occupied_count'] }}</p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="flex items-center justify-between gap-3 text-[13px]">
+                                    <span class="font-medium text-slate-950">Occupancy</span>
+                                    <span class="text-xs font-medium {{ $listing['percent_class'] }}">{{ $listing['occupancy_pct'] }}%</span>
+                                </div>
+                                <div class="mt-2 h-2 rounded-full bg-slate-100">
+                                    <div class="h-full rounded-full {{ $listing['bar_class'] }}" style="width: {{ min(100, $listing['occupancy_pct']) }}%"></div>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-3 gap-2">
+                                <button type="button" class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50" @click="showDetails({{ \Illuminate\Support\Js::from($listing['payload']) }})">
+                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/>
+                                    </svg>
+                                    View
+                                </button>
+                                <button type="button" class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50" @click="editDetails({{ \Illuminate\Support\Js::from($listing['payload']) }})">
+                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M16.862 4.487a2.1 2.1 0 0 1 2.97 2.97L8.416 18.873l-4.5.5.5-4.5 12.446-10.386Z"/>
+                                    </svg>
+                                    Edit
+                                </button>
+                                <form method="POST" action="{{ $listing['destroy_url'] }}" onsubmit="return confirm('Delete this boarding house?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button class="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-medium text-rose-600 transition hover:bg-rose-100">
+                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16"/>
+                                        </svg>
+                                        Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </article>
+                    @endforeach
+                </div>
+
+                <div class="hidden overflow-x-auto lg:block">
+                    <table class="min-w-[1120px] w-full text-sm">
+                        <thead class="bg-slate-50/80 text-[11px] uppercase tracking-[0.16em] text-slate-500">
                             <tr>
-                                <td colspan="5" class="px-5 py-14">
-                                    <div class="mx-auto max-w-sm text-center">
-                                        <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-                                            @include('components.sidebar.partials.admin-icon', ['name' => 'boarding-house'])
-                                        </div>
-                                        <p class="mt-3 font-semibold text-slate-900">No boarding houses yet</p>
-                                        <p class="mt-1 text-sm text-slate-500">Add your first boarding house to start managing rooms and availability.</p>
-                                        <a href="{{ route('admin.boarding-houses.create') }}" class="btn-primary mt-4">Add Boarding House</a>
-                                    </div>
-                                </td>
+                                <th class="px-5 py-3.5 text-left font-medium">Boarding House</th>
+                                <th class="px-5 py-3.5 text-left font-medium">Location</th>
+                                <th class="px-5 py-3.5 text-left font-medium">Rooms</th>
+                                <th class="px-5 py-3.5 text-left font-medium">Occupancy</th>
+                                <th class="px-5 py-3.5 text-left font-medium">Status</th>
+                                <th class="px-5 py-3.5 text-right font-medium">Actions</th>
                             </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-            <div class="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-                <span>Showing {{ $houses->firstItem() ?? 0 }} to {{ $houses->lastItem() ?? 0 }} of {{ $houses->total() }} results</span>
-                @if ($houses->hasPages())
+                        </thead>
+                        <tbody class="divide-y divide-slate-200">
+                            @foreach ($listingRows as $listing)
+                                <tr class="align-top transition hover:bg-slate-50/70">
+                                    <td class="px-5 py-4.5">
+                                        <div class="flex items-start gap-4">
+                                            <div class="flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                                                <img src="{{ $listing['thumbnail_url'] }}" class="h-full w-full object-cover" alt="{{ $listing['name'] }}" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}'">
+                                            </div>
+                                            <div class="min-w-0 space-y-1.5">
+                                                <p class="text-[15px] font-semibold leading-6 tracking-[-0.02em] text-slate-950">{{ $listing['name'] }}</p>
+                                                <p class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">{{ $listing['display_id'] }}</p>
+                                                <p class="text-[12px] {{ $listing['photo_note_classes'] }}">{{ $listing['photo_note'] }}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-5 py-4.5 text-[13px] leading-6 text-slate-600">
+                                        <div class="max-w-xs">
+                                            {{ $listing['full_location'] }}
+                                        </div>
+                                    </td>
+                                    <td class="px-5 py-4.5">
+                                        <div class="space-y-1 text-[13px] text-slate-600">
+                                            <p><span class="font-semibold text-slate-950">{{ $listing['total_count'] }}</span> total</p>
+                                            <p><span class="font-semibold text-emerald-600">{{ $listing['available_rooms'] }}</span> available</p>
+                                        </div>
+                                    </td>
+                                    <td class="px-5 py-4.5">
+                                        <div class="min-w-[220px]">
+                                            <div class="flex items-center justify-between gap-3 text-[13px]">
+                                                <span class="font-medium text-slate-950">{{ $listing['occupied_count'] }} / {{ $listing['total_count'] }} occupied</span>
+                                                <span class="text-xs font-medium {{ $listing['percent_class'] }}">{{ $listing['occupancy_pct'] }}%</span>
+                                            </div>
+                                            <div class="mt-2 h-2 rounded-full bg-slate-100">
+                                                <div class="h-full rounded-full {{ $listing['bar_class'] }}" style="width: {{ min(100, $listing['occupancy_pct']) }}%"></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-5 py-4.5">
+                                        <span class="inline-flex rounded-full border px-2.5 py-1 text-[10px] font-medium {{ $listing['status_classes'] }}">
+                                            {{ $listing['visible_status'] }}
+                                        </span>
+                                    </td>
+                                    <td class="px-5 py-4.5">
+                                        <div class="flex justify-end gap-2">
+                                            <button type="button" class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50" @click="showDetails({{ \Illuminate\Support\Js::from($listing['payload']) }})">
+                                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/>
+                                                </svg>
+                                                View
+                                            </button>
+                                            <button type="button" class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50" @click="editDetails({{ \Illuminate\Support\Js::from($listing['payload']) }})">
+                                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M16.862 4.487a2.1 2.1 0 0 1 2.97 2.97L8.416 18.873l-4.5.5.5-4.5 12.446-10.386Z"/>
+                                                </svg>
+                                                Edit
+                                            </button>
+                                            <form method="POST" action="{{ $listing['destroy_url'] }}" onsubmit="return confirm('Delete this boarding house?')">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-medium text-rose-600 transition hover:bg-rose-100">
+                                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16"/>
+                                                    </svg>
+                                                    Delete
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+
+            <div class="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+                <span class="text-sm text-slate-500">Showing {{ $showingFrom }} to {{ $showingTo }} of {{ $totalListings }} results</span>
+                @if ($hasPagination)
                     <nav class="flex items-center gap-2" aria-label="Boarding houses pagination">
                         <a
                             href="{{ $houses->previousPageUrl() ?: '#' }}"
-                            class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 {{ $houses->onFirstPage() ? 'pointer-events-none opacity-50' : '' }}"
+                            class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 {{ $houses->onFirstPage() ? 'pointer-events-none opacity-50' : '' }}"
                             aria-label="Previous page"
                         >
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"/></svg>
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"/>
+                            </svg>
                         </a>
 
                         @foreach ($houses->getUrlRange(1, $houses->lastPage()) as $page => $url)
                             <a
                                 href="{{ $url }}"
-                                class="flex h-10 min-w-10 items-center justify-center rounded-xl border px-3 text-sm font-bold transition {{ $houses->currentPage() === $page ? 'border-blue-600 bg-blue-600 text-white shadow-sm shadow-blue-600/20' : 'border-slate-200 bg-white text-slate-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700' }}"
+                                class="flex h-9 min-w-9 items-center justify-center rounded-lg border px-3 text-xs font-medium transition {{ $houses->currentPage() === $page ? 'border-blue-600 bg-blue-600 text-white shadow-sm shadow-blue-600/20' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50' }}"
                                 @if ($houses->currentPage() === $page) aria-current="page" @endif
                             >
                                 {{ $page }}
@@ -423,21 +596,34 @@
 
                         <a
                             href="{{ $houses->nextPageUrl() ?: '#' }}"
-                            class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 {{ $houses->hasMorePages() ? '' : 'pointer-events-none opacity-50' }}"
+                            class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 {{ $houses->hasMorePages() ? '' : 'pointer-events-none opacity-50' }}"
                             aria-label="Next page"
                         >
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7"/></svg>
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7"/>
+                            </svg>
                         </a>
                     </nav>
                 @endif
             </div>
-        </div>
+        </section>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak @click.self="addOpen = false" @keydown.escape.window="addOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <form method="POST" action="{{ route('admin.listings.store') }}" enctype="multipart/form-data" class="ui-card max-h-[90vh] w-full max-w-3xl overflow-y-auto p-6">
+        <div data-modal-skip role="dialog" aria-modal="true" x-show="addOpen" x-cloak x-transition.opacity @click.self="addOpen = false" @keydown.escape.window="addOpen = false" class="bm-modal-overlay" style="display: none;">
+            <form method="POST" action="{{ route('admin.listings.store') }}" enctype="multipart/form-data" class="bm-modal bm-modal--xl">
                 @csrf
-                <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Add Boarding House</h2><button type="button" @click="addOpen = false" class="text-xl ui-muted">x</button></div>
-                <div class="mt-5 grid gap-4 md:grid-cols-2">
+                @if ($isMineView)
+                    <input type="hidden" name="return_to_my_boarding_house" value="1">
+                @endif
+                <div class="bm-modal__header">
+                    <div>
+                        <p class="bm-modal__eyebrow">Create</p>
+                        <h2 class="bm-modal__title">Add Boarding House</h2>
+                        <p class="bm-modal__subtitle">Create a complete listing with location, pricing, and photo details in one place.</p>
+                    </div>
+                    <button type="button" @click="addOpen = false" class="bm-modal__close" aria-label="Close add boarding house modal">x</button>
+                </div>
+                <div class="bm-modal__body">
+                <div class="grid gap-4 md:grid-cols-2">
                     <label class="text-sm">Name<input name="name" required class="ui-input mt-1"></label>
                     <label class="text-sm">Owner Account
                         <select name="owner_id" class="ui-input mt-1">
@@ -507,7 +693,7 @@
                     </div>
                     <input type="hidden" name="cover_selection" :value="createCoverSelection">
                     <div x-show="createPhotos.length" class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        <template x-for="(photo, index) in createPhotos" :key="photo.url">
+                        <template x-for="(photo, index) in createPhotos" :key="photo.id">
                             <article class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                                 <div class="relative">
                                     <img :src="photo.url" :alt="photo.name" class="h-32 w-full object-cover">
@@ -529,14 +715,23 @@
                     @error('photos')<p class="mt-2 text-xs font-semibold text-rose-600">{{ $message }}</p>@enderror
                     @error('photos.*')<p class="mt-2 text-xs font-semibold text-rose-600">{{ $message }}</p>@enderror
                 </section>
-                <div class="mt-6 flex justify-end gap-2"><button type="button" @click="addOpen = false" class="btn-secondary">Cancel</button><button class="btn-primary">Save Listing</button></div>
+                </div>
+                <div class="bm-modal__footer"><button type="button" @click="addOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button><button class="bm-modal__button bm-modal__button--primary">Save Listing</button></div>
             </form>
         </div>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak @click.self="viewOpen = false" @keydown.escape.window="viewOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <div class="ui-card max-h-[92vh] w-full max-w-5xl overflow-y-auto p-6">
-                <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Boarding House Details</h2><button type="button" @click="viewOpen = false" class="text-xl ui-muted">x</button></div>
-                <div class="mt-5 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+        <div data-modal-skip role="dialog" aria-modal="true" x-show="viewOpen" x-cloak x-transition.opacity @click.self="viewOpen = false" @keydown.escape.window="viewOpen = false" class="bm-modal-overlay" style="display: none;">
+            <div class="bm-modal bm-modal--xl">
+                <div class="bm-modal__header">
+                    <div>
+                        <p class="bm-modal__eyebrow">View</p>
+                        <h2 class="bm-modal__title">Boarding House Details</h2>
+                        <p class="bm-modal__subtitle">Review listing information, location, amenities, photos, and room inventory.</p>
+                    </div>
+                    <button type="button" @click="viewOpen = false" class="bm-modal__close" aria-label="Close boarding house details modal">x</button>
+                </div>
+                <div class="bm-modal__body">
+                <div class="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
                     <div class="space-y-5">
                         <dl class="grid gap-4 text-sm md:grid-cols-2">
                             <div><dt class="ui-muted">Name</dt><dd class="font-semibold" x-text="selected.name"></dd></div>
@@ -669,14 +864,26 @@
                         </div>
                     </div>
                 </div>
-                <div class="mt-6 flex justify-end"><button type="button" @click="viewOpen = false" class="btn-secondary">Close</button></div>
+                </div>
+                <div class="bm-modal__footer"><button type="button" @click="viewOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button></div>
             </div>
         </div>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak @click.self="editOpen = false" @keydown.escape.window="editOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <form method="POST" :action="selected.update_url" enctype="multipart/form-data" class="ui-card max-h-[90vh] w-full max-w-3xl overflow-y-auto p-6">
+        <div data-modal-skip role="dialog" aria-modal="true" x-show="editOpen" x-cloak x-transition.opacity @click.self="editOpen = false" @keydown.escape.window="editOpen = false" class="bm-modal-overlay" style="display: none;">
+            <form method="POST" :action="selected.update_url" enctype="multipart/form-data" class="bm-modal bm-modal--xl">
                 @csrf @method('PUT')
-                <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Edit Boarding House</h2><button type="button" @click="editOpen = false" class="text-xl ui-muted">x</button></div>
+                @if ($isMineView)
+                    <input type="hidden" name="return_to_my_boarding_house" value="1">
+                @endif
+                <div class="bm-modal__header">
+                    <div>
+                        <p class="bm-modal__eyebrow">Edit</p>
+                        <h2 class="bm-modal__title">Edit Boarding House</h2>
+                        <p class="bm-modal__subtitle">Update the listing while preserving all existing backend behavior and file handling.</p>
+                    </div>
+                    <button type="button" @click="editOpen = false" class="bm-modal__close" aria-label="Close edit boarding house modal">x</button>
+                </div>
+                <div class="bm-modal__body">
                 <div class="mt-5 grid gap-4 md:grid-cols-2">
                     <label class="text-sm">Name<input name="name" required class="ui-input mt-1" :value="selected.name"></label>
                     <label class="text-sm">Owner Account
@@ -691,9 +898,9 @@
                     <label class="text-sm">Capacity<input name="capacity" type="number" min="1" class="ui-input mt-1" :value="selected.capacity"></label>
                     <label class="text-sm">Available Rooms<input name="available_rooms" type="number" min="0" class="ui-input mt-1" :value="selected.available_rooms"></label>
                     <label class="text-sm">Approval<select name="approval_status" class="ui-input mt-1" :value="selected.approval_status"><option value="approved">Approved</option><option value="pending">Pending</option><option value="rejected">Rejected</option></select></label>
-                    <label class="text-sm">Owner / Landlord<input name="landlord_info" class="ui-input mt-1" :value="selected.landlord_info"></label>
-                    <label class="text-sm">Contact Person<input name="contact_name" class="ui-input mt-1" :value="selected.contact_name"></label>
-                    <label class="text-sm">Contact Number<input name="contact_phone" class="ui-input mt-1" :value="selected.contact_phone"></label>
+                    <label class="text-sm">Owner / Landlord<input name="landlord_info" class="ui-input mt-1" :value="selected.landlord_info || ''"></label>
+                    <label class="text-sm">Contact Person<input name="contact_name" class="ui-input mt-1" :value="selected.contact_name || ''"></label>
+                    <label class="text-sm">Contact Number<input name="contact_phone" class="ui-input mt-1" :value="selected.contact_phone || ''"></label>
                     <label class="text-sm md:col-span-2">Description<textarea name="description" rows="3" class="ui-input mt-1" x-text="selected.description"></textarea></label>
                     <label class="text-sm md:col-span-2">House Rules<textarea name="house_rules" rows="3" class="ui-input mt-1" x-text="selected.house_rules"></textarea></label>
                     <label class="md:col-span-2 flex items-center gap-2 text-sm"><input type="hidden" name="is_active" value="0"><input type="checkbox" name="is_active" value="1" :checked="selected.is_active"> Active listing</label>
@@ -764,7 +971,7 @@
                             </article>
                         </template>
 
-                        <template x-for="(photo, index) in editPhotos" :key="photo.url">
+                        <template x-for="(photo, index) in editPhotos" :key="photo.id">
                             <article class="overflow-hidden rounded-xl border border-blue-200 bg-white shadow-sm">
                                 <div class="relative">
                                     <img :src="photo.url" :alt="photo.name" class="h-32 w-full object-cover">
@@ -787,7 +994,8 @@
                     @error('photos')<p class="mt-2 text-xs font-semibold text-rose-600">{{ $message }}</p>@enderror
                     @error('photos.*')<p class="mt-2 text-xs font-semibold text-rose-600">{{ $message }}</p>@enderror
                 </section>
-                <div class="mt-6 flex justify-end gap-2"><button type="button" @click="editOpen = false" class="btn-secondary">Cancel</button><button class="btn-primary">Save Changes</button></div>
+                </div>
+                <div class="bm-modal__footer"><button type="button" @click="editOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button><button class="bm-modal__button bm-modal__button--primary">Save Changes</button></div>
             </form>
         </div>
     </div>

@@ -36,6 +36,9 @@ class BoardingHouseController extends Controller
     public function store(Request $request)
     {
         $requiresDetails = $request->wantsJson();
+        $redirectRoute = $request->boolean('return_to_my_boarding_house')
+            ? 'admin.my-boarding-house'
+            : 'admin.listings';
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -47,9 +50,9 @@ class BoardingHouseController extends Controller
             'location_status' => ['nullable', Rule::in(['exact', 'approximate'])],
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
-            'description' => [Rule::requiredIf($requiresDetails), 'string'],
+            'description' => [Rule::requiredIf($requiresDetails), 'nullable', 'string'],
             'house_rules' => ['nullable', 'string'],
-            'landlord_info' => [Rule::requiredIf($requiresDetails), 'string', 'max:255'],
+            'landlord_info' => [Rule::requiredIf($requiresDetails), 'nullable', 'string', 'max:255'],
             'owner_id' => ['nullable', Rule::exists('users', 'id')->where('role', 'admin')],
             'contact_name' => ['nullable', 'string', 'max:255'],
             'contact_phone' => ['nullable', 'string', 'max:50'],
@@ -144,7 +147,7 @@ class BoardingHouseController extends Controller
             ]);
         }
 
-        return redirect()->route('admin.listings')->with(
+        return redirect()->route($redirectRoute)->with(
             'success',
             $house->images->isEmpty()
                 ? 'Boarding house created. Please upload at least one boarding house photo to improve the listing.'
@@ -165,6 +168,9 @@ class BoardingHouseController extends Controller
     public function update(Request $request, BoardingHouse $boarding_house)
     {
         $requiresDetails = $request->wantsJson();
+        $redirectRoute = $request->boolean('return_to_my_boarding_house')
+            ? 'admin.my-boarding-house'
+            : 'admin.listings';
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -178,7 +184,7 @@ class BoardingHouseController extends Controller
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'description' => ['nullable', 'string'],
             'house_rules' => ['nullable', 'string'],
-            'landlord_info' => [Rule::requiredIf($requiresDetails), 'string', 'max:255'],
+            'landlord_info' => [Rule::requiredIf($requiresDetails), 'nullable', 'string', 'max:255'],
             'owner_id' => ['nullable', Rule::exists('users', 'id')->where('role', 'admin')],
             'contact_name' => ['nullable', 'string', 'max:255'],
             'contact_phone' => ['nullable', 'string', 'max:50'],
@@ -344,7 +350,7 @@ class BoardingHouseController extends Controller
             ]);
         }
 
-        return redirect()->route('admin.listings')->with(
+        return redirect()->route($redirectRoute)->with(
             'success',
             $boarding_house->images->isEmpty()
                 ? 'Boarding house updated. Please upload at least one boarding house photo to improve the listing.'
@@ -352,8 +358,11 @@ class BoardingHouseController extends Controller
         );
     }
 
-    public function destroy(BoardingHouse $boarding_house)
+    public function destroy(Request $request, BoardingHouse $boarding_house)
     {
+        $redirectRoute = $request->boolean('return_to_my_boarding_house')
+            ? 'admin.my-boarding-house'
+            : 'admin.listings';
         $id = (int) $boarding_house->id;
         $name = $boarding_house->name;
         $boarding_house->load('images');
@@ -376,7 +385,7 @@ class BoardingHouseController extends Controller
             'name' => $name,
         ]);
 
-        return redirect()->route('admin.listings')->with('success', 'Boarding house deleted.');
+        return redirect()->route($redirectRoute)->with('success', 'Boarding house deleted.');
     }
 
     private function sanitizeBoardingHouseInput(array $data): array

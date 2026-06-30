@@ -5,8 +5,8 @@
     'required' => false,
 ])
 
-<div {{ $attributes->merge(['class' => 'space-y-2']) }}>
-    <label @if($for) for="{{ $for }}" @endif class="block text-sm font-bold text-slate-800 dark:text-slate-100">
+<div {{ $attributes->merge(['class' => 'space-y-1.5']) }}>
+    <label @if($for) for="{{ $for }}" @endif class="block text-[13px] font-bold text-slate-800 dark:text-slate-100">
         {{ $label }}
         @if ($required)
             <span class="text-rose-500">*</span>
@@ -16,6 +16,6 @@
     {{ $slot }}
 
     @if ($hint)
-        <p class="text-xs leading-5 text-slate-500 dark:text-slate-400">{{ $hint }}</p>
+        <p class="text-[11px] leading-4 text-slate-500 dark:text-slate-400">{{ $hint }}</p>
     @endif
 </div>

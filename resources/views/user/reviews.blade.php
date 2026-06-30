@@ -349,42 +349,53 @@
     {{-- Write Review Modal --}}
     <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak
          @click.self="addOpen=false" @keydown.escape.window="addOpen=false"
-         class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+         class="bm-modal-overlay">
         <form method="POST" action="{{ route('user.reviews.store') }}"
-              class="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
+              class="bm-modal">
             @csrf
-            <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-                <h2 class="text-base font-bold text-gray-900">Write a Review</h2>
-                <button type="button" @click="addOpen=false" class="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50">
+            <div class="bm-modal__header">
+                <div>
+                    <p class="bm-modal__eyebrow">Create</p>
+                    <h2 class="bm-modal__title">Write a Review</h2>
+                    <p class="bm-modal__subtitle">Share a clear, respectful summary of your stay to help future tenants.</p>
+                </div>
+                <button type="button" @click="addOpen=false" class="bm-modal__close" aria-label="Close write review modal">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-            <div class="space-y-4 px-6 py-5">
-                <label class="block text-sm font-medium text-gray-700">
-                    Boarding House <span class="text-rose-400">*</span>
-                    <select name="boarding_house_id" required class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none">
-                        @foreach($houses as $house)
-                        <option value="{{ $house->id }}">{{ $house->name }}</option>
-                        @endforeach
-                    </select>
-                </label>
-                <label class="block text-sm font-medium text-gray-700">
-                    Rating <span class="text-rose-400">*</span>
-                    <select name="rating" required class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none">
-                        @for($i = 5; $i >= 1; $i--)
-                        <option value="{{ $i }}">{{ $i }} star{{ $i > 1 ? 's' : '' }} / 5</option>
-                        @endfor
-                    </select>
-                </label>
-                <label class="block text-sm font-medium text-gray-700">
-                    Comment
-                    <textarea name="comment" rows="4" placeholder="Share your experience..."
-                              class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none resize-none"></textarea>
-                </label>
+            <div class="bm-modal__body">
+                <section class="bm-modal__section">
+                    <div>
+                        <h3 class="bm-modal__section-title">Review Information</h3>
+                        <p class="bm-modal__section-copy">Provide the property, your rating, and any comments you want others to know.</p>
+                    </div>
+                    <div class="bm-modal__grid mt-4">
+                        <label>
+                            Boarding House <span class="text-rose-400">*</span>
+                            <select name="boarding_house_id" required>
+                                @foreach($houses as $house)
+                                <option value="{{ $house->id }}">{{ $house->name }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+                        <label>
+                            Rating <span class="text-rose-400">*</span>
+                            <select name="rating" required>
+                                @for($i = 5; $i >= 1; $i--)
+                                <option value="{{ $i }}">{{ $i }} star{{ $i > 1 ? 's' : '' }} / 5</option>
+                                @endfor
+                            </select>
+                        </label>
+                        <label>
+                            Comment
+                            <textarea name="comment" rows="4" placeholder="Share your experience..."></textarea>
+                        </label>
+                    </div>
+                </section>
             </div>
-            <div class="flex justify-end gap-2 border-t border-gray-100 px-6 py-4">
-                <button type="button" @click="addOpen=false" class="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Cancel</button>
-                <button type="submit" class="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors">Submit Review</button>
+            <div class="bm-modal__footer">
+                <button type="button" @click="addOpen=false" class="bm-modal__button bm-modal__button--secondary">Cancel</button>
+                <button type="submit" class="bm-modal__button bm-modal__button--primary">Submit Review</button>
             </div>
         </form>
     </div>
@@ -392,38 +403,46 @@
     {{-- Edit Review Modal --}}
     <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak
          @click.self="editOpen=false" @keydown.escape.window="editOpen=false"
-         class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+         class="bm-modal-overlay">
         <form method="POST" :action="selected.update_url"
-              class="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl">
+              class="bm-modal">
             @csrf @method('PATCH')
-            <div class="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+            <div class="bm-modal__header">
                 <div>
-                    <h2 class="text-base font-bold text-gray-900">Edit Review</h2>
-                    <p class="text-xs text-gray-400 mt-0.5" x-text="selected.name"></p>
+                    <p class="bm-modal__eyebrow">Edit</p>
+                    <h2 class="bm-modal__title">Edit Review</h2>
+                    <p class="bm-modal__subtitle" x-text="selected.name"></p>
                 </div>
-                <button type="button" @click="editOpen=false" class="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50">
+                <button type="button" @click="editOpen=false" class="bm-modal__close" aria-label="Close edit review modal">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-            <div class="space-y-4 px-6 py-5">
-                <label class="block text-sm font-medium text-gray-700">
-                    Rating <span class="text-rose-400">*</span>
-                    <select name="rating" required class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none" x-model="selected.rating">
-                        @for($i = 5; $i >= 1; $i--)
-                        <option value="{{ $i }}">{{ $i }} star{{ $i > 1 ? 's' : '' }} / 5</option>
-                        @endfor
-                    </select>
-                </label>
-                <label class="block text-sm font-medium text-gray-700">
-                    Comment
-                    <textarea name="comment" rows="4" placeholder="Share your updated experience..."
-                              class="mt-1.5 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm focus:border-indigo-400 focus:outline-none resize-none"
-                              x-model="selected.comment"></textarea>
-                </label>
+            <div class="bm-modal__body">
+                <section class="bm-modal__section">
+                    <div>
+                        <h3 class="bm-modal__section-title">Update Review</h3>
+                        <p class="bm-modal__section-copy">Adjust the rating or comment while keeping the original review record.</p>
+                    </div>
+                    <div class="bm-modal__grid mt-4">
+                        <label>
+                            Rating <span class="text-rose-400">*</span>
+                            <select name="rating" required x-model="selected.rating">
+                                @for($i = 5; $i >= 1; $i--)
+                                <option value="{{ $i }}">{{ $i }} star{{ $i > 1 ? 's' : '' }} / 5</option>
+                                @endfor
+                            </select>
+                        </label>
+                        <label>
+                            Comment
+                            <textarea name="comment" rows="4" placeholder="Share your updated experience..."
+                                      x-model="selected.comment"></textarea>
+                        </label>
+                    </div>
+                </section>
             </div>
-            <div class="flex justify-end gap-2 border-t border-gray-100 px-6 py-4">
-                <button type="button" @click="editOpen=false" class="rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50">Cancel</button>
-                <button type="submit" class="rounded-xl bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors">Save Changes</button>
+            <div class="bm-modal__footer">
+                <button type="button" @click="editOpen=false" class="bm-modal__button bm-modal__button--secondary">Cancel</button>
+                <button type="submit" class="bm-modal__button bm-modal__button--primary">Save Changes</button>
             </div>
         </form>
     </div>

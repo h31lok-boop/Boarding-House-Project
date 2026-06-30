@@ -204,76 +204,106 @@
         </div>
 
         {{-- Add Room Modal --}}
-        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak @click.self="addOpen = false" @keydown.escape.window="addOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <form method="POST" action="{{ route('admin.rooms.store') }}" class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 shadow-xl">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak @click.self="addOpen = false" @keydown.escape.window="addOpen = false" class="bm-modal-overlay">
+            <form method="POST" action="{{ route('admin.rooms.store') }}" class="bm-modal bm-modal--lg">
                 @csrf
-                <div class="flex items-center justify-between mb-5">
-                    <h2 class="text-lg font-semibold text-gray-900">Add Room</h2>
-                    <button type="button" @click="addOpen = false" class="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-400">
+                <div class="bm-modal__header">
+                    <div>
+                        <p class="bm-modal__eyebrow">Create</p>
+                        <h2 class="bm-modal__title">Add Room</h2>
+                        <p class="bm-modal__subtitle">Create a room record with rate, availability, and boarding house assignment.</p>
+                    </div>
+                    <button type="button" @click="addOpen = false" class="bm-modal__close" aria-label="Close add room modal">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
-                <div class="grid gap-4 md:grid-cols-2">
-                    <label class="text-sm font-medium text-gray-700">Boarding House<select name="boarding_house_id" required class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300">@foreach ($boardingHouses as $house)<option value="{{ $house->id }}" @selected((string)request('boarding_house_id') === (string)$house->id)>{{ $house->name }}</option>@endforeach</select></label>
-                    <label class="text-sm font-medium text-gray-700">Room No.<input name="room_no" required class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"></label>
-                    <label class="text-sm font-medium text-gray-700">Rental Fee (PHP)<input name="price" type="number" step="0.01" min="0" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"></label>
-                    <label class="text-sm font-medium text-gray-700">Status<select name="status" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300">@foreach (['Available', 'Occupied', 'Reserved', 'Unavailable'] as $status)<option value="{{ $status }}">{{ $status }}</option>@endforeach</select></label>
-                    <label class="text-sm font-medium text-gray-700">Capacity<input name="capacity" type="number" min="1" value="1" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"></label>
-                    <label class="text-sm font-medium text-gray-700">Available Slots<input name="available_slots" type="number" min="0" value="1" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"></label>
-                    <label class="text-sm font-medium text-gray-700 md:col-span-2">Description<textarea name="description" rows="3" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"></textarea></label>
+                <div class="bm-modal__body">
+                    <section class="bm-modal__section">
+                        <div>
+                            <h3 class="bm-modal__section-title">Room Information</h3>
+                            <p class="bm-modal__section-copy">Keep availability and pricing accurate so listings stay trustworthy.</p>
+                        </div>
+                        <div class="bm-modal__grid bm-modal__grid--two-col mt-4">
+                            <label>Boarding House<select name="boarding_house_id" required>@foreach ($boardingHouses as $house)<option value="{{ $house->id }}" @selected((string)request('boarding_house_id') === (string)$house->id)>{{ $house->name }}</option>@endforeach</select></label>
+                            <label>Room No.<input name="room_no" required></label>
+                            <label>Rental Fee (PHP)<input name="price" type="number" step="0.01" min="0"></label>
+                            <label>Status<select name="status">@foreach (['Available', 'Occupied', 'Reserved', 'Unavailable'] as $status)<option value="{{ $status }}">{{ $status }}</option>@endforeach</select></label>
+                            <label>Capacity<input name="capacity" type="number" min="1" value="1"></label>
+                            <label>Available Slots<input name="available_slots" type="number" min="0" value="1"></label>
+                            <label class="md:col-span-2">Description<textarea name="description" rows="3"></textarea></label>
+                        </div>
+                    </section>
                 </div>
-                <div class="mt-6 flex justify-end gap-2">
-                    <button type="button" @click="addOpen = false" class="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-                    <button class="px-4 py-2 rounded-lg bg-orange-500 text-white text-sm font-medium hover:bg-orange-600">Save Room</button>
+                <div class="bm-modal__footer">
+                    <button type="button" @click="addOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button>
+                    <button class="bm-modal__button bm-modal__button--primary">Save Room</button>
                 </div>
             </form>
         </div>
 
         {{-- View Room Modal --}}
-        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak @click.self="viewOpen = false" @keydown.escape.window="viewOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <div class="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl">
-                <div class="flex items-center justify-between mb-5">
-                    <h2 class="text-lg font-semibold text-gray-900">Room Details</h2>
-                    <button type="button" @click="viewOpen = false" class="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-400">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak @click.self="viewOpen = false" @keydown.escape.window="viewOpen = false" class="bm-modal-overlay">
+            <div class="bm-modal">
+                <div class="bm-modal__header">
+                    <div>
+                        <p class="bm-modal__eyebrow">View</p>
+                        <h2 class="bm-modal__title">Room Details</h2>
+                        <p class="bm-modal__subtitle">Review the room assignment, availability, and pricing summary.</p>
+                    </div>
+                    <button type="button" @click="viewOpen = false" class="bm-modal__close" aria-label="Close room details modal">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
-                <dl class="grid gap-3 text-sm">
-                    <div class="flex justify-between py-2 border-b border-gray-100"><dt class="text-gray-500">Room</dt><dd class="font-semibold text-gray-800" x-text="selected.room_no"></dd></div>
-                    <div class="flex justify-between py-2 border-b border-gray-100"><dt class="text-gray-500">Boarding House</dt><dd class="text-gray-700" x-text="selected.boarding_house"></dd></div>
-                    <div class="flex justify-between py-2 border-b border-gray-100"><dt class="text-gray-500">Capacity</dt><dd class="text-gray-700" x-text="`${selected.available_slots || 0} / ${selected.capacity || 0} slots`"></dd></div>
-                    <div class="flex justify-between py-2 border-b border-gray-100"><dt class="text-gray-500">Price</dt><dd class="text-gray-700" x-text="selected.price ? `PHP ${Number(selected.price).toLocaleString()}` : 'Not set'"></dd></div>
-                    <div class="flex justify-between py-2 border-b border-gray-100"><dt class="text-gray-500">Status</dt><dd class="text-gray-700" x-text="selected.status"></dd></div>
-                    <div class="py-2"><dt class="text-gray-500 mb-1">Description</dt><dd class="text-gray-700" x-text="selected.description || 'No description'"></dd></div>
-                </dl>
-                <div class="mt-6 flex justify-end">
-                    <button type="button" @click="viewOpen = false" class="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">Close</button>
+                <div class="bm-modal__body bm-modal__body--compact">
+                    <dl class="bm-modal__details">
+                        <div class="bm-modal__detail"><dt>Room</dt><dd class="font-semibold text-gray-800" x-text="selected.room_no"></dd></div>
+                        <div class="bm-modal__detail"><dt>Boarding House</dt><dd class="text-gray-700" x-text="selected.boarding_house"></dd></div>
+                        <div class="bm-modal__detail"><dt>Capacity</dt><dd class="text-gray-700" x-text="`${selected.available_slots || 0} / ${selected.capacity || 0} slots`"></dd></div>
+                        <div class="bm-modal__detail"><dt>Price</dt><dd class="text-gray-700" x-text="selected.price ? `PHP ${Number(selected.price).toLocaleString()}` : 'Not set'"></dd></div>
+                        <div class="bm-modal__detail"><dt>Status</dt><dd class="text-gray-700" x-text="selected.status"></dd></div>
+                        <div class="bm-modal__detail"><dt>Description</dt><dd class="text-gray-700" x-text="selected.description || 'No description'"></dd></div>
+                    </dl>
+                </div>
+                <div class="bm-modal__footer">
+                    <button type="button" @click="viewOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
                 </div>
             </div>
         </div>
 
         {{-- Edit Room Modal --}}
-        <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak @click.self="editOpen = false" @keydown.escape.window="editOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <form method="POST" :action="selected.update_url" class="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6 shadow-xl">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak @click.self="editOpen = false" @keydown.escape.window="editOpen = false" class="bm-modal-overlay">
+            <form method="POST" :action="selected.update_url" class="bm-modal bm-modal--lg">
                 @csrf @method('PUT')
-                <div class="flex items-center justify-between mb-5">
-                    <h2 class="text-lg font-semibold text-gray-900">Edit Room</h2>
-                    <button type="button" @click="editOpen = false" class="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-400">
+                <div class="bm-modal__header">
+                    <div>
+                        <p class="bm-modal__eyebrow">Edit</p>
+                        <h2 class="bm-modal__title">Edit Room</h2>
+                        <p class="bm-modal__subtitle">Update room inventory details without affecting the existing backend flow.</p>
+                    </div>
+                    <button type="button" @click="editOpen = false" class="bm-modal__close" aria-label="Close edit room modal">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
-                <div class="grid gap-4 md:grid-cols-2">
-                    <label class="text-sm font-medium text-gray-700">Boarding House<select name="boarding_house_id" required class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" :value="selected.boarding_house_id">@foreach ($boardingHouses as $house)<option value="{{ $house->id }}">{{ $house->name }}</option>@endforeach</select></label>
-                    <label class="text-sm font-medium text-gray-700">Room No.<input name="room_no" required class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" :value="selected.room_no"></label>
-                    <label class="text-sm font-medium text-gray-700">Rental Fee (PHP)<input name="price" type="number" step="0.01" min="0" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" :value="selected.price"></label>
-                    <label class="text-sm font-medium text-gray-700">Status<select name="status" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" :value="selected.status">@foreach (['Available', 'Occupied', 'Reserved', 'Unavailable'] as $status)<option value="{{ $status }}">{{ $status }}</option>@endforeach</select></label>
-                    <label class="text-sm font-medium text-gray-700">Capacity<input name="capacity" type="number" min="1" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" :value="selected.capacity"></label>
-                    <label class="text-sm font-medium text-gray-700">Available Slots<input name="available_slots" type="number" min="0" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" :value="selected.available_slots"></label>
-                    <label class="text-sm font-medium text-gray-700 md:col-span-2">Description<textarea name="description" rows="3" class="mt-1 block w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300" x-text="selected.description"></textarea></label>
+                <div class="bm-modal__body">
+                    <section class="bm-modal__section">
+                        <div>
+                            <h3 class="bm-modal__section-title">Room Information</h3>
+                            <p class="bm-modal__section-copy">Adjust the room details, available slots, and status as needed.</p>
+                        </div>
+                        <div class="bm-modal__grid bm-modal__grid--two-col mt-4">
+                            <label>Boarding House<select name="boarding_house_id" required class="ui-input mt-1" :value="selected.boarding_house_id">@foreach ($boardingHouses as $house)<option value="{{ $house->id }}">{{ $house->name }}</option>@endforeach</select></label>
+                            <label>Room No.<input name="room_no" required :value="selected.room_no"></label>
+                            <label>Rental Fee (PHP)<input name="price" type="number" step="0.01" min="0" :value="selected.price"></label>
+                            <label>Status<select name="status" class="ui-input mt-1" :value="selected.status">@foreach (['Available', 'Occupied', 'Reserved', 'Unavailable'] as $status)<option value="{{ $status }}">{{ $status }}</option>@endforeach</select></label>
+                            <label>Capacity<input name="capacity" type="number" min="1" :value="selected.capacity"></label>
+                            <label>Available Slots<input name="available_slots" type="number" min="0" :value="selected.available_slots"></label>
+                            <label class="md:col-span-2">Description<textarea name="description" rows="3" x-text="selected.description"></textarea></label>
+                        </div>
+                    </section>
                 </div>
-                <div class="mt-6 flex justify-end gap-2">
-                    <button type="button" @click="editOpen = false" class="px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-                    <button class="px-4 py-2 rounded-lg bg-orange-500 text-white text-sm font-medium hover:bg-orange-600">Save Changes</button>
+                <div class="bm-modal__footer">
+                    <button type="button" @click="editOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button>
+                    <button class="bm-modal__button bm-modal__button--primary">Save Changes</button>
                 </div>
             </form>
         </div>

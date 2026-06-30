@@ -88,31 +88,60 @@
             @endif
         </div>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak @click.self="addOpen = false" @keydown.escape.window="addOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <form method="POST" action="{{ route('admin.match-requests.store') }}" class="ui-card w-full max-w-xl p-6">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak @click.self="addOpen = false" @keydown.escape.window="addOpen = false" class="bm-modal-overlay">
+            <form method="POST" action="{{ route('admin.match-requests.store') }}" class="bm-modal bm-modal--lg">
                 @csrf
-                <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Create Match Request</h2><button type="button" @click="addOpen = false" class="text-xl ui-muted">x</button></div>
-                <div class="mt-5 grid gap-4">
-                    <label class="text-sm">Sender<select name="sender_id" required class="ui-input mt-1">@foreach ($tenants as $tenant)<option value="{{ $tenant->id }}">{{ $tenant->name }}</option>@endforeach</select></label>
-                    <label class="text-sm">Recipient<select name="recipient_id" required class="ui-input mt-1">@foreach ($tenants as $tenant)<option value="{{ $tenant->id }}">{{ $tenant->name }}</option>@endforeach</select></label>
-                    <label class="text-sm">Boarding House<select name="boarding_house_id" class="ui-input mt-1"><option value="">None</option>@foreach ($houses as $house)<option value="{{ $house->id }}">{{ $house->name }}</option>@endforeach</select></label>
-                    <label class="text-sm">Message<textarea name="message" rows="3" class="ui-input mt-1"></textarea></label>
+                <div class="bm-modal__header">
+                    <div>
+                        <p class="bm-modal__eyebrow">Create</p>
+                        <h2 class="bm-modal__title">Create Match Request</h2>
+                        <p class="bm-modal__subtitle">Start a roommate connection flow with clear sender, recipient, and context details.</p>
+                    </div>
+                    <button type="button" @click="addOpen = false" class="bm-modal__close" aria-label="Close create match request modal">x</button>
                 </div>
-                <div class="mt-6 flex justify-end gap-2"><button type="button" @click="addOpen = false" class="btn-secondary">Cancel</button><button class="btn-primary">Send Request</button></div>
+                <div class="bm-modal__body">
+                    <section class="bm-modal__section">
+                        <div>
+                            <h3 class="bm-modal__section-title">Request Details</h3>
+                            <p class="bm-modal__section-copy">Choose the tenant pair and add an optional note to explain the request.</p>
+                        </div>
+                        <div class="bm-modal__grid bm-modal__grid--two-col mt-4">
+                            <label>Sender<select name="sender_id" required>@foreach ($tenants as $tenant)<option value="{{ $tenant->id }}">{{ $tenant->name }}</option>@endforeach</select></label>
+                            <label>Recipient<select name="recipient_id" required>@foreach ($tenants as $tenant)<option value="{{ $tenant->id }}">{{ $tenant->name }}</option>@endforeach</select></label>
+                            <label class="sm:col-span-2">Boarding House<select name="boarding_house_id"><option value="">None</option>@foreach ($houses as $house)<option value="{{ $house->id }}">{{ $house->name }}</option>@endforeach</select></label>
+                            <label class="sm:col-span-2">Message<textarea name="message" rows="4"></textarea></label>
+                        </div>
+                    </section>
+                </div>
+                <div class="bm-modal__footer">
+                    <button type="button" @click="addOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button>
+                    <button class="bm-modal__button bm-modal__button--primary">Send Request</button>
+                </div>
             </form>
         </div>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak @click.self="viewOpen = false" @keydown.escape.window="viewOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <div class="ui-card w-full max-w-lg p-6">
-                <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Request Details</h2><button type="button" @click="viewOpen = false" class="text-xl ui-muted">x</button></div>
-                <dl class="mt-5 grid gap-3 text-sm">
-                    <div><dt class="ui-muted">Sender</dt><dd class="font-semibold" x-text="selected.sender"></dd></div>
-                    <div><dt class="ui-muted">Recipient</dt><dd x-text="selected.recipient"></dd></div>
-                    <div><dt class="ui-muted">Boarding House</dt><dd x-text="selected.boarding_house"></dd></div>
-                    <div><dt class="ui-muted">Status</dt><dd x-text="selected.status"></dd></div>
-                    <div><dt class="ui-muted">Message</dt><dd x-text="selected.message || 'No message'"></dd></div>
-                </dl>
-                <div class="mt-6 flex justify-end"><button type="button" @click="viewOpen = false" class="btn-secondary">Close</button></div>
+        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak @click.self="viewOpen = false" @keydown.escape.window="viewOpen = false" class="bm-modal-overlay">
+            <div class="bm-modal">
+                <div class="bm-modal__header">
+                    <div>
+                        <p class="bm-modal__eyebrow">View</p>
+                        <h2 class="bm-modal__title">Request Details</h2>
+                        <p class="bm-modal__subtitle">Inspect the current request participants, status, and message.</p>
+                    </div>
+                    <button type="button" @click="viewOpen = false" class="bm-modal__close" aria-label="Close request details modal">x</button>
+                </div>
+                <div class="bm-modal__body bm-modal__body--compact">
+                    <dl class="bm-modal__details">
+                        <div class="bm-modal__detail"><dt>Sender</dt><dd class="font-semibold" x-text="selected.sender"></dd></div>
+                        <div class="bm-modal__detail"><dt>Recipient</dt><dd x-text="selected.recipient"></dd></div>
+                        <div class="bm-modal__detail"><dt>Boarding House</dt><dd x-text="selected.boarding_house"></dd></div>
+                        <div class="bm-modal__detail"><dt>Status</dt><dd x-text="selected.status"></dd></div>
+                        <div class="bm-modal__detail"><dt>Message</dt><dd x-text="selected.message || 'No message'"></dd></div>
+                    </dl>
+                </div>
+                <div class="bm-modal__footer">
+                    <button type="button" @click="viewOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
+                </div>
             </div>
         </div>
     </div>

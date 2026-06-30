@@ -53,8 +53,8 @@
     $preferredBudget = old('preferred_rental_budget', $budgetMax ?: $budgetMin);
     $aiScore = max(0, min(100, (int) ($aiCompletion ?? 0)));
 
-    $fieldClass = 'h-12 w-full rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500 dark:focus:ring-blue-500/20';
-    $textareaClass = 'min-h-28 w-full rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm font-medium leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500 dark:focus:ring-blue-500/20';
+    $fieldClass = 'h-10 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500 dark:focus:ring-blue-500/20';
+    $textareaClass = 'min-h-24 w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-medium leading-5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500 dark:focus:ring-blue-500/20';
 
     $roomTypeOptions = [
         'any' => 'Any room type',
@@ -128,7 +128,7 @@
         genderLabels: @js($genderOptions),
         distanceLabels: @js($distanceOptions)
     })"
-    class="space-y-7"
+    class="space-y-5"
 >
     <x-user.page-header
         eyebrow="My Preferences"
@@ -137,43 +137,43 @@
     />
 
     @if (session('success'))
-        <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200">
+        <div class="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-bold text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200">
             {{ session('success') }}
         </div>
     @endif
 
     @if ($errors->any())
-        <div class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200">
+        <div class="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-bold text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200">
             Please review the highlighted preference fields.
         </div>
     @endif
 
-    <form x-ref="form" method="POST" action="{{ route('user.preferences.update') }}" class="space-y-7">
+    <form x-ref="form" method="POST" action="{{ route('user.preferences.update') }}" class="space-y-5">
         @csrf
         @method('PUT')
         <input type="hidden" name="family_monthly_income" value="{{ old('family_monthly_income', $preference->family_monthly_income) }}">
         <input type="hidden" name="monthly_allowance" value="{{ old('monthly_allowance', $preference->monthly_allowance) }}">
         <input id="preferred_rental_budget" name="preferred_rental_budget" type="hidden" :value="budgetMax || budgetMin" value="{{ $preferredBudget }}">
 
-        <div class="grid gap-7 xl:grid-cols-[minmax(0,1fr)_360px]">
-            <div class="min-w-0 space-y-7">
-                <div class="grid gap-5 lg:grid-cols-[340px_minmax(0,1fr)]">
-                    <section class="rounded-lg border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-900/5 dark:border-slate-800 dark:bg-slate-950">
+        <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
+            <div class="min-w-0 space-y-5">
+                <div class="grid gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
+                    <section class="rounded-lg border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-900/5 dark:border-slate-800 dark:bg-slate-950">
                         <div class="flex items-start justify-between gap-4">
                             <div>
                                 <p class="text-xs font-black uppercase tracking-[0.16em] text-blue-600 dark:text-blue-300">AI Readiness Score</p>
-                                <p class="mt-3 text-5xl font-black tracking-normal text-slate-950 dark:text-white">{{ $aiScore }}%</p>
+                                <p class="mt-2 text-4xl font-black tracking-normal text-slate-950 dark:text-white">{{ $aiScore }}%</p>
                             </div>
-                            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 ring-1 ring-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-400/20">
-                                <x-user.preference-icon name="chart-bar" class="h-6 w-6" />
+                            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 ring-1 ring-blue-100 dark:bg-blue-500/10 dark:text-blue-300 dark:ring-blue-400/20">
+                                <x-user.preference-icon name="chart-bar" class="h-5 w-5" />
                             </span>
                         </div>
 
-                        <div class="mt-5 h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                        <div class="mt-4 h-2.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                             <div class="h-full rounded-full bg-blue-600 transition-all duration-500 dark:bg-blue-400" style="width: {{ $aiScore }}%"></div>
                         </div>
 
-                        <p class="mt-4 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                        <p class="mt-3 text-xs leading-5 text-slate-500 dark:text-slate-400">
                             @if ($aiScore >= 100)
                                 Your preferences are ready for high-confidence AI matching.
                             @elseif ($aiScore >= 70)
@@ -184,7 +184,7 @@
                         </p>
 
                         @if ($missingAiLabels->isNotEmpty())
-                            <div class="mt-4 flex flex-wrap gap-2">
+                            <div class="mt-3 flex flex-wrap gap-2">
                                 @foreach ($missingAiLabels as $label)
                                     <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700 ring-1 ring-amber-100 dark:bg-amber-400/10 dark:text-amber-200 dark:ring-amber-400/20">{{ $label }}</span>
                                 @endforeach
@@ -197,19 +197,19 @@
                         subtitle="BoardMatch uses your choices to compare each approved boarding house against the things that actually shape daily student life."
                         icon="information-circle"
                     >
-                        <div class="grid gap-5 md:grid-cols-3">
+                        <div class="grid gap-4 md:grid-cols-3">
                             @foreach ([
                                 ['icon' => 'sparkles', 'title' => 'Smarter ranking', 'copy' => 'AI can prioritize listings that fit your budget, distance, and non-negotiables first.'],
                                 ['icon' => 'shield-check', 'title' => 'Cleaner shortlist', 'copy' => 'Weak matches are pushed down before you spend time opening every listing.'],
                                 ['icon' => 'heart', 'title' => 'Better fit signals', 'copy' => 'Amenity and lifestyle details help explain why a house is worth considering.'],
                             ] as $benefit)
-                                <div class="flex gap-3">
-                                    <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                                <div class="flex gap-2.5">
+                                    <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300">
                                         <x-user.preference-icon :name="$benefit['icon']" class="h-4 w-4" />
                                     </span>
                                     <div>
-                                        <p class="text-sm font-black text-slate-900 dark:text-white">{{ $benefit['title'] }}</p>
-                                        <p class="mt-1 text-sm leading-6 text-slate-500 dark:text-slate-400">{{ $benefit['copy'] }}</p>
+                                        <p class="text-[13px] font-black text-slate-900 dark:text-white">{{ $benefit['title'] }}</p>
+                                        <p class="mt-0.5 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ $benefit['copy'] }}</p>
                                     </div>
                                 </div>
                             @endforeach
@@ -222,7 +222,7 @@
                     subtitle="Start with the essentials BoardMatch uses to filter and rank your housing options."
                     icon="home"
                 >
-                    <div class="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
+                    <div class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
                         <x-user.preference-field label="Budget Range" for="budget_min" required class="md:col-span-2 2xl:col-span-1">
                             <div class="grid gap-3 sm:grid-cols-2">
                                 <div>
@@ -311,7 +311,7 @@
                     subtitle="Choose the must-have comforts and safety features that make a place practical for you."
                     icon="sparkles"
                 >
-                    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                    <div class="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
                         @foreach ($availableAmenities as $amenity)
                             <x-user.amenity-card
                                 :name="$amenity->name"
@@ -329,7 +329,7 @@
                     subtitle="These lifestyle signals help AI compare house rules, study needs, and daily routines without adding clutter to your summary."
                     icon="light-bulb"
                 >
-                    <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+                    <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                         <x-user.preference-field label="Study Habits" for="study_habits" required>
                             <select id="study_habits" name="study_habits" class="{{ $fieldClass }}">
                                 <option value="">Select study habit</option>
@@ -371,7 +371,7 @@
                         </x-user.preference-field>
                     </div>
 
-                    <div class="mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                    <div class="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                         <x-user.preference-field label="Smoking" for="smoking_preference">
                             <select id="smoking_preference" name="smoking_preference" class="{{ $fieldClass }}">
                                 @foreach (['non_smoker_only' => 'Non-smoking only', 'outdoor_only' => 'Outdoor only', 'smoker_ok' => 'Smoking is acceptable'] as $value => $text)
@@ -422,18 +422,18 @@
                     </div>
                 </x-user.preference-panel>
 
-                <div class="flex flex-col gap-3 rounded-lg border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-900/5 dark:border-slate-800 dark:bg-slate-950 sm:flex-row sm:items-center sm:justify-between">
-                    <button type="button" x-on:click="resetPreferences($refs.form)" class="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900">
+                <div class="flex flex-col gap-3 rounded-lg border border-slate-200/80 bg-white p-3.5 shadow-sm shadow-slate-900/5 dark:border-slate-800 dark:bg-slate-950 sm:flex-row sm:items-center sm:justify-between">
+                    <button type="button" x-on:click="resetPreferences($refs.form)" class="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-xs font-black text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900">
                         <x-user.preference-icon name="arrow-path" class="h-4 w-4" />
                         Reset
                     </button>
 
                     <div class="flex flex-col gap-3 sm:flex-row sm:justify-end">
-                        <a href="{{ route('user.dashboard') }}" class="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900">
+                        <a href="{{ route('user.dashboard') }}" class="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-xs font-black text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900">
                             <x-user.preference-icon name="x-mark" class="h-4 w-4" />
                             Cancel
                         </a>
-                        <button type="submit" name="intent" value="save" class="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-sm font-black text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:bg-blue-500 dark:text-white dark:shadow-blue-500/20 dark:hover:bg-blue-400 dark:focus:ring-blue-500/20">
+                        <button type="submit" name="intent" value="save" class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 text-xs font-black text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:bg-blue-500 dark:text-white dark:shadow-blue-500/20 dark:hover:bg-blue-400 dark:focus:ring-blue-500/20">
                             <x-user.preference-icon name="check-circle" class="h-4 w-4" />
                             Save Preferences
                         </button>
@@ -441,40 +441,40 @@
                 </div>
             </div>
 
-            <aside class="space-y-5 xl:sticky xl:top-6 xl:self-start">
-                <section class="rounded-lg border border-slate-200/80 bg-white p-5 shadow-sm shadow-slate-900/5 dark:border-slate-800 dark:bg-slate-950">
+            <aside class="space-y-4 xl:sticky xl:top-6 xl:self-start">
+                <section class="rounded-lg border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-900/5 dark:border-slate-800 dark:bg-slate-950">
                     <div class="flex items-center gap-3">
-                        <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-200">
-                            <x-user.preference-icon name="clipboard-check" class="h-5 w-5" />
+                        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-200">
+                            <x-user.preference-icon name="clipboard-check" class="h-4 w-4" />
                         </span>
                         <div>
-                            <h2 class="text-base font-black text-slate-950 dark:text-white">Preference Summary</h2>
+                            <h2 class="text-[15px] font-black text-slate-950 dark:text-white">Preference Summary</h2>
                             <p class="text-xs font-semibold text-slate-500 dark:text-slate-400">Updates as you edit</p>
                         </div>
                     </div>
 
-                    <dl class="mt-5 divide-y divide-slate-100 dark:divide-slate-800">
-                        <div class="grid gap-1 py-3">
+                    <dl class="mt-4 divide-y divide-slate-100 dark:divide-slate-800">
+                        <div class="grid gap-1 py-2.5">
                             <dt class="text-xs font-black uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">Budget</dt>
-                            <dd class="text-sm font-black text-slate-900 dark:text-white" x-text="budgetLabel"></dd>
+                            <dd class="text-[13px] font-black text-slate-900 dark:text-white" x-text="budgetLabel"></dd>
                         </div>
-                        <div class="grid gap-1 py-3">
+                        <div class="grid gap-1 py-2.5">
                             <dt class="text-xs font-black uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">Location</dt>
-                            <dd class="text-sm font-black text-slate-900 dark:text-white" x-text="location || 'Not set'"></dd>
+                            <dd class="text-[13px] font-black text-slate-900 dark:text-white" x-text="location || 'Not set'"></dd>
                         </div>
-                        <div class="grid gap-1 py-3">
+                        <div class="grid gap-1 py-2.5">
                             <dt class="text-xs font-black uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">Room Type</dt>
-                            <dd class="text-sm font-black text-slate-900 dark:text-white" x-text="roomTypeLabels[roomType] || 'Not set'"></dd>
+                            <dd class="text-[13px] font-black text-slate-900 dark:text-white" x-text="roomTypeLabels[roomType] || 'Not set'"></dd>
                         </div>
-                        <div class="grid gap-1 py-3">
+                        <div class="grid gap-1 py-2.5">
                             <dt class="text-xs font-black uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">Gender</dt>
-                            <dd class="text-sm font-black text-slate-900 dark:text-white" x-text="genderLabels[gender] || 'No preference'"></dd>
+                            <dd class="text-[13px] font-black text-slate-900 dark:text-white" x-text="genderLabels[gender] || 'No preference'"></dd>
                         </div>
                     </dl>
 
-                    <div class="mt-4">
+                    <div class="mt-3.5">
                         <p class="text-xs font-black uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">Selected Amenities</p>
-                        <div class="mt-3 flex flex-wrap gap-2">
+                        <div class="mt-2.5 flex flex-wrap gap-2">
                             <template x-if="selectedAmenities.length === 0">
                                 <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-500 dark:bg-slate-900 dark:text-slate-400">None selected</span>
                             </template>
@@ -485,23 +485,23 @@
                     </div>
                 </section>
 
-                <section class="rounded-lg border border-blue-100 bg-blue-50 p-5 shadow-sm shadow-blue-900/5 dark:border-blue-400/20 dark:bg-blue-500/10">
+                <section class="rounded-lg border border-blue-100 bg-blue-50 p-4 shadow-sm shadow-blue-900/5 dark:border-blue-400/20 dark:bg-blue-500/10">
                     <div class="flex items-center gap-3">
-                        <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-blue-600 shadow-sm dark:bg-slate-950 dark:text-blue-300">
-                            <x-user.preference-icon name="light-bulb" class="h-5 w-5" />
+                        <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-blue-600 shadow-sm dark:bg-slate-950 dark:text-blue-300">
+                            <x-user.preference-icon name="light-bulb" class="h-4 w-4" />
                         </span>
-                        <h2 class="text-base font-black text-slate-950 dark:text-white">AI Tips</h2>
+                        <h2 class="text-[15px] font-black text-slate-950 dark:text-white">AI Tips</h2>
                     </div>
-                    <ul class="mt-5 space-y-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                        <li class="flex gap-3">
+                    <ul class="mt-4 space-y-2.5 text-xs leading-5 text-slate-600 dark:text-slate-300">
+                        <li class="flex gap-2.5">
                             <x-user.preference-icon name="check-circle" class="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-300" />
                             Set a real rent ceiling so strong listings are not hidden by unrealistic budgets.
                         </li>
-                        <li class="flex gap-3">
+                        <li class="flex gap-2.5">
                             <x-user.preference-icon name="check-circle" class="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-300" />
                             Pick must-have amenities only; too many nice-to-haves can narrow your shortlist.
                         </li>
-                        <li class="flex gap-3">
+                        <li class="flex gap-2.5">
                             <x-user.preference-icon name="check-circle" class="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-300" />
                             Complete match tuning to improve AI explanations and ranking confidence.
                         </li>

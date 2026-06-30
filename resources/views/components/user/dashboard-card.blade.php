@@ -29,18 +29,18 @@
 @endphp
 
 <{{ $tag }} @if($href) href="{{ $href }}" @endif {{ $attributes->merge([
-    'class' => 'group relative block overflow-hidden rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition duration-300 before:absolute before:inset-x-0 before:top-0 before:h-1 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg hover:shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-400/40 dark:hover:shadow-slate-950/30 '.($accents[$tone] ?? $accents['blue'])
+    'class' => 'group relative block overflow-hidden rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm transition duration-300 before:absolute before:inset-x-0 before:top-0 before:h-1 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-lg hover:shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-400/40 dark:hover:shadow-slate-950/30 '.($accents[$tone] ?? $accents['blue'])
 ]) }}>
-    <div class="flex items-start justify-between gap-3">
-        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ring-1 {{ $tones[$tone] ?? $tones['blue'] }}">
+    <div class="flex items-start justify-between gap-2.5">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ring-1 {{ $tones[$tone] ?? $tones['blue'] }}">
             {{ $icon }}
         </span>
         @if($meta)
-            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{ $meta }}</span>
+            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{ $meta }}</span>
         @endif
     </div>
-    <div class="mt-3">
-        <h3 class="text-sm font-semibold text-slate-950 dark:text-white">{{ $title }}</h3>
+    <div class="mt-2.5">
+        <h3 class="text-[13px] font-semibold text-slate-950 dark:text-white">{{ $title }}</h3>
         {{ $slot }}
     </div>
 </{{ $tag }}>

@@ -8,10 +8,10 @@
     $badge = $method['badge'] ?? 'Verified';
 @endphp
 
-<article {{ $attributes->merge(['class' => 'rounded-2xl border border-slate-200 bg-white p-3 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900']) }}>
+<article {{ $attributes->merge(['class' => 'rounded-2xl border border-slate-200 bg-white p-2.5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900']) }}>
     @if ($loading)
-        <div class="flex animate-pulse items-start gap-3">
-            <div class="h-8 w-8 rounded-xl bg-slate-200 dark:bg-slate-800"></div>
+        <div class="flex animate-pulse items-start gap-2.5">
+            <div class="h-7 w-7 rounded-xl bg-slate-200 dark:bg-slate-800"></div>
             <div class="min-w-0 flex-1 space-y-2">
                 <div class="h-2.5 w-28 rounded bg-slate-200 dark:bg-slate-800"></div>
                 <div class="h-2.5 w-36 rounded bg-slate-200 dark:bg-slate-800"></div>
@@ -20,8 +20,8 @@
         </div>
     @else
     <div class="flex items-start gap-2.5">
-        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                 @switch($type)
                     @case('gcash')
                     @case('maya')
@@ -40,12 +40,12 @@
 
         <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center justify-between gap-2">
-                <h3 class="text-xs font-semibold text-slate-950 dark:text-white">{{ $method['name'] }}</h3>
+                <h3 class="text-[11px] font-semibold text-slate-950 dark:text-white">{{ $method['name'] }}</h3>
                 <x-payments.status-badge :status="$badge" />
             </div>
-            <p class="mt-1.5 text-xs leading-4 text-slate-600 dark:text-slate-300">{{ $method['detail'] }}</p>
+            <p class="mt-1 text-[11px] leading-4 text-slate-600 dark:text-slate-300">{{ $method['detail'] }}</p>
             @if (! empty($method['subdetail']))
-                <p class="mt-0.5 text-xs font-medium text-slate-900 dark:text-slate-100">{{ $method['subdetail'] }}</p>
+                <p class="mt-0.5 text-[11px] font-medium text-slate-900 dark:text-slate-100">{{ $method['subdetail'] }}</p>
             @endif
         </div>
     </div>

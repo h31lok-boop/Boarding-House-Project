@@ -105,6 +105,45 @@ test('admin can remove reorder and replace boarding house photos', function () {
     Storage::disk('public')->assertExists($replacement->image_path);
 });
 
+test('admin edit form can upload a new cover without landlord info validation errors', function () {
+    Storage::fake('public');
+    $admin = imageAdmin();
+    $house = BoardingHouse::factory()->create([
+        'owner_id' => $admin->id,
+        'name' => 'Inline Upload House',
+        'address' => 'Purok 3, Matti, Digos City',
+        'landlord_info' => null,
+        'contact_name' => null,
+        'contact_phone' => null,
+        'is_active' => true,
+        'approval_status' => 'approved',
+    ]);
+
+    $response = $this->actingAs($admin)->put(route('admin.listings.update', $house), [
+        'name' => $house->name,
+        'address' => $house->address,
+        'landlord_info' => '',
+        'contact_name' => '',
+        'contact_phone' => '',
+        'approval_status' => 'approved',
+        'is_active' => '1',
+        'photos' => [UploadedFile::fake()->image('new-cover.jpg', 1200, 800)],
+        'cover_selection' => 'new:0',
+    ]);
+
+    $response->assertRedirect(route('admin.listings'));
+
+    $house->refresh()->load('images');
+    $cover = $house->images->firstWhere('is_primary', true);
+
+    expect($cover)->not->toBeNull()
+        ->and($cover->image_label)->toBe('new-cover')
+        ->and($house->featured_image)->toBe($cover->image_path)
+        ->and($house->cover_image_url)->toContain($cover->image_path);
+
+    Storage::disk('public')->assertExists($cover->image_path);
+});
+
 test('tenant details gallery uses uploaded photos and listings use the placeholder without photos', function () {
     Storage::fake('public');
     $tenant = imageTenant();

@@ -30,18 +30,18 @@
     </aside>
 
     <main class="user-dashboard-main min-w-0 bg-[#f7f8fb]">
-        <div class="sticky top-0 z-30 mb-4 border-b border-slate-200 bg-[#f7f8fb]/95 px-4 py-3 backdrop-blur md:hidden">
+        <div class="sticky top-0 z-30 mb-3 border-b border-slate-200 bg-[#f7f8fb]/95 px-4 py-2.5 backdrop-blur md:hidden">
             <button type="button" class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400/70" data-sidebar-toggle aria-controls="userSidebar" aria-expanded="false" aria-label="Open sidebar">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16M4 12h16M4 18h16"/></svg>
                 <span>Menu</span>
             </button>
         </div>
 
-        <div class="max-w-[1600px] mx-auto px-4 sm:px-6 2xl:px-8 py-6 space-y-6">
+        <div class="mx-auto max-w-[1540px] space-y-5 px-4 py-5 sm:px-6 2xl:px-8">
             {{-- Header --}}
             @if ($topBar && request()->routeIs('user.dashboard') && !request()->is('admin/*'))
-                <div class="ui-card p-4 flex items-center gap-4">
-                    <form method="GET" action="{{ $r('user.boarding-houses.index') }}" class="flex flex-1 gap-3">
+                <div class="ui-card flex items-center gap-3 p-3.5">
+                    <form method="GET" action="{{ $r('user.boarding-houses.index') }}" class="flex flex-1 gap-2.5">
                         <input name="q" type="text" placeholder="{{ $searchPlaceholder }}" class="flex-1 ui-input text-sm">
                         <button class="rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700">Search</button>
                     </form>
@@ -50,14 +50,14 @@
                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         </button>
                         <button type="button" class="theme-toggle" data-theme-toggle><span>Theme:</span> <span data-theme-label>Light</span></button>
-                        <div class="relative" x-data="{ open: false, confirm: false }">
+                        <div class="relative z-[70]" x-data="{ open: false, confirm: false }">
                             <button @click="open = !open" class="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-[color:var(--surface-2)]">
                                 <div class="h-9 w-9 overflow-hidden rounded-full border ui-border shadow">
                                     <img src="{{ $accountImageUrl }}" alt="{{ $currentUser?->name ?? 'Account' }}" class="h-full w-full object-cover">
                                 </div>
                                 <svg class="h-4 w-4 ui-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                             </button>
-                            <div x-show="open" @click.outside="open = false" x-transition class="absolute right-0 mt-2 w-52 ui-surface rounded-xl shadow-lg border ui-border z-50">
+                            <div x-show="open" @click.outside="open = false" x-transition class="absolute right-0 top-full z-[80] mt-2 w-52 ui-surface rounded-xl border ui-border shadow-lg">
                                 <div class="px-4 py-3 border-b ui-border text-sm">
                                     <p class="font-semibold">{{ auth()->user()->name ?? 'User' }}</p>
                                     <p class="text-xs ui-muted">{{ auth()->user()->email ?? '' }}</p>
@@ -84,7 +84,7 @@
             @endif
 
             @isset($header)
-                <div class="ui-card p-4">
+                <div class="ui-card p-3.5">
                     {{ $header }}
                 </div>
             @endisset

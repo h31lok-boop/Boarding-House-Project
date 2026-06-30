@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\UserNotification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class UserNotificationController extends Controller
@@ -45,6 +46,7 @@ class UserNotificationController extends Controller
 
         $notifications = $query->paginate(12)->withQueryString();
         $summaryCards = $this->summaryCards($user->id);
+        $actionRequiredNotifications = $this->actionRequiredNotifications($user->id, $filter, $search);
 
         return view('user.notifications', [
             'notifications' => $notifications,
@@ -54,6 +56,11 @@ class UserNotificationController extends Controller
             'unreadCount' => $summaryCards['unread']['count'],
             'totalCount' => $summaryCards['all']['count'],
             'summaryCards' => $summaryCards,
+            'actionRequiredCount' => $this->actionRequiredCount($user->id),
+            'actionRequiredNotifications' => $actionRequiredNotifications,
+            'recentUpdateCount' => $this->recentUpdateCount($user->id),
+            'recentActivity' => $this->recentActivity($user->id, $filter, $search, $sort),
+            'notificationPreferences' => $this->notificationPreferences($user),
             'filters' => [
                 'all' => 'All',
                 'unread' => 'Unread',
@@ -241,6 +248,88 @@ class UserNotificationController extends Controller
         return $this->baseQueryForUser($userId)
             ->whereIn('type', self::TYPE_GROUPS[$group])
             ->count();
+    }
+
+    private function actionRequiredNotifications(int $userId, string $filter, string $search)
+    {
+        $query = $this->baseQueryForUser($userId)
+            ->unread()
+            ->whereIn('type', $this->actionRequiredTypes());
+
+        $this->applyFilter($query, $filter);
+        $this->applySearch($query, $search);
+
+        return $query
+            ->latest('created_at')
+            ->limit(2)
+            ->get();
+    }
+
+    private function actionRequiredCount(int $userId): int
+    {
+        return $this->baseQueryForUser($userId)
+            ->unread()
+            ->whereIn('type', $this->actionRequiredTypes())
+            ->count();
+    }
+
+    private function actionRequiredTypes(): array
+    {
+        return array_values(array_unique(array_merge(
+            self::TYPE_GROUPS['reservations'],
+            self::TYPE_GROUPS['payments'],
+            self::TYPE_GROUPS['messages'],
+            self::TYPE_GROUPS['inquiries'],
+        )));
+    }
+
+    private function recentUpdateCount(int $userId): int
+    {
+        return $this->baseQueryForUser($userId)
+            ->where('created_at', '>=', now()->subWeek())
+            ->count();
+    }
+
+    private function recentActivity(int $userId, string $filter, string $search, string $sort)
+    {
+        $query = $this->baseQueryForUser($userId);
+
+        $this->applyFilter($query, $filter);
+        $this->applySearch($query, $search);
+        $this->applySort($query, $sort);
+
+        return $query->limit(5)->get();
+    }
+
+    private function notificationPreferences($user): array
+    {
+        if (! Schema::hasTable('user_notification_preferences')) {
+            return [
+                'reservations' => (bool) ($user->notify_booking_updates ?? true),
+                'payments' => (bool) ($user->notify_payment_reminders ?? true),
+                'messages' => (bool) ($user->notify_ticket_updates ?? true),
+                'matchmaking' => (bool) ($user->allow_matchmaking_data ?? true),
+                'promotions' => false,
+            ];
+        }
+
+        $preference = $user->notificationPreference()->firstOrCreate(
+            ['user_id' => $user->id],
+            [
+                'email_notifications' => (bool) ($user->notify_ticket_updates ?? true),
+                'sms_notifications' => (bool) ($user->notify_payment_reminders ?? true),
+                'booking_reminders' => (bool) ($user->notify_booking_updates ?? true),
+                'promotions_updates' => false,
+            ]
+        );
+
+        return [
+            'reservations' => (bool) $preference->booking_reminders,
+            'payments' => (bool) $preference->sms_notifications,
+            'messages' => (bool) $preference->email_notifications,
+            'matchmaking' => (bool) ($user->allow_matchmaking_data ?? true),
+            'promotions' => (bool) $preference->promotions_updates,
+        ];
     }
 
     private function duplicateGroupFor(UserNotification $notification)

@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\BoardingHouse;
 use App\Models\Inquiry;
+use App\Models\MaintenanceRequest;
 use App\Models\Payment;
+use App\Models\PaymentReceipt;
 use App\Models\Reservation;
 use App\Models\Review;
 use App\Models\Room;
@@ -161,16 +163,32 @@ class AdminOwnerController extends Controller
         $totalRevenue = $paidAmount;
         $occupancyRate = $totalRooms > 0 ? round(($occupiedRooms / $totalRooms) * 100) : 0;
         $unreadNotificationsCount = $this->unreadNotificationsCount($request->user()?->id);
+        $pendingReceiptReviews = $this->pendingReceiptReviewCount();
 
         $topBoardingHouses = Schema::hasTable('boarding_houses')
-            ? BoardingHouse::withCount(['rooms', 'rooms as occupied_rooms_count' => fn ($q) => $q->whereRaw('LOWER(status) = ?', ['occupied'])])
+            ? BoardingHouse::with(['city', 'images', 'photos'])
+                ->withCount([
+                    'rooms',
+                    'rooms as occupied_rooms_count' => fn ($q) => $q->whereRaw('LOWER(status) = ?', ['occupied']),
+                    'tenants',
+                ])
+                ->withSum([
+                    'payments as paid_revenue_total' => fn ($q) => $q->whereRaw('LOWER(status) = ?', ['paid']),
+                ], 'amount')
+                ->orderByDesc('paid_revenue_total')
                 ->orderByDesc('occupied_rooms_count')
                 ->limit(5)
                 ->get()
                 ->map(fn ($h) => [
+                    'id' => $h->id,
                     'name' => $h->name,
                     'location' => $h->city?->city_name ?? ($h->address ? explode(',', $h->address)[0] : 'CDO'),
                     'occupancy' => $h->rooms_count > 0 ? round(($h->occupied_rooms_count / $h->rooms_count) * 100) : 0,
+                    'rooms_count' => (int) $h->rooms_count,
+                    'occupied_rooms_count' => (int) $h->occupied_rooms_count,
+                    'tenants_count' => (int) ($h->tenants_count ?? 0),
+                    'paid_revenue' => (float) ($h->paid_revenue_total ?? 0),
+                    'cover_image_url' => $h->cover_image_url,
                 ])
             : collect();
 
@@ -200,6 +218,22 @@ class AdminOwnerController extends Controller
         $revenueTrend = $this->percentTrend($thisWeekRevenue, $previousWeekRevenue);
         $pendingInquiriesThisWeek = $this->countCreatedBetween('inquiries', $weekStart, $weekEnd, ['new', 'pending', 'open']);
         $pendingInquiriesLastWeek = $this->countCreatedBetween('inquiries', $previousWeekStart, $previousWeekEnd, ['new', 'pending', 'open']);
+        $confirmedReservations = $this->countWhereStatus('reservations', ['approved', 'confirmed']);
+        $pendingReservationSegments = $this->countWhereStatus('reservations', ['pending', 'reserved']);
+        $cancelledReservations = $this->countWhereStatus('reservations', ['cancelled', 'canceled', 'declined']);
+        $completedReservations = $this->countWhereStatus('reservations', ['completed', 'checked-out', 'checked_out']);
+        $reservationBreakdown = [
+            ['label' => 'Confirmed', 'count' => $confirmedReservations, 'color' => '#10B981'],
+            ['label' => 'Pending', 'count' => $pendingReservationSegments, 'color' => '#F59E0B'],
+            ['label' => 'Cancelled', 'count' => $cancelledReservations, 'color' => '#EF4444'],
+            ['label' => 'Completed', 'count' => $completedReservations, 'color' => '#94A3B8'],
+        ];
+
+        $roomStatusCounts = $this->statusCounts(Room::class, 'rooms');
+        $statusCounts = collect($roomStatusCounts);
+        $fullyOccupiedRooms = (int) ($statusCounts->get('Occupied', 0));
+        $vacantRooms = (int) ($statusCounts->get('Available', 0) + $statusCounts->get('Vacant', 0));
+        $partiallyOccupiedRooms = max($totalRooms - $fullyOccupiedRooms - $vacantRooms, 0);
 
         $kpiCards = [
             [
@@ -269,6 +303,8 @@ class AdminOwnerController extends Controller
             'pendingInquiries' => $pendingInquiries,
             'matchRequests' => $matchRequests,
             'unreadNotificationsCount' => $unreadNotificationsCount,
+            'pendingReceiptReviews' => $pendingReceiptReviews,
+            'messageCount' => $this->unreadMessagesCount(),
             'kpiCards' => $kpiCards,
             'reservationChartData' => $reservationChartData,
             'reservationsChartData' => $reservationChartData,
@@ -278,6 +314,7 @@ class AdminOwnerController extends Controller
             'recentActivities' => $this->recentActivities(),
             'pendingActions' => $pendingActions,
             'latestReservations' => $latestReservations,
+            'upcomingReminders' => $this->dashboardUpcomingReminders(),
             'revenueSummary' => $revenueSummary,
             'topBoardingHouses' => $topBoardingHouses,
             'summaryCards' => [
@@ -289,13 +326,19 @@ class AdminOwnerController extends Controller
                 ['label' => 'Total Match Requests', 'value' => $totalMatches, 'meta' => $acceptedMatches.' accepted'],
                 ['label' => 'Acceptance Rate', 'value' => $totalMatches > 0 ? round(($acceptedMatches / $totalMatches) * 100).'%' : '0%', 'meta' => 'Match success rate'],
             ],
+            'reservationBreakdown' => $reservationBreakdown,
+            'occupancyBreakdown' => [
+                ['label' => 'Fully Occupied', 'count' => $fullyOccupiedRooms, 'color' => '#10B981'],
+                ['label' => 'Partially Occupied', 'count' => $partiallyOccupiedRooms, 'color' => '#F59E0B'],
+                ['label' => 'Vacant', 'count' => $vacantRooms, 'color' => '#EF4444'],
+            ],
             'recentInquiries' => Schema::hasTable('inquiries')
                 ? Inquiry::with(['user', 'boardingHouse'])->latest()->limit(5)->get()
                 : collect(),
             'recentReservations' => Schema::hasTable('reservations')
                 ? Reservation::with(['user', 'boardingHouse', 'room'])->latest()->limit(5)->get()
                 : collect(),
-            'roomStatusCounts' => $this->statusCounts(Room::class, 'rooms'),
+            'roomStatusCounts' => $roomStatusCounts,
             'paymentStatusCounts' => $this->statusCounts(Payment::class, 'payments'),
         ];
     }
@@ -432,6 +475,14 @@ class AdminOwnerController extends Controller
     {
         $this->authorizeAdmin($request);
 
+        $isMineView = $request->query('owner') === 'mine';
+        $ownerScopedHouseIds = collect();
+        if ($isMineView) {
+            $ownerScopedHouseIds = BoardingHouse::query()
+                ->where('owner_id', $request->user()->id)
+                ->pluck('id');
+        }
+
         $houses = BoardingHouse::withCount(['rooms', 'inquiries', 'reservations', 'reviews'])
             ->with([
                 'amenities:id,name',
@@ -445,11 +496,8 @@ class AdminOwnerController extends Controller
                 'roomCategories:id,boarding_house_id,name,monthly_rate,total_rooms,available_rooms,occupied_rooms,reserved_rooms,maintenance_rooms,is_available',
                 'rooms:id,boarding_house_id,room_no,room_number,name,price,capacity,available_slots,status',
             ])
-            ->when($request->query('owner') === 'mine', function ($query) use ($request) {
-                $query->where(function ($ownerQuery) use ($request) {
-                    $ownerQuery->where('owner_id', $request->user()->id)
-                        ->orWhereNull('owner_id');
-                });
+            ->when($isMineView, function ($query) use ($request) {
+                $query->where('owner_id', $request->user()->id);
             })
             ->when($request->filled('q'), function ($query) use ($request) {
                 $term = '%'.$request->query('q').'%';
@@ -489,9 +537,22 @@ class AdminOwnerController extends Controller
             ->paginate(12)
             ->withQueryString();
 
-        $totalBoardingHouses = Schema::hasTable('boarding_houses') ? BoardingHouse::query()->count() : 0;
-        $totalRooms = Schema::hasTable('rooms') ? Room::query()->count() : 0;
-        $occupiedRooms = Schema::hasTable('rooms') ? Room::query()->whereRaw('LOWER(status) = ?', ['occupied'])->count() : 0;
+        $totalBoardingHouses = Schema::hasTable('boarding_houses')
+            ? ($isMineView ? $ownerScopedHouseIds->count() : BoardingHouse::query()->count())
+            : 0;
+        $totalRooms = Schema::hasTable('rooms')
+            ? ($isMineView
+                ? Room::query()->whereIn('boarding_house_id', $ownerScopedHouseIds)->count()
+                : Room::query()->count())
+            : 0;
+        $occupiedRooms = Schema::hasTable('rooms')
+            ? ($isMineView
+                ? Room::query()
+                    ->whereIn('boarding_house_id', $ownerScopedHouseIds)
+                    ->whereRaw('LOWER(status) = ?', ['occupied'])
+                    ->count()
+                : Room::query()->whereRaw('LOWER(status) = ?', ['occupied'])->count())
+            : 0;
         $occupancyRate = $totalRooms > 0 ? round(($occupiedRooms / $totalRooms) * 100) : 0;
 
         $owners = User::query()
@@ -547,7 +608,7 @@ class AdminOwnerController extends Controller
             ->count();
         $inactiveTenants = max($totalTenants - $activeTenants, 0);
 
-        $tenants = User::with($withRelations)
+        $tenantDirectoryQuery = User::with($withRelations)
             ->where('role', 'user')
             ->when($request->filled('q'), function ($query) use ($request, $phoneColumns) {
                 $term = '%'.$request->query('q').'%';
@@ -606,12 +667,18 @@ class AdminOwnerController extends Controller
                     }
                 });
             })
+            ->latest();
+
+        $insightTenants = (clone $tenantDirectoryQuery)->get();
+
+        $tenants = (clone $tenantDirectoryQuery)
             ->latest()
             ->paginate(8)
             ->withQueryString();
 
         return view('admin.tenant-profiles', compact(
             'tenants',
+            'insightTenants',
             'boardingHouses',
             'totalTenants',
             'activeTenants',
@@ -929,6 +996,11 @@ class AdminOwnerController extends Controller
         $openStatuses = ['new', 'pending', 'open', null, ''];
         $resolvedStatuses = ['closed', 'declined'];
         $filter = strtolower((string) $request->query('filter', ''));
+        $searchTerm = trim((string) $request->query('q', ''));
+        $effectiveFilter = match ($filter) {
+            'archived' => 'resolved',
+            default => $filter,
+        };
 
         if (! Schema::hasTable('inquiries')) {
             $threads = new \Illuminate\Pagination\LengthAwarePaginator(
@@ -945,15 +1017,31 @@ class AdminOwnerController extends Controller
                 'totalConversations' => 0,
                 'unreadMessages' => 0,
                 'awaitingReply' => 0,
+                'resolvedConversations' => 0,
+                'conversationTabs' => collect([
+                    ['key' => '', 'label' => 'All', 'count' => 0],
+                    ['key' => 'unread', 'label' => 'Unread', 'count' => 0],
+                    ['key' => 'active', 'label' => 'Active', 'count' => 0],
+                    ['key' => 'archived', 'label' => 'Archived', 'count' => 0],
+                ]),
+                'conversationOverview' => [
+                    'active' => 0,
+                    'resolved' => 0,
+                    'responseRate' => 0,
+                    'coverage' => 0,
+                ],
+                'recentConversations' => collect(),
                 'unreadNotificationsCount' => $this->unreadNotificationsCount($request->user()?->id),
                 'openStatuses' => $openStatuses,
                 'resolvedStatuses' => $resolvedStatuses,
+                'activeFilter' => $filter,
+                'searchTerm' => $searchTerm,
             ]);
         }
 
-        $threads = Inquiry::with(['user', 'boardingHouse'])
-            ->when($request->filled('q'), function ($query) use ($request) {
-                $term = '%'.$request->query('q').'%';
+        $threadQuery = Inquiry::with(['user', 'boardingHouse'])
+            ->when($searchTerm !== '', function ($query) use ($searchTerm) {
+                $term = '%'.$searchTerm.'%';
                 $query->where(function ($search) use ($term) {
                     $search->where('message', 'like', $term)
                         ->orWhereHas('user', fn ($u) => $u
@@ -965,14 +1053,25 @@ class AdminOwnerController extends Controller
                             ->orWhere('full_address', 'like', $term));
                 });
             })
-            ->when(in_array($filter, ['unread', 'awaiting'], true), function ($query) {
+            ->when(in_array($effectiveFilter, ['unread', 'awaiting'], true), function ($query) {
                 $query->where(function ($statusQuery) {
                     $statusQuery->whereIn('status', ['new', 'pending', 'open'])
                         ->orWhereNull('status')
                         ->orWhere('status', '');
                 });
             })
-            ->when($filter === 'resolved', fn ($query) => $query->whereIn('status', ['closed', 'declined']))
+            ->when($effectiveFilter === 'active', function ($query) use ($resolvedStatuses) {
+                $query->where(function ($statusQuery) use ($resolvedStatuses) {
+                    $statusQuery->whereNull('status')
+                        ->orWhereNotIn(DB::raw('LOWER(status)'), $resolvedStatuses);
+                });
+            })
+            ->when($effectiveFilter === 'resolved', fn ($query) => $query->whereIn(DB::raw('LOWER(status)'), $resolvedStatuses))
+            ->latest();
+
+        $insightThreads = (clone $threadQuery)->get();
+
+        $threads = (clone $threadQuery)
             ->latest()
             ->paginate(8)
             ->withQueryString();
@@ -998,7 +1097,52 @@ class AdminOwnerController extends Controller
                     ->orWhere('status', '');
             })
             ->count();
+        $resolvedConversations = Inquiry::query()
+            ->whereIn(DB::raw('LOWER(status)'), $resolvedStatuses)
+            ->count();
         $unreadMessages = $this->unreadMessagesCount() ?: $awaitingReply;
+
+        $activeConversationCount = $insightThreads->filter(function ($thread) use ($resolvedStatuses) {
+            $status = strtolower((string) ($thread->status ?? ''));
+
+            return ! in_array($status, $resolvedStatuses, true);
+        })->count();
+
+        $recentConversations = $insightThreads
+            ->sortByDesc(fn ($thread) => optional($thread->updated_at ?: $thread->created_at)->timestamp ?? 0)
+            ->take(5)
+            ->map(function ($thread) use ($replyNotifications, $resolvedStatuses) {
+                $status = strtolower((string) ($thread->status ?? 'pending'));
+                $replyNotification = $replyNotifications->get('inquiry:'.$thread->id);
+                $activityDate = $replyNotification?->updated_at
+                    ? \Illuminate\Support\Carbon::parse($replyNotification->updated_at)
+                    : ($thread->updated_at ?: $thread->created_at);
+
+                return [
+                    'tenant' => $thread->user?->name ?: 'Tenant',
+                    'house' => $thread->boardingHouse?->name ?: 'Boarding house',
+                    'time' => $activityDate?->diffForHumans() ?: 'Recently',
+                    'status' => in_array($status, $resolvedStatuses, true) ? 'Resolved' : 'Open',
+                    'tone' => in_array($status, $resolvedStatuses, true) ? 'slate' : 'blue',
+                ];
+            })
+            ->values();
+
+        $conversationOverview = [
+            'active' => $activeConversationCount,
+            'resolved' => $insightThreads->count() - $activeConversationCount,
+            'responseRate' => $insightThreads->count() > 0
+                ? (int) round((($insightThreads->count() - $activeConversationCount) / $insightThreads->count()) * 100)
+                : 0,
+            'coverage' => $insightThreads->pluck('boarding_house_id')->filter()->unique()->count(),
+        ];
+
+        $conversationTabs = collect([
+            ['key' => '', 'label' => 'All', 'count' => $totalConversations],
+            ['key' => 'unread', 'label' => 'Unread', 'count' => $unreadMessages],
+            ['key' => 'active', 'label' => 'Active', 'count' => $activeConversationCount],
+            ['key' => 'archived', 'label' => 'Archived', 'count' => $resolvedConversations],
+        ]);
 
         return view('admin.messages', compact(
             'threads',
@@ -1006,10 +1150,17 @@ class AdminOwnerController extends Controller
             'totalConversations',
             'unreadMessages',
             'awaitingReply',
+            'resolvedConversations',
+            'conversationTabs',
+            'conversationOverview',
+            'recentConversations',
             'openStatuses',
-            'resolvedStatuses'
+            'resolvedStatuses',
+            'filter',
+            'searchTerm'
         ) + [
             'unreadNotificationsCount' => $this->unreadNotificationsCount($request->user()?->id),
+            'activeFilter' => $filter,
         ]);
     }
 
@@ -1045,7 +1196,109 @@ class AdminOwnerController extends Controller
             'cancelledTrend' => $this->countTrend($this->countCreatedBetween('reservations', $weekStart, $weekEnd, ['cancelled', 'rejected']), 'this week'),
         ];
 
-        return view('admin.reservations', compact('reservations', 'reservationStats'));
+        $today = now()->toDateString();
+        $paymentStatusCount = function (array $statuses): int {
+            if (! Schema::hasTable('reservations') || ! Schema::hasColumn('reservations', 'payment_status')) {
+                return 0;
+            }
+
+            return (int) DB::table('reservations')
+                ->whereIn(DB::raw('LOWER(payment_status)'), array_map('strtolower', $statuses))
+                ->count();
+        };
+
+        $moveInsToday = 0;
+        $upcomingThisWeekCount = 0;
+        $upcomingMoveIns = collect();
+
+        if (Schema::hasTable('reservations') && Schema::hasColumn('reservations', 'check_in_date')) {
+            $baseUpcomingQuery = Reservation::with(['user', 'boardingHouse', 'room'])
+                ->whereDate('check_in_date', '>=', $today);
+
+            if (Schema::hasColumn('reservations', 'status')) {
+                $baseUpcomingQuery->whereNotIn(DB::raw('LOWER(status)'), ['cancelled', 'rejected', 'checked-out', 'checked_out', 'checkedout']);
+            }
+
+            $upcomingMoveIns = (clone $baseUpcomingQuery)
+                ->orderBy('check_in_date')
+                ->limit(4)
+                ->get();
+
+            $moveInsToday = (clone $baseUpcomingQuery)
+                ->whereDate('check_in_date', $today)
+                ->count();
+
+            $upcomingThisWeekCount = (clone $baseUpcomingQuery)
+                ->whereDate('check_in_date', '<=', now()->copy()->addDays(7)->toDateString())
+                ->count();
+        }
+
+        $pendingApprovals = $this->countWhereStatus('reservations', ['pending']);
+        $unpaidDeposits = $paymentStatusCount(['unpaid', 'pending', 'partial', 'partial_paid', 'partially paid', 'partially_paid']);
+        $activeStays = $this->countWhereStatus('reservations', ['checked-in', 'checked_in', 'checkedin']);
+        $completedStays = $this->countWhereStatus('reservations', ['checked-out', 'checked_out', 'checkedout']);
+
+        $reservationWorkbench = [
+            'quick_metrics' => [
+                [
+                    'label' => 'Move-ins Today',
+                    'value' => $moveInsToday,
+                    'note' => $moveInsToday > 0 ? 'Scheduled arrivals requiring preparation today.' : 'No scheduled arrivals today.',
+                    'tone' => 'blue',
+                    'href' => route('admin.reservations', ['date_from' => $today, 'date_to' => $today]),
+                ],
+                [
+                    'label' => 'Pending Approval',
+                    'value' => $pendingApprovals,
+                    'note' => $pendingApprovals > 0 ? 'Reservation requests waiting for review.' : 'No approval backlog right now.',
+                    'tone' => 'amber',
+                    'href' => route('admin.reservations', ['status' => 'pending']),
+                ],
+                [
+                    'label' => 'Unpaid Deposits',
+                    'value' => $unpaidDeposits,
+                    'note' => $unpaidDeposits > 0 ? 'Deposits still waiting for payment follow-up.' : 'All tracked deposits are settled.',
+                    'tone' => 'rose',
+                    'href' => route('admin.reservations', ['payment_status' => 'action-needed']),
+                ],
+            ],
+            'tasks' => [
+                [
+                    'label' => 'Review pending reservations',
+                    'count' => $pendingApprovals,
+                    'note' => 'Approve or decline incoming reservation requests.',
+                    'href' => route('admin.reservations', ['status' => 'pending']),
+                    'tone' => 'amber',
+                ],
+                [
+                    'label' => 'Follow up unpaid deposits',
+                    'count' => $unpaidDeposits,
+                    'note' => 'Check tenants who still need to settle deposits.',
+                    'href' => route('admin.reservations', ['payment_status' => 'action-needed']),
+                    'tone' => 'rose',
+                ],
+                [
+                    'label' => 'Prepare upcoming move-ins',
+                    'count' => $upcomingThisWeekCount,
+                    'note' => 'Coordinate room readiness and arrival details this week.',
+                    'href' => route('admin.reservations', [
+                        'date_from' => $today,
+                        'date_to' => now()->copy()->addDays(7)->toDateString(),
+                    ]),
+                    'tone' => 'blue',
+                ],
+            ],
+            'overview' => [
+                ['label' => 'Total Reservations', 'count' => $reservationStats['total'], 'tone' => 'blue'],
+                ['label' => 'Confirmed', 'count' => $reservationStats['confirmed'], 'tone' => 'emerald'],
+                ['label' => 'Pending', 'count' => $reservationStats['pending'], 'tone' => 'amber'],
+                ['label' => 'Active Stays', 'count' => $activeStays, 'tone' => 'cyan'],
+                ['label' => 'Completed Stays', 'count' => $completedStays, 'tone' => 'slate'],
+            ],
+            'upcoming_move_ins' => $upcomingMoveIns,
+        ];
+
+        return view('admin.reservations', compact('reservations', 'reservationStats', 'reservationWorkbench'));
     }
 
     public function exportReservations(Request $request)
@@ -1107,7 +1360,12 @@ class AdminOwnerController extends Controller
                 };
             })
             ->when($request->filled('payment_status') && Schema::hasColumn('reservations', 'payment_status'), function ($query) use ($request) {
-                $query->whereRaw('LOWER(payment_status) = ?', [strtolower((string) $request->query('payment_status'))]);
+                $paymentStatus = strtolower((string) $request->query('payment_status'));
+
+                match ($paymentStatus) {
+                    'action-needed' => $query->whereIn(DB::raw('LOWER(payment_status)'), ['unpaid', 'pending', 'partial', 'partial_paid', 'partially paid', 'partially_paid']),
+                    default => $query->whereRaw('LOWER(payment_status) = ?', [$paymentStatus]),
+                };
             })
             ->when($request->filled('date_from') && Schema::hasColumn('reservations', 'check_in_date'), function ($query) use ($request) {
                 $query->whereDate('check_in_date', '>=', $request->query('date_from'));
@@ -1182,16 +1440,47 @@ class AdminOwnerController extends Controller
             ? 'transactions'
             : '';
 
+        $search = trim((string) $request->query('q', ''));
+        $dateColumn = Schema::hasColumn('payments', 'due_date') ? 'due_date' : 'created_at';
+
         $payments = Payment::with(['tenant.user', 'boardingHouse'])
-            ->when($request->filled('status'), fn ($query) => $query->where('status', $request->query('status')))
+            ->when($search !== '', function ($query) use ($search) {
+                $like = '%'.$search.'%';
+
+                $query->where(function ($searchQuery) use ($search, $like) {
+                    $searchQuery
+                        ->where('reference_no', 'like', $like)
+                        ->orWhere('notes', 'like', $like)
+                        ->orWhereHas('tenant.user', fn ($tenantQuery) => $tenantQuery
+                            ->where('name', 'like', $like)
+                            ->orWhere('email', 'like', $like))
+                        ->orWhereHas('boardingHouse', fn ($houseQuery) => $houseQuery
+                            ->where('name', 'like', $like)
+                            ->orWhere('address', 'like', $like)
+                            ->orWhere('full_address', 'like', $like));
+
+                    if (is_numeric($search)) {
+                        $numeric = (float) $search;
+
+                        $searchQuery
+                            ->orWhere('id', (int) $search)
+                            ->orWhere('amount', $numeric);
+                    }
+                });
+            })
+            ->when($request->filled('status'), fn ($query) => $query->whereRaw('LOWER(status) = ?', [strtolower((string) $request->query('status'))]))
+            ->when($request->filled('boarding_house_id'), fn ($query) => $query->where('boarding_house_id', $request->integer('boarding_house_id')))
+            ->when($request->filled('date_from') && Schema::hasColumn('payments', $dateColumn), fn ($query) => $query->whereDate($dateColumn, '>=', $request->query('date_from')))
+            ->when($request->filled('date_to') && Schema::hasColumn('payments', $dateColumn), fn ($query) => $query->whereDate($dateColumn, '<=', $request->query('date_to')))
             ->latest()
             ->paginate(12)
             ->withQueryString();
 
         $tenants = Schema::hasTable('tenants') ? Tenant::with('user')->latest()->get() : collect();
         $houses = BoardingHouse::query()->orderBy('name')->get();
+        $financeWorkbench = $this->paymentWorkbenchData();
 
-        return view('admin.payments', compact('payments', 'tenants', 'houses', 'tab'));
+        return view('admin.payments', compact('payments', 'tenants', 'houses', 'tab', 'financeWorkbench'));
     }
 
     public function storePayment(Request $request)
@@ -1478,7 +1767,7 @@ class AdminOwnerController extends Controller
         }
 
         $houses = Schema::hasTable('boarding_houses')
-            ? BoardingHouse::query()->orderBy('name')->get(['id', 'name'])
+            ? BoardingHouse::with(['city', 'images', 'photos'])->orderBy('name')->get(['id', 'name', 'city_id', 'address', 'full_address'])
             : collect();
 
         $reportRows = $houses->map(function ($house) use ($revenueByHouse, $bookingsByHouse, $roomsByHouse, $occupiedByHouse, $tenantsByHouse) {
@@ -1486,13 +1775,82 @@ class AdminOwnerController extends Controller
             $occupiedCount = (int) ($occupiedByHouse[$house->id] ?? 0);
 
             return [
+                'id' => $house->id,
                 'boarding_house' => $house->name,
+                'location' => $house->city?->city_name
+                    ?? ($house->full_address ?: ($house->address ? explode(',', $house->address)[0] : 'Location not set')),
+                'cover_image_url' => $house->cover_image_url,
                 'revenue' => (float) ($revenueByHouse[$house->id] ?? 0),
                 'bookings' => (int) ($bookingsByHouse[$house->id] ?? 0),
                 'occupancy_rate' => $roomCount > 0 ? round(($occupiedCount / $roomCount) * 100) : 0,
+                'rooms' => $roomCount,
+                'occupied_rooms' => $occupiedCount,
                 'tenants' => (int) ($tenantsByHouse[$house->id] ?? 0),
             ];
         })->values();
+
+        $vacantRooms = max($totalRooms - $occupiedRooms, 0);
+        $totalProperties = $reportRows->count();
+        $averageRevenuePerHouse = $totalProperties > 0 ? round((float) $reportRows->avg('revenue'), 2) : 0.0;
+        $averageBookingsPerHouse = $totalProperties > 0 ? round((float) $reportRows->avg('bookings'), 1) : 0.0;
+        $topPerformingHouses = $reportRows
+            ->sortByDesc(fn (array $row) => ($row['revenue'] * 1.0) + ($row['occupancy_rate'] * 1000) + ($row['bookings'] * 500) + ($row['tenants'] * 100))
+            ->take(5)
+            ->values();
+
+        $latestRevenue = (float) (collect($revenueData)->last() ?? 0);
+        $previousRevenue = (float) (collect($revenueData)->slice(-2, 1)->first() ?? 0);
+        $revenueDelta = $previousRevenue > 0
+            ? round((($latestRevenue - $previousRevenue) / $previousRevenue) * 100)
+            : ($latestRevenue > 0 ? 100 : 0);
+        $revenueDirection = $latestRevenue <=> $previousRevenue;
+        $confirmedAndActiveBookings = (int) ($bookingDistribution['data'][1] ?? 0) + (int) ($bookingDistribution['data'][2] ?? 0);
+        $bookingPipelineShare = $bookingDistribution['total'] > 0
+            ? round(($confirmedAndActiveBookings / $bookingDistribution['total']) * 100)
+            : 0;
+        $topHouse = $topPerformingHouses->first();
+        $recentActivities = $this->recentActivities();
+
+        $aiInsights = [
+            [
+                'title' => 'Revenue momentum',
+                'tone' => $revenueDirection < 0 ? 'rose' : ($revenueDirection > 0 ? 'emerald' : 'slate'),
+                'summary' => $revenueDirection < 0
+                    ? 'Revenue slowed in the latest reporting bucket.'
+                    : ($revenueDirection > 0 ? 'Revenue is trending upward in the latest reporting bucket.' : 'Revenue is holding steady across the latest reporting buckets.'),
+                'detail' => $latestRevenue > 0
+                    ? 'Latest segment closed at PHP '.number_format($latestRevenue, 2).' with '.abs($revenueDelta).'% '.($revenueDirection < 0 ? 'less' : ($revenueDirection > 0 ? 'more' : 'change')).' than the previous segment.'
+                    : 'No paid revenue has been recorded in the selected date range yet.',
+            ],
+            [
+                'title' => 'Occupancy focus',
+                'tone' => $occupancyRate >= 80 ? 'emerald' : ($occupancyRate >= 60 ? 'blue' : 'amber'),
+                'summary' => $occupancyRate >= 80
+                    ? 'Occupancy is strong across the portfolio.'
+                    : ($occupancyRate >= 60 ? 'Occupancy is stable with room to improve.' : 'Occupancy has room to grow across current properties.'),
+                'detail' => number_format($occupiedRooms).' of '.number_format($totalRooms).' rooms are occupied, keeping the portfolio at '.$occupancyRate.'% occupancy for '.$rangeLabel.'.',
+            ],
+            [
+                'title' => 'Property leader',
+                'tone' => $topHouse ? 'blue' : 'slate',
+                'summary' => $topHouse
+                    ? $topHouse['boarding_house'].' is leading the current reporting window.'
+                    : 'No property leader is available yet.',
+                'detail' => $topHouse
+                    ? 'It generated PHP '.number_format((float) $topHouse['revenue'], 2).' with '.$topHouse['occupancy_rate'].'% occupancy and '.number_format((int) $topHouse['bookings']).' bookings.'
+                    : 'Add boarding houses, reservations, and payments to unlock performance rankings.',
+            ],
+            [
+                'title' => 'Booking pipeline',
+                'tone' => $bookingPipelineShare >= 65 ? 'emerald' : ($bookingPipelineShare >= 40 ? 'blue' : 'amber'),
+                'summary' => $bookingPipelineShare >= 65
+                    ? 'Most bookings are already confirmed or actively staying.'
+                    : 'The booking pipeline still has follow-up opportunities.',
+                'detail' => $bookingDistribution['total'] > 0
+                    ? $bookingPipelineShare.'% of bookings are in confirmed or staying states for the current date range.'
+                    : 'There are no booking records in the selected date range yet.',
+            ],
+        ];
 
         $perPage = 8;
         $page = max((int) $request->query('page', 1), 1);
@@ -1527,6 +1885,22 @@ class AdminOwnerController extends Controller
                 'data' => $revenueData,
             ],
             'bookingDistribution' => $bookingDistribution,
+            'occupancyChart' => [
+                'labels' => ['Occupied Rooms', 'Vacant Rooms'],
+                'data' => [$occupiedRooms, $vacantRooms],
+                'total' => $totalRooms,
+            ],
+            'reportSummary' => [
+                'totalProperties' => $totalProperties,
+                'totalRooms' => $totalRooms,
+                'occupiedRooms' => $occupiedRooms,
+                'vacantRooms' => $vacantRooms,
+                'averageRevenuePerHouse' => $averageRevenuePerHouse,
+                'averageBookingsPerHouse' => $averageBookingsPerHouse,
+            ],
+            'topPerformingHouses' => $topPerformingHouses,
+            'recentActivities' => $recentActivities,
+            'aiInsights' => $aiInsights,
             'reportRows' => $paginatedRows,
         ];
     }
@@ -1901,7 +2275,7 @@ class AdminOwnerController extends Controller
             ->count();
     }
 
-    private function paymentSum(array $statuses, $start = null, $end = null): float
+    private function paymentSum(array $statuses, $start = null, $end = null, ?string $dateColumn = null): float
     {
         if (! Schema::hasTable('payments') || ! Schema::hasColumn('payments', 'amount')) {
             return 0.0;
@@ -1914,13 +2288,35 @@ class AdminOwnerController extends Controller
         }
 
         if ($start && $end) {
-            $dateColumn = Schema::hasColumn('payments', 'paid_at') ? 'paid_at' : 'created_at';
-            if (Schema::hasColumn('payments', $dateColumn)) {
-                $query->whereBetween($dateColumn, [$start, $end]);
+            $resolvedDateColumn = $dateColumn ?: (Schema::hasColumn('payments', 'paid_at') ? 'paid_at' : 'created_at');
+            if (Schema::hasColumn('payments', $resolvedDateColumn)) {
+                $query->whereBetween($resolvedDateColumn, [$start, $end]);
             }
         }
 
         return (float) $query->sum('amount');
+    }
+
+    private function paymentCount(array $statuses, $start = null, $end = null, ?string $dateColumn = null): int
+    {
+        if (! Schema::hasTable('payments')) {
+            return 0;
+        }
+
+        $query = DB::table('payments');
+
+        if (Schema::hasColumn('payments', 'status')) {
+            $query->whereIn(DB::raw('LOWER(status)'), array_map('strtolower', $statuses));
+        }
+
+        if ($start && $end) {
+            $resolvedDateColumn = $dateColumn ?: (Schema::hasColumn('payments', 'paid_at') ? 'paid_at' : 'created_at');
+            if (Schema::hasColumn('payments', $resolvedDateColumn)) {
+                $query->whereBetween($resolvedDateColumn, [$start, $end]);
+            }
+        }
+
+        return (int) $query->count();
     }
 
     private function activeTenantCount(): int
@@ -2003,22 +2399,39 @@ class AdminOwnerController extends Controller
         return 0;
     }
 
+    private function pendingReceiptReviewCount(): int
+    {
+        if (! Schema::hasTable('payment_receipts')) {
+            return 0;
+        }
+
+        $query = DB::table('payment_receipts');
+
+        if (Schema::hasColumn('payment_receipts', 'status')) {
+            $query->where('status', PaymentReceipt::STATUS_PENDING_REVIEW);
+        }
+
+        return (int) $query->count();
+    }
+
     private function reservationChartData($weekStart): array
     {
         $labels = [];
         $confirmed = [];
         $pending = [];
         $cancelled = [];
+        $completed = [];
 
         for ($i = 0; $i < 7; $i++) {
             $date = $weekStart->copy()->addDays($i);
             $labels[] = $date->format('M j');
             $confirmed[] = $this->countStatusOnDate('reservations', ['confirmed', 'approved'], $date->toDateString());
             $pending[] = $this->countStatusOnDate('reservations', ['pending'], $date->toDateString());
-            $cancelled[] = $this->countStatusOnDate('reservations', ['cancelled', 'declined'], $date->toDateString());
+            $cancelled[] = $this->countStatusOnDate('reservations', ['cancelled', 'canceled', 'declined', 'rejected'], $date->toDateString());
+            $completed[] = $this->countStatusOnDate('reservations', ['completed', 'checked-out', 'checked_out'], $date->toDateString());
         }
 
-        return compact('labels', 'confirmed', 'pending', 'cancelled');
+        return compact('labels', 'confirmed', 'pending', 'cancelled', 'completed');
     }
 
     private function revenueChartData($weekStart): array
@@ -2068,6 +2481,288 @@ class AdminOwnerController extends Controller
         ];
     }
 
+    private function periodPercentTrend(float $current, float $previous, string $suffix): array
+    {
+        if ($previous <= 0) {
+            return [
+                'label' => $current > 0 ? '+100% '.$suffix : '0% '.$suffix,
+                'tone' => $current > 0 ? 'positive' : 'neutral',
+            ];
+        }
+
+        $percent = round((($current - $previous) / $previous) * 100);
+
+        return [
+            'label' => ($percent >= 0 ? '+' : '').$percent.'% '.$suffix,
+            'tone' => $percent < 0 ? 'negative' : 'positive',
+        ];
+    }
+
+    private function paymentWorkbenchData(): array
+    {
+        $today = now()->startOfDay();
+        $monthStart = $today->copy()->startOfMonth();
+        $monthEnd = $today->copy()->endOfMonth();
+        $previousMonthStart = $monthStart->copy()->subMonthNoOverflow()->startOfMonth();
+        $previousMonthEnd = $monthStart->copy()->subMonthNoOverflow()->endOfMonth();
+        $trendStart = $today->copy()->subDays(6)->startOfDay();
+        $trendEnd = $today->copy()->endOfDay();
+        $previousTrendStart = $trendStart->copy()->subDays(7);
+        $previousTrendEnd = $trendStart->copy()->subDay()->endOfDay();
+
+        $paidStatuses = ['paid'];
+        $pendingStatuses = ['pending', 'unpaid'];
+        $overdueStatuses = ['overdue'];
+        $openStatuses = ['pending', 'unpaid', 'overdue'];
+
+        $paidAmount = $this->paymentSum($paidStatuses);
+        $pendingAmount = $this->paymentSum($pendingStatuses);
+        $overdueAmount = $this->paymentSum($overdueStatuses);
+        $collectionsThisMonth = $this->paymentSum($paidStatuses, $monthStart->copy()->startOfDay(), $monthEnd->copy()->endOfDay());
+        $collectionsLastMonth = $this->paymentSum($paidStatuses, $previousMonthStart->copy()->startOfDay(), $previousMonthEnd->copy()->endOfDay());
+        $collectionsThisWeek = $this->paymentSum($paidStatuses, $trendStart, $trendEnd);
+        $collectionsLastWeek = $this->paymentSum($paidStatuses, $previousTrendStart, $previousTrendEnd);
+
+        $paidCount = $this->countWhereStatus('payments', $paidStatuses);
+        $pendingCount = $this->countWhereStatus('payments', $pendingStatuses);
+        $overdueCount = $this->countWhereStatus('payments', $overdueStatuses);
+        $paidThisWeekCount = $this->paymentCount($paidStatuses, $trendStart, $trendEnd, Schema::hasColumn('payments', 'paid_at') ? 'paid_at' : 'created_at');
+
+        $totalPayments = Schema::hasTable('payments') ? (int) Payment::query()->count() : 0;
+        $totalBilled = Schema::hasTable('payments') && Schema::hasColumn('payments', 'amount')
+            ? (float) Payment::query()->sum('amount')
+            : 0.0;
+
+        $overdueFollowUpCount = 0;
+        $overdueFollowUpAmount = 0.0;
+        $dueThisWeekCount = 0;
+        $dueThisWeekAmount = 0.0;
+
+        if (Schema::hasTable('payments') && Schema::hasColumn('payments', 'due_date')) {
+            $openDueQuery = DB::table('payments')
+                ->whereNotNull('due_date');
+
+            if (Schema::hasColumn('payments', 'status')) {
+                $openDueQuery->whereIn(DB::raw('LOWER(status)'), $openStatuses);
+            }
+
+            $weekEnd = $today->copy()->addDays(7)->toDateString();
+
+            $overdueFollowUpCount = (int) (clone $openDueQuery)
+                ->whereDate('due_date', '<', $today->toDateString())
+                ->count();
+
+            $overdueFollowUpAmount = (float) (clone $openDueQuery)
+                ->whereDate('due_date', '<', $today->toDateString())
+                ->sum('amount');
+
+            $dueThisWeekCount = (int) (clone $openDueQuery)
+                ->whereBetween('due_date', [$today->toDateString(), $weekEnd])
+                ->count();
+
+            $dueThisWeekAmount = (float) (clone $openDueQuery)
+                ->whereBetween('due_date', [$today->toDateString(), $weekEnd])
+                ->sum('amount');
+        }
+
+        $effectiveOverdueCount = max($overdueCount, $overdueFollowUpCount);
+        $effectiveOverdueAmount = max($overdueAmount, $overdueFollowUpAmount);
+        $collectionRate = $totalBilled > 0 ? round(($paidAmount / $totalBilled) * 100) : 0;
+        $averagePayment = $paidCount > 0 ? round($paidAmount / $paidCount, 2) : 0.0;
+        $outstandingBalance = $pendingAmount + $effectiveOverdueAmount;
+
+        $collectionsTrend = $this->periodPercentTrend($collectionsThisMonth, $collectionsLastMonth, 'vs last month');
+        $weeklyTrend = $this->periodPercentTrend($collectionsThisWeek, $collectionsLastWeek, 'vs previous 7 days');
+
+        $summaryCards = [
+            [
+                'label' => 'Collections',
+                'value' => 'PHP '.number_format($collectionsThisMonth, 0),
+                'meta' => 'This month',
+                'trend' => $collectionsTrend['label'],
+                'trend_tone' => $collectionsTrend['tone'],
+                'tone' => 'emerald',
+                'icon' => 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z',
+            ],
+            [
+                'label' => 'Paid',
+                'value' => 'PHP '.number_format($paidAmount, 0),
+                'meta' => number_format($paidCount).' settled records',
+                'trend' => $weeklyTrend['label'],
+                'trend_tone' => $weeklyTrend['tone'],
+                'tone' => 'blue',
+                'icon' => 'M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z',
+            ],
+            [
+                'label' => 'Pending',
+                'value' => 'PHP '.number_format($pendingAmount, 0),
+                'meta' => number_format($pendingCount).' open balances',
+                'trend' => $pendingCount > 0 ? 'Needs review' : 'Queue is clear',
+                'trend_tone' => $pendingCount > 0 ? 'neutral' : 'positive',
+                'tone' => 'amber',
+                'icon' => 'M12 6v6l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z',
+            ],
+            [
+                'label' => 'Overdue',
+                'value' => 'PHP '.number_format($effectiveOverdueAmount, 0),
+                'meta' => number_format($effectiveOverdueCount).' follow-ups',
+                'trend' => $effectiveOverdueCount > 0 ? 'Past due balances' : 'No overdue balance',
+                'trend_tone' => $effectiveOverdueCount > 0 ? 'negative' : 'positive',
+                'tone' => 'rose',
+                'icon' => 'M12 9v3.75m0 3.75h.008v.008H12v-.008ZM21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z',
+            ],
+        ];
+
+        $revenueInsights = [
+            [
+                'label' => 'Collection Rate',
+                'value' => $collectionRate.'%',
+                'note' => 'Portfolio payments settled against billed records.',
+                'tone' => 'emerald',
+            ],
+            [
+                'label' => 'Average Payment',
+                'value' => 'PHP '.number_format($averagePayment, 0),
+                'note' => number_format($paidCount).' paid '.str('entry')->plural($paidCount)->toString().' recorded.',
+                'tone' => 'blue',
+            ],
+            [
+                'label' => 'Due This Week',
+                'value' => 'PHP '.number_format($dueThisWeekAmount, 0),
+                'note' => number_format($dueThisWeekCount).' balances due in the next 7 days.',
+                'tone' => 'amber',
+            ],
+            [
+                'label' => 'Outstanding',
+                'value' => 'PHP '.number_format($outstandingBalance, 0),
+                'note' => 'Pending and overdue balances still in queue.',
+                'tone' => 'rose',
+            ],
+        ];
+
+        $statusBreakdown = collect([
+            ['label' => 'Paid', 'count' => $paidCount, 'amount' => $paidAmount, 'tone' => 'emerald'],
+            ['label' => 'Pending', 'count' => $pendingCount, 'amount' => $pendingAmount, 'tone' => 'amber'],
+            ['label' => 'Overdue', 'count' => $effectiveOverdueCount, 'amount' => $effectiveOverdueAmount, 'tone' => 'rose'],
+        ])->map(function (array $status) use ($totalPayments) {
+            $status['share'] = $totalPayments > 0
+                ? (int) round(($status['count'] / $totalPayments) * 100)
+                : 0;
+
+            return $status;
+        })->values()->all();
+
+        $labels = [];
+        $paidSeries = [];
+        $pendingSeries = [];
+        $overdueSeries = [];
+
+        for ($i = 0; $i < 7; $i++) {
+            $date = $trendStart->copy()->addDays($i);
+            $labels[] = $date->format('M j');
+            $paidSeries[] = round($this->paymentSum($paidStatuses, $date->copy()->startOfDay(), $date->copy()->endOfDay(), Schema::hasColumn('payments', 'paid_at') ? 'paid_at' : 'created_at'), 2);
+            $pendingSeries[] = round($this->paymentSum($pendingStatuses, $date->copy()->startOfDay(), $date->copy()->endOfDay(), Schema::hasColumn('payments', 'due_date') ? 'due_date' : 'created_at'), 2);
+            $overdueSeries[] = round($this->paymentSum($overdueStatuses, $date->copy()->startOfDay(), $date->copy()->endOfDay(), Schema::hasColumn('payments', 'due_date') ? 'due_date' : 'created_at'), 2);
+        }
+
+        $actionSummaries = [
+            [
+                'label' => 'Overdue follow-ups',
+                'count' => $effectiveOverdueCount,
+                'note' => $effectiveOverdueCount > 0
+                    ? 'PHP '.number_format($effectiveOverdueAmount, 2).' needs immediate outreach.'
+                    : 'No overdue balances need attention right now.',
+                'href' => route('admin.payments', ['status' => 'overdue']),
+                'tone' => 'rose',
+            ],
+            [
+                'label' => 'Pending queue',
+                'count' => $pendingCount,
+                'note' => $pendingCount > 0
+                    ? 'PHP '.number_format($pendingAmount, 2).' is still awaiting payment or review.'
+                    : 'Pending balances are currently cleared.',
+                'href' => route('admin.payments', ['status' => 'pending']),
+                'tone' => 'amber',
+            ],
+            [
+                'label' => 'Collections this week',
+                'count' => $paidThisWeekCount,
+                'note' => 'PHP '.number_format($collectionsThisWeek, 2).' was settled in the last 7 days.',
+                'href' => route('admin.transactions.index'),
+                'tone' => 'emerald',
+            ],
+        ];
+
+        $upcomingDues = collect();
+        if (Schema::hasTable('payments') && Schema::hasColumn('payments', 'due_date')) {
+            $upcomingDues = Payment::with(['tenant.user', 'boardingHouse'])
+                ->whereNotNull('due_date')
+                ->when(Schema::hasColumn('payments', 'status'), fn ($query) => $query->whereIn(DB::raw('LOWER(status)'), $openStatuses))
+                ->orderByRaw('CASE WHEN due_date < ? THEN 0 ELSE 1 END', [$today->toDateString()])
+                ->orderBy('due_date')
+                ->limit(5)
+                ->get()
+                ->map(function (Payment $payment) use ($today) {
+                    $status = strtolower((string) ($payment->status ?? 'pending'));
+                    $isPastDue = $payment->due_date?->lt($today) && $status !== 'paid';
+                    $resolvedStatus = $isPastDue ? 'overdue' : $status;
+
+                    return [
+                        'tenant' => $payment->tenant->user->name ?? 'Tenant',
+                        'house' => $payment->boardingHouse->name ?? 'Boarding House',
+                        'amount' => 'PHP '.number_format((float) $payment->amount, 2),
+                        'amount_value' => (float) $payment->amount,
+                        'due_date' => $payment->due_date?->format('M d, Y') ?? 'Not scheduled',
+                        'recorded_at' => $payment->paid_at?->format('M d, Y') ?? ($payment->created_at?->format('M d, Y') ?? 'Not recorded'),
+                        'status' => $resolvedStatus,
+                        'reference_no' => $payment->reference_no,
+                        'notes' => $payment->notes,
+                        'update_url' => route('admin.payments.update', $payment),
+                    ];
+                })
+                ->values();
+        }
+
+        $recentCollections = collect();
+        if (Schema::hasTable('payments')) {
+            $recentCollections = Payment::with(['tenant.user', 'boardingHouse'])
+                ->whereRaw('LOWER(status) = ?', ['paid'])
+                ->orderByRaw(Schema::hasColumn('payments', 'paid_at') ? 'COALESCE(paid_at, created_at) DESC' : 'created_at DESC')
+                ->limit(4)
+                ->get()
+                ->map(function (Payment $payment) {
+                    return [
+                        'tenant' => $payment->tenant->user->name ?? 'Tenant',
+                        'house' => $payment->boardingHouse->name ?? 'Boarding House',
+                        'amount' => 'PHP '.number_format((float) $payment->amount, 2),
+                        'amount_value' => (float) $payment->amount,
+                        'due_date' => $payment->due_date?->format('M d, Y') ?? 'Not scheduled',
+                        'recorded_at' => $payment->paid_at?->format('M d, Y') ?? ($payment->created_at?->format('M d, Y') ?? 'Not recorded'),
+                        'status' => strtolower((string) ($payment->status ?? 'paid')),
+                        'reference_no' => $payment->reference_no,
+                        'notes' => $payment->notes,
+                        'update_url' => route('admin.payments.update', $payment),
+                    ];
+                })
+                ->values();
+        }
+
+        return [
+            'summary_cards' => $summaryCards,
+            'revenue_insights' => $revenueInsights,
+            'status_breakdown' => $statusBreakdown,
+            'payment_trends' => [
+                'labels' => $labels,
+                'paid' => $paidSeries,
+                'pending' => $pendingSeries,
+                'overdue' => $overdueSeries,
+            ],
+            'action_summaries' => $actionSummaries,
+            'upcoming_dues' => $upcomingDues,
+            'recent_collections' => $recentCollections,
+        ];
+    }
+
     private function recentActivities(): \Illuminate\Support\Collection
     {
         $activities = collect();
@@ -2076,7 +2771,7 @@ class AdminOwnerController extends Controller
             Reservation::with(['user', 'boardingHouse'])->latest()->limit(2)->get()->each(function ($reservation) use ($activities) {
                 $activities->push([
                     'title' => 'New reservation submitted',
-                    'description' => ($reservation->user->name ?? 'Tenant').' reserved a room at '.($reservation->boardingHouse->name ?? 'boarding house'),
+                    'description' => data_get($reservation, 'user.name', 'Tenant').' reserved a room at '.data_get($reservation, 'boardingHouse.name', 'boarding house'),
                     'time' => $reservation->created_at,
                     'badge' => ucfirst($reservation->status ?? 'Pending'),
                     'icon' => 'reservations',
@@ -2088,10 +2783,22 @@ class AdminOwnerController extends Controller
             Payment::with(['tenant.user', 'boardingHouse'])->latest()->limit(2)->get()->each(function ($payment) use ($activities) {
                 $activities->push([
                     'title' => strtolower((string) $payment->status) === 'paid' ? 'Payment confirmed' : 'Payment updated',
-                    'description' => 'Payment of PHP '.number_format((float) $payment->amount, 2).' from '.($payment->tenant->user->name ?? 'tenant'),
+                    'description' => 'Payment of PHP '.number_format((float) $payment->amount, 2).' from '.data_get($payment, 'tenant.user.name', 'tenant'),
                     'time' => $payment->paid_at ?: $payment->created_at,
                     'badge' => ucfirst($payment->status ?? 'Pending'),
                     'icon' => 'transactions',
+                ]);
+            });
+        }
+
+        if (Schema::hasTable('tenants')) {
+            Tenant::with(['user', 'boardingHouse'])->latest()->limit(1)->get()->each(function ($tenant) use ($activities) {
+                $activities->push([
+                    'title' => 'Tenant record updated',
+                    'description' => data_get($tenant, 'user.name', 'Tenant').' is now assigned to '.data_get($tenant, 'boardingHouse.name', 'a boarding house'),
+                    'time' => $tenant->updated_at ?: $tenant->created_at,
+                    'badge' => ucfirst($tenant->status ?? 'Active'),
+                    'icon' => 'tenants',
                 ]);
             });
         }
@@ -2100,7 +2807,7 @@ class AdminOwnerController extends Controller
             Inquiry::with(['user', 'boardingHouse'])->latest()->limit(2)->get()->each(function ($inquiry) use ($activities) {
                 $activities->push([
                     'title' => 'New inquiry received',
-                    'description' => ($inquiry->user->name ?? 'Tenant').' asked about '.($inquiry->boardingHouse->name ?? 'availability'),
+                    'description' => data_get($inquiry, 'user.name', 'Tenant').' asked about '.data_get($inquiry, 'boardingHouse.name', 'availability'),
                     'time' => $inquiry->created_at,
                     'badge' => ucfirst($inquiry->status ?? 'New'),
                     'icon' => 'inquiries',
@@ -2124,7 +2831,7 @@ class AdminOwnerController extends Controller
             Room::with('boardingHouse')->latest()->limit(1)->get()->each(function ($room) use ($activities) {
                 $activities->push([
                     'title' => 'Room updated',
-                    'description' => ($room->effective_room_number ?? 'Room').' at '.($room->boardingHouse->name ?? 'boarding house'),
+                    'description' => ($room->effective_room_number ?? 'Room').' at '.data_get($room, 'boardingHouse.name', 'boarding house'),
                     'time' => $room->updated_at ?: $room->created_at,
                     'badge' => ucfirst($room->status ?? 'Available'),
                     'icon' => 'rooms',
@@ -2135,6 +2842,93 @@ class AdminOwnerController extends Controller
         return $activities
             ->filter(fn ($activity) => $activity['time'])
             ->sortByDesc('time')
+            ->take(5)
+            ->values();
+    }
+
+    private function dashboardUpcomingReminders(): \Illuminate\Support\Collection
+    {
+        $today = now()->startOfDay();
+        $items = collect();
+
+        if (Schema::hasTable('payments') && Schema::hasColumn('payments', 'due_date')) {
+            Payment::with(['tenant.user', 'boardingHouse'])
+                ->whereNotNull('due_date')
+                ->when(
+                    Schema::hasColumn('payments', 'status'),
+                    fn ($query) => $query->whereNotIn(DB::raw('LOWER(status)'), ['paid', 'refunded'])
+                )
+                ->whereDate('due_date', '<=', $today->copy()->addDays(10)->toDateString())
+                ->orderByRaw('CASE WHEN due_date < ? THEN 0 ELSE 1 END', [$today->toDateString()])
+                ->orderBy('due_date')
+                ->limit(2)
+                ->get()
+                ->each(function (Payment $payment) use ($items, $today) {
+                    $isOverdue = $payment->due_date?->lt($today);
+
+                    $items->push([
+                        'title' => 'Payment follow-up',
+                        'description' => data_get($payment, 'tenant.user.name', 'Tenant').' for '.data_get($payment, 'boardingHouse.name', 'Boarding House'),
+                        'date_label' => $isOverdue
+                            ? 'Overdue since '.$payment->due_date?->format('M d')
+                            : 'Due '.$payment->due_date?->format('M d'),
+                        'amount' => 'PHP '.number_format((float) $payment->amount, 0),
+                        'tone' => $isOverdue ? 'rose' : 'amber',
+                        'icon' => 'payments',
+                        'href' => route('admin.payments'),
+                        'sort_at' => $payment->due_date ?: $today,
+                    ]);
+                });
+        }
+
+        if (Schema::hasTable('reservations') && Schema::hasColumn('reservations', 'check_in_date')) {
+            Reservation::with(['user', 'boardingHouse', 'room'])
+                ->whereDate('check_in_date', '>=', $today->toDateString())
+                ->whereDate('check_in_date', '<=', $today->copy()->addDays(14)->toDateString())
+                ->orderBy('check_in_date')
+                ->limit(2)
+                ->get()
+                ->each(function (Reservation $reservation) use ($items, $today) {
+                    $items->push([
+                        'title' => 'Upcoming move-in',
+                        'description' => data_get($reservation, 'user.name', 'Tenant').' at '.data_get($reservation, 'boardingHouse.name', 'Boarding House'),
+                        'date_label' => $reservation->check_in_date?->isToday()
+                            ? 'Moves in today'
+                            : 'Moves in '.$reservation->check_in_date?->format('M d'),
+                        'amount' => $reservation->room?->price ? 'PHP '.number_format((float) $reservation->room->price, 0) : 'Reservation ready',
+                        'tone' => 'blue',
+                        'icon' => 'reservations',
+                        'href' => route('admin.reservations'),
+                        'sort_at' => $reservation->check_in_date ?: $today,
+                    ]);
+                });
+        }
+
+        if (Schema::hasTable('maintenance_requests')) {
+            MaintenanceRequest::with(['room.boardingHouse', 'user'])
+                ->when(
+                    Schema::hasColumn('maintenance_requests', 'status'),
+                    fn ($query) => $query->whereIn(DB::raw('LOWER(status)'), ['open', 'pending', 'in progress', 'in_progress'])
+                )
+                ->latest()
+                ->limit(2)
+                ->get()
+                ->each(function (MaintenanceRequest $request) use ($items, $today) {
+                    $items->push([
+                        'title' => 'Maintenance request',
+                        'description' => data_get($request, 'room.boardingHouse.name', 'Boarding House').' · '.($request->issue ?? 'Open issue'),
+                        'date_label' => 'Logged '.$request->created_at?->format('M d'),
+                        'amount' => ucfirst((string) ($request->priority ?? 'Normal')).' priority',
+                        'tone' => 'emerald',
+                        'icon' => 'rooms',
+                        'href' => route('admin.rooms'),
+                        'sort_at' => $request->created_at ?: $today,
+                    ]);
+                });
+        }
+
+        return $items
+            ->sortBy(fn (array $item) => optional($item['sort_at'])->timestamp ?? PHP_INT_MAX)
             ->take(5)
             ->values();
     }

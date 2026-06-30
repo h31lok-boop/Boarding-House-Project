@@ -11,7 +11,6 @@
 
     <div x-data="{ detailOpen: false, selected: {} }" class="space-y-6">
         <div class="ui-card p-6">
-            <p class="text-sm font-semibold uppercase tracking-[0.18em] text-[color:var(--brand-600)]">Feedback & Reports</p>
             <h1 class="mt-2 text-2xl font-bold">Reviews</h1>
             <p class="mt-2 text-sm ui-muted">Review tenant ratings, comments, and publication status.</p>
         </div>

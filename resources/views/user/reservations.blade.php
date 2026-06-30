@@ -109,11 +109,11 @@
     $daysLeft = max(0, now()->startOfDay()->diffInDays($deadline->copy()->startOfDay(), false));
 
     $progressSteps = [
-        ['label' => 'Profile Complete', 'date' => $tenant?->created_at?->format('M d, Y') ?? 'Jun 18, 2026', 'icon' => 'user', 'state' => 'done'],
-        ['label' => 'Match Found', 'date' => $house ? 'Selected' : 'Pending', 'icon' => 'check', 'state' => $house ? 'done' : 'pending'],
-        ['label' => 'Reservation Submitted', 'date' => $requestDate?->format('M d, Y') ?? 'Pending', 'icon' => 'check', 'state' => $currentReservation ? 'done' : 'pending'],
-        ['label' => $isCancelled ? 'Reservation Closed' : ($isApproved ? 'Payment Pending' : 'Owner Review'), 'date' => $isCancelled ? 'Closed' : ($isApproved ? 'Waiting for deposit' : 'Pending'), 'icon' => $isCancelled ? 'x' : ($isApproved ? 'credit-card' : 'clock'), 'state' => $isCancelled ? 'bad' : ($isApproved ? 'active' : 'active')],
-        ['label' => 'Move-in Confirmed', 'date' => $moveInLabel, 'icon' => 'home', 'state' => $isApproved && $moveInDate ? 'done' : 'pending'],
+        ['label' => 'Profile', 'date' => $tenant?->created_at?->format('M d, Y') ?? 'Jun 18, 2026', 'icon' => 'user', 'state' => 'done'],
+        ['label' => 'Match', 'date' => $house ? 'Selected' : 'Pending', 'icon' => 'check', 'state' => $house ? 'done' : 'pending'],
+        ['label' => 'Submitted', 'date' => $requestDate?->format('M d, Y') ?? 'Pending', 'icon' => 'check', 'state' => $currentReservation ? 'done' : 'pending'],
+        ['label' => $isCancelled ? 'Closed' : ($isApproved ? 'Payment' : 'Review'), 'date' => $isCancelled ? 'Closed' : ($isApproved ? 'Deposit next' : 'In review'), 'icon' => $isCancelled ? 'x' : ($isApproved ? 'credit-card' : 'clock'), 'state' => $isCancelled ? 'bad' : 'active'],
+        ['label' => 'Move-in', 'date' => $moveInLabel, 'icon' => 'home', 'state' => $isApproved && $moveInDate ? 'done' : 'pending'],
     ];
 
     $timeline = [
@@ -166,7 +166,7 @@
         <main class="min-w-0 space-y-4">
             <section class="rounded-lg border border-slate-200/80 bg-white p-4 shadow-sm shadow-slate-900/5 dark:border-slate-800 dark:bg-slate-950">
                 <h2 class="text-sm font-black text-slate-950 dark:text-white">Reservation Progress</h2>
-                <div class="mt-5 grid gap-3 md:grid-cols-5">
+                <div class="mt-5 grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 lg:grid-cols-5 lg:gap-0">
                     @foreach ($progressSteps as $index => $step)
                         @php
                             $state = $step['state'];
@@ -177,16 +177,16 @@
                                 default => 'bg-slate-100 text-slate-500 ring-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:ring-slate-700',
                             };
                         @endphp
-                        <div class="relative text-center">
-                            @if ($index < count($progressSteps) - 1)
-                                <div class="absolute left-1/2 top-6 hidden h-px w-full bg-slate-200 md:block dark:bg-slate-800"></div>
+                        <div class="relative flex min-w-0 flex-col items-center px-2 text-center sm:px-3 lg:px-4">
+                            @if (! $loop->last)
+                                <div class="absolute left-1/2 top-5 hidden h-px w-full -translate-y-1/2 bg-slate-200 lg:block dark:bg-slate-800"></div>
                             @endif
-                            <div class="relative mx-auto flex h-11 w-11 items-center justify-center rounded-full ring-1 {{ $nodeClass }}">
-                                <span class="absolute -top-2 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-slate-700 px-1 text-[10px] font-black text-white {{ in_array($state, ['done', 'active'], true) ? 'bg-emerald-600' : '' }} {{ $state === 'active' ? 'bg-amber-500' : '' }}">{{ $index + 1 }}</span>
-                                <x-user.reservation-icon :name="$step['icon']" class="h-5 w-5" />
+                            <div class="relative z-10 flex h-10 w-10 items-center justify-center rounded-full ring-4 ring-white {{ $nodeClass }} dark:ring-slate-950">
+                                <span class="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-700 px-1 text-[9px] font-black leading-none text-white {{ in_array($state, ['done', 'active'], true) ? 'bg-emerald-600' : '' }} {{ $state === 'active' ? 'bg-amber-500' : '' }}">{{ $index + 1 }}</span>
+                                <x-user.reservation-icon :name="$step['icon']" class="h-4 w-4" />
                             </div>
-                            <p class="mt-3 text-xs font-black {{ $state === 'active' ? 'text-amber-700 dark:text-amber-200' : 'text-slate-950 dark:text-white' }}">{{ $step['label'] }}</p>
-                            <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{{ $step['date'] }}</p>
+                            <p class="mt-3 max-w-[8rem] break-words text-[11px] font-black leading-4 {{ $state === 'active' ? 'text-amber-700 dark:text-amber-200' : 'text-slate-950 dark:text-white' }}">{{ $step['label'] }}</p>
+                            <p class="mt-1 max-w-[8rem] text-[10px] leading-4 text-slate-500 dark:text-slate-400">{{ $step['date'] }}</p>
                         </div>
                     @endforeach
                 </div>

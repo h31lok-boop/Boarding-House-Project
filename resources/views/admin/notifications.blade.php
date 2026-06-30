@@ -1,5 +1,5 @@
 <x-layouts.dashboard>
-<x-admin.shell>
+<x-admin.shell :show-header="false">
 @php
     $typeGroups = $typeGroups ?? [
         'reservation' => ['reservation'],
@@ -122,21 +122,20 @@
         }
     }"
     @keydown.escape.window="closeModals()"
-    class="space-y-6"
+    class="space-y-3 text-slate-950"
 >
-    <section class="rounded-2xl border border-slate-200 bg-white px-6 py-6 shadow-sm shadow-slate-900/5">
-        <div class="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+    <section class="rounded-xl border border-slate-200 bg-white/95 px-4 py-3.5 shadow-sm shadow-slate-200/60 backdrop-blur">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="min-w-0">
-                <p class="text-xs font-bold uppercase tracking-[0.22em] text-blue-700">Feedback &amp; Reports</p>
-                <h1 class="mt-3 text-3xl font-bold tracking-tight text-slate-950">Notifications</h1>
-                <p class="mt-2 text-sm leading-6 text-slate-500">Manage announcements and important system alerts.</p>
+                <h1 class="mt-1 text-xl font-bold tracking-tight text-slate-950">Notifications</h1>
+                <p class="mt-0.5 text-xs text-slate-500">Manage announcements, owner alerts, and system updates with less vertical clutter.</p>
             </div>
             <button
                 type="button"
                 @click="sendOpen = true"
-                class="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white shadow-sm shadow-blue-600/25 transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-xs font-bold text-white shadow-sm shadow-blue-600/25 transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100"
             >
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m21 4-9.5 16-2-7-7-2L21 4Z"/>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M11.5 13 21 4"/>
                 </svg>
@@ -145,40 +144,40 @@
         </div>
     </section>
 
-    <section class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         @foreach ($summaryCards as $card)
-            <article class="flex min-h-[120px] items-center gap-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-900/5">
-                <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl {{ $card['tone'] }}">
+            <article class="flex min-h-[112px] items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/60">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl {{ $card['tone'] }}">
                     @if ($card['icon'] === 'mail')
-                        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <rect x="4" y="6" width="16" height="12" rx="2" stroke-width="1.8"/>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m5 8 7 5 7-5"/>
                         </svg>
                     @elseif ($card['icon'] === 'megaphone')
-                        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M18 8.5c1.7.7 3 2.4 3 4.5s-1.3 3.8-3 4.5"/>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 15h2l6 4V5L6 9H4a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1Z"/>
                         </svg>
                     @else
-                        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 17H9m0 0-3-9a6 6 0 1 1 12 0l-3 9m-6 0v1a3 3 0 0 0 6 0v-1"/>
                         </svg>
                     @endif
                 </div>
                 <div class="min-w-0">
-                    <p class="text-3xl font-bold tracking-tight text-slate-950">{{ number_format((int) $card['value']) }}</p>
-                    <p class="mt-1 text-sm font-medium text-slate-500">{{ $card['label'] }}</p>
+                    <p class="text-[1.5rem] font-bold tracking-tight text-slate-950">{{ number_format((int) $card['value']) }}</p>
+                    <p class="mt-0.5 text-xs font-medium text-slate-500">{{ $card['label'] }}</p>
                 </div>
             </article>
         @endforeach
     </section>
 
-    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-900/5">
-        <div class="grid gap-3 xl:grid-cols-[minmax(260px,1fr)_220px_220px_auto_auto]">
+    <section class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/60">
+        <div class="grid gap-2.5 xl:grid-cols-[minmax(240px,1fr)_190px_190px_auto_auto]">
             <form method="GET" action="{{ route('admin.notifications.index') }}" class="contents">
                 <label class="relative block">
-                    <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <circle cx="10.5" cy="10.5" r="6.5" stroke-width="1.8"/>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m16 16 4 4"/>
                         </svg>
@@ -186,14 +185,14 @@
                     <input
                         name="q"
                         value="{{ request('q') }}"
-                        class="h-12 w-full rounded-xl border border-slate-200 bg-white pl-12 pr-4 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                        class="h-10 w-full rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                         placeholder="Search notification title or message"
                     >
                 </label>
 
                 <select
                     name="type"
-                    class="h-12 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                 >
                     <option value="">All Types</option>
                     <option value="reservation" @selected(request('type') === 'reservation')>Reservation</option>
@@ -205,7 +204,7 @@
 
                 <select
                     name="status"
-                    class="h-12 rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                 >
                     <option value="">All Statuses</option>
                     <option value="unread" @selected(request('status') === 'unread')>Unread</option>
@@ -215,9 +214,9 @@
 
                 <button
                     type="submit"
-                    class="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                    class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-xs font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100"
                 >
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M6 6h12l-5 6v5l-2 1v-6Z"/>
                     </svg>
                     Filter
@@ -228,7 +227,7 @@
                 @csrf
                 @method('DELETE')
                 <button
-                    class="inline-flex h-12 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-800 shadow-sm transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus:ring-4 focus:ring-rose-100"
+                    class="inline-flex h-10 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-800 shadow-sm transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 focus:outline-none focus:ring-4 focus:ring-rose-100"
                 >
                     Clear All
                 </button>
@@ -236,7 +235,7 @@
         </div>
     </section>
 
-    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-900/5">
+    <section class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm shadow-slate-200/60">
         <div class="overflow-x-auto">
             <table class="min-w-[1040px] w-full text-left text-sm">
                 <thead class="border-b border-slate-200 bg-slate-50/70">
@@ -433,90 +432,69 @@
         x-cloak
         x-transition
         @click.self="sendOpen = false"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+        class="bm-modal-overlay"
     >
-        <form method="POST" action="{{ route('admin.notifications.store') }}" class="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-950/20">
+        <form method="POST" action="{{ route('admin.notifications.store') }}" class="bm-modal bm-modal--lg">
             @csrf
-            <div class="flex items-start justify-between gap-4">
+            <div class="bm-modal__header">
                 <div>
-                    <p class="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">Send Notification</p>
-                    <h2 class="mt-2 text-xl font-bold text-slate-950">Create Notification</h2>
+                    <p class="bm-modal__eyebrow">Create</p>
+                    <h2 class="bm-modal__title">Create Notification</h2>
+                    <p class="bm-modal__subtitle">Send a targeted or broadcast notice without changing the notification workflow.</p>
                 </div>
-                <button type="button" @click="sendOpen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:bg-slate-50 hover:text-slate-700">
+                <button type="button" @click="sendOpen = false" class="bm-modal__close" aria-label="Close create notification modal">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-
-            <div class="mt-5 grid gap-4">
-                <label class="block text-sm font-bold text-slate-800">
-                    Recipient Type
-                    <select
-                        name="recipient_type"
-                        x-model="recipientType"
-                        required
-                        class="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                    >
-                        <option value="all_tenants">All Tenants</option>
-                        <option value="specific_tenant">Specific Tenant</option>
-                        <option value="all_owners">All Owners</option>
-                        <option value="admin_only">Admin Only</option>
-                    </select>
-                </label>
-
-                <label x-show="recipientType === 'specific_tenant'" x-cloak class="block text-sm font-bold text-slate-800">
-                    Tenant
-                    <select
-                        name="user_id"
-                        class="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                    >
-                        <option value="">Select tenant</option>
-                        @foreach ($tenants as $tenant)
-                            <option value="{{ $tenant->id }}" @selected(old('user_id') == $tenant->id)>{{ $tenant->name }} - {{ $tenant->email }}</option>
-                        @endforeach
-                    </select>
-                </label>
-
-                <label class="block text-sm font-bold text-slate-800">
-                    Notification Type
-                    <select
-                        name="notification_type"
-                        required
-                        class="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                    >
-                        <option value="reservation" @selected(old('notification_type') === 'reservation')>Reservation</option>
-                        <option value="payment" @selected(old('notification_type') === 'payment')>Payment</option>
-                        <option value="message" @selected(old('notification_type') === 'message')>Message</option>
-                        <option value="announcement" @selected(old('notification_type') === 'announcement')>Announcement</option>
-                        <option value="system" @selected(old('notification_type') === 'system')>System</option>
-                    </select>
-                </label>
-
-                <label class="block text-sm font-bold text-slate-800">
-                    Title
-                    <input
-                        name="title"
-                        value="{{ old('title') }}"
-                        required
-                        class="mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                        placeholder="Notification title"
-                    >
-                </label>
-
-                <label class="block text-sm font-bold text-slate-800">
-                    Message
-                    <textarea
-                        name="message"
-                        rows="4"
-                        required
-                        class="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                        placeholder="Write the notification message..."
-                    >{{ old('message') }}</textarea>
-                </label>
+            <div class="bm-modal__body">
+                <section class="bm-modal__section">
+                    <div>
+                        <h3 class="bm-modal__section-title">Notification Content</h3>
+                        <p class="bm-modal__section-copy">Choose recipients and write the message in a structured, scannable format.</p>
+                    </div>
+                    <div class="bm-modal__grid mt-4">
+                        <label>
+                            Recipient Type
+                            <select name="recipient_type" x-model="recipientType" required>
+                                <option value="all_tenants">All Tenants</option>
+                                <option value="specific_tenant">Specific Tenant</option>
+                                <option value="all_owners">All Owners</option>
+                                <option value="admin_only">Admin Only</option>
+                            </select>
+                        </label>
+                        <label x-show="recipientType === 'specific_tenant'" x-cloak>
+                            Tenant
+                            <select name="user_id">
+                                <option value="">Select tenant</option>
+                                @foreach ($tenants as $tenant)
+                                    <option value="{{ $tenant->id }}" @selected(old('user_id') == $tenant->id)>{{ $tenant->name }} - {{ $tenant->email }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+                        <label>
+                            Notification Type
+                            <select name="notification_type" required>
+                                <option value="reservation" @selected(old('notification_type') === 'reservation')>Reservation</option>
+                                <option value="payment" @selected(old('notification_type') === 'payment')>Payment</option>
+                                <option value="message" @selected(old('notification_type') === 'message')>Message</option>
+                                <option value="announcement" @selected(old('notification_type') === 'announcement')>Announcement</option>
+                                <option value="system" @selected(old('notification_type') === 'system')>System</option>
+                            </select>
+                        </label>
+                        <label>
+                            Title
+                            <input name="title" value="{{ old('title') }}" required placeholder="Notification title">
+                        </label>
+                        <label>
+                            Message
+                            <textarea name="message" rows="4" required placeholder="Write the notification message...">{{ old('message') }}</textarea>
+                        </label>
+                    </div>
+                </section>
             </div>
-
-            <div class="mt-6 flex justify-end gap-2">
-                <button type="button" @click="sendOpen = false" class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50">Cancel</button>
-                <button class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white transition hover:bg-blue-700">
+            <div class="bm-modal__footer">
+                <button type="button" @click="sendOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button>
+                <button class="bm-modal__button bm-modal__button--primary">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m21 4-9.5 16-2-7-7-2L21 4Z"/>
                     </svg>
@@ -534,29 +512,31 @@
         x-cloak
         x-transition
         @click.self="detailOpen = false"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+        class="bm-modal-overlay"
     >
-        <div class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl shadow-slate-950/20">
-            <div class="flex items-start justify-between gap-4">
+        <div class="bm-modal">
+            <div class="bm-modal__header">
                 <div class="min-w-0">
-                    <p class="text-xs font-bold uppercase tracking-[0.18em] text-blue-700">Notification Details</p>
-                    <h2 class="mt-2 truncate text-xl font-bold text-slate-950" x-text="selected.title"></h2>
+                    <p class="bm-modal__eyebrow">View</p>
+                    <h2 class="bm-modal__title truncate" x-text="selected.title"></h2>
+                    <p class="bm-modal__subtitle">Notification details and delivery status.</p>
                 </div>
-                <button type="button" @click="detailOpen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:bg-slate-50 hover:text-slate-700">
+                <button type="button" @click="detailOpen = false" class="bm-modal__close" aria-label="Close notification details modal">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-
-            <div class="mt-5 flex flex-wrap gap-2 text-xs font-bold">
-                <span class="rounded-full bg-blue-50 px-3 py-1 text-blue-700" x-text="selected.type"></span>
-                <span class="rounded-full bg-slate-100 px-3 py-1 text-slate-600" x-text="selected.status"></span>
-                <span class="rounded-full bg-white px-3 py-1 text-slate-500 ring-1 ring-slate-200"><span x-text="selected.date"></span> <span x-text="selected.time"></span></span>
+            <div class="bm-modal__body bm-modal__body--compact">
+                <div class="bm-modal__section">
+                    <div class="flex flex-wrap gap-2 text-xs font-bold">
+                        <span class="rounded-full bg-blue-50 px-3 py-1 text-blue-700" x-text="selected.type"></span>
+                        <span class="rounded-full bg-slate-100 px-3 py-1 text-slate-600" x-text="selected.status"></span>
+                        <span class="rounded-full bg-white px-3 py-1 text-slate-500 ring-1 ring-slate-200"><span x-text="selected.date"></span> <span x-text="selected.time"></span></span>
+                    </div>
+                    <p class="mt-4 whitespace-pre-line text-sm leading-6 text-slate-700" x-text="selected.message"></p>
+                </div>
             </div>
-
-            <p class="mt-5 whitespace-pre-line text-sm leading-6 text-slate-700" x-text="selected.message"></p>
-
-            <div class="mt-6 flex justify-end">
-                <button type="button" @click="detailOpen = false" class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50">Close</button>
+            <div class="bm-modal__footer">
+                <button type="button" @click="detailOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
             </div>
         </div>
     </div>

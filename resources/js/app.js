@@ -252,6 +252,10 @@ const setupModalIsolation = () => {
     ].join(',');
 
     const isVisible = (el) => {
+        if (el.hasAttribute('x-cloak')) {
+            return false;
+        }
+
         if (el.hidden || el.classList.contains('hidden') || el.style.display === 'none') {
             return false;
         }

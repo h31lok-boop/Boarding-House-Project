@@ -190,21 +190,21 @@
         @endif
     </section>
 
-    <div x-show="receiptOpen" x-cloak @click.self="closeReceipt()" @keydown.escape.window="closeReceipt()" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-        <div class="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
-            <div class="flex items-center justify-between gap-4 border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+    <div x-show="receiptOpen" x-cloak @click.self="closeReceipt()" @keydown.escape.window="closeReceipt()" class="bm-modal-overlay">
+        <div class="bm-modal bm-modal--xl dark:border-slate-800 dark:bg-slate-900">
+            <div class="bm-modal__header dark:border-slate-800 dark:bg-slate-900">
                 <div class="min-w-0">
-                    <h2 class="truncate text-base font-semibold text-slate-950 dark:text-white" x-text="selected?.receipt?.filename || 'Receipt Preview'"></h2>
-                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400" x-text="selected?.transaction_id"></p>
+                    <h2 class="bm-modal__title truncate text-slate-950 dark:text-white" x-text="selected?.receipt?.filename || 'Receipt Preview'"></h2>
+                    <p class="bm-modal__subtitle dark:text-slate-400" x-text="selected?.transaction_id"></p>
                 </div>
-                <button type="button" @click="closeReceipt()" class="rounded-xl p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white">
+                <button type="button" @click="closeReceipt()" class="bm-modal__close dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white" aria-label="Close receipt preview">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
 
-            <div class="min-h-0 flex-1 overflow-auto bg-slate-50 p-4 dark:bg-slate-950/40">
+            <div class="bm-modal__body min-h-0 flex-1 overflow-auto bg-slate-50 dark:bg-slate-950/40">
                 <template x-if="selected?.receipt?.is_image">
                     <img :src="selected.receipt.url" alt="Receipt preview" class="mx-auto max-h-[70vh] rounded-xl border border-slate-200 bg-white object-contain shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 </template>
@@ -213,9 +213,9 @@
                 </template>
             </div>
 
-            <div class="flex flex-wrap justify-end gap-2 border-t border-slate-200 px-5 py-4 dark:border-slate-800">
-                <a :href="selected?.receipt?.download_url" class="rounded-xl bg-[#2563eb] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1d4ed8]">Download Receipt</a>
-                <button type="button" @click="printReceipt(selected)" class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Print Receipt</button>
+            <div class="bm-modal__footer dark:border-slate-800 dark:bg-slate-900">
+                <a :href="selected?.receipt?.download_url" class="bm-modal__button bm-modal__button--primary">Download Receipt</a>
+                <button type="button" @click="printReceipt(selected)" class="bm-modal__button bm-modal__button--secondary dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Print Receipt</button>
             </div>
         </div>
     </div>

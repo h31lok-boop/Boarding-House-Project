@@ -98,89 +98,121 @@
         </div>
 
         {{-- Add User Modal --}}
-        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak @click.self="addOpen = false" @keydown.escape.window="addOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <form method="POST" action="{{ route('admin.users.store') }}" class="ui-card w-full max-w-xl p-6">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak @click.self="addOpen = false" @keydown.escape.window="addOpen = false" class="bm-modal-overlay">
+            <form method="POST" action="{{ route('admin.users.store') }}" class="bm-modal bm-modal--lg">
                 @csrf
-                <div class="flex items-center justify-between mb-5">
-                    <h2 class="text-lg font-semibold">Add User</h2>
-                    <button type="button" @click="addOpen = false" class="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-400">
+                <div class="bm-modal__header">
+                    <div>
+                        <p class="bm-modal__eyebrow">Create</p>
+                        <h2 class="bm-modal__title">Add User</h2>
+                        <p class="bm-modal__subtitle">Create a new owner or tenant account without leaving this page.</p>
+                    </div>
+                    <button type="button" @click="addOpen = false" class="bm-modal__close" aria-label="Close add user modal">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
-                <div class="grid gap-4 sm:grid-cols-2">
-                    <label class="text-sm">Name<input name="name" required class="ui-input mt-1"></label>
-                    <label class="text-sm">Email<input name="email" type="email" required class="ui-input mt-1"></label>
-                    <label class="text-sm">Role
-                        <select name="role" required class="ui-input mt-1">
-                            <option value="user">Student / Tenant</option>
-                            <option value="admin">Admin / Owner</option>
-                        </select>
-                    </label>
-                    <label class="text-sm">Phone<input name="phone" class="ui-input mt-1"></label>
-                    <label class="text-sm sm:col-span-2">Password<input name="password" type="password" required minlength="8" class="ui-input mt-1"></label>
-                    <label class="sm:col-span-2 flex items-center gap-2 text-sm cursor-pointer">
-                        <input type="checkbox" name="is_active" value="1" checked class="rounded"> Active account
-                    </label>
+                <div class="bm-modal__body">
+                    <section class="bm-modal__section">
+                        <div>
+                            <h3 class="bm-modal__section-title">Account Details</h3>
+                            <p class="bm-modal__section-copy">Use clear account information so the user can sign in immediately.</p>
+                        </div>
+                        <div class="bm-modal__grid bm-modal__grid--two-col mt-4">
+                            <label>Name<input name="name" required></label>
+                            <label>Email<input name="email" type="email" required></label>
+                            <label>Role
+                                <select name="role" required>
+                                    <option value="user">Student / Tenant</option>
+                                    <option value="admin">Admin / Owner</option>
+                                </select>
+                            </label>
+                            <label>Phone<input name="phone"></label>
+                            <label class="sm:col-span-2">Password<input name="password" type="password" required minlength="8"></label>
+                            <label class="sm:col-span-2 bm-modal__checkbox">
+                                <input type="checkbox" name="is_active" value="1" checked class="rounded">
+                                <span>Active account</span>
+                            </label>
+                        </div>
+                    </section>
                 </div>
-                <div class="mt-6 flex justify-end gap-2">
-                    <button type="button" @click="addOpen = false" class="btn-secondary">Cancel</button>
-                    <button class="btn-primary">Save User</button>
+                <div class="bm-modal__footer">
+                    <button type="button" @click="addOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button>
+                    <button class="bm-modal__button bm-modal__button--primary">Save User</button>
                 </div>
             </form>
         </div>
 
         {{-- View User Modal --}}
-        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak @click.self="viewOpen = false" @keydown.escape.window="viewOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <div class="ui-card w-full max-w-lg p-6">
-                <div class="flex items-center justify-between mb-5">
-                    <h2 class="text-lg font-semibold">User Details</h2>
-                    <button type="button" @click="viewOpen = false" class="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-400">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak @click.self="viewOpen = false" @keydown.escape.window="viewOpen = false" class="bm-modal-overlay">
+            <div class="bm-modal">
+                <div class="bm-modal__header">
+                    <div>
+                        <p class="bm-modal__eyebrow">View</p>
+                        <h2 class="bm-modal__title">User Details</h2>
+                        <p class="bm-modal__subtitle">Review account role, contact information, and status at a glance.</p>
+                    </div>
+                    <button type="button" @click="viewOpen = false" class="bm-modal__close" aria-label="Close user details modal">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
-                <dl class="grid gap-3 text-sm">
-                    <div class="flex justify-between py-2 border-b ui-border"><dt class="ui-muted">Name</dt><dd class="font-semibold" x-text="selected.name"></dd></div>
-                    <div class="flex justify-between py-2 border-b ui-border"><dt class="ui-muted">Email</dt><dd x-text="selected.email"></dd></div>
-                    <div class="flex justify-between py-2 border-b ui-border"><dt class="ui-muted">Role</dt><dd x-text="selected.role === 'admin' ? 'Admin / Owner' : 'Student / Tenant'"></dd></div>
-                    <div class="flex justify-between py-2 border-b ui-border"><dt class="ui-muted">Phone</dt><dd x-text="selected.phone || 'Not set'"></dd></div>
-                    <div class="flex justify-between py-2"><dt class="ui-muted">Status</dt><dd x-text="selected.active ? 'Active' : 'Inactive'"></dd></div>
-                </dl>
-                <div class="mt-6 flex justify-end">
-                    <button type="button" @click="viewOpen = false" class="btn-secondary">Close</button>
+                <div class="bm-modal__body bm-modal__body--compact">
+                    <dl class="bm-modal__details">
+                        <div class="bm-modal__detail"><dt>Name</dt><dd x-text="selected.name"></dd></div>
+                        <div class="bm-modal__detail"><dt>Email</dt><dd x-text="selected.email"></dd></div>
+                        <div class="bm-modal__detail"><dt>Role</dt><dd x-text="selected.role === 'admin' ? 'Admin / Owner' : 'Student / Tenant'"></dd></div>
+                        <div class="bm-modal__detail"><dt>Phone</dt><dd x-text="selected.phone || 'Not set'"></dd></div>
+                        <div class="bm-modal__detail"><dt>Status</dt><dd x-text="selected.active ? 'Active' : 'Inactive'"></dd></div>
+                    </dl>
+                </div>
+                <div class="bm-modal__footer">
+                    <button type="button" @click="viewOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
                 </div>
             </div>
         </div>
 
         {{-- Edit User Modal --}}
-        <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak @click.self="editOpen = false" @keydown.escape.window="editOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <form method="POST" :action="selected.update_url" class="ui-card w-full max-w-xl p-6">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak @click.self="editOpen = false" @keydown.escape.window="editOpen = false" class="bm-modal-overlay">
+            <form method="POST" :action="selected.update_url" class="bm-modal bm-modal--lg">
                 @csrf @method('PATCH')
-                <div class="flex items-center justify-between mb-5">
-                    <h2 class="text-lg font-semibold">Edit User</h2>
-                    <button type="button" @click="editOpen = false" class="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-400">
+                <div class="bm-modal__header">
+                    <div>
+                        <p class="bm-modal__eyebrow">Edit</p>
+                        <h2 class="bm-modal__title">Edit User</h2>
+                        <p class="bm-modal__subtitle">Update the account profile while keeping existing permissions and logic intact.</p>
+                    </div>
+                    <button type="button" @click="editOpen = false" class="bm-modal__close" aria-label="Close edit user modal">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
-                <div class="grid gap-4 sm:grid-cols-2">
-                    <label class="text-sm">Name<input name="name" required class="ui-input mt-1" :value="selected.name"></label>
-                    <label class="text-sm">Email<input name="email" type="email" required class="ui-input mt-1" :value="selected.email"></label>
-                    <label class="text-sm">Role
-                        <select name="role" required class="ui-input mt-1">
-                            <option value="user" :selected="selected.role === 'user'">Student / Tenant</option>
-                            <option value="admin" :selected="selected.role === 'admin'">Admin / Owner</option>
-                        </select>
-                    </label>
-                    <label class="text-sm">Phone<input name="phone" class="ui-input mt-1" :value="selected.phone"></label>
-                    <label class="text-sm sm:col-span-2">New Password
-                        <input name="password" type="password" minlength="8" class="ui-input mt-1" placeholder="Leave blank to keep current">
-                    </label>
-                    <label class="sm:col-span-2 flex items-center gap-2 text-sm cursor-pointer">
-                        <input type="checkbox" name="is_active" value="1" :checked="selected.active" class="rounded"> Active account
-                    </label>
+                <div class="bm-modal__body">
+                    <section class="bm-modal__section">
+                        <div>
+                            <h3 class="bm-modal__section-title">Profile Settings</h3>
+                            <p class="bm-modal__section-copy">Only change the password if the account needs a reset.</p>
+                        </div>
+                        <div class="bm-modal__grid bm-modal__grid--two-col mt-4">
+                            <label>Name<input name="name" required :value="selected.name"></label>
+                            <label>Email<input name="email" type="email" required :value="selected.email"></label>
+                            <label>Role
+                                <select name="role" required class="ui-input mt-1">
+                                    <option value="user" :selected="selected.role === 'user'">Student / Tenant</option>
+                                    <option value="admin" :selected="selected.role === 'admin'">Admin / Owner</option>
+                                </select>
+                            </label>
+                            <label>Phone<input name="phone" :value="selected.phone"></label>
+                            <label class="sm:col-span-2">New Password
+                                <input name="password" type="password" minlength="8" placeholder="Leave blank to keep current">
+                            </label>
+                            <label class="sm:col-span-2 bm-modal__checkbox">
+                                <input type="checkbox" name="is_active" value="1" :checked="selected.active" class="rounded">
+                                <span>Active account</span>
+                            </label>
+                        </div>
+                    </section>
                 </div>
-                <div class="mt-6 flex justify-end gap-2">
-                    <button type="button" @click="editOpen = false" class="btn-secondary">Cancel</button>
-                    <button class="btn-primary">Save Changes</button>
+                <div class="bm-modal__footer">
+                    <button type="button" @click="editOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button>
+                    <button class="bm-modal__button bm-modal__button--primary">Save Changes</button>
                 </div>
             </form>
         </div>

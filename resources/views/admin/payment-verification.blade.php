@@ -1,5 +1,5 @@
 <x-layouts.dashboard>
-<x-admin.shell>
+<x-admin.shell :show-header="false">
 @php
     $money = fn ($value) => html_entity_decode('&#8369;').number_format((float) $value, 2);
     $badge = fn ($status) => match ($status) {

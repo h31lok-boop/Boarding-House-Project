@@ -18,18 +18,18 @@
 @endphp
 
 <{{ $tag }} @if($href) href="{{ $href }}" @endif {{ $attributes->merge([
-    'class' => 'flex items-center gap-3 rounded-xl p-2.5 transition hover:bg-slate-50 dark:hover:bg-slate-800/60'
+    'class' => 'flex items-center gap-2.5 rounded-xl p-2 transition hover:bg-slate-50 dark:hover:bg-slate-800/60'
 ]) }}>
-    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl {{ $tones[$tone] ?? $tones['blue'] }}">
+    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg {{ $tones[$tone] ?? $tones['blue'] }}">
         {{ $icon ?? '' }}
     </span>
     <span class="min-w-0 flex-1">
-        <span class="block truncate text-sm font-semibold text-slate-900 dark:text-white">{{ $title }}</span>
+        <span class="block truncate text-[13px] font-semibold text-slate-900 dark:text-white">{{ $title }}</span>
         @if($detail)
-            <span class="mt-0.5 block truncate text-xs text-slate-500 dark:text-slate-400">{{ $detail }}</span>
+            <span class="mt-0.5 block truncate text-[11px] text-slate-500 dark:text-slate-400">{{ $detail }}</span>
         @endif
     </span>
     @if($meta)
-        <span class="shrink-0 text-xs font-medium text-slate-400">{{ $meta }}</span>
+        <span class="shrink-0 text-[11px] font-medium text-slate-400">{{ $meta }}</span>
     @endif
 </{{ $tag }}>

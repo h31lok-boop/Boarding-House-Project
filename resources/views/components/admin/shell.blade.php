@@ -1,5 +1,20 @@
+@props([
+    'showHeader' => true,
+])
+
 @php
-    $r = fn($name, $params = []) => \Illuminate\Support\Facades\Route::has($name) ? route($name, $params) : url()->current();
+    $showHeader = is_string($showHeader)
+        ? ! in_array(strtolower($showHeader), ['false', '0', 'off', 'no', ''], true)
+        : (bool) $showHeader;
+
+    if (request()->is('admin/payments*', 'admin/transactions*')) {
+        $showHeader = false;
+    }
+
+    $r = fn ($name, $params = [], $fallback = null) => \Illuminate\Support\Facades\Route::has($name)
+        ? route($name, $params)
+        : (($fallback && \Illuminate\Support\Facades\Route::has($fallback)) ? route($fallback, $params) : url()->current());
+
     $currentUser = auth()->user();
     $profileImage = $currentUser?->profile_photo ?: $currentUser?->profile_image;
     $accountImageUrl = $profileImage
@@ -7,44 +22,139 @@
             ? $profileImage
             : \Illuminate\Support\Facades\Storage::url($profileImage))
         : null;
-    $adminName = $currentUser?->name ?: 'Admin';
-    $adminInitial = strtoupper(substr($adminName, 0, 1));
-    $adminRole = ucfirst($currentUser?->role ?: 'Admin');
-    $unreadNotificationsCount = 0;
 
-    if ($currentUser && \Illuminate\Support\Facades\Schema::hasTable('notifications')) {
-        $notificationsQuery = \Illuminate\Support\Facades\DB::table('notifications')->where('user_id', $currentUser->id);
-
-        if (\Illuminate\Support\Facades\Schema::hasColumn('notifications', 'is_read')) {
-            $notificationsQuery->where('is_read', false);
-        } elseif (\Illuminate\Support\Facades\Schema::hasColumn('notifications', 'read_at')) {
-            $notificationsQuery->whereNull('read_at');
-        }
-
-        $unreadNotificationsCount = (int) $notificationsQuery->count();
-    }
-
-    $pageLabel = match (true) {
-        request()->routeIs('admin.dashboard') => 'Overview',
-        request()->is('admin/boarding-houses*', 'admin/listings*', 'admin/my-boarding-house*') => 'Boarding Houses',
-        request()->is('admin/reservations*') => 'Reservations',
-        request()->is('admin/tenants*', 'admin/tenant-profiles*') => 'Tenants',
-        request()->is('admin/inquiries*') => 'Inquiries',
-        request()->is('admin/transactions*', 'admin/payments*') => 'Transactions',
-        request()->is('admin/messages*') => 'Messages',
-        request()->is('admin/notifications*') => 'Notifications',
-        request()->is('admin/reports*') => 'Reports',
-        request()->is('admin/settings*') => 'Settings',
-        request()->is('admin/search*') => 'Search',
-        default => 'Admin',
+    $ownerName = $currentUser?->name ?: 'Property Owner';
+    $ownerInitial = strtoupper(substr($ownerName, 0, 1));
+    $ownerRole = match (strtolower((string) $currentUser?->role)) {
+        'owner' => 'Property Owner',
+        'admin' => 'Owner Administrator',
+        default => 'Owner Workspace',
     };
 
+    $notificationsCount = 0;
+    $messageCount = 0;
+    $pendingReservationCount = 0;
+
+    if (\Illuminate\Support\Facades\Schema::hasTable('notifications') && $currentUser) {
+        $notificationQuery = \Illuminate\Support\Facades\DB::table('notifications')->where('user_id', $currentUser->id);
+
+        if (\Illuminate\Support\Facades\Schema::hasColumn('notifications', 'is_read')) {
+            $notificationQuery->where('is_read', false);
+        } elseif (\Illuminate\Support\Facades\Schema::hasColumn('notifications', 'read_at')) {
+            $notificationQuery->whereNull('read_at');
+        }
+
+        $notificationsCount = (int) $notificationQuery->count();
+    }
+
+    if (\Illuminate\Support\Facades\Schema::hasTable('messages')) {
+        $messageQuery = \Illuminate\Support\Facades\DB::table('messages');
+
+        if (\Illuminate\Support\Facades\Schema::hasColumn('messages', 'is_read')) {
+            $messageQuery->where('is_read', false);
+        } elseif (\Illuminate\Support\Facades\Schema::hasColumn('messages', 'read_at')) {
+            $messageQuery->whereNull('read_at');
+        }
+
+        $messageCount = (int) $messageQuery->count();
+    }
+
+    if (\Illuminate\Support\Facades\Schema::hasTable('reservations') && \Illuminate\Support\Facades\Schema::hasColumn('reservations', 'status')) {
+        $pendingReservationCount = (int) \Illuminate\Support\Facades\DB::table('reservations')
+            ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['pending', 'approved', 'reserved'])
+            ->count();
+    }
+
+    $pageContext = match (true) {
+        request()->routeIs('admin.dashboard') => [
+            'label' => 'Owner Dashboard',
+            'title' => 'Owner Workspace',
+            'description' => 'Monitor reservations, tenants, payments, and property performance from one compact workspace.',
+        ],
+        request()->is('admin/boarding-houses*', 'admin/listings*', 'admin/my-boarding-house*') => [
+            'label' => 'Property Management',
+            'title' => 'Portfolio Listings',
+            'description' => 'Manage property details, listing visibility, amenities, and availability across your boarding houses.',
+        ],
+        request()->is('admin/rooms*') => [
+            'label' => 'Room Management',
+            'title' => 'Room Inventory',
+            'description' => 'Track room types, occupancy, rates, and room-level availability for every property.',
+        ],
+        request()->is('admin/reservations*') => [
+            'label' => 'Reservations',
+            'title' => 'Reservation Queue',
+            'description' => 'Review incoming requests, approvals, move-in schedules, and follow-up actions.',
+        ],
+        request()->is('admin/tenants*', 'admin/tenant-profiles*') => [
+            'label' => 'Tenant Management',
+            'title' => 'Tenant Directory',
+            'description' => 'Monitor tenant profiles, active stays, and housing history across your listings.',
+        ],
+        request()->is('admin/inquiries*') => [
+            'label' => 'Inquiry Inbox',
+            'title' => 'Property Inquiries',
+            'description' => 'Respond to questions from students and keep inquiries moving toward reservation decisions.',
+        ],
+        request()->is('admin/messages*') => [
+            'label' => 'Messages',
+            'title' => 'Conversation Hub',
+            'description' => 'Keep tenant conversations organized, timely, and easy to resolve.',
+        ],
+        request()->is('admin/payments*', 'admin/transactions*') => [
+            'label' => 'Payments & Earnings',
+            'title' => 'Revenue Tracking',
+            'description' => 'Record payments, monitor outstanding balances, and review collection status.',
+        ],
+        request()->is('admin/payment-verification*') => [
+            'label' => 'Receipt Review',
+            'title' => 'Payment Receipt Verification',
+            'description' => 'Approve or reject submitted receipts and keep payment records accurate.',
+        ],
+        request()->is('admin/notifications*') => [
+            'label' => 'Notifications',
+            'title' => 'Owner Alerts',
+            'description' => 'Stay on top of system updates, tenant actions, and account reminders.',
+        ],
+        request()->is('admin/reports*') => [
+            'label' => 'Reports & Analytics',
+            'title' => 'Performance Reports',
+            'description' => 'Review occupancy, revenue, inquiry, and operational performance trends.',
+        ],
+        request()->is('admin/match-requests*', 'admin/recommendations*', 'admin/compatibility-scores*') => [
+            'label' => 'Matching Insights',
+            'title' => 'Demand & Match Insights',
+            'description' => 'Review compatibility trends and student demand signals tied to your listings.',
+        ],
+        request()->is('admin/settings*') => [
+            'label' => 'Account Settings',
+            'title' => 'Owner Account',
+            'description' => 'Manage your profile, security settings, and workspace preferences.',
+        ],
+        request()->is('admin/help-center*', 'admin/help*') => [
+            'label' => 'Help Center',
+            'title' => 'Owner Support Center',
+            'description' => 'Find fast answers, support resources, and operational guidance for your owner workspace.',
+        ],
+        request()->is('admin/search*') => [
+            'label' => 'Workspace Search',
+            'title' => 'Owner Search',
+            'description' => 'Search properties, tenants, reservations, payments, and inquiries across your workspace.',
+        ],
+        default => [
+            'label' => 'Owner Workspace',
+            'title' => 'BoardMatch Workspace',
+            'description' => 'Manage your properties, tenants, and revenue in one place.',
+        ],
+    };
+
+    $dashboardSearchPlaceholder = 'Search boarding houses, tenants, reservations, payments...';
 @endphp
 
 <div
-    x-data="{ logoutConfirm: false, adminProfileOpen: false }"
-    @keydown.escape.window="logoutConfirm = false; adminProfileOpen = false"
-    class="admin-shell w-full bg-[#f7f8fb]"
+    x-data="{ adminProfileOpen: false, adminProfileMenuReady: false }"
+    @keydown.escape.window="adminProfileOpen = false; adminProfileMenuReady = false"
+    class="admin-shell relative w-full overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.08),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(37,99,235,0.08),_transparent_24%),#f4f7fb]"
 >
     <div class="sidebar-overlay" data-sidebar-overlay aria-hidden="true"></div>
 
@@ -84,12 +194,14 @@
         <p class="sidebar-footer mt-4 border-t border-white/10 pt-3 text-center text-[11px] leading-4 text-slate-500">&copy; {{ date('Y') }} BoardMatch<br>All rights reserved.</p>
     </aside>
 
-    <main class="admin-dashboard-main min-w-0 bg-[#f7f8fb]">
-        <div class="max-w-[1600px] mx-auto px-4 sm:px-6 2xl:px-8 py-6 space-y-6">
-            <div class="md:hidden">
+    <main class="admin-dashboard-main min-w-0 bg-transparent">
+        <div class="relative mx-auto flex max-w-[1640px] flex-col gap-2.5 px-2.5 py-2.5 sm:px-3 sm:py-3 xl:px-4">
+            <div class="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.7),_transparent_62%)]"></div>
+
+            <div class="relative md:hidden">
                 <button
                     type="button"
-                    class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400/70"
+                    class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white/90 px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-400/70"
                     data-sidebar-toggle
                     aria-controls="adminSidebar"
                     aria-expanded="false"
@@ -102,89 +214,112 @@
                 </button>
             </div>
 
-            @if (request()->routeIs('admin.dashboard'))
-                <header class="ui-card rounded-2xl px-4 py-3 shadow-sm">
-                    <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                        <nav class="flex items-center gap-2 text-sm font-semibold text-slate-500" aria-label="Breadcrumb">
-                            <a href="{{ $r('admin.dashboard') }}" class="text-slate-700 transition hover:text-blue-700">Dashboard</a>
-                            <svg class="h-4 w-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m9 5 7 7-7 7"/>
-                            </svg>
-                            <span class="text-blue-700">{{ $pageLabel }}</span>
-                        </nav>
-
-                        <form method="GET" action="{{ $r('admin.search') }}" class="min-w-0 flex-1 xl:max-w-2xl">
-                            <label class="relative block">
-                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <circle cx="10.5" cy="10.5" r="6.5" stroke-width="1.8"/>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m16 16 4 4"/>
-                                    </svg>
-                                </span>
-                                <input
-                                    name="query"
-                                    value="{{ request('query') }}"
-                                    class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
-                                    placeholder="Search boarding houses, tenants, reservations, payments..."
-                                >
-                            </label>
-                        </form>
-
-                        <div class="flex items-center justify-between gap-3 xl:justify-end">
-                            <a href="{{ $r('admin.notifications.index') }}" class="relative inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" aria-label="Notifications">
-                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 17H9m0 0-3-9a6 6 0 1 1 12 0l-3 9m-6 0v1a3 3 0 0 0 6 0v-1"/>
+            @if ($showHeader)
+                <header class="relative z-[60] overflow-visible rounded-[1.1rem] border border-white/80 bg-white/88 px-3 py-2.5 shadow-[0_14px_30px_rgba(15,23,42,0.06)] backdrop-blur xl:px-3.5">
+                    <div class="absolute inset-y-0 right-0 hidden w-32 bg-[radial-gradient(circle_at_center,_rgba(16,185,129,0.12),_transparent_68%)] lg:block"></div>
+                    <div class="relative flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
+                        <div class="min-w-0">
+                            <p class="text-[0.68rem] font-extrabold uppercase tracking-[0.24em] text-blue-600">Owner portal</p>
+                            <div class="mt-0.5 flex items-center gap-2 text-[13px] font-semibold text-slate-500">
+                                <a href="{{ $r('admin.dashboard') }}" class="transition hover:text-blue-700">Workspace</a>
+                                <svg class="h-4 w-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m9 5 7 7-7 7"/>
                                 </svg>
-                                @if ($unreadNotificationsCount > 0)
-                                    <span class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
-                                        {{ $unreadNotificationsCount > 99 ? '99+' : $unreadNotificationsCount }}
-                                    </span>
-                                @endif
-                            </a>
+                                <span class="truncate text-slate-700">{{ $pageContext['label'] }}</span>
+                            </div>
+                            <h1 class="mt-1 text-[1.2rem] font-black tracking-tight text-slate-950">{{ $pageContext['title'] }}</h1>
+                            <p class="mt-1 max-w-3xl text-[11px] leading-5 text-slate-500">{{ $pageContext['description'] }}</p>
+                        </div>
 
-                            <div class="relative">
-                                <button
-                                    type="button"
-                                    @click="adminProfileOpen = !adminProfileOpen"
-                                    class="flex min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-left shadow-sm transition hover:border-blue-200 hover:bg-blue-50"
-                                    aria-haspopup="menu"
-                                    :aria-expanded="adminProfileOpen"
-                                >
-                                    <span class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-600 text-sm font-bold text-white">
-                                        @if ($accountImageUrl)
-                                            <img src="{{ $accountImageUrl }}" alt="{{ $adminName }}" class="h-full w-full object-cover">
-                                        @else
-                                            {{ $adminInitial }}
-                                        @endif
-                                    </span>
-                                    <span class="hidden min-w-0 leading-tight sm:block">
-                                        <span class="block truncate text-sm font-bold text-slate-900">{{ $adminName }}</span>
-                                        <span class="block truncate text-xs font-semibold text-slate-500">{{ $adminRole }}</span>
-                                    </span>
-                                    <svg class="h-4 w-4 shrink-0 text-slate-400 transition" :class="adminProfileOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/>
+                        <div class="flex w-full flex-col gap-2 xl:w-auto xl:min-w-[32rem] xl:items-end">
+                            @if (request()->routeIs('admin.dashboard'))
+                                <form method="GET" action="{{ $r('admin.search') }}" class="w-full xl:max-w-[28rem]">
+                                    <label class="relative block">
+                                        <span class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <circle cx="10.5" cy="10.5" r="6.5" stroke-width="1.8"/>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m16 16 4 4"/>
+                                            </svg>
+                                        </span>
+                                        <input
+                                            name="query"
+                                            value="{{ request('query') }}"
+                                            class="h-9 w-full rounded-xl border border-slate-200 bg-slate-50/90 pl-10 pr-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                                            placeholder="{{ $dashboardSearchPlaceholder }}"
+                                        >
+                                    </label>
+                                </form>
+                            @endif
+
+                            <div class="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap xl:justify-end">
+                                <a href="{{ $r('admin.reservations') }}" class="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 text-[11px] font-bold text-emerald-700 transition hover:bg-emerald-100">
+                                    <span>Reservations</span>
+                                    <span class="rounded-full bg-white px-2 py-0.5 text-[11px] leading-none text-emerald-700">{{ $pendingReservationCount }}</span>
+                                </a>
+                                <a href="{{ $r('admin.messages') }}" class="relative inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700" aria-label="Messages">
+                                    <svg class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 6h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H9l-5 4v-4H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z"/>
+                                        <path stroke-linecap="round" stroke-width="1.8" d="M8 10h8M8 14h5"/>
                                     </svg>
-                                </button>
+                                    @if ($messageCount > 0)
+                                        <span class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{{ $messageCount > 99 ? '99+' : $messageCount }}</span>
+                                    @endif
+                                </a>
+                                <a href="{{ $r('admin.notifications.index') }}" class="relative inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" aria-label="Notifications">
+                                    <svg class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 17H9m0 0-3-9a6 6 0 1 1 12 0l-3 9m-6 0v1a3 3 0 0 0 6 0v-1"/>
+                                    </svg>
+                                    @if ($notificationsCount > 0)
+                                        <span class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{{ $notificationsCount > 99 ? '99+' : $notificationsCount }}</span>
+                                    @endif
+                                </a>
 
-                                <div
-                                    x-cloak
-                                    x-show="adminProfileOpen"
-                                    x-transition
-                                    @click.outside="adminProfileOpen = false"
-                                    class="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/12"
-                                    role="menu"
-                                >
-                                    <div class="border-b border-slate-100 px-4 py-3">
-                                        <p class="truncate text-sm font-bold text-slate-900">{{ $adminName }}</p>
-                                        <p class="truncate text-xs text-slate-500">{{ $currentUser?->email }}</p>
-                                    </div>
-                                    <div class="p-1.5 text-sm">
-                                        <a href="{{ $r('admin.settings.index') }}" class="flex items-center gap-2 rounded-xl px-3 py-2.5 font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700" role="menuitem">Profile Settings</a>
-                                        <a href="{{ $r('admin.settings.index', ['tab' => 'security']) }}" class="flex items-center gap-2 rounded-xl px-3 py-2.5 font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700" role="menuitem">Account Settings</a>
-                                        <form method="POST" action="{{ route('logout') }}">
-                                            @csrf
-                                            <button class="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left font-semibold text-rose-600 transition hover:bg-rose-50" role="menuitem">Logout</button>
-                                        </form>
+                                <div class="relative z-[70] min-w-0 flex-1 sm:flex-none">
+                                    <button
+                                        type="button"
+                                        @click.stop="adminProfileOpen = ! adminProfileOpen; adminProfileMenuReady = false; if (adminProfileOpen) setTimeout(() => adminProfileMenuReady = true, 120)"
+                                        class="flex h-11 w-full min-w-0 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-2.5 shadow-sm transition hover:border-blue-200 hover:bg-blue-50/60 focus:outline-none focus:ring-4 focus:ring-blue-100 sm:w-auto sm:min-w-[12rem] sm:max-w-[15rem]"
+                                        aria-haspopup="menu"
+                                        :aria-expanded="adminProfileOpen"
+                                    >
+                                        <span class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-emerald-500 to-blue-600 text-sm font-bold text-white">
+                                            @if ($accountImageUrl)
+                                                <img src="{{ $accountImageUrl }}" alt="{{ $ownerName }}" class="h-full w-full object-cover">
+                                            @else
+                                                {{ $ownerInitial }}
+                                            @endif
+                                        </span>
+                                        <span class="min-w-0 flex-1 text-left leading-tight">
+                                            <span class="block truncate text-[13px] font-bold text-slate-900">{{ $ownerName }}</span>
+                                            <span class="block truncate text-[11px] font-semibold text-slate-500">{{ $ownerRole }}</span>
+                                        </span>
+                                        <svg class="h-4 w-4 shrink-0 text-slate-400 transition" :class="adminProfileOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/>
+                                        </svg>
+                                    </button>
+
+                                    <div
+                                        x-cloak
+                                        x-show="adminProfileOpen"
+                                        x-transition
+                                        @click.outside="adminProfileOpen = false; adminProfileMenuReady = false"
+                                        @click.stop
+                                        class="absolute right-0 top-full z-[80] mt-2 w-[min(17.5rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/12"
+                                        :class="adminProfileMenuReady ? 'pointer-events-auto' : 'pointer-events-none'"
+                                        role="menu"
+                                    >
+                                        <div class="border-b border-slate-100 px-4 py-4">
+                                            <p class="truncate text-base font-bold text-slate-950">{{ $ownerName }}</p>
+                                            <p class="mt-0.5 truncate text-sm text-slate-500">{{ $currentUser?->email }}</p>
+                                        </div>
+                                        <div class="p-2 text-sm">
+                                            <a href="{{ $r('admin.settings.index') }}" class="flex items-center rounded-xl px-3 py-3 text-base font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700" role="menuitem">Profile Management</a>
+                                            <a href="{{ $r('admin.settings.index', ['tab' => 'security']) }}" class="flex items-center rounded-xl px-3 py-3 text-base font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700" role="menuitem">Security Settings</a>
+                                            <form method="POST" action="{{ route('logout') }}">
+                                                @csrf
+                                                <button class="flex w-full items-center rounded-xl px-3 py-3 text-left text-base font-semibold text-rose-600 transition hover:bg-rose-50" role="menuitem">Logout</button>
+                                            </form>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -195,37 +330,11 @@
 
             <x-toast />
 
-            {{ $slot }}
+            <div class="relative">
+                {{ $slot }}
+            </div>
         </div>
     </main>
-
-    <div
-        data-modal-root
-        role="dialog"
-        aria-modal="true"
-        x-show="logoutConfirm"
-        x-cloak
-        x-transition
-        @click.self="logoutConfirm = false"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-    >
-        <div class="ui-card w-full max-w-sm p-6 text-center shadow-xl">
-            <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
-                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4M14 16l4-4-4-4M18 12H9"/>
-                </svg>
-            </div>
-            <h3 class="text-lg font-semibold text-slate-900">Confirm Logout</h3>
-            <p class="mt-2 text-sm leading-6 text-slate-500">Are you sure you want to log out of the admin panel?</p>
-            <div class="mt-5 flex justify-center gap-2">
-                <button type="button" @click="logoutConfirm = false" class="btn-secondary">Cancel</button>
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button class="btn-danger">Log out</button>
-                </form>
-            </div>
-        </div>
-    </div>
 </div>
 
 <script>

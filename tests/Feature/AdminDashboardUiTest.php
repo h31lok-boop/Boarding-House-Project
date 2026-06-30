@@ -13,20 +13,21 @@ test('admin dashboard renders the modern dashboard sections', function () {
         ->get(route('admin.dashboard'))
         ->assertOk()
         ->assertSee('Search boarding houses, tenants, reservations, payments...')
+        ->assertSee('Owner portal')
         ->assertSee('Welcome back')
-        ->assertSee('Total Boarding Houses')
+        ->assertSee('Total Properties')
         ->assertSee('Active Reservations')
         ->assertSee('Active Tenants')
         ->assertSee('Total Revenue')
         ->assertSee('Reservations Overview')
         ->assertSee('Revenue Overview')
         ->assertSee('Recent Activity')
-        ->assertSee('Latest Reservations')
-        ->assertDontSee('Pending Admin Actions')
-        ->assertDontSee('Revenue Summary')
-        ->assertDontSee('Occupancy Rate')
-        ->assertDontSee('Inquiry Status')
-        ->assertDontSee('Match Requests');
+        ->assertSee('Top Performing Properties')
+        ->assertSee('Occupancy Overview')
+        ->assertSee('Add Boarding House')
+        ->assertSee('View all reservations')
+        ->assertDontSee('Portfolio HQ')
+        ->assertDontSee('Track portfolio performance, tenant activity, earnings, and action queues from one owner workspace.');
 });
 
 test('admin dashboard action routes are reachable', function (string $routeName, array $params = []) {
