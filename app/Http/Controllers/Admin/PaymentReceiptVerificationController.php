@@ -13,7 +13,7 @@ class PaymentReceiptVerificationController extends Controller
 {
     public function index(Request $request)
     {
-        abort_unless($request->user()?->isAdmin(), 403);
+        abort_unless($request->user()?->isSuperAdmin(), 403);
 
         $receipts = PaymentReceipt::with(['user', 'booking.room.boardingHouse'])
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->query('status')))
@@ -26,7 +26,7 @@ class PaymentReceiptVerificationController extends Controller
 
     public function approve(Request $request, PaymentReceipt $receipt)
     {
-        abort_unless($request->user()?->isAdmin(), 403);
+        abort_unless($request->user()?->isSuperAdmin(), 403);
 
         $receipt->forceFill([
             'status' => PaymentReceipt::STATUS_APPROVED,
@@ -42,7 +42,7 @@ class PaymentReceiptVerificationController extends Controller
 
     public function reject(Request $request, PaymentReceipt $receipt)
     {
-        abort_unless($request->user()?->isAdmin(), 403);
+        abort_unless($request->user()?->isSuperAdmin(), 403);
 
         $data = $request->validate([
             'rejection_reason' => ['required', 'string', 'max:1000'],

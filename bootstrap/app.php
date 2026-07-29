@@ -15,8 +15,13 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
+            'owner' => \App\Http\Middleware\OwnerMiddleware::class,
             'user' => \App\Http\Middleware\UserMiddleware::class,
         ]);
+
+        $middleware->trustHosts(at: ['^(.*)\.ngrok-free\.dev$', '^localhost$', '^final-project\.test$']);
+
+        $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

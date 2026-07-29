@@ -33,7 +33,7 @@ class LoginRequest extends FormRequest
         return [
             'email' => ['required', 'string'],
             'password' => ['required', 'string'],
-            'role' => ['nullable', 'string', 'in:tenant,owner,user,admin'],
+            'role' => ['nullable', 'string', 'in:tenant,owner,admin'],
         ];
     }
 
@@ -111,7 +111,7 @@ class LoginRequest extends FormRequest
             ]);
         }
 
-        if ($status === 'pending' && ! $user->isAdmin()) {
+        if ($status === 'pending' && ! $user->isManager()) {
             Auth::logout();
 
             throw ValidationException::withMessages([
@@ -123,8 +123,9 @@ class LoginRequest extends FormRequest
     private function roleMatchesUser(string $selectedRole, mixed $user): bool
     {
         return match ($selectedRole) {
-            'tenant', 'user' => $user->isUser(),
-            'owner', 'admin' => $user->isAdmin(),
+            'tenant' => $user->isUser(),
+            'owner' => $user->isStrictOwner(),
+            'admin' => $user->isSuperAdmin(),
             default => false,
         };
     }

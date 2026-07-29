@@ -78,36 +78,34 @@
                 : $addressLabel;
             $googleMapUrl = 'https://www.google.com/maps/search/?api=1&query='.rawurlencode($mapDestination);
             $largerMapUrl = $hasSavedCoordinates
-                ? 'https://www.google.com/maps/@?api=1&map_action=map&center='.rawurlencode($mapDestination).'&zoom=17&basemap=satellite'
-                : $googleMapUrl;
-            $streetViewUrl = $hasSavedCoordinates
-                ? 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint='.rawurlencode($mapDestination)
-                : $googleMapUrl;
+                ? 'https://www.openstreetmap.org/?mlat='.rawurlencode((string) $house->latitude).'&mlon='.rawurlencode((string) $house->longitude).'#map=17/'.rawurlencode((string) $house->latitude).'/'.rawurlencode((string) $house->longitude)
+                : 'https://www.openstreetmap.org/search?query='.rawurlencode($addressLabel);
+            $streetViewUrl = $largerMapUrl;
             $routeUnavailableMessage = $hasSavedCoordinates
                 ? null
                 : 'Map route is unavailable because this boarding house has no saved coordinates.';
             $availabilityRouteLabel = $availabilityLabel.' · '.$availableCount.' '.\Illuminate\Support\Str::plural('room', $availableCount);
             $mapConfig = [
-                'googleMaps' => [
-                    'apiKey' => (string) config('services.google_maps.api_key'),
-                    'mapId' => (string) config('services.google_maps.map_id', 'DEMO_MAP_ID'),
-                    'language' => (string) config('services.google_maps.language', 'en'),
-                    'region' => (string) config('services.google_maps.region', 'PH'),
-                ],
                 'routing' => [
-                    'drivingUrl' => (string) config('services.google_maps.driving_routing_url', 'https://routing.openstreetmap.de/routed-car'),
-                    'walkingUrl' => (string) config('services.google_maps.walking_routing_url', 'https://routing.openstreetmap.de/routed-foot'),
+                    'serviceUrl' => 'https://router.project-osrm.org/route/v1',
+                    'profiles' => [
+                        'DRIVING' => 'driving',
+                        'WALKING' => 'walking',
+                        'TWO_WHEELER' => 'driving',
+                        'TRANSIT' => 'driving',
+                    ],
                 ],
                 'messages' => [
-                    'initial' => 'Choose a travel mode, then select where to start your route.',
-                    'reset' => 'Map reset. Choose an origin to preview directions again.',
+                    'initial' => 'Open the reservation panel to request your location and preview the route.',
+                    'requesting' => 'Requesting permission to use your current location...',
+                    'reset' => 'Map reset. Open the reservation panel or tap Reserve Room to route again.',
                     'missingCoordinates' => 'Map route is unavailable because this boarding house has no saved coordinates.',
-                    'geolocationDenied' => 'Unable to access your current location. You can still route from DSSC Main Campus or open this location in Google Maps.',
-                    'routeFailed' => 'Route could not be generated for this location. Please try opening it in Google Maps.',
-                    'googleMapsFailed' => 'Map failed to load. Please check your internet connection or Google Maps API key.',
-                    'streetViewUnavailable' => 'Street View is not available for this location.',
-                    'motorcycleUnavailable' => 'Motorcycle directions are not available in this map setup.',
-                    'transitUnavailable' => 'Transit directions are not available for this route right now.',
+                    'geolocationDenied' => 'Enable location services to see live routes from your current location. The map is centered on the boarding house for now.',
+                    'routeFailed' => 'Route could not be generated right now. Please try again in a moment.',
+                    'locationUnavailable' => 'Your location could not be determined right now. Please check your device settings and try again.',
+                    'autoLocateReady' => 'Your current location is ready. Choose a travel mode to preview directions.',
+                    'modeTransitNote' => 'Transit is using the available road-routing data because live public transit feeds are not available for this map.',
+                    'modeMotorcycleNote' => 'Motorcycle is using the available road-routing data for the best available route preview.',
                 ],
                 'dssc' => [
                     'name' => (string) config('dssc.landmark', 'DSSC Main Campus'),
@@ -127,10 +125,6 @@
                     'distanceLabel' => $distanceFromSchool,
                     'googleMapsUrl' => $googleMapUrl,
                     'availabilityLabel' => $availabilityLabel.' · '.$availableCount.' '.\Illuminate\Support\Str::plural('room', $availableCount),
-                ],
-                'supports' => [
-                    'twoWheeler' => false,
-                    'transit' => true,
                 ],
                 'routeUnavailableMessage' => $routeUnavailableMessage,
             ];
@@ -200,8 +194,10 @@
                     <section class="ui-card p-5">
                         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                             <div>
+                                <p class="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">Boarding House Overview</p>
                                 <h2 class="text-xl font-bold text-gray-900">{{ $house->name }}</h2>
                                 <p class="mt-1 text-sm text-gray-500">{{ $locationLabel ?: $addressLabel }}</p>
+                                <p class="mt-3 max-w-3xl text-sm leading-6 text-gray-600">Review the room details, preview the travel route, and submit your reservation when you're ready. BoardMatch keeps your request organized so the owner can review it quickly.</p>
                                 <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
                                     <span class="rounded-full bg-amber-50 px-3 py-1 font-semibold text-amber-700">{{ $ratingLabel }} stars / {{ $reviewCount }} {{ \Illuminate\Support\Str::plural('review', $reviewCount) }}</span>
                                     <span class="rounded-full bg-blue-50 px-3 py-1 font-semibold text-blue-700">{{ $priceLabel }}</span>
@@ -214,7 +210,7 @@
                         </div>
 
                         <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                            <a href="#reservation-panel" class="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">Reserve Room</a>
+                            <a href="{{ route('user.reservations.index', ['house' => $house->id]) }}" data-reservation-trigger class="inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">Start Reservation</a>
                             <a href="#inquiry-panel" class="inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-800 hover:bg-gray-50">Send Inquiry</a>
                             <form method="POST" action="{{ route('user.boarding-houses.favorite', $house) }}">
                                 @csrf
@@ -330,15 +326,15 @@
                                         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s7-4.8 7-11a7 7 0 1 0-14 0c0 6.2 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg>
                                     </span>
                                     <div>
-                                        <p class="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">Route Preview</p>
-                                        <h2 class="mt-1 text-lg font-bold text-slate-950">Directions to Boarding House</h2>
-                                        <p class="mt-1 text-sm leading-6 text-slate-500">A BoardMatch route view with live location options, travel estimates, and a satellite-style map experience.</p>
+                                        <p class="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">Reservation Route</p>
+                                        <h2 class="mt-1 text-lg font-bold text-slate-950">Live Navigation to Boarding House</h2>
+                                        <p class="mt-1 text-sm leading-6 text-slate-500">Open the reservation panel or tap Reserve Room to request your location and preview the route to this boarding house.</p>
                                     </div>
                                 </div>
                                 <div class="flex flex-wrap items-center gap-2">
                                     <span class="inline-flex w-fit items-center gap-2 rounded-full border border-blue-100 bg-white px-3 py-1.5 text-xs font-bold text-blue-700 shadow-sm">
                                         <span class="h-2 w-2 rounded-full bg-blue-500"></span>
-                                        <span data-map-provider>Loading map</span>
+                                        <span data-map-provider>OpenStreetMap + OSRM</span>
                                     </span>
                                     @if($routeUnavailableMessage)
                                         <span class="inline-flex w-fit items-center gap-2 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800">
@@ -460,8 +456,8 @@
                                             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="m3 11 9-8 9 8v9h-6v-5H9v5H3v-9Z"/></svg>
                                             Route From DSSC Main Campus
                                         </button>
-                                        <a data-open-google-maps href="{{ $googleMapUrl }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50">
-                                            Open in Google Maps
+                                        <a data-open-map href="{{ $largerMapUrl }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50">
+                                            Open in OpenStreetMap
                                         </a>
                                         <a data-view-larger-map href="{{ $largerMapUrl }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50">
                                             View Larger Map
@@ -476,7 +472,7 @@
                                         <div data-map-loading class="absolute inset-0 z-20 flex items-center justify-center bg-white/85 backdrop-blur-sm">
                                             <div class="text-center">
                                                 <span class="mx-auto block h-9 w-9 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600"></span>
-                                                <p class="mt-3 text-sm font-semibold text-slate-600">Loading interactive map...</p>
+                                                <p class="mt-3 text-sm font-semibold text-slate-600">Loading live route map...</p>
                                             </div>
                                         </div>
 
@@ -485,8 +481,8 @@
                                                 <span class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-200 text-slate-500">
                                                     <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s7-4.8 7-11a7 7 0 1 0-14 0c0 6.2 7 11 7 11Z"/><path stroke-linecap="round" d="m9 9 6 6m0-6-6 6"/></svg>
                                                 </span>
-                                                <p data-map-unavailable-message class="mt-3 text-sm font-semibold text-slate-700">{{ $routeUnavailableMessage ?: 'Map failed to load. Please check your internet connection or Google Maps API key.' }}</p>
-                                                <a href="{{ $googleMapUrl }}" target="_blank" rel="noopener noreferrer" class="mt-4 inline-flex rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700">Search in Google Maps</a>
+                                                <p data-map-unavailable-message class="mt-3 text-sm font-semibold text-slate-700">{{ $routeUnavailableMessage ?: 'Map failed to load. Please check your internet connection and try again.' }}</p>
+                                                <a href="{{ $largerMapUrl }}" target="_blank" rel="noopener noreferrer" class="mt-4 inline-flex rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700">Open in OpenStreetMap</a>
                                             </div>
                                         </div>
 
@@ -498,14 +494,15 @@
                                     <div class="overflow-hidden rounded-[1.6rem] border border-slate-200 bg-slate-50">
                                         <div class="flex flex-col gap-3 border-b border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
                                             <div>
-                                                <h3 class="text-sm font-bold text-slate-950">Street View / Area Preview</h3>
-                                                <p class="mt-1 text-xs text-slate-500">Explore the road and surroundings near the boarding house.</p>
+                                                <h3 class="text-sm font-bold text-slate-950">Turn-by-Turn Directions</h3>
+                                                <p class="mt-1 text-xs text-slate-500">Follow each step from your current location to the selected boarding house.</p>
                                             </div>
-                                            <a data-open-street-view href="{{ $streetViewUrl }}" target="_blank" rel="noopener noreferrer" class="inline-flex w-fit items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Open Street View</a>
+                                            <span data-route-steps-badge class="inline-flex w-fit items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">Waiting for route</span>
                                         </div>
-                                        <div data-street-view-canvas class="hidden h-[280px] w-full sm:h-[340px]"></div>
-                                        <div data-street-view-status class="flex min-h-36 items-center justify-center px-5 py-8 text-center text-sm font-medium text-slate-500">
-                                            Street View is not available for this location.
+                                        <div data-route-steps class="max-h-[340px] overflow-y-auto px-4 py-4 sm:px-5">
+                                            <div class="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-4 text-sm text-slate-500">
+                                                Turn-by-turn directions will appear here after the route is loaded.
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -730,9 +727,40 @@
 
                 <aside id="reservation-panel" class="space-y-4 xl:sticky xl:top-6 xl:self-start">
                     <div class="ui-card p-5">
+                        <div class="rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-slate-50 p-4">
+                            <p class="text-xs font-bold uppercase tracking-[0.2em] text-blue-600">Reserve This Stay</p>
+                            <h2 class="mt-2 text-lg font-bold text-gray-900">Secure your preferred room in a few steps</h2>
+                            <p class="mt-2 text-sm leading-6 text-gray-600">Choose a room, enter your move-in details, and send your request directly to the boarding house owner. Your reservation stays active for 48 hours while it waits for approval.</p>
+                            <div class="mt-4 grid gap-2 sm:grid-cols-3">
+                                <div class="rounded-xl border border-white bg-white/90 px-3 py-3">
+                                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Step 1</p>
+                                    <p class="mt-1 text-sm font-semibold text-gray-900">Select room and move-in date</p>
+                                </div>
+                                <div class="rounded-xl border border-white bg-white/90 px-3 py-3">
+                                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Step 2</p>
+                                    <p class="mt-1 text-sm font-semibold text-gray-900">Owner reviews your request</p>
+                                </div>
+                                <div class="rounded-xl border border-white bg-white/90 px-3 py-3">
+                                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Step 3</p>
+                                    <p class="mt-1 text-sm font-semibold text-gray-900">Pay deposit after approval</p>
+                                </div>
+                            </div>
+                        </div>
+
                         <p class="text-2xl font-bold text-gray-900">{{ $priceLabel }}</p>
                         <p class="mt-1 text-sm text-gray-500">{{ $roomTypeLabel }}</p>
                         <p class="mt-3 inline-flex rounded-full {{ $availableCount > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700' }} px-3 py-1 text-xs font-semibold">{{ $availabilityLabel }}</p>
+                        <div class="mt-4 grid gap-2 sm:grid-cols-2">
+                            <div class="rounded-xl border border-gray-100 bg-gray-50 px-3 py-3">
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Availability</p>
+                                <p class="mt-1 text-sm font-semibold text-gray-900">{{ $availableCount }} {{ \Illuminate\Support\Str::plural('room', $availableCount) }} ready to reserve</p>
+                            </div>
+                            <div class="rounded-xl border border-gray-100 bg-gray-50 px-3 py-3">
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Reservation Window</p>
+                                <p class="mt-1 text-sm font-semibold text-gray-900">48-hour hold before expiry</p>
+                            </div>
+                        </div>
+                        <p class="mt-4 text-xs leading-5 text-gray-500">Tip: open the full reservation page if you want the route map, payment summary, timeline, and policies in one workspace before submitting.</p>
 
                         <form method="POST" action="{{ route('user.boarding-houses.reservations.store', $house) }}" class="mt-5 space-y-3">
                             @csrf
@@ -750,12 +778,26 @@
                             <label class="block text-xs font-semibold uppercase text-gray-500">Number of Occupants</label>
                             <input type="number" name="occupants" min="1" max="20" value="{{ old('occupants', 1) }}" class="ui-input text-sm" {{ ($alreadyReservedToday ?? false) ? 'disabled' : '' }}>
 
+                            <label class="block text-xs font-semibold uppercase text-gray-500">Emergency Contact Name</label>
+                            <input type="text" name="emergency_contact_name" value="{{ old('emergency_contact_name', auth()->user()?->tenantProfile?->emergency_contact_name) }}" class="ui-input text-sm" {{ ($alreadyReservedToday ?? false) ? 'disabled' : '' }}>
+
+                            <label class="block text-xs font-semibold uppercase text-gray-500">Emergency Contact Number</label>
+                            <input type="text" name="emergency_contact_number" value="{{ old('emergency_contact_number', auth()->user()?->tenantProfile?->emergency_contact_number ?? auth()->user()?->emergency_contact) }}" class="ui-input text-sm" {{ ($alreadyReservedToday ?? false) ? 'disabled' : '' }}>
+
                             <textarea name="notes" rows="3" placeholder="Optional reservation notes" class="ui-input text-sm" {{ ($alreadyReservedToday ?? false) ? 'disabled' : '' }}>{{ old('notes') }}</textarea>
 
+                            <label class="flex items-start gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+                                <input type="checkbox" name="terms_accepted" value="1" class="mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500" {{ old('terms_accepted') ? 'checked' : '' }} {{ ($alreadyReservedToday ?? false) ? 'disabled' : '' }}>
+                                <span>I agree to the reservation terms, cancellation policy, and 48-hour expiration window.</span>
+                            </label>
+                            @error('terms_accepted')<p class="text-xs text-rose-600">{{ $message }}</p>@enderror
+
                             <button type="submit" class="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60" {{ ($alreadyReservedToday ?? false) ? 'disabled' : '' }}>
-                                {{ ($alreadyReservedToday ?? false) ? 'Reservation Sent Today' : 'Reserve Room' }}
+                                {{ ($alreadyReservedToday ?? false) ? 'Reservation Sent Today' : 'Submit Reservation Request' }}
                             </button>
                         </form>
+
+                        <a href="{{ route('user.reservations.index', ['house' => $house->id]) }}" class="mt-3 inline-flex w-full items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-700 hover:bg-blue-100">Open Full Reservation Workspace</a>
 
                         <a href="#inquiry-panel" class="mt-3 inline-flex w-full items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-800 hover:bg-gray-50">Send Inquiry</a>
                         <form method="POST" action="{{ route('user.boarding-houses.favorite', $house) }}" class="mt-3">

@@ -14,7 +14,7 @@
 
         if (auth()->check()) {
             $user = auth()->user();
-            if ($user->isAdmin()) {
+            if ($user->isManager()) {
                 $navLinks[] = ['label' => 'My Boarding House', 'route' => 'admin.my-boarding-house', 'icon' => 'BHS', 'active' => 'admin.my-boarding-house'];
                 $navLinks[] = ['label' => 'Listings', 'route' => 'admin.listings', 'icon' => 'LST', 'active' => 'admin.listings*'];
                 $navLinks[] = ['label' => 'Rooms', 'route' => 'admin.rooms', 'icon' => 'ROM', 'active' => 'admin.rooms*'];

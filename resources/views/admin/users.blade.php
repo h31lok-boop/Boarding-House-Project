@@ -4,7 +4,7 @@
         $badge = fn ($active) => $active ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-rose-100 text-rose-700 border-rose-200';
     @endphp
 
-    <div x-data="{ addOpen: false, viewOpen: false, editOpen: false, selected: {} }" class="space-y-6">
+    <div x-data="{ addOpen: false, viewOpen: false, editOpen: false, selected: {}, viewTab: 'overview', openView(u) { this.selected = u; this.viewTab = 'overview'; this.viewOpen = true; } }" class="space-y-6">
         <div class="ui-card p-6">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
@@ -58,12 +58,24 @@
                         @forelse ($users as $user)
                             @php
                                 $active = (bool) ($user->is_active ?? strtolower((string) $user->status) === 'active');
+                                $isAdmin = $user->role === 'admin';
+                                $permissions = $isAdmin
+                                    ? ['Manage boarding houses', 'Manage reservations', 'Verify payments', 'Manage tenants', 'View reports', 'Manage user accounts']
+                                    : ['Browse listings', 'Create reservations', 'Upload payment receipts', 'Message owners'];
+                                $initials = collect(preg_split('/\s+/', trim((string) $user->name)))
+                                    ->filter()->map(fn ($w) => strtoupper(substr($w, 0, 1)))->take(2)->implode('') ?: 'U';
                                 $payload = [
                                     'name' => $user->name,
                                     'email' => $user->email,
                                     'role' => $user->role,
+                                    'role_label' => $isAdmin ? 'Admin / Owner' : 'Student / Tenant',
                                     'phone' => $user->phone ?? $user->contact_number,
                                     'active' => $active,
+                                    'initials' => $initials,
+                                    'permissions' => $permissions,
+                                    'created' => optional($user->created_at)->format('M d, Y') ?? 'Unknown',
+                                    'last_login' => optional($user->updated_at)->diffForHumans() ?? 'Unknown',
+                                    'verified' => (bool) $user->email_verified_at,
                                     'update_url' => route('admin.users.update', $user),
                                 ];
                             @endphp
@@ -77,7 +89,7 @@
                                 <td class="px-5 py-4 ui-muted">{{ $user->phone ?? $user->contact_number ?? 'Not set' }}</td>
                                 <td class="px-5 py-4">
                                     <div class="flex justify-end gap-2">
-                                        <button type="button" class="btn-secondary px-3 py-1.5 text-xs" @click="selected = {{ \Illuminate\Support\Js::from($payload) }}; viewOpen = true">View</button>
+                                        <button type="button" class="btn-secondary px-3 py-1.5 text-xs" @click="openView({{ \Illuminate\Support\Js::from($payload) }})">View</button>
                                         <button type="button" class="btn-secondary px-3 py-1.5 text-xs" @click="selected = {{ \Illuminate\Support\Js::from($payload) }}; editOpen = true">Edit</button>
                                         @unless (auth()->id() === $user->id)
                                             <form method="POST" action="{{ route('admin.users.destroy', $user) }}" onsubmit="return confirm('Delete this user account?')">
@@ -98,7 +110,7 @@
         </div>
 
         {{-- Add User Modal --}}
-        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak @click.self="addOpen = false" @keydown.escape.window="addOpen = false" class="bm-modal-overlay">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak @keydown.escape.window="addOpen = false" class="bm-modal-overlay">
             <form method="POST" action="{{ route('admin.users.store') }}" class="bm-modal bm-modal--lg">
                 @csrf
                 <div class="bm-modal__header">
@@ -143,26 +155,70 @@
         </div>
 
         {{-- View User Modal --}}
-        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak @click.self="viewOpen = false" @keydown.escape.window="viewOpen = false" class="bm-modal-overlay">
-            <div class="bm-modal">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak @keydown.escape.window="viewOpen = false" class="bm-modal-overlay">
+            <div class="bm-modal bm-modal--lg">
                 <div class="bm-modal__header">
-                    <div>
-                        <p class="bm-modal__eyebrow">View</p>
-                        <h2 class="bm-modal__title">User Details</h2>
-                        <p class="bm-modal__subtitle">Review account role, contact information, and status at a glance.</p>
+                    <div class="flex items-center gap-4">
+                        <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-blue-50 text-lg font-bold text-blue-700" x-text="selected.initials || 'U'"></div>
+                        <div>
+                            <h2 class="bm-modal__title" x-text="selected.name"></h2>
+                            <p class="bm-modal__subtitle" x-text="selected.email"></p>
+                            <div class="mt-1.5 flex flex-wrap items-center gap-2">
+                                <span class="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700" x-text="selected.role_label"></span>
+                                <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold"
+                                      :class="selected.active ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'"
+                                      x-text="selected.active ? 'Active' : 'Inactive'"></span>
+                            </div>
+                        </div>
                     </div>
                     <button type="button" @click="viewOpen = false" class="bm-modal__close" aria-label="Close user details modal">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
+
+                <div class="flex gap-1 border-b border-slate-200 px-6">
+                    <template x-for="tab in [['overview','Overview'],['activity','Activity'],['permissions','Permissions']]" :key="tab[0]">
+                        <button type="button" @click="viewTab = tab[0]"
+                                class="relative -mb-px border-b-2 px-4 py-2.5 text-[13px] font-semibold transition"
+                                :class="viewTab === tab[0] ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-700'"
+                                x-text="tab[1]"></button>
+                    </template>
+                </div>
+
                 <div class="bm-modal__body bm-modal__body--compact">
-                    <dl class="bm-modal__details">
-                        <div class="bm-modal__detail"><dt>Name</dt><dd x-text="selected.name"></dd></div>
-                        <div class="bm-modal__detail"><dt>Email</dt><dd x-text="selected.email"></dd></div>
-                        <div class="bm-modal__detail"><dt>Role</dt><dd x-text="selected.role === 'admin' ? 'Admin / Owner' : 'Student / Tenant'"></dd></div>
-                        <div class="bm-modal__detail"><dt>Phone</dt><dd x-text="selected.phone || 'Not set'"></dd></div>
-                        <div class="bm-modal__detail"><dt>Status</dt><dd x-text="selected.active ? 'Active' : 'Inactive'"></dd></div>
-                    </dl>
+                    <div x-show="viewTab === 'overview'">
+                        <dl class="bm-modal__details bm-modal__details--two-col">
+                            <div class="bm-modal__detail"><dt>Account Role</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.role_label"></dd></div>
+                            <div class="bm-modal__detail"><dt>Email</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.email"></dd></div>
+                            <div class="bm-modal__detail"><dt>Phone</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.phone || 'Not set'"></dd></div>
+                            <div class="bm-modal__detail"><dt>Status</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.active ? 'Active' : 'Inactive'"></dd></div>
+                            <div class="bm-modal__detail"><dt>Email Verified</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.verified ? 'Verified' : 'Not verified'"></dd></div>
+                            <div class="bm-modal__detail"><dt>Account Created</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.created"></dd></div>
+                        </dl>
+                    </div>
+
+                    <div x-show="viewTab === 'activity'" class="space-y-3">
+                        <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Last Login</p>
+                            <p class="mt-1 font-bold text-slate-900" x-text="selected.last_login"></p>
+                        </div>
+                        <div class="rounded-xl border border-slate-200 bg-white p-4">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Recent Activity</p>
+                            <ul class="mt-2 space-y-2 text-sm text-slate-700">
+                                <li class="flex items-center gap-2"><span class="h-1.5 w-1.5 rounded-full bg-blue-500"></span><span x-text="'Last active ' + selected.last_login"></span></li>
+                                <li class="flex items-center gap-2"><span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span><span x-text="'Account created ' + selected.created"></span></li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div x-show="viewTab === 'permissions'" class="space-y-2">
+                        <template x-for="(perm, i) in (selected.permissions || [])" :key="i">
+                            <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5">
+                                <svg class="h-4 w-4 shrink-0 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                <span class="text-sm font-medium text-slate-800" x-text="perm"></span>
+                            </div>
+                        </template>
+                    </div>
                 </div>
                 <div class="bm-modal__footer">
                     <button type="button" @click="viewOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
@@ -171,7 +227,7 @@
         </div>
 
         {{-- Edit User Modal --}}
-        <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak @click.self="editOpen = false" @keydown.escape.window="editOpen = false" class="bm-modal-overlay">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak @keydown.escape.window="editOpen = false" class="bm-modal-overlay">
             <form method="POST" :action="selected.update_url" class="bm-modal bm-modal--lg">
                 @csrf @method('PATCH')
                 <div class="bm-modal__header">

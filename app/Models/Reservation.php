@@ -15,13 +15,33 @@ class Reservation extends Model
         'room_id',
         'check_in_date',
         'check_out_date',
+        'due_date',
+        'occupants',
+        'emergency_contact_name',
+        'emergency_contact_number',
+        'total_amount',
+        'payment_status',
+        'terms_accepted_at',
+        'expires_at',
+        'approved_at',
+        'expired_at',
+        'room_released_at',
         'status',
         'notes',
+        'house_rules',
     ];
 
     protected $casts = [
         'check_in_date' => 'date',
         'check_out_date' => 'date',
+        'due_date' => 'date',
+        'occupants' => 'integer',
+        'total_amount' => 'decimal:2',
+        'terms_accepted_at' => 'datetime',
+        'expires_at' => 'datetime',
+        'approved_at' => 'datetime',
+        'expired_at' => 'datetime',
+        'room_released_at' => 'datetime',
     ];
 
     public function user()
@@ -37,5 +57,10 @@ class Reservation extends Model
     public function room()
     {
         return $this->belongsTo(Room::class);
+    }
+
+    public function isExpired(): bool
+    {
+        return strtolower((string) $this->status) === 'expired';
     }
 }

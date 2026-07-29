@@ -20,15 +20,6 @@
         'amount' => is_numeric($item['amount']) ? $money($item['amount']) : $item['amount'],
     ])->all();
 
-    $methodFormHasErrors = $errors->hasAny([
-        'type',
-        'last_four',
-        'expiry',
-        'cardholder_name',
-        'account_number',
-        'account_name',
-    ]);
-
     $summaryBannerTitle = $confirmPayment['available'] ?? false
         ? 'Ready for payment confirmation'
         : ($paymentSchedule->isNotEmpty() ? 'Outstanding billing items' : 'No outstanding balance');
@@ -95,10 +86,16 @@
         @endforelse
     </section>
 
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(300px,3fr)]">
+    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div class="space-y-4">
+            <x-payments.upload-card
+                :receipt="$latestReceipt"
+                :bookings="$bookings"
+                :action="route('user.payment-receipts.store')"
+            />
+
             @if (($confirmPayment['available'] ?? false) || $paymentSchedule->isNotEmpty())
-                <section class="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <section class="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
                     <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div>
                             <h2 class="text-sm font-semibold text-slate-950 dark:text-white">Quick Payment Action</h2>
@@ -114,15 +111,15 @@
                                 @csrf
                                 <input type="hidden" name="payment_method_id" value="{{ $confirmPayment['method_id'] }}">
                                 <input type="hidden" name="payment_amount" value="{{ $confirmPayment['amount'] }}">
-                                <span class="inline-flex rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200/70 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700">
                                     {{ $confirmPayment['method_label'] }}
                                 </span>
-                                <button type="submit" class="inline-flex h-9 items-center justify-center rounded-xl bg-[#2563eb] px-3.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1d4ed8]">
+                                <button type="submit" class="inline-flex h-9 items-center justify-center rounded-xl bg-[#2563eb] px-3.5 text-xs font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-[#1d4ed8] hover:shadow-md hover:shadow-blue-600/25 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200">
                                     Confirm {{ $money($confirmPayment['amount']) }}
                                 </button>
                             </form>
                         @elseif ($paymentSchedule->isNotEmpty())
-                            <span class="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 ring-1 ring-amber-200 dark:bg-amber-400/10 dark:text-amber-300 dark:ring-amber-400/20">
+                            <span class="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200/70 dark:bg-amber-400/10 dark:text-amber-300 dark:ring-amber-400/20">
                                 Add a default payment method
                             </span>
                         @endif
@@ -136,42 +133,40 @@
                 </section>
             @endif
 
-            <x-payments.upload-card
-                :receipt="$latestReceipt"
-                :bookings="$bookings"
-                :action="route('user.payment-receipts.store')"
-            />
-
-            <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-                <div class="border-b border-slate-200 px-3 py-2.5 dark:border-slate-800">
+            <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
+                <div class="border-b border-slate-100 px-3.5 py-3 dark:border-slate-800">
                     <h2 class="text-sm font-semibold text-slate-950 dark:text-white">Payment Schedule</h2>
-                    <p class="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Live dues and pending billing items from your account.</p>
                 </div>
 
                 <div class="overflow-x-auto">
                     <table class="min-w-[640px] w-full text-left text-xs">
-                        <thead class="bg-slate-50 text-xs font-semibold text-slate-500 dark:bg-slate-800/70 dark:text-slate-300">
+                        <thead class="bg-gradient-to-r from-slate-50 to-slate-50/60 text-xs font-semibold text-slate-500 dark:from-slate-800/70 dark:to-slate-800/40 dark:text-slate-300">
                             <tr>
-                                <th class="px-3 py-2">Due Date</th>
-                                <th class="px-3 py-2">Type</th>
-                                <th class="px-3 py-2 text-right">Amount</th>
-                                <th class="px-3 py-2 text-right">Status</th>
+                                <th class="px-3.5 py-2.5">Due Date</th>
+                                <th class="px-3.5 py-2.5">Type</th>
+                                <th class="px-3.5 py-2.5 text-right">Amount</th>
+                                <th class="px-3.5 py-2.5 text-right">Status</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                             @forelse ($paymentSchedule as $schedule)
-                                <tr class="transition hover:bg-slate-50/80 dark:hover:bg-slate-800/60">
-                                    <td class="whitespace-nowrap px-3 py-2.5 font-medium text-slate-700 dark:text-slate-200">{{ $schedule['due_date'] }}</td>
-                                    <td class="px-3 py-2.5 text-slate-700 dark:text-slate-300">{{ $schedule['type'] }}</td>
-                                    <td class="whitespace-nowrap px-3 py-2.5 text-right font-semibold text-slate-950 dark:text-white">{{ $money($schedule['amount']) }}</td>
-                                    <td class="whitespace-nowrap px-3 py-2.5 text-right">
+                                <tr class="transition duration-150 hover:bg-blue-50/40 dark:hover:bg-slate-800/60">
+                                    <td class="whitespace-nowrap px-3.5 py-3 font-medium text-slate-700 dark:text-slate-200">{{ $schedule['due_date'] }}</td>
+                                    <td class="px-3.5 py-3 text-slate-700 dark:text-slate-300">{{ $schedule['type'] }}</td>
+                                    <td class="whitespace-nowrap px-3.5 py-3 text-right font-semibold tabular-nums text-slate-950 dark:text-white">{{ $money($schedule['amount']) }}</td>
+                                    <td class="whitespace-nowrap px-3.5 py-3 text-right">
                                         <x-payments.status-badge :status="$schedule['status']" />
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="4" class="px-4 py-8 text-center">
-                                        <p class="text-sm font-semibold text-slate-900 dark:text-white">No payment schedule yet</p>
+                                    <td colspan="4" class="px-4 py-10 text-center">
+                                        <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-100 to-slate-50 text-slate-400 ring-1 ring-inset ring-slate-200/60 dark:from-slate-800 dark:to-slate-800/60 dark:text-slate-500 dark:ring-slate-700">
+                                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3.75 8.25h16.5M4.5 6.75A2.25 2.25 0 0 1 6.75 4.5h10.5a2.25 2.25 0 0 1 2.25 2.25v10.5a2.25 2.25 0 0 1-2.25 2.25H6.75a2.25 2.25 0 0 1-2.25-2.25V6.75Z" />
+                                            </svg>
+                                        </div>
+                                        <p class="mt-3 text-sm font-semibold text-slate-900 dark:text-white">No payment schedule yet</p>
                                         <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Billing entries will appear here once reservations or rent payments are generated.</p>
                                     </td>
                                 </tr>
@@ -182,143 +177,7 @@
             </section>
         </div>
 
-        <aside class="space-y-4">
-            <section
-                x-data="{ showMethodForm: {{ $methodFormHasErrors ? 'true' : 'false' }}, methodType: '{{ old('type', 'gcash') }}' }"
-                class="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
-            >
-                <div class="flex items-center justify-between gap-3">
-                    <div>
-                        <h2 class="text-sm font-semibold text-slate-950 dark:text-white">Payment Methods</h2>
-                        <p class="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Manage saved methods for quick payment confirmation.</p>
-                    </div>
-                    <button
-                        type="button"
-                        @click="showMethodForm = !showMethodForm"
-                        class="inline-flex h-7 items-center justify-center gap-1.5 rounded-lg bg-[#2563eb] px-2.5 text-[11px] font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#2563eb]/30"
-                    >
-                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                        </svg>
-                        <span x-text="showMethodForm ? 'Close' : 'Add New'"></span>
-                    </button>
-                </div>
-
-                <form x-show="showMethodForm" x-cloak method="POST" action="{{ route('user.payment-methods.store') }}" class="mt-3 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800/40">
-                    @csrf
-
-                    <label class="block text-xs font-medium text-slate-700 dark:text-slate-200">
-                        Type
-                        <select name="type" x-model="methodType" class="mt-1 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm focus:border-[#2563eb] focus:ring-[#2563eb]/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
-                            @foreach ($paymentMethodOptions as $option)
-                                <option value="{{ $option['value'] }}" @selected(old('type', 'gcash') === $option['value'])>{{ $option['label'] }}</option>
-                            @endforeach
-                        </select>
-                        @error('type')<span class="mt-1 block text-xs font-semibold text-red-600 dark:text-red-300">{{ $message }}</span>@enderror
-                    </label>
-
-                    <div x-show="['visa', 'mastercard', 'bank'].includes(methodType)" x-cloak class="grid gap-3 sm:grid-cols-2">
-                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-200">
-                            Last 4 Digits
-                            <input name="last_four" type="text" maxlength="4" value="{{ old('last_four') }}" class="mt-1 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm focus:border-[#2563eb] focus:ring-[#2563eb]/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
-                            @error('last_four')<span class="mt-1 block text-xs font-semibold text-red-600 dark:text-red-300">{{ $message }}</span>@enderror
-                        </label>
-
-                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-200">
-                            Expiry
-                            <input name="expiry" type="text" placeholder="MM/YY" value="{{ old('expiry') }}" class="mt-1 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm focus:border-[#2563eb] focus:ring-[#2563eb]/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
-                            @error('expiry')<span class="mt-1 block text-xs font-semibold text-red-600 dark:text-red-300">{{ $message }}</span>@enderror
-                        </label>
-
-                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-200 sm:col-span-2">
-                            Account Holder
-                            <input name="cardholder_name" type="text" value="{{ old('cardholder_name') }}" class="mt-1 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm focus:border-[#2563eb] focus:ring-[#2563eb]/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
-                            @error('cardholder_name')<span class="mt-1 block text-xs font-semibold text-red-600 dark:text-red-300">{{ $message }}</span>@enderror
-                        </label>
-                    </div>
-
-                    <div x-show="methodType === 'gcash'" x-cloak class="grid gap-3">
-                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-200">
-                            Account Number
-                            <input name="account_number" type="text" value="{{ old('account_number') }}" class="mt-1 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm focus:border-[#2563eb] focus:ring-[#2563eb]/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
-                            @error('account_number')<span class="mt-1 block text-xs font-semibold text-red-600 dark:text-red-300">{{ $message }}</span>@enderror
-                        </label>
-
-                        <label class="block text-xs font-medium text-slate-700 dark:text-slate-200">
-                            Account Name
-                            <input name="account_name" type="text" value="{{ old('account_name') }}" class="mt-1 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm focus:border-[#2563eb] focus:ring-[#2563eb]/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
-                            @error('account_name')<span class="mt-1 block text-xs font-semibold text-red-600 dark:text-red-300">{{ $message }}</span>@enderror
-                        </label>
-                    </div>
-
-                    <p x-show="['cash', 'other'].includes(methodType)" x-cloak class="rounded-lg bg-white px-3 py-2 text-[11px] text-slate-500 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700">
-                        This method will be saved as a simple payment option label for your account.
-                    </p>
-
-                    <div class="flex justify-end">
-                        <button type="submit" class="inline-flex h-8 items-center justify-center rounded-lg bg-[#2563eb] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1d4ed8]">
-                            Save Method
-                        </button>
-                    </div>
-                </form>
-
-                <div class="mt-3 space-y-2">
-                    @forelse ($paymentMethodsList as $method)
-                        @php
-                            $type = strtolower((string) $method->type);
-                            $methodCard = [
-                                'type' => $type,
-                                'name' => match ($type) {
-                                    'visa' => 'Visa Card',
-                                    'mastercard' => 'Mastercard',
-                                    'gcash' => 'GCash',
-                                    'bank' => 'Bank Transfer',
-                                    'cash' => 'Cash Payment',
-                                    default => ucfirst((string) $method->type),
-                                },
-                                'detail' => match ($type) {
-                                    'gcash' => $method->account_number ?: 'Mobile wallet number not provided',
-                                    'bank' => $method->account_number ?: ($method->last_four ? 'Account ending in '.$method->last_four : 'Bank account on file'),
-                                    'cash' => 'Pay directly to the property owner or landlord',
-                                    default => $method->last_four ? 'Ending in '.$method->last_four : ($method->display_label ?? 'Saved method'),
-                                },
-                                'subdetail' => $method->account_name ?: $method->cardholder_name ?: null,
-                                'badge' => $method->is_default ? 'Default' : 'Saved',
-                            ];
-                        @endphp
-
-                        <div class="space-y-2">
-                            <x-payments.payment-method-card :method="$methodCard" />
-
-                            <div class="flex flex-wrap items-center justify-end gap-2">
-                                @if (! $method->is_default)
-                                    <form method="POST" action="{{ route('user.payment-methods.default', $method) }}">
-                                        @csrf
-                                        @method('PATCH')
-                                        <button type="submit" class="inline-flex h-7 items-center justify-center rounded-lg border border-slate-200 px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
-                                            Set Default
-                                        </button>
-                                    </form>
-                                @endif
-
-                                <form method="POST" action="{{ route('user.payment-methods.destroy', $method) }}" onsubmit="return confirm('Remove this payment method?')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="inline-flex h-7 items-center justify-center rounded-lg border border-red-200 px-2.5 text-[11px] font-semibold text-red-600 transition hover:bg-red-50 dark:border-red-400/20 dark:text-red-300 dark:hover:bg-red-400/10">
-                                        Remove
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    @empty
-                        <div class="rounded-xl border border-dashed border-slate-200 p-5 text-center dark:border-slate-700">
-                            <p class="text-sm font-semibold text-slate-950 dark:text-white">No saved payment methods</p>
-                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Add a saved method to enable quick payment confirmation.</p>
-                        </div>
-                    @endforelse
-                </div>
-            </section>
-
+        <aside class="space-y-4 xl:sticky xl:top-6 xl:self-start">
             <x-payments.summary-card
                 :items="$summaryDisplayItems"
                 :total="$money($summaryTotal)"
@@ -326,7 +185,7 @@
                 :banner-description="$summaryBannerDescription"
             />
 
-            <section class="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <section class="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
                 <h2 class="text-sm font-semibold text-slate-950 dark:text-white">Payment Status Guide</h2>
 
                 <div class="mt-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-0">

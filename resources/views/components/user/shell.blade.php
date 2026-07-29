@@ -68,7 +68,7 @@
                                     <button @click="confirm = true; open = false" class="w-full text-left px-4 py-2 text-rose-600 hover:bg-rose-50">Log out</button>
                                 </div>
                             </div>
-                            <div data-modal-root role="dialog" aria-modal="true" x-show="confirm" x-cloak x-transition class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/75 p-4 backdrop-blur-sm">
+                            <div data-modal-root role="dialog" aria-modal="true" x-show="confirm" x-cloak x-transition class="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto bg-black/30 p-4 backdrop-blur-sm">
                                 <div class="ui-card p-6 w-[320px] shadow-xl">
                                     <h3 class="text-lg font-semibold mb-2">Confirm Logout</h3>
                                     <p class="text-sm ui-muted mb-4">Are you sure you want to log out?</p>

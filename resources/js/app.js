@@ -229,6 +229,57 @@ const setupSidebarControls = () => {
     }
 };
 
+const setupReservationCountdowns = () => {
+    const formatDuration = (remainingMs) => {
+        const totalHours = Math.max(0, Math.floor(remainingMs / 3600000));
+        const days = Math.floor(totalHours / 24);
+        const hours = totalHours % 24;
+        const parts = [];
+
+        if (days > 0) {
+            parts.push(`${days} day${days === 1 ? '' : 's'}`);
+        }
+
+        parts.push(`${hours} hour${hours === 1 ? '' : 's'}`);
+
+        return parts.join(' ');
+    };
+
+    document.querySelectorAll('[data-reservation-countdown]').forEach((root) => {
+        if (root.dataset.countdownReady === 'true') {
+            return;
+        }
+
+        root.dataset.countdownReady = 'true';
+        const expiresAt = root.getAttribute('data-expires-at');
+        const label = root.querySelector('[data-countdown-label]');
+        if (!expiresAt || !label) {
+            return;
+        }
+
+        const expiryTime = new Date(expiresAt).getTime();
+        if (Number.isNaN(expiryTime)) {
+            return;
+        }
+
+        const tick = () => {
+            const remaining = expiryTime - Date.now();
+
+            if (remaining <= 0) {
+                label.textContent = root.getAttribute('data-expired-message') || 'Reservation expired.';
+                window.setTimeout(() => window.location.reload(), 1500);
+                window.clearInterval(timer);
+                return;
+            }
+
+            label.textContent = `Reservation expires in ${formatDuration(remaining)}`;
+        };
+
+        tick();
+        const timer = window.setInterval(tick, 60000);
+    });
+};
+
 const setupModalIsolation = () => {
     let activeModal = null;
     let focusBeforeOpen = null;
@@ -546,6 +597,7 @@ const setupModalIsolation = () => {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    setupReservationCountdowns();
     applyTheme();
     setupSidebarControls();
     setupModalIsolation();

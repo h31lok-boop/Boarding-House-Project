@@ -1,12 +1,13 @@
 <?php
 
-use App\Http\Controllers\Admin\PaymentReceiptVerificationController;
 use App\Http\Controllers\Admin\AdminHelpCenterController;
+use App\Http\Controllers\Admin\PaymentReceiptVerificationController;
 use App\Http\Controllers\AdminListingController;
 use App\Http\Controllers\AdminOwnerController;
 use App\Http\Controllers\BoardingHouseController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Map\BoardingHouseMapController;
+use App\Http\Controllers\Owner\OwnerController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\User\BoardingHouseBrowseController;
@@ -30,7 +31,14 @@ Route::middleware('guest')->get('/auth', fn () => redirect()->route('login'))->n
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', function () {
-        return redirect()->route(Auth::user()?->dashboardRouteName() ?? 'user.dashboard');
+        $user = Auth::user();
+        $role = $user?->role ? strtolower($user->role) : null;
+
+        if (in_array($role, ['owner'], true)) {
+            return redirect()->route('owner.dashboard');
+        }
+
+        return redirect()->route($user?->dashboardRouteName() ?? 'user.dashboard');
     })->name('dashboard');
 
     Route::prefix('map')->name('map.')->group(function () {
@@ -45,70 +53,93 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/payment-receipts/{receipt}', [PaymentReceiptController::class, 'show'])->name('payment-receipts.show');
     Route::get('/payment-receipts/{receipt}/download', [PaymentReceiptController::class, 'download'])->name('payment-receipts.download');
 
+    /*
+    |------------------------------------------------------------------
+    | Admin workspace (super-admins only) — system-wide administration.
+    |------------------------------------------------------------------
+    */
     Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [AdminOwnerController::class, 'dashboard'])->name('dashboard');
         Route::get('/dashboard/export', [AdminOwnerController::class, 'dashboardExport'])->name('dashboard.export');
         Route::get('/search', [AdminOwnerController::class, 'search'])->name('search');
 
+        // User management
         Route::get('/users', [AdminOwnerController::class, 'users'])->name('users');
         Route::post('/users', [AdminOwnerController::class, 'storeUser'])->name('users.store');
         Route::patch('/users/{user}', [AdminOwnerController::class, 'updateUser'])->name('users.update');
         Route::delete('/users/{user}', [AdminOwnerController::class, 'destroyUser'])->name('users.destroy');
 
+        // My property (owner's single-property dashboard)
+        Route::get('/my-boarding-house', [AdminListingController::class, 'myBoardingHouse'])->name('my-boarding-house');
+
+        // Boarding-house oversight & approval (view all; edits gated by BoardingHousePolicy)
         Route::get('/boarding-houses', [AdminOwnerController::class, 'boardingHouses'])->name('boarding-houses');
         Route::get('/boarding-houses/create', [AdminOwnerController::class, 'boardingHouses'])->name('boarding-houses.create');
-        Route::get('/my-boarding-house', [AdminListingController::class, 'myBoardingHouse'])->name('my-boarding-house');
         Route::get('/listings', [AdminOwnerController::class, 'boardingHouses'])->name('listings');
         Route::post('/listings', [BoardingHouseController::class, 'store'])->name('listings.store');
         Route::put('/listings/{boarding_house}', [BoardingHouseController::class, 'update'])->name('listings.update');
         Route::delete('/listings/{boarding_house}', [BoardingHouseController::class, 'destroy'])->name('listings.destroy');
 
+        // Rooms, reservations & payments (shared admin/owner pages)
         Route::get('/rooms', [AdminListingController::class, 'rooms'])->name('rooms');
         Route::post('/rooms', [RoomController::class, 'store'])->name('rooms.store');
         Route::put('/rooms/{room}', [RoomController::class, 'update'])->name('rooms.update');
         Route::delete('/rooms/{room}', [RoomController::class, 'destroy'])->name('rooms.destroy');
+        Route::get('/reservations', [AdminOwnerController::class, 'reservations'])->name('reservations');
+        Route::get('/reservations/list', [AdminOwnerController::class, 'reservations'])->name('reservations.index');
+        Route::get('/reservations/export', [AdminOwnerController::class, 'exportReservations'])->name('reservations.export');
+        Route::patch('/reservations/{reservation}', [AdminOwnerController::class, 'updateReservation'])->name('reservations.update');
+        Route::delete('/reservations/{reservation}', [AdminOwnerController::class, 'destroyReservation'])->name('reservations.destroy');
+        Route::get('/api/boarding-houses/{boardingHouse}/available-rooms', [AdminOwnerController::class, 'availableRooms'])->name('api.boarding-houses.available-rooms');
+        Route::get('/payments', [AdminOwnerController::class, 'payments'])->name('payments');
+        Route::get('/transactions', [AdminOwnerController::class, 'payments'])->name('transactions.index');
+        Route::post('/payments', [AdminOwnerController::class, 'storePayment'])->name('payments.store');
+        Route::patch('/payments/{payment}', [AdminOwnerController::class, 'updatePayment'])->name('payments.update');
 
-        Route::get('/tenant-profiles', [AdminOwnerController::class, 'tenantProfiles'])->name('tenant-profiles');
-        Route::get('/tenants', [AdminOwnerController::class, 'tenantProfiles'])->name('tenants.index');
-        Route::get('/tenants/create', fn () => redirect()->route('admin.tenants.index', ['add' => 'tenant']))->name('tenants.create');
-        Route::patch('/tenant-profiles/{user}', [AdminOwnerController::class, 'updateTenantProfile'])->name('tenant-profiles.update');
-        Route::delete('/tenant-profiles/{tenantProfile}', [AdminOwnerController::class, 'destroyTenantProfile'])->name('tenant-profiles.destroy');
-
+        // Matchmaking system controls
         Route::get('/compatibility-scores', [AdminOwnerController::class, 'compatibilityScores'])->name('compatibility-scores');
         Route::get('/recommendations', [AdminOwnerController::class, 'recommendations'])->name('recommendations');
         Route::get('/match-requests', [AdminOwnerController::class, 'matchRequests'])->name('match-requests');
         Route::post('/match-requests', [AdminOwnerController::class, 'storeMatchRequest'])->name('match-requests.store');
         Route::patch('/match-requests/{matchRequest}', [AdminOwnerController::class, 'updateMatchRequest'])->name('match-requests.update');
 
-        Route::get('/inquiries', [AdminOwnerController::class, 'inquiries'])->name('inquiries');
-        Route::get('/inquiries/index', [AdminOwnerController::class, 'inquiries'])->name('inquiries.index');
-        Route::patch('/inquiries/{inquiry}', [AdminOwnerController::class, 'updateInquiry'])->name('inquiries.update');
-        Route::get('/messages', [AdminOwnerController::class, 'messages'])->name('messages');
-        Route::get('/messages/inbox', [AdminOwnerController::class, 'messages'])->name('messages.index');
-        Route::get('/reservations', [AdminOwnerController::class, 'reservations'])->name('reservations');
-        Route::get('/reservations/export', [AdminOwnerController::class, 'exportReservations'])->name('reservations.export');
-        Route::patch('/reservations/{reservation}', [AdminOwnerController::class, 'updateReservation'])->name('reservations.update');
-        Route::delete('/reservations/{reservation}', [AdminOwnerController::class, 'destroyReservation'])->name('reservations.destroy');
-        Route::get('/payments', [AdminOwnerController::class, 'payments'])->name('payments');
-        Route::get('/transactions', [AdminOwnerController::class, 'payments'])->name('transactions.index');
-        Route::post('/payments', [AdminOwnerController::class, 'storePayment'])->name('payments.store');
-        Route::patch('/payments/{payment}', [AdminOwnerController::class, 'updatePayment'])->name('payments.update');
+        // Reviews moderation
+        Route::get('/reviews', [AdminOwnerController::class, 'reviews'])->name('reviews');
+        Route::patch('/reviews/{review}', [AdminOwnerController::class, 'updateReview'])->name('reviews.update');
+
+        // Reports
+        Route::get('/reports/export', [AdminOwnerController::class, 'exportReports'])->name('reports.export');
+        Route::get('/reports', [AdminOwnerController::class, 'reports'])->name('reports.index');
+
+        // Payment-receipt verification
         Route::get('/payment-verification', [PaymentReceiptVerificationController::class, 'index'])->name('payment-receipts.index');
         Route::patch('/payment-verification/{receipt}/approve', [PaymentReceiptVerificationController::class, 'approve'])->name('payment-receipts.approve');
         Route::patch('/payment-verification/{receipt}/reject', [PaymentReceiptVerificationController::class, 'reject'])->name('payment-receipts.reject');
 
-        Route::get('/reviews', [AdminOwnerController::class, 'reviews'])->name('reviews');
-        Route::patch('/reviews/{review}', [AdminOwnerController::class, 'updateReview'])->name('reviews.update');
-        Route::get('/reports/export', [AdminOwnerController::class, 'exportReports'])->name('reports.export');
-        Route::get('/reports', [AdminOwnerController::class, 'reports'])->name('reports.index');
+        // Tenant profiles
+        Route::get('/tenants', [AdminOwnerController::class, 'tenantProfiles'])->name('tenants.index');
+        Route::get('/tenants/create', [AdminOwnerController::class, 'tenantProfiles'])->name('tenants.create');
+        Route::get('/tenant-profiles', [AdminOwnerController::class, 'tenantProfiles'])->name('tenant-profiles');
+        Route::patch('/tenant-profiles/{user}', [AdminOwnerController::class, 'updateTenantProfile'])->name('tenant-profiles.update');
+
+        // Inquiries & messages
+        Route::get('/inquiries', [AdminOwnerController::class, 'inquiries'])->name('inquiries');
+        Route::get('/inquiries/list', [AdminOwnerController::class, 'inquiries'])->name('inquiries.index');
+        Route::patch('/inquiries/{inquiry}', [AdminOwnerController::class, 'updateInquiry'])->name('inquiries.update');
+        Route::get('/messages', [AdminOwnerController::class, 'messages'])->name('messages');
+        Route::get('/messages/inbox', [AdminOwnerController::class, 'messages'])->name('messages.index');
+
+        // Notifications (admin's own)
         Route::get('/notifications', [AdminOwnerController::class, 'notifications'])->name('notifications.index');
         Route::post('/notifications', [AdminOwnerController::class, 'storeNotification'])->name('notifications.store');
         Route::delete('/notifications/clear-all', [AdminOwnerController::class, 'clearNotifications'])->name('notifications.clear');
         Route::patch('/notifications/{notification}', [AdminOwnerController::class, 'updateNotification'])->name('notifications.update');
         Route::delete('/notifications/{notification}', [AdminOwnerController::class, 'destroyNotification'])->name('notifications.destroy');
-        Route::get('/help-center', [AdminHelpCenterController::class, 'index'])->name('help');
+
+        // Help
         Route::get('/help-center', [AdminHelpCenterController::class, 'index'])->name('help-center.index');
 
+        // Settings (admin account)
         Route::get('/settings/account', [AdminOwnerController::class, 'settings'])->name('settings');
         Route::get('/settings', [AdminOwnerController::class, 'settings'])->name('settings.index');
         Route::put('/settings/profile', [AdminOwnerController::class, 'updateSettingsProfile'])->name('settings.profile.update');
@@ -117,6 +148,76 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/settings/security', [AdminOwnerController::class, 'updateSettingsSecurity'])->name('settings.security');
         Route::put('/settings/two-factor', [AdminOwnerController::class, 'updateSettingsTwoFactor'])->name('settings.two-factor.update');
         Route::post('/settings/action', [AdminOwnerController::class, 'settingsAction'])->name('settings.action');
+        Route::post('/settings/logout-other-devices', [AdminOwnerController::class, 'logoutOtherDevices'])->name('settings.logout-other-devices');
+    });
+
+    /*
+    |------------------------------------------------------------------
+    | Owner workspace (property owners only) — scoped to owned houses.
+    |------------------------------------------------------------------
+    */
+    Route::middleware('owner')->prefix('owner')->name('owner.')->group(function () {
+        Route::get('/dashboard', [OwnerController::class, 'dashboard'])->name('dashboard');
+
+        // My property
+        Route::get('/my-boarding-house', [OwnerController::class, 'property'])->name('my-boarding-house');
+        Route::get('/boarding-houses', [OwnerController::class, 'boardingHousesIndex'])->name('boarding-houses');
+        Route::get('/boarding-houses/create', [OwnerController::class, 'boardingHousesIndex'])->name('boarding-houses.create');
+        Route::post('/listings', [BoardingHouseController::class, 'store'])->name('listings.store');
+        Route::put('/listings/{boarding_house}', [BoardingHouseController::class, 'update'])->name('listings.update');
+        Route::delete('/listings/{boarding_house}', [BoardingHouseController::class, 'destroy'])->name('listings.destroy');
+
+        // Rooms
+        Route::get('/rooms', [OwnerController::class, 'rooms'])->name('rooms');
+        Route::post('/rooms', [RoomController::class, 'store'])->name('rooms.store');
+        Route::put('/rooms/{room}', [RoomController::class, 'update'])->name('rooms.update');
+        Route::delete('/rooms/{room}', [RoomController::class, 'destroy'])->name('rooms.destroy');
+
+        // Reservations
+        Route::get('/reservations', [OwnerController::class, 'reservations'])->name('reservations');
+        Route::get('/reservations/list', [OwnerController::class, 'reservations'])->name('reservations.index');
+        Route::get('/reservations/export', [OwnerController::class, 'exportReservations'])->name('reservations.export');
+        Route::patch('/reservations/{reservation}', [OwnerController::class, 'updateReservation'])->name('reservations.update');
+        Route::delete('/reservations/{reservation}', [OwnerController::class, 'destroyReservation'])->name('reservations.destroy');
+        Route::get('/api/boarding-houses/{boardingHouse}/available-rooms', [OwnerController::class, 'availableRooms'])->name('api.boarding-houses.available-rooms');
+
+        // Payments
+        Route::get('/payments', [OwnerController::class, 'payments'])->name('payments');
+        Route::get('/transactions', [OwnerController::class, 'payments'])->name('transactions.index');
+        Route::post('/payments', [OwnerController::class, 'storePayment'])->name('payments.store');
+        Route::patch('/payments/{payment}', [OwnerController::class, 'updatePayment'])->name('payments.update');
+
+        // Tenants
+        Route::get('/tenants', [OwnerController::class, 'tenantProfiles'])->name('tenants.index');
+        Route::get('/tenant-profiles', [OwnerController::class, 'tenantProfiles'])->name('tenant-profiles');
+        Route::patch('/tenant-profiles/{user}', [OwnerController::class, 'updateTenantProfile'])->name('tenant-profiles.update');
+
+        // Inquiries
+        Route::get('/inquiries', [OwnerController::class, 'inquiries'])->name('inquiries');
+        Route::get('/inquiries/list', [OwnerController::class, 'inquiries'])->name('inquiries.index');
+        Route::patch('/inquiries/{inquiry}', [OwnerController::class, 'updateInquiry'])->name('inquiries.update');
+
+        // Messages
+        Route::get('/messages', [OwnerController::class, 'messages'])->name('messages');
+        Route::get('/messages/inbox', [OwnerController::class, 'messages'])->name('messages.index');
+
+        // Notifications
+        Route::get('/notifications', [OwnerController::class, 'notifications'])->name('notifications.index');
+        Route::post('/notifications', [OwnerController::class, 'storeNotification'])->name('notifications.store');
+        Route::delete('/notifications/clear-all', [OwnerController::class, 'clearNotifications'])->name('notifications.clear');
+        Route::patch('/notifications/{notification}', [OwnerController::class, 'updateNotification'])->name('notifications.update');
+        Route::delete('/notifications/{notification}', [OwnerController::class, 'destroyNotification'])->name('notifications.destroy');
+
+        // Settings (owner account)
+        Route::get('/settings/account', [OwnerController::class, 'settings'])->name('settings');
+        Route::get('/settings', [OwnerController::class, 'settings'])->name('settings.index');
+        Route::put('/settings/profile', [OwnerController::class, 'updateSettingsProfile'])->name('settings.profile.update');
+        Route::patch('/settings/profile', [OwnerController::class, 'updateSettingsProfile'])->name('settings.profile');
+        Route::put('/settings/password', [OwnerController::class, 'updateSettingsSecurity'])->name('settings.password.update');
+        Route::patch('/settings/security', [OwnerController::class, 'updateSettingsSecurity'])->name('settings.security');
+        Route::put('/settings/two-factor', [OwnerController::class, 'updateSettingsTwoFactor'])->name('settings.two-factor.update');
+        Route::post('/settings/action', [OwnerController::class, 'settingsAction'])->name('settings.action');
+        Route::post('/settings/logout-other-devices', [OwnerController::class, 'logoutOtherDevices'])->name('settings.logout-other-devices');
     });
 
     Route::middleware('user')->prefix('user')->name('user.')->group(function () {

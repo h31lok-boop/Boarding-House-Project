@@ -88,7 +88,7 @@
             @endif
         </div>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak @click.self="addOpen = false" @keydown.escape.window="addOpen = false" class="bm-modal-overlay">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak @keydown.escape.window="addOpen = false" class="bm-modal-overlay">
             <form method="POST" action="{{ route('admin.match-requests.store') }}" class="bm-modal bm-modal--lg">
                 @csrf
                 <div class="bm-modal__header">
@@ -120,7 +120,7 @@
             </form>
         </div>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak @click.self="viewOpen = false" @keydown.escape.window="viewOpen = false" class="bm-modal-overlay">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak @keydown.escape.window="viewOpen = false" class="bm-modal-overlay">
             <div class="bm-modal">
                 <div class="bm-modal__header">
                     <div>

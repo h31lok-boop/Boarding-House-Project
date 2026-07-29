@@ -134,6 +134,12 @@ class UserPreferenceController extends Controller
                 ->with('success', 'Preferences saved. Your AI recommendations have been generated.');
         }
 
+        if ($request->input('return_to') === 'matchmaking') {
+            return redirect()
+                ->route('user.matchmaking.index')
+                ->with('success', 'Preferences saved. Your matches have been refreshed.');
+        }
+
         return redirect()
             ->route('user.preferences.index')
             ->with('success', 'Preferences saved successfully. Your recommendations have been refreshed.')

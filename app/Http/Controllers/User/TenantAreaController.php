@@ -13,6 +13,7 @@ use App\Models\Review;
 use App\Models\TenantPaymentMethod;
 use App\Models\UserNotification;
 use Carbon\Carbon;
+use App\Services\ReservationLifecycleService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -20,8 +21,13 @@ use Illuminate\Support\Facades\Schema;
 
 class TenantAreaController extends Controller
 {
+    public function __construct(
+        private readonly ReservationLifecycleService $reservationLifecycleService,
+    ) {}
+
     public function reservations(Request $request)
     {
+        $this->reservationLifecycleService->expireStaleReservations();
         $tenant = $this->tenant($request);
 
         $reservationRelations = [
@@ -41,31 +47,54 @@ class TenantAreaController extends Controller
             ->withQueryString();
 
         $currentReservation = (clone $baseReservationQuery)
-            ->whereNotIn(DB::raw('LOWER(status)'), ['cancelled', 'canceled', 'rejected'])
+            ->whereNotIn(DB::raw('LOWER(status)'), ['cancelled', 'canceled', 'rejected', 'expired'])
             ->orderByRaw("CASE WHEN check_in_date IS NULL THEN 1 ELSE 0 END")
             ->orderBy('check_in_date')
             ->latest('id')
             ->first()
             ?: (clone $baseReservationQuery)->latest()->first();
 
+        $selectedHouse = null;
+        $selectedHouseId = $request->integer('house');
+        if ($selectedHouseId > 0) {
+            $selectedHouse = BoardingHouse::with([
+                'images',
+                'amenities',
+                'rooms',
+                'owner',
+                'ownerProfile',
+                'city',
+                'province',
+            ])
+                ->whereKey($selectedHouseId)
+                ->when(Schema::hasColumn('boarding_houses', 'is_active'), fn ($query) => $query->where('is_active', true))
+                ->first();
+        }
+
         $latestReceipt = Schema::hasTable('payment_receipts')
             ? PaymentReceipt::where('user_id', $tenant->id)->latest()->first()
             : null;
 
-        return view('user.reservations', compact('reservations', 'currentReservation', 'latestReceipt'));
+        return view('user.reservations', compact('reservations', 'currentReservation', 'latestReceipt', 'selectedHouse'));
     }
 
     public function cancelReservation(Request $request, Reservation $reservation)
     {
+        $this->reservationLifecycleService->expireStaleReservations();
         $tenant = $this->tenant($request);
         abort_unless((int) $reservation->user_id === (int) $tenant->id, 403);
 
-        if (in_array(strtolower((string) $reservation->status), ['confirmed', 'cancelled'], true)) {
+        if (in_array(strtolower((string) $reservation->status), ['confirmed', 'approved', 'active', 'expired', 'cancelled'], true)) {
             return back()->with('error', 'This reservation can no longer be cancelled from your account.');
         }
 
+        $this->reservationLifecycleService->releaseHeldRoom($reservation);
+
         $reservation->update([
             'status' => 'cancelled',
+            'payment_status' => Schema::hasColumn('reservations', 'payment_status')
+                ? 'cancelled'
+                : $reservation->payment_status,
             'notes' => trim(($reservation->notes ? $reservation->notes."\n" : '').'Cancelled by tenant on '.now()->format('M d, Y h:i A')),
         ]);
 
@@ -74,6 +103,7 @@ class TenantAreaController extends Controller
 
     public function payments(Request $request)
     {
+        $this->reservationLifecycleService->expireStaleReservations();
         $tenant = $this->tenant($request);
 
         return view('user.payments', $this->paymentDashboardData($tenant->id));
@@ -145,7 +175,14 @@ class TenantAreaController extends Controller
 
     public function confirmPayment(Request $request)
     {
+        $this->reservationLifecycleService->expireStaleReservations();
         $tenant = $this->tenant($request);
+        $relevantReservation = $this->reservationLifecycleService->relevantReservationForUser($tenant->id);
+
+        if ($relevantReservation && ! $this->reservationLifecycleService->canProcessPayment($relevantReservation)) {
+            return redirect()->route('user.reservations.index')
+                ->with('error', 'This reservation has already expired. Payment is no longer allowed.');
+        }
 
         $validated = $request->validate([
             'payment_method_id' => ['required', 'integer'],
@@ -325,6 +362,13 @@ class TenantAreaController extends Controller
                 ->with('error', 'Payment could not be processed. Please try again.');
         }
 
+        if ($relevantReservation && Schema::hasColumn('reservations', 'payment_status')) {
+            $relevantReservation->forceFill([
+                'payment_status' => 'paid',
+                'notes' => trim(($relevantReservation->notes ? $relevantReservation->notes."\n" : '').'Payment confirmed on '.now()->format('M d, Y h:i A').'.'),
+            ])->save();
+        }
+
         $methodLabel = ucfirst($payMethod->type)
             . ($payMethod->last_four     ? ' ••••' . $payMethod->last_four    : '')
             . ($payMethod->account_number ? ' ' . $payMethod->account_number  : '');
@@ -332,7 +376,8 @@ class TenantAreaController extends Controller
         return redirect()->route('user.payments.index')
             ->with('payment_confirmed', true)
             ->with('payment_ref', $result)
-            ->with('payment_method_label', $methodLabel);
+            ->with('payment_method_label', $methodLabel)
+            ->with('success', 'Payment confirmed successfully.');
     }
 
     public function messages(Request $request)
@@ -809,6 +854,7 @@ class TenantAreaController extends Controller
                 'avatar' => 'https://ui-avatars.com/api/?name='.urlencode($ownerName).'&background=2563eb&color=fff&size=96&bold=true',
                 'house_image' => $house?->cover_image_url ?? asset('images/boarding-house-placeholder.svg'),
                 'unread' => $unread,
+                'mark_read_url' => $reply ? route('user.notifications.read', ['id' => $reply->id]) : null,
                 'online' => false,
                 'response_time' => $reply ? 'Latest owner response saved' : 'Awaiting reply',
                 'details_url' => $house ? route('user.boarding-houses.show', $house) : route('user.messages.index'),

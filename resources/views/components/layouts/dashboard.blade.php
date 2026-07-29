@@ -6,6 +6,12 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ config('app.name', 'Boarding House Match Making System') }}</title>
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+    <style id="dashboard-critical-styles">
+        :where(.admin-shell svg, .user-shell svg) {
+            height: 1.25rem;
+            width: 1.25rem;
+        }
+    </style>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body

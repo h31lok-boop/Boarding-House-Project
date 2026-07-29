@@ -117,6 +117,7 @@
 <div
     x-data="boardingHouseFinder()"
     class="housing-finder-compact space-y-3 text-slate-950 dark:text-white"
+    :class="filtering ? 'pointer-events-none' : ''"
 >
     <x-user.page-header
         eyebrow="Housing Finder"
@@ -205,12 +206,12 @@
         </div>
     </section>
 
-    <form method="GET" action="{{ route('user.boarding-houses.index') }}" class="rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-900 dark:shadow-slate-950/20">
+    <form method="GET" action="{{ route('user.boarding-houses.index') }}" @submit="filtering = true" class="rounded-xl border border-slate-200 bg-white p-2.5 shadow-sm shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-900 dark:shadow-slate-950/20">
         <input type="hidden" name="tab" value="{{ $selectedBrowseTab }}">
         <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
             <label class="block">
                 <span class="sr-only">Budget</span>
-                <select name="max_price" onchange="this.form.submit()" class="h-9 w-full rounded-xl border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 shadow-none focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                <select name="max_price" @change="filtering = true; $event.target.form.submit()" class="h-9 w-full rounded-xl border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 shadow-none focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
                     <option value="">Budget</option>
                     <option value="3000" @selected(request('max_price') == '3000')>Under PHP 3,000</option>
                     <option value="4500" @selected(request('max_price') == '4500')>Up to PHP 4,500</option>
@@ -220,7 +221,7 @@
             </label>
             <label class="block">
                 <span class="sr-only">Room Type</span>
-                <select name="room_type" onchange="this.form.submit()" class="h-9 w-full rounded-xl border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 shadow-none focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                <select name="room_type" @change="filtering = true; $event.target.form.submit()" class="h-9 w-full rounded-xl border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 shadow-none focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
                     <option value="">Room Type</option>
                     <option value="private" @selected(request('room_type') === 'private')>Private Room</option>
                     <option value="shared" @selected(request('room_type') === 'shared')>Shared Room</option>
@@ -231,7 +232,7 @@
             </label>
             <label class="block">
                 <span class="sr-only">Gender Preference</span>
-                <select name="gender_preference" onchange="this.form.submit()" class="h-9 w-full rounded-xl border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 shadow-none focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                <select name="gender_preference" @change="filtering = true; $event.target.form.submit()" class="h-9 w-full rounded-xl border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 shadow-none focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
                     <option value="">Gender Preference</option>
                     <option value="female" @selected(request('gender_preference') === 'female')>Female only</option>
                     <option value="male" @selected(request('gender_preference') === 'male')>Male only</option>
@@ -240,7 +241,7 @@
             </label>
             <label class="block">
                 <span class="sr-only">Availability</span>
-                <select name="available_only" onchange="this.form.submit()" class="h-9 w-full rounded-xl border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 shadow-none focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                <select name="available_only" @change="filtering = true; $event.target.form.submit()" class="h-9 w-full rounded-xl border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 shadow-none focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
                     <option value="">Availability</option>
                     <option value="1" @selected(request('available_only') == '1')>Available now</option>
                     <option value="0" @selected(request('available_only') == '0')>Show all</option>
@@ -248,7 +249,7 @@
             </label>
             <label class="block">
                 <span class="sr-only">More Filters</span>
-                <select name="sort" onchange="this.form.submit()" class="h-9 w-full rounded-xl border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 shadow-none focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                <select name="sort" @change="filtering = true; $event.target.form.submit()" class="h-9 w-full rounded-xl border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 shadow-none focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
                     <option value="">More Filters</option>
                     <option value="recommended" @selected(request('sort') === 'recommended')>Recommended</option>
                     <option value="price_asc" @selected(request('sort') === 'price_asc')>Lowest Price</option>
@@ -301,13 +302,25 @@
                     <a href="{{ route('user.boarding-houses.index') }}" class="text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-300">Reset filters</a>
                 </div>
 
-                <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" :class="filtering ? 'opacity-50 transition-opacity duration-200' : ''">
+                    <template x-if="filtering">
+                        <div class="pointer-events-none fixed inset-0 z-50 grid place-items-center">
+                            <div class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                                <span class="h-5 w-5 animate-spin rounded-full border-2 border-blue-100 border-t-blue-600"></span>
+                                <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">Updating results…</span>
+                            </div>
+                        </div>
+                    </template>
                     @forelse($listings as $listing)
                         <x-user.browse-property-card :listing="$listing" :show-match="$showMatchScores" />
                     @empty
-                        <div class="rounded-xl border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900 md:col-span-2 xl:col-span-3 2xl:col-span-4">
-                            <h2 class="text-base font-bold text-slate-950 dark:text-white">No boarding houses found</h2>
-                            <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">{{ $resultCount }} boarding {{ \Illuminate\Support\Str::plural('house', $resultCount) }} found in Digos City. Try changing your search filters or check again later.</p>
+                        <div class="rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900 md:col-span-2 xl:col-span-3 2xl:col-span-4">
+                            <div class="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-slate-100 to-slate-50 text-slate-400 ring-1 ring-inset ring-slate-200/60 dark:from-slate-800 dark:to-slate-800/60 dark:text-slate-500 dark:ring-slate-700">
+                                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955a1.125 1.125 0 0 1 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75" /></svg>
+                            </div>
+                            <h2 class="mt-4 text-base font-bold text-slate-950 dark:text-white">No boarding houses match these filters</h2>
+                            <p class="mx-auto mt-1.5 max-w-md text-sm leading-6 text-slate-500 dark:text-slate-400">Try widening your budget, choosing a different room type, or clearing the filters to see everything available.</p>
+                            <a href="{{ route('user.boarding-houses.index', ['tab' => 'all']) }}" class="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700">Clear Filters</a>
                         </div>
                     @endforelse
                 </div>
@@ -326,6 +339,11 @@
     function boardingHouseFinder() {
         return {
             saved: [],
+            filtering: false,
+            init() {
+                // Reset the loading state when returning via browser back/forward cache.
+                window.addEventListener('pageshow', () => { this.filtering = false; });
+            },
             toggleSaved(id) {
                 if (this.saved.includes(id)) {
                     this.saved = this.saved.filter((item) => item !== id);

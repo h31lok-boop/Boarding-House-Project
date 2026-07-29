@@ -1,5 +1,18 @@
 @php
-    $r = function ($name, $params = [], $fallback = null) {
+    $sidebarUser = Auth::user();
+    $isOwnerWorkspace = request()->routeIs('owner.*') && $sidebarUser?->isStrictOwner();
+    $workspace = $isOwnerWorkspace ? 'owner' : 'admin';
+    $workspacePath = $isOwnerWorkspace ? 'owner' : 'admin';
+    $routeName = fn (string $suffix) => $workspace.'.'.$suffix;
+
+    $r = function ($name, $params = [], $fallback = null) use ($isOwnerWorkspace) {
+        if ($isOwnerWorkspace && str_starts_with($name, 'admin.')) {
+            $ownerName = 'owner.'.substr($name, 6);
+            if (\Illuminate\Support\Facades\Route::has($ownerName)) {
+                return route($ownerName, $params);
+            }
+        }
+
         if (\Illuminate\Support\Facades\Route::has($name)) {
             return route($name, $params);
         }
@@ -13,21 +26,10 @@
         fn ($pattern) => request()->is($pattern)
     );
 
-    $unreadNotificationsCount = 0;
-    if (\Illuminate\Support\Facades\Schema::hasTable('notifications') && auth()->id()) {
-        $notificationsQuery = \Illuminate\Support\Facades\DB::table('notifications')
-            ->where('user_id', auth()->id());
+    $isSuperAdmin = $sidebarUser?->isSuperAdmin() ?? false;
+    $sidebarUserIsOwner = $sidebarUser?->isStrictOwner() ?? false;
 
-        if (\Illuminate\Support\Facades\Schema::hasColumn('notifications', 'is_read')) {
-            $notificationsQuery->where('is_read', false);
-        } elseif (\Illuminate\Support\Facades\Schema::hasColumn('notifications', 'read_at')) {
-            $notificationsQuery->whereNull('read_at');
-        }
-
-        $unreadNotificationsCount = (int) $notificationsQuery->count();
-    }
-
-    $navBase = 'group/sidebar-item relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400/70';
+    $navBase = 'group/sidebar-item relative flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400/70';
     $navActive = $navBase . ' bg-[#2563EB] text-white shadow-[0_10px_22px_rgba(37,99,235,0.3)]';
     $navInactive = $navBase . ' text-[#CBD5E1] hover:bg-white/10 hover:text-white';
 
@@ -38,78 +40,60 @@
                 [
                     'key' => 'dashboard',
                     'label' => 'Dashboard',
-                    'href' => $r('admin.dashboard'),
+                    'href' => $r($routeName('dashboard')),
                     'icon' => 'dashboard',
-                    'active' => request()->routeIs('admin.dashboard'),
+                    'active' => request()->routeIs($routeName('dashboard')),
                 ],
                 [
                     'key' => 'boarding-houses',
-                    'label' => 'Boarding Houses',
-                    'href' => $r('admin.boarding-houses.index', [], 'admin.boarding-houses'),
+                    'label' => $isSuperAdmin ? 'Boarding Houses' : 'My Properties',
+                    'href' => $isSuperAdmin
+                        ? $r('admin.boarding-houses')
+                        : $r('owner.boarding-houses', [], 'owner.my-boarding-house'),
                     'icon' => 'boarding-house',
-                    'active' => $isPath('admin/boarding-houses*'),
+                    'active' => $isPath($workspacePath.'/boarding-houses*') || $isPath($workspacePath.'/my-boarding-house*'),
                 ],
-            ],
-        ],
-        [
-            'label' => 'MANAGEMENT',
-            'items' => [
                 [
                     'key' => 'reservations',
                     'label' => 'Reservations',
                     'href' => $r('admin.reservations.index', [], 'admin.reservations'),
                     'icon' => 'reservations',
-                    'active' => $isPath('admin/reservations*'),
+                    'active' => $isPath($workspacePath.'/reservations*'),
                 ],
                 [
                     'key' => 'tenants',
                     'label' => 'Tenants',
                     'href' => $r('admin.tenants.index', [], 'admin.tenant-profiles'),
                     'icon' => 'tenants',
-                    'active' => $isPath('admin/tenants*', 'admin/tenant-profiles*'),
+                    'active' => $isPath($workspacePath.'/tenants*', $workspacePath.'/tenant-profiles*'),
                 ],
                 [
                     'key' => 'inquiries',
                     'label' => 'Inquiries',
-                    'href' => $r('admin.inquiries', [], 'admin.inquiries.index'),
+                    'href' => $r('admin.inquiries.index', [], 'admin.inquiries'),
                     'icon' => 'inquiries',
-                    'active' => $isPath('admin/inquiries*'),
+                    'active' => $isPath($workspacePath.'/inquiries*'),
+                ],
+                [
+                    'key' => 'payments',
+                    'label' => 'Payments',
+                    'href' => $r('admin.payments'),
+                    'icon' => 'payments',
+                    'active' => $isPath($workspacePath.'/payments*', $workspacePath.'/payment-verification*'),
                 ],
                 [
                     'key' => 'transactions',
                     'label' => 'Transactions',
-                    'href' => $r('admin.transactions.index', [], 'admin.payments'),
+                    'href' => $r('admin.transactions.index'),
                     'icon' => 'transactions',
-                    'active' => $isPath('admin/transactions*'),
-                ],
-                [
-                    'key' => 'payment-verification',
-                    'label' => 'Payment Verification',
-                    'href' => $r('admin.payment-receipts.index'),
-                    'icon' => 'payments',
-                    'active' => $isPath('admin/payment-verification*'),
+                    'active' => $isPath($workspacePath.'/transactions*'),
                 ],
                 [
                     'key' => 'messages',
                     'label' => 'Messages',
                     'href' => $r('admin.messages', [], 'admin.messages.index'),
                     'icon' => 'messages',
-                    'active' => $isPath('admin/messages*'),
-                ],
-                [
-                    'key' => 'notifications',
-                    'label' => 'Notifications',
-                    'href' => $r('admin.notifications.index', [], 'admin.notifications'),
-                    'icon' => 'notifications',
-                    'active' => $isPath('admin/notifications*'),
-                    'badge' => $unreadNotificationsCount,
-                ],
-                [
-                    'key' => 'reports',
-                    'label' => 'Reports',
-                    'href' => $r('admin.reports.index', [], 'admin.reports'),
-                    'icon' => 'reports',
-                    'active' => $isPath('admin/reports*'),
+                    'active' => $isPath($workspacePath.'/messages*'),
                 ],
             ],
         ],
@@ -117,22 +101,46 @@
             'label' => 'ACCOUNT',
             'items' => [
                 [
+                    'key' => 'reports',
+                    'label' => 'Reports',
+                    'href' => $r('admin.reports.index', [], 'admin.reports'),
+                    'icon' => 'reports',
+                    'active' => $isPath($workspacePath.'/reports*'),
+                ],
+                [
                     'key' => 'settings',
                     'label' => 'Settings',
                     'href' => $r('admin.settings.index', [], 'admin.settings'),
                     'icon' => 'settings',
-                    'active' => $isPath('admin/settings*'),
+                    'active' => $isPath($workspacePath.'/settings*'),
                 ],
             ],
         ],
     ];
+
+    // Owners manage a single property — hide system-wide admin-only sections.
+    if ($sidebarUserIsOwner) {
+        $ownerHidden = ['transactions', 'reports'];
+        $sections = collect($sections)
+            ->map(function ($section) use ($ownerHidden) {
+                $section['items'] = array_values(array_filter(
+                    $section['items'],
+                    fn ($item) => ! in_array($item['key'], $ownerHidden, true)
+                ));
+
+                return $section;
+            })
+            ->filter(fn ($section) => count($section['items']) > 0)
+            ->values()
+            ->all();
+    }
 @endphp
 
-<nav class="sidebar-nav admin-sidebar-nav flex-1 space-y-4 pr-1 text-sm" aria-label="Admin navigation">
+<nav class="sidebar-nav admin-sidebar-nav flex-1 space-y-3 pr-1 text-sm" aria-label="{{ $isOwnerWorkspace ? 'Owner navigation' : 'Admin navigation' }}">
     @foreach ($sections as $section)
-        <section class="space-y-1.5">
-            <p class="sidebar-group px-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">{{ $section['label'] }}</p>
-            <div class="space-y-1">
+        <section class="space-y-1">
+            <p class="sidebar-group px-2 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-500">{{ $section['label'] }}</p>
+            <div class="space-y-0.5">
                 @foreach ($section['items'] as $menu)
                     @php($isActive = (bool) ($menu['active'] ?? false))
                     <a
@@ -142,15 +150,10 @@
                         title="{{ $menu['label'] }}"
                         @if($isActive) aria-current="page" @endif
                     >
-                        <span class="sidebar-icon flex h-5 w-5 shrink-0 items-center justify-center">
+                        <span class="sidebar-icon flex h-4 w-4 shrink-0 items-center justify-center">
                             @include('components.sidebar.partials.admin-icon', ['name' => $menu['icon']])
                         </span>
                         <span class="sidebar-text min-w-0 flex-1 truncate">{{ $menu['label'] }}</span>
-                        @if ((int) ($menu['badge'] ?? 0) > 0)
-                            <span class="sidebar-badge inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
-                                {{ (int) $menu['badge'] > 99 ? '99+' : (int) $menu['badge'] }}
-                            </span>
-                        @endif
                     </a>
                 @endforeach
             </div>

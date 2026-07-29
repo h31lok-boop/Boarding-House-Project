@@ -1,3 +1,6 @@
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
 const ROOT_SELECTOR = '[data-boardmatch-browse-map]';
 
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -45,9 +48,6 @@ const initializeMap = async (root) => {
     const campusLng = numberOrNull(settings.dssc?.longitude);
     if (campusLat === null || campusLng === null) return;
 
-    await import('leaflet/dist/leaflet.css');
-    const leafletModule = await import('leaflet');
-    const L = leafletModule.default || leafletModule;
     const map = L.map(root, { scrollWheelZoom: false }).setView([campusLat, campusLng], 14);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

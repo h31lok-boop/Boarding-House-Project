@@ -39,11 +39,18 @@
             'rejectionReason' => $receipt->rejection_reason,
         ] : null,
     ]) }})"
-    {{ $attributes->merge(['class' => 'rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900']) }}
+    {{ $attributes->merge(['class' => 'rounded-2xl border border-blue-100 bg-white p-4 shadow-md shadow-blue-100/40 ring-1 ring-inset ring-blue-50 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none dark:ring-0']) }}
 >
-    <div class="mb-3.5">
-        <h2 class="text-sm font-semibold text-slate-950 dark:text-white">Upload Proof of Payment</h2>
-        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Choose a payment method, enter the details, and submit your receipt for review.</p>
+    <div class="mb-3.5 flex items-start gap-3">
+        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-sm shadow-blue-500/30">
+            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5A4.5 4.5 0 0 1 6.75 10.5a5.25 5.25 0 0 1 10.335-1.284A4.125 4.125 0 0 1 18 17.25h-.75" />
+            </svg>
+        </span>
+        <div>
+            <h2 class="text-sm font-bold text-slate-950 dark:text-white">Upload Proof of Payment</h2>
+            <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Choose a payment method, enter the details, and submit your receipt for review.</p>
+        </div>
     </div>
 
     @if ($loading)
@@ -300,7 +307,7 @@
             </div>
 
             <div class="flex justify-end">
-                <button type="submit" :disabled="submitting || Boolean(fileError)" class="inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#2563eb] px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition duration-200 hover:bg-[#1d4ed8] focus:outline-none focus:ring-2 focus:ring-[#2563eb]/30 disabled:cursor-not-allowed disabled:opacity-60">
+                <button type="submit" :disabled="submitting || Boolean(fileError)" class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#2563eb] px-5 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition duration-200 hover:bg-[#1d4ed8] hover:shadow-md hover:shadow-blue-600/25 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200 disabled:cursor-not-allowed disabled:opacity-60">
                     <svg x-show="!submitting" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75 9 17.25 19.5 6.75" />
                     </svg>

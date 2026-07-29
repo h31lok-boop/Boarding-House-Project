@@ -4,8 +4,6 @@ use App\Models\BoardingHouse;
 use App\Models\User;
 
 test('tenant boarding house details renders the interactive route planner and map fallbacks', function () {
-    config()->set('services.google_maps.api_key', null);
-
     $tenant = User::factory()->create([
         'role' => 'user',
         'is_active' => true,
@@ -28,13 +26,13 @@ test('tenant boarding house details renders the interactive route planner and ma
     $this->actingAs($tenant)
         ->get(route('user.boarding-houses.show', $house))
         ->assertOk()
-        ->assertSee('Directions to Boarding House')
+        ->assertSee('Live Navigation to Boarding House')
         ->assertSee('data-boardmatch-location-map', false)
         ->assertSee('data-route-current', false)
         ->assertSee('data-route-dssc', false)
         ->assertSee('Use My Current Location')
         ->assertSee('Route From DSSC Main Campus')
-        ->assertSee('Open in Google Maps')
+        ->assertSee('Open in OpenStreetMap')
         ->assertSee('Reset Map')
         ->assertSee('Route Options')
         ->assertSee('"dssc":', false)
@@ -42,16 +40,16 @@ test('tenant boarding house details renders the interactive route planner and ma
         ->assertSee('data-travel-mode="DRIVING"', false)
         ->assertSee('data-travel-mode="TWO_WHEELER"', false)
         ->assertSee('data-travel-mode="TRANSIT"', false)
-        ->assertSee('Street View / Area Preview')
-        ->assertSee('Street View is not available for this location.')
-        ->assertSee('https://www.google.com/maps/search/', false)
-        ->assertDontSee('unpkg.com/leaflet');
+        ->assertSee('Turn-by-Turn Directions')
+        ->assertSee('data-route-steps', false)
+        ->assertSee('https://www.openstreetmap.org/', false);
 
     $mapScript = file_get_contents(resource_path('js/boarding-house-map.js'));
     expect($mapScript)
-        ->toContain('Unable to access your current location. You can still route from DSSC Main Campus or open this location in Google Maps.')
-        ->toContain('Route could not be generated for this location. Please try opening it in Google Maps.')
-        ->toContain('Map reset. Choose an origin to preview directions again.')
+        ->toContain('Enable location services to see live routes from your current location. The map is centered on the boarding house for now.')
+        ->toContain('Route could not be generated right now. Please try again in a moment.')
+        ->toContain('Map reset. Open the reservation panel or tap Reserve Room to route again.')
+        ->toContain('autoLocateFromReservationFlow')
         ->toContain('routeFromDssc');
 });
 

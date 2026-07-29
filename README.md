@@ -43,10 +43,10 @@ Boarding House Project is a Laravel web application for managing boarding-house 
 
 After seeding, use these local demo accounts:
 
-- Owner / Admin: username `owner`, password `Password123!`
-- Tenant / Student: username `student`, password `Password123!`
+- Admin: username `admin`, password `admin123`
+- Tenant: username `tenant`, password `tenant123`
 
-The owner account is stored with the canonical `admin` role, and the tenant/student account is stored with the canonical `user` role.
+The admin account is stored with the canonical `admin` role, and the tenant account is stored with the canonical `user` role.
 
 ## Notes
 

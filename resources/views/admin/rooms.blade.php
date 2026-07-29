@@ -1,6 +1,9 @@
 <x-layouts.dashboard>
 <x-admin.shell>
     @php
+        $workspace = request()->routeIs('owner.*') ? 'owner' : 'admin';
+        $route = fn (string $name, $params = []) => route($workspace.'.'.$name, $params);
+
         $badge = function ($status) {
             return match (strtolower((string) $status)) {
                 'available' => 'bg-emerald-100 text-emerald-700',
@@ -11,9 +14,14 @@
             };
         };
         $totalRooms = $rooms->total();
-        $occupiedCount  = \App\Models\Room::whereRaw('LOWER(status) = ?', ['occupied'])->count();
-        $availableCount = \App\Models\Room::whereRaw('LOWER(status) = ?', ['available'])->count();
-        $maintenanceCount = \App\Models\Room::whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['maintenance', 'unavailable'])->count();
+        $roomStatsQuery = \App\Models\Room::query()
+            ->when($workspace === 'owner', fn ($query) => $query->whereHas(
+                'boardingHouse',
+                fn ($houseQuery) => $houseQuery->where('owner_id', auth()->id())
+            ));
+        $occupiedCount = (clone $roomStatsQuery)->whereRaw('LOWER(status) = ?', ['occupied'])->count();
+        $availableCount = (clone $roomStatsQuery)->whereRaw('LOWER(status) = ?', ['available'])->count();
+        $maintenanceCount = (clone $roomStatsQuery)->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['maintenance', 'unavailable'])->count();
     @endphp
 
     @php
@@ -39,11 +47,11 @@
                     <p class="text-xs text-orange-600 mt-0.5">Showing only rooms belonging to this boarding house.</p>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
-                    <a href="{{ route('admin.rooms', ['boarding_house_id' => $filterHouseId]) }}"
+                    <a href="{{ $route('rooms', ['boarding_house_id' => $filterHouseId]) }}"
                        class="px-3 py-1.5 rounded-lg bg-orange-500 text-white text-xs font-semibold hover:bg-orange-600 transition-colors">
                         + Add Room Here
                     </a>
-                    <a href="{{ route('admin.boarding-houses') }}"
+                    <a href="{{ $route('boarding-houses') }}"
                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-orange-200 text-orange-700 text-xs font-semibold hover:bg-orange-100 transition-colors">
                         <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
                         Back to Boarding Houses
@@ -63,7 +71,7 @@
                 <p class="mt-1 text-sm text-gray-500">Monitor room capacity, slots, rental fees, and availability.</p>
             </div>
             <div class="flex items-center gap-2">
-                <select id="bhSelector" onchange="location.href='{{ route('admin.rooms') }}?boarding_house_id='+this.value"
+                <select id="bhSelector" onchange="location.href='{{ $route('rooms') }}?boarding_house_id='+this.value"
                         class="px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300">
                     <option value="">All Boarding Houses</option>
                     @foreach ($boardingHouses as $bh)
@@ -156,7 +164,7 @@
                                     'available_slots' => $room->available_slots,
                                     'status' => $room->status ?: 'Available',
                                     'description' => $room->description,
-                                    'update_url' => route('admin.rooms.update', $room),
+                                    'update_url' => $route('rooms.update', $room),
                                 ];
                             @endphp
                             <tr class="hover:bg-gray-50">
@@ -182,7 +190,7 @@
                                                 @click="selected = {{ \Illuminate\Support\Js::from($payload) }}; editOpen = true">
                                             <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M16.862 4.487a2.1 2.1 0 0 1 2.97 2.97L8.416 18.873l-4.5.5.5-4.5 12.446-10.386Z"/></svg>
                                         </button>
-                                        <form method="POST" action="{{ route('admin.rooms.destroy', $room) }}" onsubmit="return confirm('Delete this room?')">
+                                        <form method="POST" action="{{ $route('rooms.destroy', $room) }}" onsubmit="return confirm('Delete this room?')">
                                             @csrf @method('DELETE')
                                             <button title="Delete" class="h-7 w-7 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-rose-50 text-gray-400 hover:text-rose-500">
                                                 <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16"/></svg>
@@ -204,8 +212,8 @@
         </div>
 
         {{-- Add Room Modal --}}
-        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak @click.self="addOpen = false" @keydown.escape.window="addOpen = false" class="bm-modal-overlay">
-            <form method="POST" action="{{ route('admin.rooms.store') }}" class="bm-modal bm-modal--lg">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak @keydown.escape.window="addOpen = false" class="bm-modal-overlay">
+            <form method="POST" action="{{ $route('rooms.store') }}" class="bm-modal bm-modal--lg">
                 @csrf
                 <div class="bm-modal__header">
                     <div>
@@ -242,7 +250,7 @@
         </div>
 
         {{-- View Room Modal --}}
-        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak @click.self="viewOpen = false" @keydown.escape.window="viewOpen = false" class="bm-modal-overlay">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak @keydown.escape.window="viewOpen = false" class="bm-modal-overlay">
             <div class="bm-modal">
                 <div class="bm-modal__header">
                     <div>
@@ -271,7 +279,7 @@
         </div>
 
         {{-- Edit Room Modal --}}
-        <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak @click.self="editOpen = false" @keydown.escape.window="editOpen = false" class="bm-modal-overlay">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak @keydown.escape.window="editOpen = false" class="bm-modal-overlay">
             <form method="POST" :action="selected.update_url" class="bm-modal bm-modal--lg">
                 @csrf @method('PUT')
                 <div class="bm-modal__header">

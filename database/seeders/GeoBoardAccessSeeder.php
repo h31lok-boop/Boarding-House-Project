@@ -17,7 +17,7 @@ class GeoBoardAccessSeeder extends Seeder
 
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
-        foreach (['admin', 'user'] as $roleName) {
+        foreach (['admin', 'owner', 'user'] as $roleName) {
             Role::firstOrCreate([
                 'name' => $roleName,
                 'guard_name' => 'web',
@@ -25,25 +25,25 @@ class GeoBoardAccessSeeder extends Seeder
         }
 
         Role::query()
-            ->whereNotIn('name', ['admin', 'user'])
+            ->whereNotIn('name', ['admin', 'owner', 'user'])
             ->delete();
 
         $admin = $this->upsertUser(
             'Jani',
-            $this->seedEmailFor('owner', 'jani@example.com', ['jani']),
-            $this->seedPasswordFor('owner', ['admin', 'jani']),
-            'admin',
+            $this->seedEmailFor('owner', 'owner@example.com', ['owner', 'jani']),
+            $this->seedPasswordFor('admin', 'admin123', ['owner', 'jani']),
+            'owner',
             '09170000002',
-            $this->seedUsernameFor('owner', 'owner')
+            $this->seedUsernameFor('admin', 'admin')
         );
 
         $user = $this->upsertUser(
             'Hazel',
-            $this->seedEmailFor('student', 'hazel@example.com', ['tenant', 'hazel']),
-            $this->seedPasswordFor('student', ['user', 'tenant', 'hazel']),
+            $this->seedEmailFor('tenant', 'tenant@example.com', ['student', 'user', 'hazel']),
+            $this->seedPasswordFor('tenant', 'tenant123', ['student', 'user', 'hazel']),
             'user',
             '09170000006',
-            $this->seedUsernameFor('student', 'student')
+            $this->seedUsernameFor('tenant', 'tenant')
         );
 
         foreach ([$admin, $user] as $account) {
@@ -245,7 +245,7 @@ class GeoBoardAccessSeeder extends Seeder
     /**
      * @param  array<int, string>  $aliases
      */
-    private function seedPasswordFor(string $account, array $aliases = []): string
+    private function seedPasswordFor(string $account, string $fallback, array $aliases = []): string
     {
         foreach (array_unique([$account, ...$aliases]) as $key) {
             $password = (string) env('SEED_PASSWORD_'.strtoupper($key), '');
@@ -254,7 +254,7 @@ class GeoBoardAccessSeeder extends Seeder
             }
         }
 
-        return (string) env('SEED_DEFAULT_PASSWORD', 'Password123!');
+        return (string) env('SEED_DEFAULT_PASSWORD', $fallback);
     }
 
     /**

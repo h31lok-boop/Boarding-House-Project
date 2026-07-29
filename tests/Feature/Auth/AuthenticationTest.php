@@ -15,6 +15,7 @@ test('users are redirected to their role dashboard after login', function () {
     $response = $this->post('/login', [
         'email' => $user->email,
         'password' => 'password',
+        'role' => 'tenant',
     ]);
 
     $this->assertAuthenticated();
@@ -30,6 +31,7 @@ test('users can authenticate with their username', function () {
     $response = $this->post('/login', [
         'email' => 'student',
         'password' => 'password',
+        'role' => 'tenant',
     ]);
 
     $this->assertAuthenticatedAs($user);
@@ -42,6 +44,7 @@ test('users can not authenticate with invalid password', function () {
     $this->post('/login', [
         'email' => $user->email,
         'password' => 'wrong-password',
+        'role' => 'tenant',
     ]);
 
     $this->assertGuest();

@@ -1,16 +1,18 @@
 <x-layouts.dashboard>
 <x-admin.shell :show-header="false">
     @php
+        $workspace = request()->routeIs('owner.*') ? 'owner' : 'admin';
+        $route = fn (string $name, $params = []) => route($workspace.'.'.$name, $params);
         $isMineView = request('owner') === 'mine';
-        $pageTitle = $isMineView ? 'My Boarding Houses' : 'Boarding Houses';
+        $pageTitle = $isMineView ? 'My Properties' : 'Boarding Houses';
         $pageSubtitle = $isMineView
-            ? 'Manage listing details, photos, room availability, and status from one streamlined workspace.'
-            : 'Review property details, room inventory, and listing status in a cleaner owner workspace.';
+            ? 'Manage your boarding houses, rooms, tenants, and property details.'
+            : '';
         $sharedRouteParams = array_filter([
             'owner' => request('owner'),
         ]);
-        $createListingUrl = route('admin.boarding-houses.create', $sharedRouteParams);
-        $resetFiltersUrl = route('admin.boarding-houses', $sharedRouteParams);
+        $createListingUrl = $route('boarding-houses.create', $sharedRouteParams);
+        $resetFiltersUrl = $route('boarding-houses', $sharedRouteParams);
 
         $statusLabel = fn ($house) => strtolower((string) ($house->approval_status ?: $house->status)) === 'pending'
             ? 'Pending'
@@ -45,7 +47,7 @@
         $showingTo = method_exists($houses, 'lastItem') ? ($houses->lastItem() ?? 0) : $houseCollection->count();
         $hasPagination = method_exists($houses, 'hasPages') && $houses->hasPages();
 
-        $listingRows = $houseCollection->map(function ($house) use ($statusLabel, $statusBadge, $occupancyTone, $isMineView) {
+        $listingRows = $houseCollection->map(function ($house) use ($statusLabel, $statusBadge, $occupancyTone, $isMineView, $route) {
             $asString = fn ($value): ?string => is_scalar($value) || $value === null ? ($value !== null ? (string) $value : null) : null;
             $visibleStatus = $statusLabel($house);
             $approval = $house->approval_status ?: ($house->status ?: 'pending');
@@ -132,7 +134,7 @@
                 'google_maps_url' => $house->latitude !== null && $house->longitude !== null
                     ? 'https://www.google.com/maps/search/?api=1&query='.$house->latitude.','.$house->longitude
                     : null,
-                'update_url' => route('admin.listings.update', $house),
+                'update_url' => $route('listings.update', $house),
             ];
 
             return [
@@ -154,7 +156,7 @@
                     : $photoCount.' '.\Illuminate\Support\Str::plural('photo', $photoCount).' uploaded',
                 'photo_note_classes' => $photoCount === 0 ? 'text-amber-700' : 'text-blue-600',
                 'payload' => $payload,
-                'destroy_url' => route('admin.listings.destroy', array_filter([
+                'destroy_url' => $route('listings.destroy', array_filter([
                     'boarding_house' => $house,
                     'return_to_my_boarding_house' => $isMineView ? 1 : null,
                 ])),
@@ -164,9 +166,12 @@
 
     <div
         x-data="{
-            addOpen: @js(request()->routeIs('admin.boarding-houses.create')),
+            addOpen: @js(request()->routeIs($workspace.'.boarding-houses.create')),
             viewOpen: false,
             editOpen: false,
+            confirmOpen: false,
+            confirmAction: { url: '', title: '', message: '', label: '' },
+            askConfirm(action) { this.confirmAction = action; this.confirmOpen = true; },
             selected: {},
             createPhotos: [],
             editPhotos: [],
@@ -298,7 +303,6 @@
             <div class="border-b border-slate-200/80 bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.08),_transparent_30%),linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-5 sm:px-6">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div class="min-w-0">
-                        <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-blue-700">Property Management</p>
                         <h1 class="mt-2 text-[1.95rem] font-semibold tracking-[-0.04em] text-slate-950">{{ $pageTitle }}</h1>
                         <p class="mt-2 max-w-3xl text-[15px] leading-6 text-slate-600">{{ $pageSubtitle }}</p>
                     </div>
@@ -376,10 +380,181 @@
             </div>
         </section>
 
+        {{-- Stat Cards --}}
+        @php
+            $availableRoomsTotal = $houseCollection->sum('available_rooms');
+            $pendingReservations = $houseCollection->sum(fn ($h) => (int) ($h['payload']['reservations_count'] ?? 0));
+            $pendingInquiries = $houseCollection->sum(fn ($h) => (int) ($h['payload']['inquiries_count'] ?? 0));
+            $totalTenants = $houseCollection->sum('occupied_count');
+            if ($isMineView) {
+                $bhStats = [
+                    ['label' => 'Properties', 'value' => $totalBoardingHouses, 'tone' => 'blue', 'icon' => 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'],
+                    ['label' => 'Total Rooms', 'value' => $totalRooms, 'tone' => 'slate', 'icon' => 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10'],
+                    ['label' => 'Active Tenants', 'value' => $totalTenants, 'tone' => 'emerald', 'icon' => 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z'],
+                    ['label' => 'Available Rooms', 'value' => $availableRoomsTotal, 'tone' => 'blue', 'icon' => 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z'],
+                    ['label' => 'Occupancy Rate', 'value' => $occupancyRate.'%', 'tone' => $occupancyRate >= 70 ? 'emerald' : ($occupancyRate >= 45 ? 'amber' : 'blue'), 'icon' => 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'],
+                ];
+            } else {
+                $bhStats = [
+                    ['label' => 'Boarding Houses', 'value' => $totalBoardingHouses, 'tone' => 'blue', 'icon' => 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'],
+                    ['label' => 'Total Rooms', 'value' => $totalRooms, 'tone' => 'slate', 'icon' => 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z'],
+                    ['label' => 'Occupied', 'value' => $occupiedRooms, 'tone' => 'amber', 'icon' => 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z'],
+                    ['label' => 'Available', 'value' => $availableRoomsTotal, 'tone' => 'emerald', 'icon' => 'M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z'],
+                    ['label' => 'Occupancy Rate', 'value' => $occupancyRate.'%', 'tone' => $occupancyRate >= 70 ? 'emerald' : ($occupancyRate >= 45 ? 'amber' : 'blue'), 'icon' => 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'],
+                ];
+            }
+            $scColor = fn($t) => match($t) {
+                'amber'   => 'bg-amber-50 text-amber-600',
+                'emerald' => 'bg-emerald-50 text-emerald-600',
+                'slate'   => 'bg-slate-100 text-slate-600',
+                default   => 'bg-blue-50 text-blue-600',
+            };
+        @endphp
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            @foreach ($bhStats as $sc)
+                <div class="flex items-center gap-3 rounded-[1.1rem] border border-slate-200/80 bg-white px-4 py-3.5 shadow-[0_4px_12px_rgba(15,23,42,0.04)]">
+                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl {{ $scColor($sc['tone']) }}">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="{{ $sc['icon'] }}"/>
+                        </svg>
+                    </div>
+                    <div class="min-w-0">
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{{ $sc['label'] }}</p>
+                        <p class="text-[1.3rem] font-black tracking-tight text-slate-950">{{ $sc['value'] }}</p>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+
+        @if ($isMineView)
+            <section class="overflow-hidden rounded-[1.1rem] border border-slate-200/80 bg-white shadow-[0_4px_12px_rgba(15,23,42,0.04)]">
+                <div class="border-b border-slate-200/80 bg-gradient-to-r from-blue-50/50 to-transparent px-5 py-4">
+                    <h2 class="text-sm font-semibold tracking-[-0.01em] text-slate-950">Quick Actions</h2>
+                </div>
+                <div class="grid grid-cols-2 gap-3 px-5 py-4 sm:grid-cols-4">
+                    <a href="{{ $createListingUrl }}" class="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
+                        <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-blue-600 transition group-hover:bg-blue-100">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 4v16m8-8H4"/></svg>
+                        </div>
+                        <span>Add Property</span>
+                    </a>
+                    <a href="{{ $route('rooms', $isMineView && $listingRows->count() === 1 ? ($propRouteParams ?? $sharedRouteParams) : $sharedRouteParams) }}" class="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md">
+                        <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 transition group-hover:bg-emerald-100">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                        </div>
+                        <span>Manage Rooms</span>
+                    </a>
+                    <a href="{{ $route('reservations', $isMineView && $listingRows->count() === 1 ? ($propRouteParams ?? $sharedRouteParams) : $sharedRouteParams) }}" class="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:-translate-y-0.5 hover:border-amber-200 hover:shadow-md">
+                        <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-600 transition group-hover:bg-amber-100">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        </div>
+                        <span>Reservations</span>
+                    </a>
+                    <a href="{{ $route('payments', $isMineView && $listingRows->count() === 1 ? ($propRouteParams ?? $sharedRouteParams) : $sharedRouteParams) }}" class="group flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-md">
+                        <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-50 text-purple-600 transition group-hover:bg-purple-100">
+                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        </div>
+                        <span>Payments</span>
+                    </a>
+                </div>
+            </section>
+        @endif
+
+        @if ($isMineView && $listingRows->count() === 1)
+            @php
+                $property = $listingRows->first();
+                $bhId = $property['payload']['id'] ?? null;
+                $propRouteParams = array_filter(array_merge($sharedRouteParams, $bhId ? ['boarding_house_id' => $bhId] : []));
+                $googleMapsUrl = $property['payload']['google_maps_url'] ?? null;
+            @endphp
+            <section class="overflow-hidden rounded-[1.45rem] border border-slate-200/80 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
+                <div class="border-b border-slate-200/80 bg-gradient-to-r from-blue-50/50 to-transparent px-5 py-4">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <h2 class="text-base font-semibold tracking-[-0.02em] text-slate-950">{{ $property['name'] }}</h2>
+                            <p class="mt-0.5 text-[13px] text-slate-500">{{ $property['full_location'] }}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-medium {{ $property['status_classes'] }}">
+                                {{ $property['visible_status'] }}
+                            </span>
+                            <button type="button" title="Edit Property" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" @click="editDetails({{ \Illuminate\Support\Js::from($property['payload']) }})">
+                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M16.862 4.487a2.1 2.1 0 0 1 2.97 2.97L8.416 18.873l-4.5.5.5-4.5 12.446-10.386Z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4 px-5 py-5 sm:grid-cols-4">
+                    <a href="{{ $route('rooms', $propRouteParams) }}" class="group rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3.5 transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Total Rooms</p>
+                        <p class="mt-1 text-xl font-bold text-slate-950">{{ $property['total_count'] }}</p>
+                    </a>
+                    <a href="{{ $route('rooms', array_merge($propRouteParams, ['status' => 'available'])) }}" class="group rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3.5 transition hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-md">
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Available</p>
+                        <p class="mt-1 text-xl font-bold text-emerald-600">{{ $property['available_rooms'] }}</p>
+                    </a>
+                    <a href="{{ $route('rooms', array_merge($propRouteParams, ['status' => 'occupied'])) }}" class="group rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3.5 transition hover:-translate-y-0.5 hover:border-amber-200 hover:shadow-md">
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Occupied</p>
+                        <p class="mt-1 text-xl font-bold text-slate-950">{{ $property['occupied_count'] }}</p>
+                    </a>
+                    <div class="rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3.5">
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Occupancy</p>
+                        <p class="mt-1 text-xl font-bold {{ $property['percent_class'] }}">{{ $property['occupancy_pct'] }}%</p>
+                    </div>
+                </div>
+
+                @php
+                    $amenities = $property['payload']['amenities'] ?? [];
+                    $hasCoords = ($property['payload']['latitude'] ?? null) && ($property['payload']['longitude'] ?? null);
+                @endphp
+                @if (!empty($amenities))
+                <div class="border-t border-slate-200/80 px-5 py-3">
+                    <div class="flex flex-wrap gap-1.5">
+                        @foreach ($amenities as $amenity)
+                            <span class="inline-flex rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-600">{{ $amenity }}</span>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+
+                <div class="border-t border-slate-200/80 px-5 py-4">
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <a href="{{ $route('rooms', $propRouteParams) }}" class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 text-xs font-medium text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
+                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                                Rooms
+                            </a>
+                            <a href="{{ $route('reservations', $propRouteParams) }}" class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 text-xs font-medium text-slate-700 transition hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700">
+                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                Reservations
+                            </a>
+                            <a href="{{ $route('payments', $propRouteParams) }}" class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 text-xs font-medium text-slate-700 transition hover:border-purple-200 hover:bg-purple-50 hover:text-purple-700">
+                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                Payments
+                            </a>
+                            <a href="{{ $route('tenants.index', $sharedRouteParams) }}" class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 text-xs font-medium text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700">
+                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/></svg>
+                                Tenants
+                            </a>
+                            @if ($googleMapsUrl)
+                            <a href="{{ $googleMapsUrl }}" target="_blank" class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 text-xs font-medium text-slate-700 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700">
+                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M12 21s7-4.35 7-11a7 7 0 1 0-14 0c0 6.65 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5" stroke-width="1.7"/></svg>
+                                View on Map
+                            </a>
+                            @endif
+                        </div>
+                        <p class="text-xs font-medium text-slate-500">{{ $property['photo_note'] }}</p>
+                    </div>
+                </div>
+            </section>
+        @else
         <section class="overflow-hidden rounded-[1.45rem] border border-slate-200/80 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
             <div class="border-b border-slate-200/80 px-5 py-4">
                 <div class="flex items-center justify-between gap-3">
-                    <h2 class="text-base font-semibold tracking-[-0.02em] text-slate-950">Listings</h2>
+                    <h2 class="text-base font-semibold tracking-[-0.02em] text-slate-950">{{ $isMineView ? 'Your Properties' : 'Listings' }}</h2>
                     <span class="hidden rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-600 sm:inline-flex">{{ number_format($listingRows->count()) }} on this page</span>
                 </div>
             </div>
@@ -390,10 +565,10 @@
                         <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-600">
                             @include('components.sidebar.partials.admin-icon', ['name' => 'boarding-house'])
                         </div>
-                        <p class="mt-4 text-base font-semibold tracking-[-0.02em] text-slate-900">No boarding houses yet</p>
-                        <p class="mt-2 text-sm leading-6 text-slate-500">Add your first boarding house to start managing rooms and availability.</p>
+                        <p class="mt-4 text-base font-semibold tracking-[-0.02em] text-slate-900">{{ $isMineView ? 'You haven\'t added a property yet' : 'No boarding houses yet' }}</p>
+                        <p class="mt-2 text-sm leading-6 text-slate-500">{{ $isMineView ? 'Add your boarding house to start managing rooms and tenants.' : 'Add your first boarding house to start managing rooms and availability.' }}</p>
                         <a href="{{ $createListingUrl }}" class="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-medium text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700">
-                            Add Boarding House
+                            {{ $isMineView ? 'Add Your Property' : 'Add Boarding House' }}
                         </a>
                     </div>
                 </div>
@@ -459,24 +634,20 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/>
                                     </svg>
-                                    View
                                 </button>
-                                <button type="button" class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50" @click="editDetails({{ \Illuminate\Support\Js::from($listing['payload']) }})">
+                                <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" title="Edit" @click="editDetails({{ \Illuminate\Support\Js::from($listing['payload']) }})">
                                     <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M16.862 4.487a2.1 2.1 0 0 1 2.97 2.97L8.416 18.873l-4.5.5.5-4.5 12.446-10.386Z"/>
                                     </svg>
-                                    Edit
                                 </button>
-                                <form method="POST" action="{{ $listing['destroy_url'] }}" onsubmit="return confirm('Delete this boarding house?')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button class="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-medium text-rose-600 transition hover:bg-rose-100">
-                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16"/>
-                                        </svg>
-                                        Delete
-                                    </button>
-                                </form>
+                                <button type="button"
+                                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 transition hover:-translate-y-0.5 hover:bg-rose-100"
+                                    title="Delete"
+                                    @click="askConfirm({ url: '{{ $listing['destroy_url'] }}', title: 'Delete this boarding house?', message: 'This will permanently remove {{ addslashes($listing['name']) }}. This cannot be undone.', label: 'Yes, Delete' })">
+                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16"/>
+                                    </svg>
+                                </button>
                             </div>
                         </article>
                     @endforeach
@@ -487,6 +658,9 @@
                         <thead class="bg-slate-50/80 text-[11px] uppercase tracking-[0.16em] text-slate-500">
                             <tr>
                                 <th class="px-5 py-3.5 text-left font-medium">Boarding House</th>
+                                @unless ($isMineView)
+                                <th class="px-5 py-3.5 text-left font-medium">Owner</th>
+                                @endunless
                                 <th class="px-5 py-3.5 text-left font-medium">Location</th>
                                 <th class="px-5 py-3.5 text-left font-medium">Rooms</th>
                                 <th class="px-5 py-3.5 text-left font-medium">Occupancy</th>
@@ -509,6 +683,14 @@
                                             </div>
                                         </div>
                                     </td>
+                                    @unless ($isMineView)
+                                    <td class="px-5 py-4.5">
+                                        <div class="space-y-1 text-[13px]">
+                                            <p class="font-medium text-slate-950">{{ $listing['payload']['owner_name'] ?? 'N/A' }}</p>
+                                            <p class="text-slate-500">{{ $listing['payload']['owner_email'] ?? '' }}</p>
+                                        </div>
+                                    </td>
+                                    @endunless
                                     <td class="px-5 py-4.5 text-[13px] leading-6 text-slate-600">
                                         <div class="max-w-xs">
                                             {{ $listing['full_location'] }}
@@ -537,30 +719,25 @@
                                         </span>
                                     </td>
                                     <td class="px-5 py-4.5">
-                                        <div class="flex justify-end gap-2">
-                                            <button type="button" class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50" @click="showDetails({{ \Illuminate\Support\Js::from($listing['payload']) }})">
+                                        <div class="flex justify-end gap-1.5">
+                                            <button type="button" title="View" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" @click="showDetails({{ \Illuminate\Support\Js::from($listing['payload']) }})">
                                                 <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/>
                                                 </svg>
-                                                View
                                             </button>
-                                            <button type="button" class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50" @click="editDetails({{ \Illuminate\Support\Js::from($listing['payload']) }})">
+                                            <button type="button" title="Edit" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" @click="editDetails({{ \Illuminate\Support\Js::from($listing['payload']) }})">
                                                 <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M16.862 4.487a2.1 2.1 0 0 1 2.97 2.97L8.416 18.873l-4.5.5.5-4.5 12.446-10.386Z"/>
                                                 </svg>
-                                                Edit
                                             </button>
-                                            <form method="POST" action="{{ $listing['destroy_url'] }}" onsubmit="return confirm('Delete this boarding house?')">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 text-xs font-medium text-rose-600 transition hover:bg-rose-100">
-                                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16"/>
-                                                    </svg>
-                                                    Delete
-                                                </button>
-                                            </form>
+                                            <button type="button" title="Delete"
+                                                class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-600 transition hover:-translate-y-0.5 hover:bg-rose-100"
+                                                @click="askConfirm({ url: '{{ $listing['destroy_url'] }}', title: 'Delete this boarding house?', message: 'This will permanently remove {{ addslashes($listing['name']) }}. This cannot be undone.', label: 'Yes, Delete' })">
+                                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16"/>
+                                                </svg>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -570,46 +747,47 @@
                 </div>
             @endif
 
-            <div class="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-                <span class="text-sm text-slate-500">Showing {{ $showingFrom }} to {{ $showingTo }} of {{ $totalListings }} results</span>
-                @if ($hasPagination)
-                    <nav class="flex items-center gap-2" aria-label="Boarding houses pagination">
-                        <a
-                            href="{{ $houses->previousPageUrl() ?: '#' }}"
-                            class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 {{ $houses->onFirstPage() ? 'pointer-events-none opacity-50' : '' }}"
-                            aria-label="Previous page"
-                        >
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"/>
-                            </svg>
-                        </a>
-
-                        @foreach ($houses->getUrlRange(1, $houses->lastPage()) as $page => $url)
+                <div class="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+                    <span class="text-sm text-slate-500">Showing {{ $showingFrom }} to {{ $showingTo }} of {{ $totalListings }} results</span>
+                    @if ($hasPagination)
+                        <nav class="flex items-center gap-2" aria-label="Boarding houses pagination">
                             <a
-                                href="{{ $url }}"
-                                class="flex h-9 min-w-9 items-center justify-center rounded-lg border px-3 text-xs font-medium transition {{ $houses->currentPage() === $page ? 'border-blue-600 bg-blue-600 text-white shadow-sm shadow-blue-600/20' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50' }}"
-                                @if ($houses->currentPage() === $page) aria-current="page" @endif
+                                href="{{ $houses->previousPageUrl() ?: '#' }}"
+                                class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 {{ $houses->onFirstPage() ? 'pointer-events-none opacity-50' : '' }}"
+                                aria-label="Previous page"
                             >
-                                {{ $page }}
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 19-7-7 7-7"/>
+                                </svg>
                             </a>
-                        @endforeach
 
-                        <a
-                            href="{{ $houses->nextPageUrl() ?: '#' }}"
-                            class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 {{ $houses->hasMorePages() ? '' : 'pointer-events-none opacity-50' }}"
-                            aria-label="Next page"
-                        >
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7"/>
-                            </svg>
-                        </a>
-                    </nav>
-                @endif
-            </div>
-        </section>
+                            @foreach ($houses->getUrlRange(1, $houses->lastPage()) as $page => $url)
+                                <a
+                                    href="{{ $url }}"
+                                    class="flex h-9 min-w-9 items-center justify-center rounded-lg border px-3 text-xs font-medium transition {{ $houses->currentPage() === $page ? 'border-blue-600 bg-blue-600 text-white shadow-sm shadow-blue-600/20' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50' }}"
+                                    @if ($houses->currentPage() === $page) aria-current="page" @endif
+                                >
+                                    {{ $page }}
+                                </a>
+                            @endforeach
 
-        <div data-modal-skip role="dialog" aria-modal="true" x-show="addOpen" x-cloak x-transition.opacity @click.self="addOpen = false" @keydown.escape.window="addOpen = false" class="bm-modal-overlay" style="display: none;">
-            <form method="POST" action="{{ route('admin.listings.store') }}" enctype="multipart/form-data" class="bm-modal bm-modal--xl">
+                            <a
+                                href="{{ $houses->nextPageUrl() ?: '#' }}"
+                                class="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 {{ $houses->hasMorePages() ? '' : 'pointer-events-none opacity-50' }}"
+                                aria-label="Next page"
+                            >
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 5 7 7-7 7"/>
+                                </svg>
+                            </a>
+                        </nav>
+                    @endif
+                </div>
+            </section>
+        @endif
+
+        <div data-modal-skip role="dialog" aria-modal="true" x-show="addOpen" x-cloak x-transition.opacity @keydown.escape.window="addOpen = false" class="bm-modal-overlay" style="display: none;">
+            <form method="POST" action="{{ $route('listings.store') }}" enctype="multipart/form-data" class="bm-modal bm-modal--xl">
                 @csrf
                 @if ($isMineView)
                     <input type="hidden" name="return_to_my_boarding_house" value="1">
@@ -720,7 +898,7 @@
             </form>
         </div>
 
-        <div data-modal-skip role="dialog" aria-modal="true" x-show="viewOpen" x-cloak x-transition.opacity @click.self="viewOpen = false" @keydown.escape.window="viewOpen = false" class="bm-modal-overlay" style="display: none;">
+        <div data-modal-skip role="dialog" aria-modal="true" x-show="viewOpen" x-cloak x-transition.opacity @keydown.escape.window="viewOpen = false" class="bm-modal-overlay" style="display: none;">
             <div class="bm-modal bm-modal--xl">
                 <div class="bm-modal__header">
                     <div>
@@ -869,7 +1047,7 @@
             </div>
         </div>
 
-        <div data-modal-skip role="dialog" aria-modal="true" x-show="editOpen" x-cloak x-transition.opacity @click.self="editOpen = false" @keydown.escape.window="editOpen = false" class="bm-modal-overlay" style="display: none;">
+        <div data-modal-skip role="dialog" aria-modal="true" x-show="editOpen" x-cloak x-transition.opacity @keydown.escape.window="editOpen = false" class="bm-modal-overlay" style="display: none;">
             <form method="POST" :action="selected.update_url" enctype="multipart/form-data" class="bm-modal bm-modal--xl">
                 @csrf @method('PUT')
                 @if ($isMineView)
@@ -1202,5 +1380,29 @@
             });
         });
     </script>
+
+    {{-- Delete confirmation modal --}}
+    <div data-modal-root role="dialog" aria-modal="true" x-show="confirmOpen" x-cloak x-transition
+        class="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-3 backdrop-blur-sm">
+        <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/15">
+            <div class="flex items-start gap-3.5">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    </svg>
+                </div>
+                <div class="min-w-0">
+                    <h2 class="text-[15px] font-bold tracking-[-0.01em] text-slate-950" x-text="confirmAction.title"></h2>
+                    <p class="mt-1.5 text-[13px] leading-5 text-slate-500" x-text="confirmAction.message"></p>
+                </div>
+            </div>
+            <form method="POST" :action="confirmAction.url" class="mt-5 flex justify-end gap-2">
+                @csrf
+                @method('DELETE')
+                <button type="button" @click="confirmOpen = false" class="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50">Go Back</button>
+                <button class="inline-flex h-9 items-center justify-center rounded-xl bg-rose-600 px-4 text-sm font-bold text-white shadow-sm shadow-rose-600/20 transition hover:bg-rose-700" x-text="confirmAction.label || 'Delete'"></button>
+            </form>
+        </div>
+    </div>
 </x-admin.shell>
 </x-layouts.dashboard>

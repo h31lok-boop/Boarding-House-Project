@@ -144,20 +144,22 @@
         .btn-signin {
             width: 100%;
             padding: 0.75rem;
-            border: none;
+            border: 1px solid #1d4ed8;
             border-radius: 10px;
-            background: linear-gradient(135deg, var(--brand-500), var(--accent-500));
+            background-color: #2563eb;
+            background-image: linear-gradient(135deg, #2563eb 0%, #1d4ed8 55%, #0ea5e9 100%);
             color: #fff;
             font-size: 0.9375rem;
             font-weight: 700;
             cursor: pointer;
-            transition: opacity .15s, transform .15s, box-shadow .15s;
+            box-shadow: 0 10px 22px rgba(37, 99, 235, 0.28);
+            transition: transform .15s, box-shadow .15s, filter .15s;
             display: flex; align-items: center; justify-content: center; gap: 8px;
         }
         .btn-signin:hover {
-            opacity: .9;
             transform: translateY(-1px);
-            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.28);
+            filter: brightness(1.06);
+            box-shadow: 0 14px 28px rgba(37, 99, 235, 0.36);
         }
         .btn-signin:active { transform: translateY(0); }
         .btn-signin:disabled { opacity: .65; cursor: not-allowed; transform: none; }
@@ -262,7 +264,7 @@
                                required
                                autofocus
                                autocomplete="username"
-                               placeholder="owner, student, or you@example.com">
+                               placeholder="admin, tenant, or you@example.com">
                     </div>
                 </div>
 

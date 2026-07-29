@@ -62,6 +62,7 @@ test('new users can register', function () {
     $this->post('/login', [
         'email' => 'test@example.com',
         'password' => 'BoardSafe9!',
+        'role' => 'tenant',
     ])->assertRedirect(route('user.dashboard', absolute: false));
 
     $this->assertAuthenticatedAs($user);
@@ -75,7 +76,7 @@ test('new users can register', function () {
     ]);
 });
 
-test('admins can register from the public form', function () {
+test('owners can register from the public form', function () {
     Storage::fake('public');
 
     $response = $this->post('/register', [
@@ -102,20 +103,21 @@ test('admins can register from the public form', function () {
     ]);
 
     $response->assertSessionDoesntHaveErrors();
-    $response->assertRedirect(route('admin.dashboard', absolute: false));
+    $response->assertRedirect(route('owner.dashboard', absolute: false));
 
-    $admin = User::where('email', 'admin-user@example.com')->first();
-    $boardingHouse = DB::table('boarding_houses')->where('user_id', $admin->id)->first();
+    $owner = User::where('email', 'admin-user@example.com')->first();
+    $boardingHouse = DB::table('boarding_houses')->where('user_id', $owner->id)->first();
 
-    $this->assertAuthenticatedAs($admin);
-    expect($admin?->role)->toBe('owner');
-    expect($admin?->isAdmin())->toBeTrue();
-    expect($admin?->email_verified_at)->not->toBeNull();
-    expect($admin?->status)->toBe('pending');
+    $this->assertAuthenticatedAs($owner);
+    expect($owner?->role)->toBe('owner');
+    expect($owner?->isOwner())->toBeTrue();
+    expect($owner?->isAdmin())->toBeFalse();
+    expect($owner?->email_verified_at)->not->toBeNull();
+    expect($owner?->status)->toBe('pending');
     expect($boardingHouse)->not->toBeNull();
 
     $this->assertDatabaseHas('owner_profiles', [
-        'user_id' => $admin->id,
+        'user_id' => $owner->id,
         'boarding_house_name' => 'Admin Boarding House',
         'boarding_house_address' => '123 Owner Street',
         'contact_number' => '+639991111111',
@@ -131,11 +133,11 @@ test('admins can register from the public form', function () {
     ]);
     $this->assertDatabaseCount('boarding_house_photos', 2);
     $this->assertDatabaseHas('boarding_house_photos', [
-        'owner_id' => $admin->id,
+        'owner_id' => $owner->id,
         'boarding_house_id' => $boardingHouse->id,
     ]);
     $this->assertDatabaseMissing('tenant_profiles', [
-        'user_id' => $admin->id,
+        'user_id' => $owner->id,
     ]);
 
     Storage::disk('public')->assertExists($boardingHouse->proof_of_ownership);

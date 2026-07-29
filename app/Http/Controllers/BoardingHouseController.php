@@ -8,6 +8,7 @@ use App\Services\LocationService;
 use App\Support\SystemActionLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -20,7 +21,17 @@ class BoardingHouseController extends Controller
         private readonly LocationService $locationService,
     )
     {
-        $this->middleware(['auth', 'admin']);
+        // Access is enforced per-route (owner middleware) and per-record (BoardingHousePolicy).
+        $this->middleware('auth');
+    }
+
+    /**
+     * The workspace namespace ("owner" or "admin") the current request belongs to,
+     * so redirects and generated URLs stay within the caller's namespace.
+     */
+    private function routeNs(Request $request): string
+    {
+        return $request->routeIs('owner.*') ? 'owner' : 'admin';
     }
 
     public function index()
@@ -36,9 +47,10 @@ class BoardingHouseController extends Controller
     public function store(Request $request)
     {
         $requiresDetails = $request->wantsJson();
+        $ns = $this->routeNs($request);
         $redirectRoute = $request->boolean('return_to_my_boarding_house')
-            ? 'admin.my-boarding-house'
-            : 'admin.listings';
+            ? $ns.'.my-boarding-house'
+            : $ns.'.listings';
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -53,7 +65,7 @@ class BoardingHouseController extends Controller
             'description' => [Rule::requiredIf($requiresDetails), 'nullable', 'string'],
             'house_rules' => ['nullable', 'string'],
             'landlord_info' => [Rule::requiredIf($requiresDetails), 'nullable', 'string', 'max:255'],
-            'owner_id' => ['nullable', Rule::exists('users', 'id')->where('role', 'admin')],
+            'owner_id' => ['nullable', Rule::exists('users', 'id')->whereIn('role', ['admin', 'owner'])],
             'contact_name' => ['nullable', 'string', 'max:255'],
             'contact_phone' => ['nullable', 'string', 'max:50'],
             'monthly_payment' => [Rule::requiredIf($requiresDetails), 'numeric', 'min:0'],
@@ -77,7 +89,10 @@ class BoardingHouseController extends Controller
         $data = $this->sanitizeBoardingHouseInput($data);
         $data = $this->locationService->enrichBoardingHouseData($data);
 
-        if ($request->user()?->isAdmin() && empty($data['owner_id'])) {
+        // Owners can only create houses they own; super-admins may assign an owner.
+        if ($request->user()?->isStrictOwner()) {
+            $data['owner_id'] = $request->user()->id;
+        } elseif ($request->user()?->isSuperAdmin() && empty($data['owner_id'])) {
             $data['owner_id'] = $request->user()->id;
         }
 
@@ -142,7 +157,7 @@ class BoardingHouseController extends Controller
                     'kitchen_url' => $house->kitchen_image ? Storage::url($house->kitchen_image) : '',
                     'cover_image_url' => $house->cover_image_url,
                     'images' => $this->imagePayload($house),
-                    'update_url' => route('admin.listings.update', $house),
+                    'update_url' => route($ns.'.listings.update', $house),
                 ],
             ]);
         }
@@ -167,10 +182,13 @@ class BoardingHouseController extends Controller
 
     public function update(Request $request, BoardingHouse $boarding_house)
     {
+        $this->authorize('update', $boarding_house);
+
         $requiresDetails = $request->wantsJson();
+        $ns = $this->routeNs($request);
         $redirectRoute = $request->boolean('return_to_my_boarding_house')
-            ? 'admin.my-boarding-house'
-            : 'admin.listings';
+            ? $ns.'.my-boarding-house'
+            : $ns.'.listings';
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -185,7 +203,7 @@ class BoardingHouseController extends Controller
             'description' => ['nullable', 'string'],
             'house_rules' => ['nullable', 'string'],
             'landlord_info' => [Rule::requiredIf($requiresDetails), 'nullable', 'string', 'max:255'],
-            'owner_id' => ['nullable', Rule::exists('users', 'id')->where('role', 'admin')],
+            'owner_id' => ['nullable', Rule::exists('users', 'id')->whereIn('role', ['admin', 'owner'])],
             'contact_name' => ['nullable', 'string', 'max:255'],
             'contact_phone' => ['nullable', 'string', 'max:50'],
             'monthly_payment' => [Rule::requiredIf($requiresDetails), 'numeric', 'min:0'],
@@ -275,6 +293,11 @@ class BoardingHouseController extends Controller
 
                 $boarding_house->update($data);
 
+                if ($request->has('amenity_ids') && Schema::hasTable('boarding_house_amenities')) {
+                    $ids = collect($request->input('amenity_ids', []))->filter()->unique()->values()->all();
+                    $boarding_house->amenities()->sync($ids);
+                }
+
                 $imagesToDelete = $boarding_house->images()->whereIn('id', $removeImageIds)->get();
                 $deletedPaths = $imagesToDelete->pluck('image_path')->filter()->values()->all();
                 $boarding_house->images()->whereIn('id', $removeImageIds)->delete();
@@ -345,7 +368,7 @@ class BoardingHouseController extends Controller
                     'kitchen_url' => $boarding_house->kitchen_image ? Storage::url($boarding_house->kitchen_image) : '',
                     'cover_image_url' => $boarding_house->cover_image_url,
                     'images' => $this->imagePayload($boarding_house),
-                    'update_url' => route('admin.listings.update', $boarding_house),
+                    'update_url' => route($ns.'.listings.update', $boarding_house),
                 ],
             ]);
         }
@@ -360,9 +383,35 @@ class BoardingHouseController extends Controller
 
     public function destroy(Request $request, BoardingHouse $boarding_house)
     {
+        $this->authorize('delete', $boarding_house);
+
+        $ns = $this->routeNs($request);
         $redirectRoute = $request->boolean('return_to_my_boarding_house')
-            ? 'admin.my-boarding-house'
-            : 'admin.listings';
+            ? $ns.'.my-boarding-house'
+            : $ns.'.listings';
+
+        $activeTenants = $boarding_house->tenants()
+            ->whereIn('status', ['active', 'occupied'])
+            ->count();
+
+        if ($activeTenants > 0) {
+            return redirect()->route($redirectRoute)->with(
+                'error',
+                'Cannot delete this property because it has '.$activeTenants.' active '.($activeTenants === 1 ? 'tenant' : 'tenants').'. Move them out before deleting.'
+            );
+        }
+
+        $pendingReservations = $boarding_house->reservations()
+            ->whereRaw('LOWER(status) = ?', ['pending'])
+            ->count();
+
+        if ($pendingReservations > 0) {
+            return redirect()->route($redirectRoute)->with(
+                'error',
+                'Cannot delete this property because there '.($pendingReservations === 1 ? 'is' : 'are').' '.$pendingReservations.' pending '.($pendingReservations === 1 ? 'reservation' : 'reservations').'. Resolve them before deleting.'
+            );
+        }
+
         $id = (int) $boarding_house->id;
         $name = $boarding_house->name;
         $boarding_house->load('images');

@@ -14,6 +14,8 @@
     $featuredHouse = data_get($featured, 'house');
     $featuredRecommendation = data_get($featured, 'recommendation', []);
 
+    $favoriteHouseIds = collect($favoriteHouseIds ?? [])->map(fn ($id) => (int) $id);
+
     $rawScore = function ($item): int {
         $value = data_get($item, 'recommendation.recommendation_percent')
             ?? data_get($item, 'recommendation.match_score')
@@ -177,9 +179,17 @@
 @endunless
 
 <div
-    x-data="{ minimumScore: 0, filtersOpen: false }"
+    x-data="{ minimumScore: {{ (int) ($houseFilters['min_score'] ?? 0) }}, filtersOpen: false, refreshing: false }"
     class="space-y-2.5 text-slate-950 dark:text-slate-100"
 >
+    @foreach (['success' => 'border-emerald-200 bg-emerald-50 text-emerald-800', 'warning' => 'border-amber-200 bg-amber-50 text-amber-800', 'error' => 'border-rose-200 bg-rose-50 text-rose-800'] as $flashKey => $flashTone)
+        @if (session($flashKey))
+            <div class="rounded-xl border px-4 py-3 text-sm font-medium {{ $flashTone }}" role="status">
+                {{ session($flashKey) }}
+            </div>
+        @endif
+    @endforeach
+
     <section class="rounded-2xl border border-white bg-white/90 p-2.5 shadow-[0_10px_24px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-900/90 sm:p-3">
         <div class="flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
             <div class="max-w-2xl">
@@ -214,19 +224,19 @@
                 </div>
 
                 <div class="grid content-center gap-2">
-                    <form method="POST" action="{{ route('user.matchmaking.generate') }}">
+                    <form method="POST" action="{{ route('user.matchmaking.generate') }}" @submit="if (refreshing) { $event.preventDefault(); return; } refreshing = true">
                         @csrf
                         @if ($matchmakingRefreshRedirect)
                             <input type="hidden" name="redirect_to" value="{{ $matchmakingRefreshRedirect }}">
                         @endif
-                        <button type="submit" class="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-xl border border-blue-200 bg-white px-2.5 text-[11px] font-bold text-blue-600 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50 dark:border-blue-500/30 dark:bg-slate-950 dark:text-blue-300 dark:hover:bg-blue-500/10">
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <button type="submit" :disabled="refreshing" class="inline-flex h-8 w-full items-center justify-center gap-1.5 rounded-xl border border-blue-200 bg-white px-2.5 text-[11px] font-bold text-blue-600 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50 disabled:cursor-wait disabled:opacity-60 dark:border-blue-500/30 dark:bg-slate-950 dark:text-blue-300 dark:hover:bg-blue-500/10">
+                            <svg class="h-4 w-4" :class="refreshing ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
                             </svg>
-                            Refresh Matches
+                            <span x-text="refreshing ? 'Recalculating…' : 'Refresh Matches'">Refresh Matches</span>
                         </button>
                     </form>
-                    <a href="{{ route('user.preferences.index') }}" class="inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 text-[11px] font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-blue-500/40">
+                    <a href="{{ route('user.preferences.index', ['return_to' => 'matchmaking']) }}" class="inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 text-[11px] font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-blue-500/40">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
                         </svg>
@@ -285,13 +295,25 @@
             <a href="{{ route('user.preferences.index') }}" class="mt-4 inline-flex h-9 items-center justify-center rounded-xl bg-blue-600 px-4 text-xs font-bold text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-blue-700">Set My Preferences</a>
         </section>
     @elseif ($houseRecommendations->isEmpty())
+        @php
+            $hasActiveHouseFilters = ! empty($houseFilters['room_type']) || ! empty($houseFilters['dssc_area']) || ! empty($houseFilters['min_score']) || ! empty($houseFilters['available_now']) || ! empty($houseFilters['within_budget']);
+        @endphp
         <section class="rounded-2xl border border-slate-100 bg-white p-5 text-center shadow-[0_10px_24px_rgba(15,23,42,0.06)] dark:border-slate-800 dark:bg-slate-900">
             <div class="mx-auto grid h-11 w-11 place-items-center rounded-xl bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955a1.125 1.125 0 0 1 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75" /></svg>
             </div>
-            <h2 class="mt-3 text-base font-black text-slate-950 dark:text-white">No matching boarding houses found</h2>
-            <p class="mx-auto mt-1.5 max-w-xl text-xs leading-5 text-slate-500 dark:text-slate-400">Try a wider budget, another room type, or a nearby barangay to reveal more compatible matches.</p>
-            <a href="{{ route('user.preferences.index') }}" class="mt-4 inline-flex h-9 items-center justify-center rounded-xl bg-blue-600 px-4 text-xs font-bold text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-blue-700">Update Preferences</a>
+            <h2 class="mt-3 text-base font-black text-slate-950 dark:text-white">{{ $hasActiveHouseFilters ? 'No matches for these filters' : 'No matching boarding houses found' }}</h2>
+            <p class="mx-auto mt-1.5 max-w-xl text-xs leading-5 text-slate-500 dark:text-slate-400">
+                {{ $hasActiveHouseFilters
+                    ? 'Your saved matches are hidden by the current filters. Clear them to see all ranked results.'
+                    : 'Try a wider budget, another room type, or a nearby barangay to reveal more compatible matches.' }}
+            </p>
+            <div class="mt-4 flex flex-wrap items-center justify-center gap-2">
+                @if ($hasActiveHouseFilters)
+                    <a href="{{ $matchmakingActionUrl }}{{ $matchmakingRefreshRedirect === 'boarding_houses' ? '?tab=matchmaking' : '' }}" class="inline-flex h-9 items-center justify-center rounded-xl bg-blue-600 px-4 text-xs font-bold text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-blue-700">Clear Filters</a>
+                @endif
+                <a href="{{ route('user.preferences.index', ['return_to' => 'matchmaking']) }}" class="inline-flex h-9 items-center justify-center rounded-xl {{ $hasActiveHouseFilters ? 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200' : 'bg-blue-600 text-white shadow-lg shadow-blue-600/20 hover:bg-blue-700' }} px-4 text-xs font-bold transition hover:-translate-y-0.5">Update Preferences</a>
+            </div>
         </section>
     @else
         <section class="grid gap-3 xl:grid-cols-[0.62fr_1.38fr]">
@@ -330,10 +352,13 @@
                 @endphp
                 <article class="relative overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-blue-50 p-4 shadow-[0_14px_34px_rgba(15,23,42,0.07)] dark:border-emerald-500/30 dark:from-emerald-500/10 dark:via-slate-900 dark:to-blue-500/10">
                     <div class="absolute right-3 top-3">
+                        @php
+                            $featuredIsFavorite = $favoriteHouseIds->contains((int) $featuredHouse->id);
+                        @endphp
                         <form method="POST" action="{{ route('user.boarding-houses.favorite', $featuredHouse) }}">
                             @csrf
-                            <button type="submit" class="grid h-8 w-8 place-items-center rounded-full bg-white/90 text-slate-500 shadow-sm transition hover:text-rose-500 dark:bg-slate-950/90 dark:text-slate-300" aria-label="Save match">
-                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733C11.285 4.876 9.623 3.75 7.688 3.75 5.099 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" /></svg>
+                            <button type="submit" class="grid h-8 w-8 place-items-center rounded-full bg-white/90 shadow-sm transition hover:scale-110 dark:bg-slate-950/90 {{ $featuredIsFavorite ? 'text-rose-500' : 'text-slate-500 hover:text-rose-500 dark:text-slate-300' }}" aria-label="{{ $featuredIsFavorite ? 'Remove from saved listings' : 'Save this match' }}" aria-pressed="{{ $featuredIsFavorite ? 'true' : 'false' }}">
+                                <svg class="h-4 w-4" fill="{{ $featuredIsFavorite ? 'currentColor' : 'none' }}" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733C11.285 4.876 9.623 3.75 7.688 3.75 5.099 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" /></svg>
                             </button>
                         </form>
                     </div>
@@ -382,7 +407,11 @@
 
                             <div class="mt-2.5 grid gap-2 sm:grid-cols-2">
                                 <a href="{{ route('user.boarding-houses.show', $featuredHouse) }}" class="inline-flex h-9 items-center justify-center rounded-xl border border-blue-200 bg-white px-3 text-xs font-black text-blue-600 transition hover:-translate-y-0.5 hover:bg-blue-50 dark:border-blue-500/30 dark:bg-slate-950 dark:text-blue-300">View Details</a>
-                                <a href="{{ route('user.boarding-houses.show', $featuredHouse) }}#reservation" class="inline-flex h-9 items-center justify-center rounded-xl bg-blue-600 px-3 text-xs font-black text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-blue-700">Reserve Now</a>
+                                @if ($availableRooms($featuredHouse) > 0)
+                                    <a href="{{ route('user.boarding-houses.show', $featuredHouse) }}#reservation-panel" class="inline-flex h-9 items-center justify-center rounded-xl bg-blue-600 px-3 text-xs font-black text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-blue-700">Reserve Now</a>
+                                @else
+                                    <a href="{{ route('user.boarding-houses.show', $featuredHouse) }}" class="inline-flex h-9 items-center justify-center rounded-xl bg-slate-200 px-3 text-xs font-black text-slate-500 transition hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-400" title="No rooms currently available — check the listing for updates">Fully Booked — View Listing</a>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -405,8 +434,7 @@
                 </div>
 
                 <div class="mt-3 divide-y divide-slate-100 dark:divide-slate-800">
-                    @foreach ($topMatches as $index => $item)
-                        @php
+                    @foreach ($topMatches as $index => $item)                        @php
                             $house = data_get($item, 'house');
                             $rec = data_get($item, 'recommendation', []);
                             $score = $rawScore($item);
@@ -441,6 +469,12 @@
                             </div>
                         </a>
                     @endforeach
+
+                    <div x-show="![{{ $topMatches->map(fn ($item) => $rawScore($item))->implode(',') }}].some(score => score >= minimumScore)" x-cloak class="py-6 text-center">
+                        <p class="text-sm font-bold text-slate-700 dark:text-slate-200">No matches at this score threshold</p>
+                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Lower the minimum match score, or tap "All" to see every ranked match.</p>
+                        <button type="button" @click="minimumScore = 0" class="mt-3 inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 px-3 text-xs font-bold text-blue-600 transition hover:bg-blue-50 dark:border-slate-700 dark:text-blue-300">Show all matches</button>
+                    </div>
                 </div>
 
                 <div class="mt-4 flex justify-center">
@@ -530,11 +564,12 @@
                         @endif
                         <div>
                             <label class="text-xs font-bold text-slate-500 dark:text-slate-400">Minimum Match Score</label>
+                            <input type="hidden" name="house_min_score" :value="minimumScore">
                             <div class="mt-2 grid grid-cols-4 gap-1.5">
                                 @foreach ([80, 85, 90] as $minimum)
-                                    <button type="button" @click="minimumScore = {{ $minimum }}" :class="minimumScore === {{ $minimum }} ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300'" class="h-8 rounded-xl border text-[11px] font-black">{{ $minimum }}%+</button>
+                                    <button type="button" @click="minimumScore = {{ $minimum }}" :class="minimumScore === {{ $minimum }} ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300'" class="h-8 rounded-xl border text-[11px] font-black transition focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-100">{{ $minimum }}%+</button>
                                 @endforeach
-                                <button type="button" @click="minimumScore = 0" :class="minimumScore === 0 ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300'" class="h-8 rounded-xl border text-[11px] font-black">All</button>
+                                <button type="button" @click="minimumScore = 0" :class="minimumScore === 0 ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300'" class="h-8 rounded-xl border text-[11px] font-black transition focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-100">All</button>
                             </div>
                         </div>
 
@@ -562,13 +597,16 @@
                         <div>
                             <label class="text-xs font-bold text-slate-500 dark:text-slate-400">Show Only</label>
                             <div class="mt-2 space-y-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                                <label class="flex items-center gap-2"><input type="checkbox" checked class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Available Now</label>
-                                <label class="flex items-center gap-2"><input type="checkbox" checked class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Within Budget</label>
+                                <label class="flex items-center gap-2"><input type="checkbox" name="available_now" value="1" @checked($houseFilters['available_now'] ?? false) class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Available Now</label>
+                                <label class="flex items-center gap-2"><input type="checkbox" name="within_budget" value="1" @checked($houseFilters['within_budget'] ?? false) class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Within Budget</label>
                                 <label class="flex items-center gap-2"><input type="checkbox" name="dssc_area" value="near" @checked(($houseFilters['dssc_area'] ?? null) === 'near') class="rounded border-slate-300 text-blue-600 focus:ring-blue-500"> Near DSSC</label>
                             </div>
                         </div>
 
-                        <button type="submit" class="inline-flex h-9 w-full items-center justify-center rounded-xl bg-blue-600 px-4 text-xs font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700">Apply Filters</button>
+                        <div class="grid grid-cols-[1fr_auto] gap-2">
+                            <button type="submit" class="inline-flex h-9 items-center justify-center rounded-xl bg-blue-600 px-4 text-xs font-black text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200">Apply Filters</button>
+                            <a href="{{ $matchmakingActionUrl }}{{ $matchmakingRefreshRedirect === 'boarding_houses' ? '?tab=matchmaking' : '' }}" class="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:text-slate-300">Clear</a>
+                        </div>
                     </form>
                 </article>
 

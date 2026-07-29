@@ -46,6 +46,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'is_active',
         'is_archived',
         'boarding_house_id',
+        'preferences',
     ];
 
     protected $hidden = [
@@ -71,10 +72,9 @@ class User extends Authenticatable implements MustVerifyEmail
         'archived_at' => 'datetime',
     ];
 
-    public function isAdmin()
+    public function isAdmin(): bool
     {
-        return in_array(strtolower((string) $this->role), ['admin', 'owner'], true)
-            || (method_exists($this, 'hasAnyRole') && $this->hasAnyRole(['admin', 'owner']));
+        return $this->isSuperAdmin();
     }
 
     public function isResident()
@@ -82,20 +82,62 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->isUser();
     }
 
-    public function isOwner()
+    public function isOwner(): bool
     {
-        return $this->isAdmin();
+        return $this->isStrictOwner();
     }
 
-    public function isManager()
+    /**
+     * A genuine boarding-house owner (role "owner"), as opposed to a
+     * super-admin. Used to scope the owner workspace to their own property.
+     * Kept separate from isAdmin() so existing admin routes stay unaffected.
+     */
+    public function isStrictOwner(): bool
     {
-        return $this->isAdmin();
+        $legacyRole = strtolower((string) $this->role);
+
+        if ($legacyRole !== '') {
+            return $legacyRole === 'owner';
+        }
+
+        return method_exists($this, 'hasRole')
+            && $this->hasRole('owner')
+            && ! $this->hasRole('admin');
     }
 
-    public function isUser()
+    public function isManager(): bool
     {
-        return in_array(strtolower((string) $this->role), ['user', 'tenant', 'student'], true)
-            || (method_exists($this, 'hasAnyRole') && $this->hasAnyRole(['user', 'tenant', 'student']));
+        return $this->isSuperAdmin() || $this->isStrictOwner();
+    }
+
+    /**
+     * A genuine super-admin (role "admin"), as opposed to a boarding-house
+     * owner. This is the strict predicate used to gate the admin workspace
+     * so owners can no longer reach admin-only pages.
+     */
+    public function isSuperAdmin(): bool
+    {
+        $legacyRole = strtolower((string) $this->role);
+
+        if ($legacyRole !== '') {
+            return $legacyRole === 'admin';
+        }
+
+        return method_exists($this, 'hasRole')
+            && $this->hasRole('admin')
+            && ! $this->hasRole('owner');
+    }
+
+    public function isUser(): bool
+    {
+        $legacyRole = strtolower((string) $this->role);
+
+        if ($legacyRole !== '') {
+            return in_array($legacyRole, ['user', 'tenant', 'student'], true);
+        }
+
+        return method_exists($this, 'hasAnyRole')
+            && $this->hasAnyRole(['user', 'tenant', 'student']);
     }
 
     public function isTenant()
@@ -221,25 +263,11 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function dashboardRouteName(): string
     {
-        $legacyRole = $this->role ? strtolower($this->role) : null;
-
-        if (in_array($legacyRole, ['user', 'tenant', 'student'], true)) {
-            return 'user.dashboard';
+        if ($this->isStrictOwner()) {
+            return 'owner.dashboard';
         }
 
-        if (method_exists($this, 'getRoleNames')) {
-            $roleNames = $this->getRoleNames()->map(fn ($name) => strtolower($name));
-
-            if ($roleNames->intersect(['admin', 'owner'])->isNotEmpty()) {
-                return 'admin.dashboard';
-            }
-
-            if ($roleNames->intersect(['user', 'tenant', 'student'])->isNotEmpty()) {
-                return 'user.dashboard';
-            }
-        }
-
-        if (in_array($legacyRole, ['admin', 'owner'], true)) {
+        if ($this->isSuperAdmin()) {
             return 'admin.dashboard';
         }
 

@@ -1,6 +1,9 @@
 <x-layouts.dashboard>
 <x-admin.shell :show-header="false">
     @php
+        $workspace = request()->routeIs('owner.*') ? 'owner' : 'admin';
+        $route = fn (string $name, $params = []) => route($workspace.'.'.$name, $params);
+
         $statusLabel = fn ($status) => match (strtolower((string) $status)) {
             'checked-in', 'checked_in', 'checkedin' => 'Currently Staying',
             'checked-out', 'checked_out', 'checkedout' => 'Completed Stay',
@@ -118,7 +121,7 @@
 
         $reservationNoFor = fn ($reservation): string => 'RSV-'.now()->format('Y').'-'.str_pad((string) $reservation->id, 5, '0', STR_PAD_LEFT);
 
-        $upcomingMoveInPayload = function ($reservation) use ($reservationNoFor, $statusLabel, $paymentLabel, $roomTypeLabel) {
+        $upcomingMoveInPayload = function ($reservation) use ($reservationNoFor, $statusLabel, $paymentLabel, $roomTypeLabel, $route) {
             $paymentStatus = $reservation->payment_status ?? 'unpaid';
             $amount = (float) ($reservation->total_amount ?? $reservation->amount ?? $reservation->room->price ?? 0);
 
@@ -139,14 +142,241 @@
                 'amount' => $amount > 0 ? 'PHP '.number_format($amount, 2) : 'PHP 0.00',
                 'notes' => $reservation->notes,
                 'notes_value' => $reservation->notes ?? '',
-                'update_url' => route('admin.reservations.update', $reservation),
+                'update_url' => $route('reservations.update', $reservation),
             ];
         };
     @endphp
 
     <div
-        x-data="{ detailOpen: false, filterOpen: false, menuOpen: null, selected: {}, detailStatus: 'pending', detailNotes: '' }"
-        @keydown.escape.window="detailOpen = false; filterOpen = false; menuOpen = null"
+        x-data="{
+            editOpen: false,
+            filterOpen: false,
+            menuOpen: null,
+            selected: {},
+            filtering: false,
+            submitting: false,
+            confirmOpen: false,
+            confirmAction: { url: '', method: 'PATCH', status: '', title: '', message: '', label: '', tone: 'emerald' },
+            csrfToken: '{{ csrf_token() }}',
+
+            /* edit-modal state */
+            editForm: { room_id: '', check_in_date: '', due_date: '', total_amount: '', status: '', payment_status: '', house_rules: '', notes: '' },
+            editRooms: [],
+            editRoomsLoading: false,
+            editSelectedRoom: null,
+            editSaving: false,
+            editSuccess: '',
+            editError: '',
+            editErrors: {},
+            toast: null,
+            _toastTimer: null,
+            selectedTemplate: '',
+            houseRuleTemplates: [
+                { label: 'Standard House Rules', text: '• Respect other tenants. Avoid noise and disturbance.\n• Keep the room and common areas clean.\n• No smoking, drinking, or illegal activities inside the property.\n• Visitors are allowed only from 8:00 AM to 10:00 PM.\n• Pay rent on or before the due date.\n• Report any damage or maintenance issue immediately.\n• Follow all safety and security guidelines.' },
+                { label: 'Strict Rules', text: '• Strictly no visitors allowed inside rooms.\n• Curfew at 10:00 PM for all tenants.\n• No cooking inside rooms — use the common kitchen only.\n• Quiet hours: 9:00 PM to 7:00 AM.\n• No pets allowed.\n• Rent must be paid on or before the 5th of the month.\n• Any violation may result in termination of the lease.' },
+                { label: 'Student-Friendly Rules', text: '• Respect quiet hours (11:00 PM – 6:00 AM).\n• Keep shared spaces clean after use.\n• Visitors allowed until 8:00 PM only.\n• No illegal substances on the premises.\n• Segregate and dispose of garbage properly.\n• Wi-Fi is shared — avoid heavy streaming during peak hours.\n• Report maintenance issues within 24 hours.' },
+            ],
+
+            get availableRoomOptions() {
+                return this.editRooms.filter(r => r.available);
+            },
+
+            get houseRulesWordCount() {
+                const text = (this.editForm.house_rules || '').trim();
+                return text ? text.split(/\s+/).length : 0;
+            },
+
+            openEdit(payload) {
+                this.selected = payload;
+                this.editForm = {
+                    room_id:        payload.room_id       || '',
+                    check_in_date:  payload.check_in_date_raw  || '',
+                    due_date:       payload.due_date_raw   || '',
+                    total_amount:   payload.total_amount_raw != null ? payload.total_amount_raw : '',
+                    status:         ['pending','approved','confirmed','cancelled','completed'].includes(payload.status_value) ? payload.status_value : 'pending',
+                    payment_status: this.normalizePayment(payload.payment_status_value),
+                    house_rules:    payload.house_rules_value   || '',
+                    notes:          payload.notes_value    || '',
+                };
+                if (!this.editForm.due_date && this.editForm.check_in_date) {
+                    this.editForm.due_date = this.addOneMonth(this.editForm.check_in_date);
+                }
+                this.editRooms = [];
+                this.editSelectedRoom = null;
+                this.selectedTemplate = '';
+                this.editSuccess = '';
+                this.editError = '';
+                this.editErrors = {};
+                this.editOpen = true;
+                this.fetchRooms(payload.boarding_house_id, payload.reservation_id);
+            },
+
+            normalizePayment(value) {
+                const v = (value || '').toLowerCase();
+                if (v === 'paid') return 'paid';
+                if (v.includes('partial')) return 'partial';
+                if (v === 'unpaid' || v === 'pending' || v === '') return 'unpaid';
+                return 'unpaid';
+            },
+
+            async fetchRooms(bhId, reservationId) {
+                if (!bhId) return;
+                this.editRoomsLoading = true;
+                try {
+                    const urlTemplate = @json($route('api.boarding-houses.available-rooms', ['boardingHouse' => '__HOUSE__']));
+                    const url = urlTemplate.replace('__HOUSE__', encodeURIComponent(bhId))
+                        + '?reservation_id=' + encodeURIComponent(reservationId || '');
+                    const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' } });
+                    const json = await res.json();
+                    this.editRooms = json.rooms || [];
+                    this.editSelectedRoom = this.editRooms.find(r => String(r.id) === String(this.editForm.room_id)) || null;
+                } catch { this.editRooms = []; }
+                finally { this.editRoomsLoading = false; }
+            },
+
+            onRoomChange() {
+                this.editSelectedRoom = this.editRooms.find(r => String(r.id) === String(this.editForm.room_id)) || null;
+                delete this.editErrors.room_id;
+                if (this.editSelectedRoom && this.editSelectedRoom.price > 0) {
+                    this.editForm.total_amount = this.editSelectedRoom.price;
+                }
+            },
+
+            addOneMonth(dateStr) {
+                const d = new Date(dateStr + 'T00:00:00');
+                if (isNaN(d)) return '';
+                const day = d.getDate();
+                d.setMonth(d.getMonth() + 1);
+                // Clamp overflow (e.g. Jan 31 -> Feb 28)
+                if (d.getDate() !== day) d.setDate(0);
+                return d.toISOString().slice(0, 10);
+            },
+
+            onMoveInChange() {
+                delete this.editErrors.check_in_date;
+                // Auto-calculate next payment due date: one month after move-in
+                if (this.editForm.check_in_date) {
+                    const next = this.addOneMonth(this.editForm.check_in_date);
+                    if (next) { this.editForm.due_date = next; delete this.editErrors.due_date; }
+                }
+            },
+
+            applyTemplate() {
+                const tpl = this.houseRuleTemplates.find(t => t.label === this.selectedTemplate);
+                if (tpl) {
+                    this.editForm.house_rules = tpl.text;
+                    delete this.editErrors.house_rules;
+                }
+            },
+
+            validateEdit() {
+                const errors = {};
+                if (!this.editForm.room_id) errors.room_id = ['Please assign a room before saving.'];
+                if (!this.editForm.check_in_date) errors.check_in_date = ['Move-in date is required.'];
+                if (!this.editForm.due_date) errors.due_date = ['Due date is required.'];
+                if (this.editForm.total_amount === '' || this.editForm.total_amount === null) {
+                    errors.total_amount = ['Monthly rate is required.'];
+                } else if (Number(this.editForm.total_amount) < 0) {
+                    errors.total_amount = ['Monthly rate cannot be negative.'];
+                }
+                if (!this.editForm.status) errors.status = ['Reservation status is required.'];
+                if (!this.editForm.payment_status) errors.payment_status = ['Please choose a payment status.'];
+                if (!(this.editForm.house_rules || '').trim()) errors.house_rules = ['House rules are required. Type them or insert a template.'];
+                this.editErrors = errors;
+                return Object.keys(errors).length === 0;
+            },
+
+            async saveEdit() {
+                if (this.editSaving) return;
+                this.editSuccess = '';
+                this.editError = '';
+                if (!this.validateEdit()) {
+                    this.editError = 'Please fix the highlighted fields before saving.';
+                    return;
+                }
+                this.editSaving = true;
+                try {
+                    const fd = new FormData();
+                    fd.append('_token', this.csrfToken);
+                    fd.append('_method', 'PATCH');
+                    fd.append('_full_edit', '1');
+                    Object.entries(this.editForm).forEach(([k, v]) => fd.append(k, v ?? ''));
+                    const res = await fetch(this.selected.update_url, {
+                        method: 'POST',
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+                        body: fd,
+                    });
+                    const json = await res.json();
+                    if (res.ok && json.success) {
+                        this.updateRow(json.reservation);
+                        this.showToast('success', json.message || 'Reservation updated successfully.');
+                        this.editOpen = false;
+                    } else if (res.status === 422 && json.errors) {
+                        this.editErrors = json.errors;
+                        this.editError = 'Please fix the highlighted fields.';
+                    } else {
+                        this.editError = json.message || 'Something went wrong. Please try again.';
+                    }
+                } catch { this.editError = 'Network error. Please try again.'; }
+                finally { this.editSaving = false; }
+            },
+
+            statusBadgeClass(status) {
+                if (['approved', 'confirmed'].includes(status)) return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+                if (status === 'pending') return 'border-amber-200 bg-amber-50 text-amber-700';
+                if (['cancelled', 'rejected'].includes(status)) return 'border-rose-200 bg-rose-50 text-rose-700';
+                return 'border-slate-200 bg-slate-100 text-slate-600';
+            },
+
+            paymentBadgeClass(payment) {
+                if (payment === 'paid') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+                if (payment === 'partial') return 'border-amber-200 bg-amber-50 text-amber-700';
+                return 'border-rose-200 bg-rose-50 text-rose-700';
+            },
+
+            updateRow(r) {
+                if (!r) return;
+                const row = document.querySelector('[data-reservation-row=\'' + r.id + '\']');
+                if (!row) return;
+                const badgeBase = 'inline-flex rounded-full border px-2.5 py-1 text-[11px] font-black shadow-sm ';
+                const set = (name, text) => {
+                    const el = row.querySelector('[data-cell=\'' + name + '\']');
+                    if (el) el.textContent = text;
+                };
+                set('room', r.room_type);
+                set('move_in', r.move_in_formatted);
+                set('amount', r.amount_formatted);
+                const statusEl = row.querySelector('[data-cell=\'status\']');
+                if (statusEl) { statusEl.textContent = r.status_label; statusEl.className = badgeBase + this.statusBadgeClass(r.status_value); }
+                const payEl = row.querySelector('[data-cell=\'payment\']');
+                if (payEl) { payEl.textContent = r.payment_label; payEl.className = badgeBase + this.paymentBadgeClass(r.payment_status_value); }
+                // Keep the cached payload in sync so reopening the modal shows saved values
+                this.selected.room_id = r.room_id;
+                this.selected.status_value = r.status_value;
+                this.selected.payment_status_value = r.payment_status_value;
+                this.selected.check_in_date_raw = r.check_in_date || '';
+                this.selected.due_date_raw = r.due_date || '';
+                this.selected.total_amount_raw = r.total_amount;
+                this.selected.house_rules_value = r.house_rules || '';
+                this.selected.notes_value = r.notes || '';
+            },
+
+            showToast(type, message) {
+                this.toast = { type, message };
+                clearTimeout(this._toastTimer);
+                this._toastTimer = setTimeout(() => { this.toast = null; }, 3500);
+            },
+
+            askConfirm(action) {
+                if (this.submitting) return;
+                this.confirmAction = action;
+                this.menuOpen = null;
+                this.editOpen = false;
+                this.confirmOpen = true;
+            },
+        }"
+        x-init="window.addEventListener('pageshow', () => { filtering = false; submitting = false; editSaving = false; })"
+        @keydown.escape.window="if (!submitting && !editSaving) { editOpen = false; filterOpen = false; menuOpen = null; confirmOpen = false; }"
         class="space-y-5 text-slate-950"
     >
         <header class="overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
@@ -155,11 +385,11 @@
                 <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div class="min-w-0">
                         <h1 class="text-[1.6rem] font-semibold tracking-[-0.04em] text-slate-950">Reservations</h1>
-                        <p class="mt-1 text-[13px] leading-5 text-slate-500">Manage tenant reservations, move-in schedules, and payment status.</p>
+                        <p class="mt-1 text-[13px] leading-5 text-slate-500">Track reservation requests, room assignments, and payment progress.</p>
                     </div>
 
                     <div class="flex flex-wrap items-center gap-3 lg:justify-end">
-                        <a href="{{ route('admin.reservations.export', request()->query()) }}" class="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-[13px] font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
+                        <a href="{{ $route('reservations.export', request()->query()) }}" class="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 text-[13px] font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/>
                             </svg>
@@ -180,12 +410,13 @@
                                     @foreach ($mainTabs as $value => $tab)
                                         @php
                                             $href = $value === 'all'
-                                                ? route('admin.reservations', request()->except('status', 'page'))
-                                                : route('admin.reservations', array_merge(request()->except('page'), ['status' => $value]));
+                                                ? $route('reservations', request()->except('status', 'page'))
+                                                : $route('reservations', array_merge(request()->except('page'), ['status' => $value]));
                                             $isActive = $activeTab === $value || ($value === 'all' && blank(request('status')));
                                         @endphp
                                         <a
                                             href="{{ $href }}"
+                                            @click="filtering = true"
                                             class="inline-flex h-9 items-center gap-2 rounded-full border px-4 text-[12px] font-semibold transition {{ $isActive ? 'border-blue-600 bg-blue-600 text-white shadow-sm shadow-blue-600/20' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700' }}"
                                             @if ($isActive) aria-current="page" @endif
                                         >
@@ -194,12 +425,12 @@
                                         </a>
                                     @endforeach
                                     @if ($activeFilterSummary->isNotEmpty())
-                                        <a href="{{ route('admin.reservations') }}" class="inline-flex h-9 items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-[12px] font-medium text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">Clear</a>
+                                        <a href="{{ $route('reservations') }}" class="inline-flex h-9 items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-[12px] font-medium text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">Clear</a>
                                     @endif
                                 </div>
 
                                 <div class="flex min-w-0 lg:w-[50%] lg:max-w-[500px]">
-                                    <form method="GET" action="{{ route('admin.reservations') }}" class="min-w-0 flex-1">
+                                    <form method="GET" action="{{ $route('reservations') }}" @submit="filtering = true" class="min-w-0 flex-1">
                                         @foreach (request()->except('q', 'page') as $key => $value)
                                             @if (is_scalar($value) && filled($value))
                                                 <input type="hidden" name="{{ $key }}" value="{{ $value }}">
@@ -216,7 +447,7 @@
                                                 name="q"
                                                 value="{{ request('q') }}"
                                                 class="h-11 w-full rounded-xl border border-slate-200 bg-white px-10 pr-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
-                                                placeholder="Search tenant, boarding house, or reservation no..."
+                                                placeholder="Search tenant, boarding house, reservation no., or status..."
                                             >
                                         </label>
                                     </form>
@@ -233,14 +464,58 @@
                     </div>
                 @endif
             </div>
-            </div>
         </header>
+
+        {{-- Stat Cards --}}
+        @php
+            $unpaidCount = $quickMetrics->firstWhere('label', 'Unpaid Deposits')['value'] ?? 0;
+            $statCards = [
+                ['label' => 'Total', 'value' => $stats['total'] ?? 0, 'tone' => 'blue', 'href' => $route('reservations'), 'icon' => 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z'],
+                ['label' => 'Pending', 'value' => $stats['pending'] ?? 0, 'tone' => 'amber', 'href' => $route('reservations', ['status' => 'pending']), 'icon' => 'M12 6v6l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z'],
+                ['label' => 'Confirmed', 'value' => $stats['confirmed'] ?? 0, 'tone' => 'emerald', 'href' => $route('reservations', ['status' => 'confirmed']), 'icon' => 'M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z'],
+                ['label' => 'Cancelled', 'value' => $stats['cancelled'] ?? 0, 'tone' => 'rose', 'href' => $route('reservations', ['status' => 'cancelled']), 'icon' => 'M9.75 9.75 14.25 14.25m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z'],
+                ['label' => 'Unpaid', 'value' => $unpaidCount, 'tone' => 'orange', 'href' => $route('reservations', ['payment_status' => 'action-needed']), 'icon' => 'M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z'],
+            ];
+            $cardColor = fn($t) => match($t) {
+                'amber'   => 'bg-amber-50 text-amber-600',
+                'emerald' => 'bg-emerald-50 text-emerald-600',
+                'rose'    => 'bg-rose-50 text-rose-600',
+                'orange'  => 'bg-orange-50 text-orange-600',
+                default   => 'bg-blue-50 text-blue-600',
+            };
+        @endphp
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            @foreach ($statCards as $sc)
+                <a href="{{ $sc['href'] }}" @click="filtering = true" class="flex items-center gap-3 rounded-[1.1rem] border border-slate-200/80 bg-white px-4 py-3.5 shadow-[0_4px_12px_rgba(15,23,42,0.04)] transition hover:border-blue-200 hover:shadow-[0_4px_16px_rgba(37,99,235,0.08)]">
+                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl {{ $cardColor($sc['tone']) }}">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="{{ $sc['icon'] }}"/>
+                        </svg>
+                    </div>
+                    <div class="min-w-0">
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{{ $sc['label'] }}</p>
+                        <p class="text-[1.3rem] font-black tracking-tight text-slate-950">{{ number_format((int) $sc['value']) }}</p>
+                    </div>
+                </a>
+            @endforeach
+        </div>
 
         <div>
             <main class="min-w-0">
-                <section class="overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-white shadow-[0_14px_32px_rgba(15,23,42,0.05)]">
+                <section class="relative overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-white shadow-[0_14px_32px_rgba(15,23,42,0.05)]">
+                    <template x-if="filtering">
+                        <div class="absolute inset-0 z-20 flex items-center justify-center bg-white/70 backdrop-blur-[2px]" aria-live="polite">
+                            <div class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-3 shadow-lg shadow-slate-900/10">
+                                <svg class="h-5 w-5 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"/>
+                                </svg>
+                                <span class="text-[13px] font-semibold text-slate-700">Loading reservations&hellip;</span>
+                            </div>
+                        </div>
+                    </template>
 
-                    <div class="overflow-x-auto">
+                    <div class="overflow-x-auto transition-opacity duration-200" :class="filtering ? 'opacity-50' : ''">
                         <table class="min-w-[1060px] w-full text-left text-[13px]">
                             <thead class="sticky top-0 z-10 bg-slate-50/95 text-[11px] font-bold uppercase tracking-wide text-slate-500 backdrop-blur">
                                 <tr>
@@ -274,23 +549,75 @@
                                         $paymentStatus = $reservation->payment_status ?? 'unpaid';
                                         $amount = (float) ($reservation->total_amount ?? $reservation->amount ?? $reservation->room->price ?? 0);
                                         $payload = [
-                                            'reservation_no' => $reservationNo,
-                                            'tenant' => $tenantName,
-                                            'house' => $houseName,
-                                            'location' => $houseLocation,
-                                            'room' => $roomType,
-                                            'move_in' => $reservation->check_in_date?->format('M d, Y') ?? 'Not set',
-                                            'move_out' => $reservation->check_out_date?->format('M d, Y') ?? 'Not set',
-                                            'status' => $statusLabel($reservation->status),
-                                            'status_value' => strtolower((string) ($reservation->status ?? 'pending')),
-                                            'payment' => $paymentLabel($paymentStatus),
-                                            'amount' => $amount > 0 ? 'PHP '.number_format($amount, 2) : 'PHP 0.00',
-                                            'notes' => $reservation->notes,
-                                            'notes_value' => $reservation->notes ?? '',
-                                            'update_url' => route('admin.reservations.update', $reservation),
+                                            'reservation_id'       => $reservation->id,
+                                            'reservation_no'       => $reservationNo,
+                                            'tenant'               => $tenantName,
+                                            'tenant_email'         => $reservation->user->email ?? '',
+                                            'house'                => $houseName,
+                                            'boarding_house_id'    => $reservation->boarding_house_id,
+                                            'location'             => $houseLocation,
+                                            'room'                 => $roomType,
+                                            'room_id'              => $reservation->room_id,
+                                            'move_in'              => $reservation->check_in_date?->format('M d, Y') ?? 'Not set',
+                                            'move_out'             => $reservation->check_out_date?->format('M d, Y') ?? 'Not set',
+                                            'check_in_date_raw'    => $reservation->check_in_date?->format('Y-m-d') ?? '',
+                                            'due_date_raw'         => $reservation->due_date?->format('Y-m-d') ?? '',
+                                            'total_amount_raw'     => $amount > 0 ? $amount : '',
+                                            'status'               => $statusLabel($reservation->status),
+                                            'status_value'         => strtolower((string) ($reservation->status ?? 'pending')),
+                                            'payment'              => $paymentLabel($paymentStatus),
+                                            'payment_status_value' => $paymentStatus,
+                                            'amount'               => $amount > 0 ? 'PHP '.number_format($amount, 2) : 'PHP 0.00',
+                                            'notes'                => $reservation->notes,
+                                            'notes_value'          => $reservation->notes ?? '',
+                                            'house_rules_value'    => $reservation->house_rules ?? '',
+                                            'update_url'           => $route('reservations.update', $reservation),
+                                            'payment_url'          => $route('transactions.index', ['q' => $tenantName]),
+                                        ];
+
+                                        $rowStatus = strtolower((string) ($reservation->status ?? 'pending'));
+                                        $isPendingRow = $rowStatus === 'pending';
+                                        $isConfirmedRow = in_array($rowStatus, ['confirmed', 'approved'], true);
+                                        $isClosedRow = in_array($rowStatus, ['cancelled', 'rejected', 'expired'], true);
+
+                                        $confirmApprove = [
+                                            'url' => $route('reservations.update', $reservation),
+                                            'method' => 'PATCH',
+                                            'status' => $isPendingRow ? 'approved' : 'confirmed',
+                                            'title' => $isPendingRow ? 'Approve this reservation?' : 'Confirm this reservation?',
+                                            'message' => $reservationNo.' for '.$tenantName.' will be '.($isPendingRow ? 'approved' : 'marked as Confirmed').'. The tenant will be notified and the payment status will be set for follow-up.',
+                                            'label' => $isPendingRow ? 'Yes, Approve' : 'Yes, Confirm Reservation',
+                                            'tone' => 'emerald',
+                                        ];
+                                        $confirmReject = [
+                                            'url' => $route('reservations.update', $reservation),
+                                            'method' => 'PATCH',
+                                            'status' => 'rejected',
+                                            'title' => 'Reject this reservation?',
+                                            'message' => $reservationNo.' for '.$tenantName.' will be rejected, the held room will be released, and the tenant will be notified.',
+                                            'label' => 'Yes, Reject',
+                                            'tone' => 'rose',
+                                        ];
+                                        $confirmCancel = [
+                                            'url' => $route('reservations.update', $reservation),
+                                            'method' => 'PATCH',
+                                            'status' => 'cancelled',
+                                            'title' => 'Cancel this reservation?',
+                                            'message' => $reservationNo.' for '.$tenantName.' will be cancelled, the held room will be released, and the tenant will be notified.',
+                                            'label' => 'Yes, Cancel Reservation',
+                                            'tone' => 'rose',
+                                        ];
+                                        $confirmDelete = [
+                                            'url' => $route('reservations.destroy', $reservation),
+                                            'method' => 'DELETE',
+                                            'status' => '',
+                                            'title' => 'Delete this reservation?',
+                                            'message' => $reservationNo.' for '.$tenantName.' will be permanently removed. This cannot be undone.',
+                                            'label' => 'Yes, Delete',
+                                            'tone' => 'rose',
                                         ];
                                     @endphp
-                                    <tr class="bg-white transition duration-200 hover:bg-slate-50/90">
+                                    <tr class="bg-white transition duration-200 hover:bg-slate-50/90" data-reservation-row="{{ $reservation->id }}">
                                         <td class="whitespace-nowrap px-5 py-4 text-xs font-black text-slate-800">{{ $reservationNo }}</td>
                                         <td class="px-5 py-4">
                                             <div class="flex items-center gap-2.5">
@@ -311,80 +638,56 @@
                                                 {{ $houseLocation }}
                                             </p>
                                         </td>
-                                        <td class="whitespace-nowrap px-5 py-4 text-[13px] font-medium text-slate-800">{{ $roomType }}</td>
-                                        <td class="whitespace-nowrap px-5 py-4 text-[13px] font-medium text-slate-800">{{ $reservation->check_in_date?->format('M d, Y') ?? 'Not set' }}</td>
+                                        <td class="whitespace-nowrap px-5 py-4 text-[13px] font-medium text-slate-800" data-cell="room">{{ $roomType }}</td>
+                                        <td class="whitespace-nowrap px-5 py-4 text-[13px] font-medium text-slate-800" data-cell="move_in">{{ $reservation->check_in_date?->format('M d, Y') ?? 'Not set' }}</td>
                                         <td class="whitespace-nowrap px-5 py-4">
-                                            <span class="inline-flex rounded-full border px-2.5 py-1 text-[11px] font-black shadow-sm {{ $statusBadge($reservation->status) }}">
+                                            <span data-cell="status" class="inline-flex rounded-full border px-2.5 py-1 text-[11px] font-black shadow-sm {{ $statusBadge($reservation->status) }}">
                                                 {{ $statusLabel($reservation->status) }}
                                             </span>
                                         </td>
                                         <td class="whitespace-nowrap px-5 py-4">
-                                            <span class="inline-flex rounded-full border px-2.5 py-1 text-[11px] font-black shadow-sm {{ $paymentBadge($paymentStatus) }}">
+                                            <span data-cell="payment" class="inline-flex rounded-full border px-2.5 py-1 text-[11px] font-black shadow-sm {{ $paymentBadge($paymentStatus) }}">
                                                 {{ $paymentLabel($paymentStatus) }}
                                             </span>
                                         </td>
-                                        <td class="whitespace-nowrap px-5 py-4 text-[13px] font-semibold text-slate-900">{{ $amount > 0 ? 'PHP '.number_format($amount, 2) : 'PHP 0.00' }}</td>
+                                        <td class="whitespace-nowrap px-5 py-4 text-[13px] font-semibold text-slate-900" data-cell="amount">{{ $amount > 0 ? 'PHP '.number_format($amount, 2) : 'PHP 0.00' }}</td>
                                         <td class="px-5 py-4">
                                             <div class="flex justify-end gap-1.5">
                                                 <button
                                                     type="button"
                                                     class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                                                    title="View"
-                                                    @click="selected = {{ \Illuminate\Support\Js::from($payload) }}; detailStatus = selected.status_value || 'pending'; detailNotes = selected.notes_value || ''; detailOpen = true"
-                                                >
-                                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/>
-                                                    </svg>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                                                     title="Edit"
-                                                    @click="selected = {{ \Illuminate\Support\Js::from($payload) }}; detailStatus = selected.status_value || 'pending'; detailNotes = selected.notes_value || ''; detailOpen = true"
+                                                    @click="openEdit({{ \Illuminate\Support\Js::from($payload) }})"
                                                 >
                                                     <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16.862 4.487 19.5 7.125M6 18l3.5-.7 9-9a1.864 1.864 0 0 0-2.635-2.635l-9 9L6 18z"/>
                                                     </svg>
                                                 </button>
-                                                <div class="relative">
-                                                    <button
-                                                        type="button"
-                                                        class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                                                        title="More"
-                                                        @click="menuOpen = menuOpen === {{ $reservation->id }} ? null : {{ $reservation->id }}"
-                                                    >
-                                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h.01M12 12h.01M19 12h.01"/>
-                                                        </svg>
+                                                @if ($isPendingRow)
+                                                    <button type="button" @click="askConfirm({{ \Illuminate\Support\Js::from($confirmApprove) }})" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-emerald-600 transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50" title="Approve reservation">
+                                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                                     </button>
-                                                    <div
-                                                        x-cloak
-                                                        x-show="menuOpen === {{ $reservation->id }}"
-                                                        x-transition
-                                                        @click.outside="menuOpen = null"
-                                                        class="absolute right-0 z-30 mt-2 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white p-1 text-[13px] shadow-xl shadow-slate-900/12"
-                                                    >
-                                                        <form method="POST" action="{{ route('admin.reservations.update', $reservation) }}">
-                                                            @csrf
-                                                            @method('PATCH')
-                                                            <input type="hidden" name="status" value="confirmed">
-                                                            <button class="w-full rounded-lg px-2.5 py-1.5 text-left font-semibold text-slate-700 transition hover:bg-emerald-50 hover:text-emerald-700">Mark confirmed</button>
-                                                        </form>
-                                                        <form method="POST" action="{{ route('admin.reservations.update', $reservation) }}">
-                                                            @csrf
-                                                            @method('PATCH')
-                                                            <input type="hidden" name="status" value="cancelled">
-                                                            <button class="w-full rounded-lg px-2.5 py-1.5 text-left font-semibold text-slate-700 transition hover:bg-rose-50 hover:text-rose-700">Cancel reservation</button>
-                                                        </form>
-                                                        <a href="{{ route('admin.transactions.index', ['q' => $tenantName]) }}" class="block rounded-lg px-2.5 py-1.5 font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700">View payment</a>
-                                                        <form method="POST" action="{{ route('admin.reservations.destroy', $reservation) }}" onsubmit="return confirm('Delete this reservation?')">
-                                                            @csrf
-                                                            @method('DELETE')
-                                                            <button class="w-full rounded-lg px-2.5 py-1.5 text-left font-semibold text-rose-600 transition hover:bg-rose-50">Delete</button>
-                                                        </form>
-                                                    </div>
-                                                </div>
+                                                    <button type="button" @click="askConfirm({{ \Illuminate\Support\Js::from($confirmReject) }})" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-rose-600 transition hover:-translate-y-0.5 hover:border-rose-200 hover:bg-rose-50" title="Reject reservation">
+                                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                    </button>
+                                                @else
+                                                    @unless ($isConfirmedRow)
+                                                        <button type="button" @click="askConfirm({{ \Illuminate\Support\Js::from($confirmApprove) }})" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-emerald-600 transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50" title="Mark confirmed">
+                                                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                        </button>
+                                                    @endunless
+                                                @endif
+                                                @unless ($isClosedRow)
+                                                    <button type="button" @click="askConfirm({{ \Illuminate\Support\Js::from($confirmCancel) }})" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-rose-600 transition hover:-translate-y-0.5 hover:border-rose-200 hover:bg-rose-50" title="Cancel reservation">
+                                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                                                    </button>
+                                                @endunless
+                                                <a href="{{ $route('transactions.index', ['q' => $tenantName]) }}" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" title="View payment">
+                                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"/></svg>
+                                                </a>
+                                                <button type="button" @click="askConfirm({{ \Illuminate\Support\Js::from($confirmDelete) }})" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-rose-600 transition hover:-translate-y-0.5 hover:border-rose-200 hover:bg-rose-50" title="Delete">
+                                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -398,9 +701,15 @@
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M9 14h6"/>
                                                     </svg>
                                                 </div>
-                                                <h3 class="mt-5 text-[17px] font-semibold tracking-[-0.02em] text-slate-950">No reservations found</h3>
-                                                <p class="mt-2 text-[14px] leading-6 text-slate-500">Reservation requests will appear here once tenants start booking.</p>
-                                                <a href="{{ route('admin.boarding-houses') }}" class="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-5 text-[13px] font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700">View Boarding Houses</a>
+                                                @if ($activeFilterSummary->isNotEmpty())
+                                                    <h3 class="mt-5 text-[17px] font-semibold tracking-[-0.02em] text-slate-950">No reservations match your filters</h3>
+                                                    <p class="mt-2 text-[14px] leading-6 text-slate-500">Try a different search term, status tab, or date range &mdash; or clear the filters to see every reservation.</p>
+                                                    <a href="{{ $route('reservations') }}" @click="filtering = true" class="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-5 text-[13px] font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700">Clear Filters</a>
+                                                @else
+                                                    <h3 class="mt-5 text-[17px] font-semibold tracking-[-0.02em] text-slate-950">No reservations found</h3>
+                                                    <p class="mt-2 text-[14px] leading-6 text-slate-500">Reservation requests will appear here once tenants start booking.</p>
+                                                    <a href="{{ $route('boarding-houses') }}" class="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-5 text-[13px] font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700">View Boarding Houses</a>
+                                                @endif
                                             </div>
                                         </td>
                                     </tr>
@@ -457,10 +766,9 @@
             x-show="filterOpen"
             x-cloak
             x-transition
-            @click.self="filterOpen = false"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm"
+            class="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-3 backdrop-blur-sm"
         >
-            <form method="GET" action="{{ route('admin.reservations') }}" class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/15">
+            <form method="GET" action="{{ $route('reservations') }}" @submit="filtering = true; filterOpen = false" class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/15">
                 <div class="flex items-center justify-between">
                     <div>
                         <p class="text-xs font-black uppercase tracking-[0.16em] text-blue-600">Filter Reservations</p>
@@ -506,87 +814,309 @@
 
                 <label class="mt-4 block text-sm font-semibold text-slate-700">
                     Search
-                    <input name="q" value="{{ request('q') }}" class="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100" placeholder="Search tenant, boarding house, or reservation no...">
+                    <input name="q" value="{{ request('q') }}" class="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100" placeholder="Search tenant, boarding house, reservation no., or status...">
                 </label>
 
                 <div class="mt-5 flex justify-end gap-2">
-                    <a href="{{ route('admin.reservations') }}" class="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50">Clear</a>
+                    <a href="{{ $route('reservations') }}" class="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50">Clear</a>
                     <button class="inline-flex h-9 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700">Apply Filters</button>
                 </div>
             </form>
+        </div>
+
+        {{-- Edit Reservation Modal --}}
+        <div
+            data-modal-root
+            role="dialog"
+            aria-modal="true"
+            x-show="editOpen"
+            x-cloak
+            x-transition
+            class="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-3 backdrop-blur-sm"
+        >
+            <div class="flex w-full max-w-3xl max-h-[92vh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl shadow-slate-900/25">
+                {{-- Header --}}
+                <div class="flex shrink-0 items-start justify-between border-b border-slate-100 px-7 py-5">
+                    <div>
+                        <h2 class="text-[19px] font-bold tracking-[-0.02em] text-slate-950">Edit Reservation</h2>
+                        <p class="mt-0.5 text-[13px] font-bold tracking-wide text-blue-600" x-text="selected.reservation_no"></p>
+                    </div>
+                    <button type="button" @click="editOpen = false" :disabled="editSaving" class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+
+                {{-- Scrollable Body --}}
+                <div class="min-h-0 flex-1 overflow-y-auto px-7 py-5">
+                    {{-- Error banner --}}
+                    <div x-show="editError" x-cloak class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] font-semibold text-rose-800" x-text="editError"></div>
+
+                    <div class="space-y-6">
+                        {{-- Boarding House (Read-only) --}}
+                        <section>
+                            <p class="mb-2.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">Boarding House</p>
+                            <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-slate-50/70 px-4 py-3.5">
+                                <div class="flex min-w-0 items-center gap-3">
+                                    <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
+                                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 12h.01M9 15h.01M15 9h.01M15 12h.01M15 15h.01"/>
+                                        </svg>
+                                    </span>
+                                    <div class="min-w-0">
+                                        <p class="truncate text-[14px] font-bold text-slate-900" x-text="selected.house"></p>
+                                        <p class="truncate text-[12px] text-slate-500" x-text="selected.location"></p>
+                                    </div>
+                                </div>
+                                <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-[11px] font-bold text-blue-700">
+                                    <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <rect x="5" y="11" width="14" height="9" rx="2" stroke-width="1.8"/>
+                                        <path stroke-linecap="round" stroke-width="1.8" d="M8 11V7a4 4 0 0 1 8 0v4"/>
+                                    </svg>
+                                    Read-only
+                                </span>
+                            </div>
+                        </section>
+
+                        {{-- Room Assignment --}}
+                        <section>
+                            <p class="mb-2.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">Room Assignment</p>
+                            <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                                <div>
+                                    <label class="block text-[13px] font-semibold text-slate-700">
+                                        Assign Room <span class="text-rose-600">*</span>
+                                        <select x-model="editForm.room_id" @change="onRoomChange()" :disabled="editSaving || editRoomsLoading" class="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[13px] text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-50 disabled:opacity-60" :class="editErrors.room_id ? 'border-rose-300 bg-rose-50' : ''">
+                                            <option value="">-- Select an available room --</option>
+                                            <template x-for="room in availableRoomOptions" :key="room.id">
+                                                <option :value="room.id" x-text="room.label + ' (' + room.price_formatted + ' / month)'"></option>
+                                            </template>
+                                        </select>
+                                    </label>
+                                    <p x-show="editRoomsLoading" x-cloak class="mt-1.5 text-[11px] font-medium text-blue-600">Loading available rooms&hellip;</p>
+                                    <p x-show="!editRoomsLoading && editOpen && availableRoomOptions.length === 0" x-cloak class="mt-1.5 text-[11px] text-slate-500">No vacant rooms in this boarding house right now.</p>
+                                    <p x-show="editErrors.room_id" x-cloak class="mt-1.5 text-[11px] font-semibold text-rose-600" x-text="editErrors.room_id?.[0]"></p>
+                                </div>
+
+                                <div>
+                                    <p class="text-[13px] font-semibold text-slate-700">Room Details</p>
+                                    <div x-show="editSelectedRoom" x-cloak class="mt-1.5 rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3">
+                                        <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-[12px] sm:grid-cols-4">
+                                            <div>
+                                                <dt class="text-slate-500">Room Number</dt>
+                                                <dd class="mt-0.5 text-[13px] font-bold text-slate-900" x-text="editSelectedRoom?.number"></dd>
+                                            </div>
+                                            <div>
+                                                <dt class="text-slate-500">Room Type</dt>
+                                                <dd class="mt-0.5 text-[13px] font-bold text-slate-900" x-text="editSelectedRoom?.type"></dd>
+                                            </div>
+                                            <div>
+                                                <dt class="text-slate-500">Floor / Location</dt>
+                                                <dd class="mt-0.5 text-[13px] font-bold text-slate-900" x-text="editSelectedRoom?.floor"></dd>
+                                            </div>
+                                            <div>
+                                                <dt class="text-slate-500">Status</dt>
+                                                <dd class="mt-0.5"><span class="inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700" x-text="editSelectedRoom?.status"></span></dd>
+                                            </div>
+                                        </dl>
+                                    </div>
+                                    <div x-show="!editSelectedRoom" x-cloak class="mt-1.5 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-3 text-[12px] text-slate-400">
+                                        Select a room to see its details.
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Rate + Dates row --}}
+                            <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                                <div>
+                                    <label class="block text-[13px] font-semibold text-slate-700">
+                                        Monthly Rate (PHP) <span class="text-rose-600">*</span>
+                                        <span class="relative mt-1.5 block">
+                                            <input type="number" step="0.01" min="0" x-model="editForm.total_amount" @input="delete editErrors.total_amount" :disabled="editSaving" class="h-11 w-full rounded-xl border border-slate-200 bg-white px-3 pr-14 text-[13px] text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-50 disabled:opacity-60" :class="editErrors.total_amount ? 'border-rose-300 bg-rose-50' : ''">
+                                            <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[12px] font-bold text-slate-400">PHP</span>
+                                        </span>
+                                    </label>
+                                    <p x-show="editErrors.total_amount" x-cloak class="mt-1.5 text-[11px] font-semibold text-rose-600" x-text="editErrors.total_amount?.[0]"></p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-[13px] font-semibold text-slate-700">
+                                        Move-in Date <span class="text-rose-600">*</span>
+                                        <input type="date" x-model="editForm.check_in_date" @change="onMoveInChange()" :disabled="editSaving" class="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[13px] text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-50 disabled:opacity-60" :class="editErrors.check_in_date ? 'border-rose-300 bg-rose-50' : ''">
+                                    </label>
+                                    <p x-show="editErrors.check_in_date" x-cloak class="mt-1.5 text-[11px] font-semibold text-rose-600" x-text="editErrors.check_in_date?.[0]"></p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-[13px] font-semibold text-slate-700">
+                                        Due Date <span class="text-rose-600">*</span>
+                                        <input type="date" x-model="editForm.due_date" @change="delete editErrors.due_date" :disabled="editSaving" class="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[13px] text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-50 disabled:opacity-60" :class="editErrors.due_date ? 'border-rose-300 bg-rose-50' : ''">
+                                    </label>
+                                    <p x-show="editErrors.due_date" x-cloak class="mt-1.5 text-[11px] font-semibold text-rose-600" x-text="editErrors.due_date?.[0]"></p>
+                                </div>
+                            </div>
+                        </section>
+
+                        {{-- Status Row: Reservation + Payment --}}
+                        <section class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                            <div>
+                                <p class="mb-2.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">Reservation Status</p>
+                                <label class="block text-[13px] font-semibold text-slate-700">
+                                    Status <span class="text-rose-600">*</span>
+                                    <select x-model="editForm.status" @change="delete editErrors.status" :disabled="editSaving" class="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[13px] text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-50 disabled:opacity-60" :class="editErrors.status ? 'border-rose-300 bg-rose-50' : ''">
+                                        <option value="pending">Pending</option>
+                                        <option value="approved">Approved</option>
+                                        <option value="confirmed">Confirmed</option>
+                                        <option value="cancelled">Cancelled</option>
+                                        <option value="completed">Completed</option>
+                                    </select>
+                                </label>
+                                <p x-show="editErrors.status" x-cloak class="mt-1.5 text-[11px] font-semibold text-rose-600" x-text="editErrors.status?.[0]"></p>
+                            </div>
+
+                            <div>
+                                <p class="mb-2.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">Payment Status</p>
+                                <label class="block text-[13px] font-semibold text-slate-700">
+                                    Payment Status <span class="text-rose-600">*</span>
+                                    <select x-model="editForm.payment_status" @change="delete editErrors.payment_status" :disabled="editSaving" class="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[13px] text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-50 disabled:opacity-60" :class="editErrors.payment_status ? 'border-rose-300 bg-rose-50' : ''">
+                                        <option value="paid">Paid</option>
+                                        <option value="unpaid">Unpaid</option>
+                                        <option value="partial">Partial</option>
+                                    </select>
+                                </label>
+                                <p x-show="editErrors.payment_status" x-cloak class="mt-1.5 text-[11px] font-semibold text-rose-600" x-text="editErrors.payment_status?.[0]"></p>
+                            </div>
+                        </section>
+
+                        {{-- House Rules / Policy --}}
+                        <section>
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div>
+                                    <p class="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">House Rules / Policy <span class="text-rose-600">*</span></p>
+                                    <p class="mt-1 text-[12px] text-slate-500">Define the rules and policies that the tenant must follow.</p>
+                                </div>
+                                <div class="flex shrink-0 items-center gap-2">
+                                    <select x-model="selectedTemplate" :disabled="editSaving" class="h-9 rounded-xl border border-slate-200 bg-white px-3 text-[12px] font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:opacity-60">
+                                        <option value="">Use Template</option>
+                                        <template x-for="tpl in houseRuleTemplates" :key="tpl.label">
+                                            <option :value="tpl.label" x-text="tpl.label"></option>
+                                        </template>
+                                    </select>
+                                    <button type="button" @click="applyTemplate()" :disabled="editSaving || !selectedTemplate" class="inline-flex h-9 items-center gap-1.5 rounded-xl bg-blue-50 px-3.5 text-[12px] font-bold text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50">
+                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2z"/></svg>
+                                        Insert Template
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="relative mt-3">
+                                <textarea x-model="editForm.house_rules" @input="delete editErrors.house_rules" rows="8" :disabled="editSaving" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pb-8 text-[13px] leading-relaxed text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-50 disabled:opacity-60" placeholder="Type the house rules here, or pick a template above and edit it&hellip;" :class="editErrors.house_rules ? 'border-rose-300 bg-rose-50' : ''"></textarea>
+                                <span class="pointer-events-none absolute bottom-3 right-4 text-[11px] font-medium text-slate-400" x-text="houseRulesWordCount + ' words'"></span>
+                            </div>
+                            <p x-show="editErrors.house_rules" x-cloak class="mt-1.5 text-[11px] font-semibold text-rose-600" x-text="editErrors.house_rules?.[0]"></p>
+                        </section>
+
+                        {{-- Notes --}}
+                        <section>
+                            <p class="mb-2.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">Notes <span class="font-bold normal-case tracking-normal text-slate-400">(optional)</span></p>
+                            <div class="relative">
+                                <textarea x-model="editForm.notes" maxlength="500" rows="3" :disabled="editSaving" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pb-8 text-[13px] text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-50 disabled:opacity-60" placeholder="Add any notes about this reservation&hellip;"></textarea>
+                                <span class="pointer-events-none absolute bottom-3 right-4 text-[11px] font-medium text-slate-400" x-text="(editForm.notes || '').length + ' / 500'"></span>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+
+                {{-- Footer --}}
+                <div class="flex shrink-0 items-center justify-end gap-2.5 border-t border-slate-100 bg-white px-7 py-4">
+                    <button type="button" @click="editOpen = false" :disabled="editSaving" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-[13px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">
+                        Cancel
+                    </button>
+                    <button type="button" @click="saveEdit()" :disabled="editSaving" class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 text-[13px] font-bold text-white shadow-sm shadow-blue-600/25 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-70">
+                        <svg x-show="editSaving" x-cloak class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"/>
+                        </svg>
+                        <span x-text="editSaving ? 'Saving…' : 'Save Changes'">Save Changes</span>
+                    </button>
+                </div>
+            </div>
         </div>
 
         <div
             data-modal-root
             role="dialog"
             aria-modal="true"
-            x-show="detailOpen"
+            x-show="confirmOpen"
             x-cloak
             x-transition
-            @click.self="detailOpen = false"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm"
+            class="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-3 backdrop-blur-sm"
         >
-            <form method="POST" :action="selected.update_url" class="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/15">
-                @csrf
-                @method('PATCH')
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-xs font-black uppercase tracking-[0.16em] text-blue-600" x-text="selected.reservation_no"></p>
-                        <h2 class="mt-1 text-lg font-bold text-slate-950">Reservation Details</h2>
-                    </div>
-                    <button type="button" @click="detailOpen = false" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/>
+            <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/15">
+                <div class="flex items-start gap-3.5">
+                    <div
+                        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+                        :class="confirmAction.tone === 'rose' ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'"
+                    >
+                        <svg x-show="confirmAction.tone !== 'rose'" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/>
                         </svg>
+                        <svg x-show="confirmAction.tone === 'rose'" x-cloak class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        </svg>
+                    </div>
+                    <div class="min-w-0">
+                        <h2 class="text-[15px] font-bold tracking-[-0.01em] text-slate-950" x-text="confirmAction.title"></h2>
+                        <p class="mt-1.5 text-[13px] leading-5 text-slate-500" x-text="confirmAction.message"></p>
+                    </div>
+                </div>
+
+                <form method="POST" :action="confirmAction.url" @submit="submitting = true" class="mt-5 flex justify-end gap-2">
+                    @csrf
+                    <input type="hidden" name="_method" :value="confirmAction.method">
+                    <template x-if="confirmAction.status">
+                        <input type="hidden" name="status" :value="confirmAction.status">
+                    </template>
+                    <button type="button" @click="confirmOpen = false" :disabled="submitting" class="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">Go Back</button>
+                    <button
+                        :disabled="submitting"
+                        class="inline-flex h-9 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-70"
+                        :class="confirmAction.tone === 'rose' ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'"
+                    >
+                        <svg x-show="submitting" x-cloak class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"/>
+                        </svg>
+                        <span x-text="submitting ? 'Working…' : (confirmAction.label || 'Confirm')"></span>
                     </button>
-                </div>
+                </form>
+            </div>
+        </div>
 
-                <dl class="mt-4 grid gap-2.5 text-sm">
-                    <div class="flex justify-between gap-4 border-b border-slate-100 py-1.5">
-                        <dt class="font-semibold text-slate-500">Tenant</dt>
-                        <dd class="text-right font-bold text-slate-900" x-text="selected.tenant"></dd>
-                    </div>
-                    <div class="flex justify-between gap-4 border-b border-slate-100 py-1.5">
-                        <dt class="font-semibold text-slate-500">Boarding House</dt>
-                        <dd class="text-right font-bold text-slate-900" x-text="selected.house"></dd>
-                    </div>
-                    <div class="flex justify-between gap-4 border-b border-slate-100 py-1.5">
-                        <dt class="font-semibold text-slate-500">Room Type</dt>
-                        <dd class="text-right font-bold text-slate-900" x-text="selected.room"></dd>
-                    </div>
-                    <div class="flex justify-between gap-4 border-b border-slate-100 py-1.5">
-                        <dt class="font-semibold text-slate-500">Residency Dates</dt>
-                        <dd class="text-right text-slate-700" x-text="`${selected.move_in} - ${selected.move_out}`"></dd>
-                    </div>
-                    <div class="flex justify-between gap-4 border-b border-slate-100 py-1.5">
-                        <dt class="font-semibold text-slate-500">Payment Status</dt>
-                        <dd class="text-right text-slate-700" x-text="`${selected.payment} - ${selected.amount}`"></dd>
-                    </div>
-                    <div class="py-1.5">
-                        <dt class="font-semibold text-slate-500">Notes</dt>
-                        <dd class="mt-1 text-slate-700" x-text="selected.notes || 'No notes added.'"></dd>
-                    </div>
-                </dl>
-
-                <label class="mt-4 block text-sm font-semibold text-slate-700">
-                    Update Reservation Status
-                    <select name="status" x-model="detailStatus" class="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100">
-                        <option value="pending">Pending</option>
-                        <option value="approved">Approved</option>
-                        <option value="confirmed">Confirmed</option>
-                        <option value="cancelled">Cancelled</option>
-                    </select>
-                </label>
-                <label class="mt-4 block text-sm font-semibold text-slate-700">
-                    Notes
-                    <textarea name="notes" x-model="detailNotes" rows="3" class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"></textarea>
-                </label>
-
-                <div class="mt-5 flex justify-end gap-2">
-                    <button type="button" @click="detailOpen = false" class="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50">Close</button>
-                    <button class="inline-flex h-9 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700">Save Changes</button>
-                </div>
-            </form>
+        {{-- Toast Notification --}}
+        <div
+            x-cloak
+            x-show="toast"
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="translate-y-3 opacity-0"
+            x-transition:enter-end="translate-y-0 opacity-100"
+            x-transition:leave="transition ease-in duration-200"
+            x-transition:leave-start="opacity-100"
+            x-transition:leave-end="opacity-0"
+            class="fixed bottom-6 right-6 z-[70] flex items-center gap-3 rounded-2xl border bg-white px-4 py-3 shadow-xl shadow-slate-900/15"
+            :class="toast?.type === 'success' ? 'border-emerald-200' : 'border-rose-200'"
+            role="status"
+            aria-live="polite"
+        >
+            <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl" :class="toast?.type === 'success' ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'">
+                <svg x-show="toast?.type === 'success'" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/>
+                </svg>
+                <svg x-show="toast?.type !== 'success'" x-cloak class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/>
+                </svg>
+            </span>
+            <p class="text-[13px] font-semibold text-slate-800" x-text="toast?.message"></p>
+            <button type="button" @click="toast = null" class="ml-1 inline-flex h-6 w-6 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
+            </button>
         </div>
     </div>
 </x-admin.shell>

@@ -64,7 +64,7 @@
             @endforelse
         </div>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="detailOpen" x-cloak @click.self="detailOpen = false" @keydown.escape.window="detailOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="detailOpen" x-cloak @keydown.escape.window="detailOpen = false" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm">
             <div class="ui-card w-full max-w-xl p-6">
                 <div class="flex items-center justify-between"><h2 class="text-lg font-semibold" x-text="selected.name"></h2><button type="button" @click="detailOpen = false" class="text-xl ui-muted">x</button></div>
                 <p class="mt-2 text-sm ui-muted" x-text="selected.address"></p>

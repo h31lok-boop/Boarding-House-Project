@@ -1,6 +1,10 @@
 <x-layouts.dashboard>
 <x-admin.shell :show-header="false">
 @php
+    $workspace = request()->routeIs('owner.*') ? 'owner' : 'admin';
+    $route = fn (string $name, $params = []) => route($workspace.'.'.$name, $params);
+    $isOwnerWorkspace = $workspace === 'owner';
+
     $hasTenantProfiles = $hasTenantProfiles ?? \Illuminate\Support\Facades\Schema::hasTable('tenant_profiles');
     $hasReservations = $hasReservations ?? \Illuminate\Support\Facades\Schema::hasTable('reservations');
     $hasBoardingHouseUserColumn = $hasBoardingHouseUserColumn ?? \Illuminate\Support\Facades\Schema::hasColumn('users', 'boarding_house_id');
@@ -252,9 +256,11 @@
         editOpen: false,
         addOpen: @json(request('add') === 'tenant'),
         selected: {},
+        viewTab: 'overview',
         photoPreview: null,
         openView(tenant) {
             this.selected = tenant;
+            this.viewTab = 'overview';
             this.viewOpen = true;
         },
         openEdit(tenant) {
@@ -275,12 +281,13 @@
                     </div>
 
                     <div class="flex flex-wrap items-center gap-3 lg:justify-end">
-                        <a href="{{ route('admin.messages') }}" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-[13px] font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600">
+                        <a href="{{ $route('messages') }}" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-[13px] font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600">
                             Messages
                         </a>
-                        <a href="{{ route('admin.reservations') }}" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-[13px] font-semibold text-slate-700 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700">
+                        <a href="{{ $route('reservations') }}" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-[13px] font-semibold text-slate-700 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700">
                             Reservations
                         </a>
+                        @unless ($isOwnerWorkspace)
                         <a
                             href="{{ route('admin.tenants.create') }}"
                             class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-[13px] font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700"
@@ -290,11 +297,12 @@
                             </svg>
                             Add Tenant
                         </a>
+                        @endunless
                     </div>
                 </div>
 
                 <div class="border-t border-slate-100 pt-4">
-                    <form method="GET" action="{{ route('admin.tenants.index') }}" class="grid gap-3 xl:grid-cols-[minmax(260px,1fr)_180px_220px_auto_auto] xl:items-center">
+                    <form method="GET" action="{{ $route('tenants.index') }}" class="grid gap-3 xl:grid-cols-[minmax(260px,1fr)_180px_220px_auto_auto] xl:items-center">
                         <label class="relative block">
                             <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -343,7 +351,7 @@
                         </button>
 
                         <a
-                            href="{{ route('admin.tenants.index') }}"
+                            href="{{ $route('tenants.index') }}"
                             class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                         >
                             Reset
@@ -406,6 +414,32 @@
                                     $language = $profile?->preferred_language ?: 'Not set';
                                     $schoolOrCompany = $profile?->school_company ?: 'Not set';
                                     $courseOrPosition = $profile?->course_or_position ?: 'No course or position saved';
+
+                                    $tenantReservations = $hasReservations ? collect($tenant->reservations) : collect();
+                                    $reservationRows = $tenantReservations
+                                        ->sortByDesc(fn ($r) => optional($r->created_at)->timestamp ?? 0)
+                                        ->map(fn ($r) => [
+                                            'house' => $r->boardingHouse?->name ?: 'Unassigned',
+                                            'room' => $r->room?->effective_room_number ?: null,
+                                            'status' => ucfirst((string) ($r->status ?: 'pending')),
+                                            'check_in' => $formatShortDate($r->check_in_date, 'Not scheduled'),
+                                        ])->values()->all();
+
+                                    $paymentRecords = \Illuminate\Support\Facades\Schema::hasTable('payments')
+                                        ? \App\Models\Payment::whereHas('tenant', fn ($q) => $q->where('user_id', $tenant->id))
+                                            ->latest('created_at')->limit(25)->get()
+                                        : collect();
+                                    $paymentRows = $paymentRecords->map(fn ($p) => [
+                                        'amount' => 'PHP '.number_format((float) $p->amount, 2),
+                                        'status' => ucfirst((string) ($p->status ?: 'pending')),
+                                        'reference' => $p->reference_no ?: '—',
+                                        'date' => $formatShortDate($p->paid_at ?: $p->created_at, 'Pending'),
+                                    ])->values()->all();
+                                    $paidStatuses = ['paid', 'completed', 'confirmed', 'verified'];
+                                    $outstanding = $paymentRecords
+                                        ->reject(fn ($p) => in_array(strtolower((string) $p->status), $paidStatuses, true))
+                                        ->sum(fn ($p) => (float) $p->amount);
+
                                     $payload = [
                                         'name' => $tenant->name,
                                         'email' => $tenant->email,
@@ -424,7 +458,15 @@
                                         'preferred_language' => $profile?->preferred_language,
                                         'id_verified' => (bool) ($profile?->id_verified),
                                         'photo_url' => $tenantImage,
-                                        'update_url' => route('admin.tenant-profiles.update', $tenant),
+                                        'initials' => $initialsFor($tenant->name),
+                                        'move_in_date' => $formatShortDate($lease['reservation']?->check_in_date ?? $tenant->move_in_date, 'Not scheduled'),
+                                        'registered' => $formatShortDate($tenant->created_at, 'Unknown'),
+                                        'total_reservations' => $tenantReservations->count(),
+                                        'total_payments' => $paymentRecords->count(),
+                                        'outstanding' => 'PHP '.number_format((float) $outstanding, 2),
+                                        'reservations' => $reservationRows,
+                                        'payments' => $paymentRows,
+                                        'update_url' => $route('tenant-profiles.update', $tenant),
                                     ];
                                 @endphp
                                 <tr class="align-top transition hover:bg-slate-50/80">
@@ -505,6 +547,7 @@
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m15.8 4.2 4 4M4 20l4.7-.8L19.3 8.6a2.8 2.8 0 0 0-4-4L4.8 15.2 4 20Z"/>
                                                 </svg>
                                             </button>
+                                            @unless ($isOwnerWorkspace)
                                             <form method="POST" action="{{ route('admin.users.destroy', $tenant) }}" onsubmit="return confirm('Delete this tenant account? This action cannot be undone.');">
                                                 @csrf
                                                 @method('DELETE')
@@ -519,6 +562,7 @@
                                                     </svg>
                                                 </button>
                                             </form>
+                                            @endunless
                                         </div>
                                     </td>
                                 </tr>
@@ -531,12 +575,14 @@
                                             </div>
                                             <h2 class="mt-4 text-base font-bold text-slate-950">No tenants found</h2>
                                             <p class="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-500">Tenants will appear here once they register or are added by the admin.</p>
+                                            @unless ($isOwnerWorkspace)
                                             <a href="{{ route('admin.tenants.create') }}" class="mt-5 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700">
                                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m7-7H5"/>
                                                 </svg>
                                                 Add Tenant
                                             </a>
+                                            @endunless
                                         </div>
                                     </td>
                                 </tr>
@@ -595,30 +641,104 @@
         x-show="viewOpen"
         x-cloak
         x-transition
-        @click.self="viewOpen = false"
         @keydown.escape.window="viewOpen = false"
         class="bm-modal-overlay"
     >
         <div class="bm-modal bm-modal--lg">
             <div class="bm-modal__header">
-                <div>
-                    <p class="bm-modal__eyebrow">View</p>
-                    <h2 class="bm-modal__title" x-text="selected.name"></h2>
-                    <p class="bm-modal__subtitle" x-text="selected.email"></p>
+                <div class="flex items-center gap-4">
+                    <div class="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 text-lg font-bold text-blue-700">
+                        <template x-if="selected.photo_url"><img :src="selected.photo_url" :alt="selected.name" class="h-full w-full object-cover"></template>
+                        <span x-show="!selected.photo_url" x-text="selected.initials || 'T'"></span>
+                    </div>
+                    <div>
+                        <h2 class="bm-modal__title" x-text="selected.name"></h2>
+                        <p class="bm-modal__subtitle" x-text="selected.email"></p>
+                        <div class="mt-1.5 flex flex-wrap items-center gap-2">
+                            <span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600" x-text="selected.phone || 'No contact'"></span>
+                            <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold"
+                                  :class="selected.status === 'Active' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'"
+                                  x-text="selected.status"></span>
+                        </div>
+                    </div>
                 </div>
                 <button type="button" @click="viewOpen = false" class="bm-modal__close" aria-label="Close tenant details modal">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
                 </button>
             </div>
+
+            <div class="flex gap-1 border-b border-slate-200 px-6">
+                <template x-for="tab in [['overview','Overview'],['reservations','Reservations'],['payments','Payments']]" :key="tab[0]">
+                    <button type="button" @click="viewTab = tab[0]"
+                            class="relative -mb-px border-b-2 px-4 py-2.5 text-[13px] font-semibold transition"
+                            :class="viewTab === tab[0] ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-700'"
+                            x-text="tab[1]"></button>
+                </template>
+            </div>
+
             <div class="bm-modal__body bm-modal__body--compact">
-                <dl class="bm-modal__details bm-modal__details--two-col">
-                    <div class="bm-modal__detail"><dt>Contact</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.phone"></dd></div>
-                    <div class="bm-modal__detail"><dt>Status</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.status"></dd></div>
-                    <div class="bm-modal__detail"><dt>Assigned Room</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.assigned_house || 'Not assigned'"></dd><dd class="text-slate-500" x-text="selected.assigned_room ? 'Room ' + selected.assigned_room : 'No room assigned'"></dd></div>
-                    <div class="bm-modal__detail"><dt>Lease</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.lease_status"></dd></div>
-                    <div class="bm-modal__detail"><dt>School</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.school_company || 'Not set'"></dd></div>
-                    <div class="bm-modal__detail"><dt>Student ID</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.student_id || 'Not set'"></dd></div>
-                </dl>
+                {{-- Overview --}}
+                <div x-show="viewTab === 'overview'" class="space-y-4">
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-center">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Reservations</p>
+                            <p class="mt-1 text-xl font-bold text-slate-900" x-text="selected.total_reservations ?? 0"></p>
+                        </div>
+                        <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-center">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Payments</p>
+                            <p class="mt-1 text-xl font-bold text-slate-900" x-text="selected.total_payments ?? 0"></p>
+                        </div>
+                        <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-center">
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Outstanding</p>
+                            <p class="mt-1 text-xl font-bold text-rose-600" x-text="selected.outstanding || 'PHP 0.00'"></p>
+                        </div>
+                    </div>
+                    <dl class="bm-modal__details bm-modal__details--two-col">
+                        <div class="bm-modal__detail"><dt>Move-in Date</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.move_in_date || 'Not scheduled'"></dd></div>
+                        <div class="bm-modal__detail"><dt>Reservation Status</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.lease_status"></dd></div>
+                        <div class="bm-modal__detail"><dt>Assigned Room</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.assigned_house || 'Not assigned'"></dd><dd class="text-slate-500" x-text="selected.assigned_room ? 'Room ' + selected.assigned_room : 'No room assigned'"></dd></div>
+                        <div class="bm-modal__detail"><dt>Date Registered</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.registered || 'Unknown'"></dd></div>
+                        <div class="bm-modal__detail"><dt>School</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.school_company || 'Not set'"></dd></div>
+                        <div class="bm-modal__detail"><dt>Student ID</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.student_id || 'Not set'"></dd></div>
+                    </dl>
+                </div>
+
+                {{-- Reservations --}}
+                <div x-show="viewTab === 'reservations'" class="space-y-2">
+                    <template x-if="!selected.reservations || selected.reservations.length === 0">
+                        <p class="rounded-xl border border-dashed border-slate-200 py-8 text-center text-sm text-slate-500">No reservations on record.</p>
+                    </template>
+                    <template x-for="(r, i) in (selected.reservations || [])" :key="i">
+                        <div class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
+                            <div class="min-w-0">
+                                <p class="truncate font-semibold text-slate-900" x-text="r.house"></p>
+                                <p class="text-[12px] text-slate-500" x-text="(r.room ? 'Room ' + r.room + ' · ' : '') + 'Check-in ' + r.check_in"></p>
+                            </div>
+                            <span class="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600" x-text="r.status"></span>
+                        </div>
+                    </template>
+                </div>
+
+                {{-- Payments --}}
+                <div x-show="viewTab === 'payments'" class="space-y-2">
+                    <template x-if="!selected.payments || selected.payments.length === 0">
+                        <p class="rounded-xl border border-dashed border-slate-200 py-8 text-center text-sm text-slate-500">No payments on record.</p>
+                    </template>
+                    <template x-for="(p, i) in (selected.payments || [])" :key="i">
+                        <div class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
+                            <div class="min-w-0">
+                                <p class="truncate font-semibold text-slate-900" x-text="p.amount"></p>
+                                <p class="text-[12px] text-slate-500" x-text="'Ref ' + p.reference + ' · ' + p.date"></p>
+                            </div>
+                            <span class="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold"
+                                  :class="['Paid','Completed','Confirmed','Verified'].includes(p.status) ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'"
+                                  x-text="p.status"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+            <div class="bm-modal__footer">
+                <button type="button" @click="viewOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
             </div>
         </div>
     </div>
@@ -630,7 +750,6 @@
         x-show="editOpen"
         x-cloak
         x-transition
-        @click.self="editOpen = false"
         @keydown.escape.window="editOpen = false"
         class="bm-modal-overlay"
     >
@@ -679,6 +798,7 @@
         </form>
     </div>
 
+    @unless ($isOwnerWorkspace)
     <div
         data-modal-root
         role="dialog"
@@ -686,7 +806,6 @@
         x-show="addOpen"
         x-cloak
         x-transition
-        @click.self="addOpen = false"
         @keydown.escape.window="addOpen = false"
         class="bm-modal-overlay"
     >
@@ -731,6 +850,7 @@
             </div>
         </form>
     </div>
+    @endunless
 </div>
 </x-admin.shell>
 </x-layouts.dashboard>

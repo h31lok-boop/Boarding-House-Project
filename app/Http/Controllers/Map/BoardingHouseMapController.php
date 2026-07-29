@@ -13,7 +13,7 @@ class BoardingHouseMapController extends Controller
 {
     public function admin(Request $request): JsonResponse
     {
-        abort_unless($request->user() && $request->user()->isAdmin(), 403);
+        abort_unless($request->user() && $request->user()->isSuperAdmin(), 403);
 
         $cacheKey = 'map:admin:'.md5(json_encode($request->query(), JSON_UNESCAPED_UNICODE));
         $payload = Cache::remember($cacheKey, now()->addSeconds(45), fn () => $this->buildPayload($request, true));

@@ -6,7 +6,7 @@
     'loading' => false,
 ])
 
-<article {{ $attributes->merge(['class' => 'bm-stat-card p-3.5 dark:border-slate-800 dark:bg-slate-900']) }}>
+<article {{ $attributes->merge(['class' => 'bm-stat-card p-3.5 transition duration-150 hover:-translate-y-0.5 hover:shadow-md hover:shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-900 dark:hover:shadow-none']) }}>
     @if ($loading)
         <div class="flex animate-pulse items-center gap-2.5">
             <div class="h-9 w-9 rounded-xl bg-slate-200 dark:bg-slate-800"></div>
@@ -18,7 +18,7 @@
         </div>
     @else
     <div class="flex items-center gap-2.5">
-        <div class="bm-icon-soft flex h-9 w-9 shrink-0 dark:bg-blue-400/10 dark:text-blue-300">
+        <div class="bm-icon-soft flex h-9 w-9 shrink-0 bg-gradient-to-br from-blue-50 to-blue-100/60 dark:from-blue-400/10 dark:to-blue-400/5 dark:text-blue-300">
             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                 @switch($icon)
                     @case('check-circle')
@@ -43,7 +43,7 @@
 
         <div class="min-w-0">
             <p class="text-[11px] font-medium text-slate-500 dark:text-slate-400">{{ $label }}</p>
-            <p class="mt-1 truncate text-base font-bold tracking-normal text-slate-950 dark:text-white">{{ $value }}</p>
+            <p class="mt-1 truncate text-base font-bold tabular-nums tracking-normal text-slate-950 dark:text-white">{{ $value }}</p>
             @if ($meta)
                 <p class="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{{ $meta }}</p>
             @endif

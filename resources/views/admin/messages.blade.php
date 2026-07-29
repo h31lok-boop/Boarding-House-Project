@@ -1,12 +1,14 @@
 <x-layouts.dashboard>
 <x-admin.shell :show-header="false">
 @php
+    $workspace = request()->routeIs('owner.*') ? 'owner' : 'admin';
+    $route = fn (string $name, $params = []) => route($workspace.'.'.$name, $params);
     $openStatuses = $openStatuses ?? ['new', 'pending', 'open', null, ''];
     $resolvedStatuses = $resolvedStatuses ?? ['closed', 'declined'];
     $replyNotifications = $replyNotifications ?? collect();
     $searchTerm = $searchTerm ?? (string) request('q', '');
     $activeFilter = $activeFilter ?? (string) request('filter', '');
-    $inquiriesUrl = route('admin.inquiries.index');
+    $inquiriesUrl = $route('inquiries.index');
 
     $initialsFor = function (?string $name): string {
         $words = preg_split('/\s+/', trim((string) $name)) ?: [];
@@ -96,7 +98,7 @@
             'unread_count' => $isAwaiting ? 1 : 0,
             'message_status' => $replyNotification?->message ? 'Delivered' : 'Awaiting reply',
             'messages' => $messages,
-            'update_url' => route('admin.inquiries.update', $thread),
+            'update_url' => $route('inquiries.update', $thread),
         ];
     };
 
@@ -151,7 +153,7 @@
                 <a href="{{ $inquiriesUrl }}" class="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600">
                     Open Inquiries
                 </a>
-                <a href="{{ route('admin.notifications.index') }}" class="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600">
+                <a href="{{ $route('notifications.index') }}" class="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600">
                     Notifications
                 </a>
             </div>
@@ -161,10 +163,10 @@
     <section class="rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-sm shadow-slate-200/70">
         <div class="flex flex-col gap-3">
             <div class="flex justify-end">
-                <a href="{{ route('admin.messages') }}" class="text-xs font-semibold text-slate-500 transition hover:text-blue-600">Clear all</a>
+                <a href="{{ $route('messages') }}" class="text-xs font-semibold text-slate-500 transition hover:text-blue-600">Clear all</a>
             </div>
 
-            <form method="GET" action="{{ route('admin.messages') }}" class="grid gap-2.5 xl:grid-cols-[minmax(260px,1fr)_220px_auto_auto]">
+            <form method="GET" action="{{ $route('messages') }}" class="grid gap-2.5 xl:grid-cols-[minmax(260px,1fr)_220px_auto_auto]">
                 <label class="relative block">
                     <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -203,7 +205,7 @@
                 </button>
 
                 <a
-                    href="{{ route('admin.messages') }}"
+                    href="{{ $route('messages') }}"
                     class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                 >
                     Reset
@@ -222,7 +224,7 @@
                         $isActiveTab = (string) $activeFilter === (string) $tab['key'];
                     @endphp
                     <a
-                        href="{{ route('admin.messages', $params) }}"
+                        href="{{ $route('messages', $params) }}"
                         class="inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition {{ $isActiveTab ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700' }}"
                     >
                         <span>{{ $tab['label'] }}</span>

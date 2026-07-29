@@ -72,32 +72,47 @@
 
     $recommendedBoardingHousesUrl = $r('user.boarding-houses.index', ['tab' => 'recommended']);
 
+    $activeReservation = $activeReservation ?? null;
+    $reservationExpired = (bool) ($activeReservation['is_expired'] ?? false);
+    $holdCountdown = $activeReservation['hold_countdown'] ?? null;
+
     $rawReservationHouse = trim((string) ($bookingInfo['boarding_house'] ?? ''));
-    $hasReservation = filled($rawReservationHouse) && $rawReservationHouse !== 'No active booking';
-    $reservationHouse = $hasReservation ? $rawReservationHouse : 'No active reservation yet';
-    $reservationLocation = trim((string) ($bookingInfo['address'] ?? ''));
+    $hasLegacyBooking = filled($rawReservationHouse) && $rawReservationHouse !== 'No active booking';
+    $hasReservation = ($activeReservation !== null && ! $reservationExpired) || $hasLegacyBooking;
+
+    $reservationHouse = $activeReservation['house_name']
+        ?? ($hasLegacyBooking ? $rawReservationHouse : 'No active reservation yet');
+
+    $reservationLocation = trim((string) ($activeReservation['address'] ?? $bookingInfo['address'] ?? ''));
     $reservationLocation = $reservationLocation !== ''
         ? $reservationLocation
         : ($hasReservation ? 'Location details available in your reservation.' : 'Choose a boarding house to see reservation details here.');
 
-    $roomNumber = trim((string) ($bookingInfo['room_number'] ?? ''));
+    $roomNumber = trim((string) ($activeReservation['room_no'] ?? $bookingInfo['room_number'] ?? ''));
     $roomNumber = $roomNumber !== '' ? $roomNumber : 'Not assigned';
-    $roomType = trim((string) ($bookingInfo['description'] ?? ''));
+    $roomType = trim((string) ($activeReservation['room_description'] ?? $bookingInfo['description'] ?? ''));
     $roomType = $roomType !== '' ? \Illuminate\Support\Str::limit($roomType, 34) : ($hasReservation ? 'Private Room' : 'Not selected');
 
-    $moveInDate = trim((string) ($bookingInfo['move_in_date'] ?? ''));
+    $moveInDate = trim((string) ($activeReservation['check_in_date'] ?? $bookingInfo['move_in_date'] ?? ''));
     $moveInDate = $moveInDate !== '' ? $moveInDate : 'Not scheduled';
 
     $paymentLabel = strtolower(trim((string) ($paymentStatus['label'] ?? 'pending')));
-    $paymentAmount = (float) ($billingBreakdown['next_due_amount'] ?? $billingBreakdown['outstanding_balance'] ?? 0);
+    $reservationAmount = (float) ($activeReservation['total_amount'] ?? 0);
+    $paymentAmount = $reservationAmount > 0
+        ? $reservationAmount
+        : (float) ($billingBreakdown['next_due_amount'] ?? $billingBreakdown['outstanding_balance'] ?? 0);
     $monthlyRent = $paymentAmount > 0 ? $paymentAmount : (float) ($billingBreakdown['due_this_month'] ?? 0);
     $paymentDueDate = trim((string) ($billingBreakdown['next_due_date'] ?? ''));
     $paymentDueDate = $paymentDueDate !== '' ? $paymentDueDate : 'Not scheduled';
-    $hasPendingPayment = $hasReservation && ! in_array($paymentLabel, ['paid', 'settled', 'completed'], true);
 
-    $reservationStatus = $hasReservation
-        ? ($paymentLabel === 'pending approval' ? 'Pending Review' : 'Confirmed')
-        : 'Not Started';
+    $hasPendingPayment = $activeReservation !== null
+        ? (! $reservationExpired && ! ($activeReservation['is_paid'] ?? false))
+        : ($hasReservation && ! in_array($paymentLabel, ['paid', 'settled', 'completed'], true));
+
+    $reservationStatus = $activeReservation['status_label']
+        ?? ($hasReservation
+            ? ($paymentLabel === 'pending approval' ? 'Pending Review' : 'Confirmed')
+            : 'Not Started');
 
     $paymentCardTitle = $hasPendingPayment ? 'Payment Due' : 'Payment Status';
     $paymentCardValue = $hasPendingPayment
@@ -115,9 +130,11 @@
             ? $recommendedBoardingHousesUrl
             : ($hasPendingPayment ? $r('user.payments.index') : $r('user.reservations.index')));
 
-    $reservationImage = $isPlaceholderImage($topAiRecommendation['image_url'] ?? null)
-        ? $photoFor(0)
-        : $topAiRecommendation['image_url'];
+    $reservationImage = ! $isPlaceholderImage($activeReservation['image_url'] ?? null)
+        ? $activeReservation['image_url']
+        : ($isPlaceholderImage($topAiRecommendation['image_url'] ?? null)
+            ? $photoFor(0)
+            : $topAiRecommendation['image_url']);
     $matchScore = $topAiRecommendation
         ? (int) ($topAiRecommendation['recommendation']['recommendation_percent'] ?? 0)
         : 0;
@@ -145,18 +162,10 @@
         ];
     })->filter()->values();
 
-    if ($recommendations->isEmpty() && $hasPreferences) {
-        $recommendations = collect([
-            ['name' => 'Sunrise Boarding House', 'location' => 'Digos City', 'price' => 'PHP 3,500 / month', 'match' => 92, 'image' => $photoFor(1), 'url' => $recommendedBoardingHousesUrl],
-            ['name' => 'Maplewood Residences', 'location' => 'Davao City', 'price' => 'PHP 3,800 / month', 'match' => 88, 'image' => $photoFor(2), 'url' => $recommendedBoardingHousesUrl],
-            ['name' => 'Greenview Boarding House', 'location' => 'Davao City', 'price' => 'PHP 4,000 / month', 'match' => 85, 'image' => $photoFor(3), 'url' => $recommendedBoardingHousesUrl],
-        ]);
-    }
-
     $savedListings = collect();
     $savedCount = 0;
     if ($tenant && \Illuminate\Support\Facades\Schema::hasTable('favorites')) {
-        $savedCount = (int) $tenant->favorites()->count();
+        $savedCount = (int) $tenant->favorites()->whereHas('boardingHouse')->count();
         $savedListings = $tenant->favorites()
             ->with('boardingHouse')
             ->latest('id')
@@ -183,8 +192,6 @@
             })
             ->filter()
             ->values();
-
-        $savedCount = $savedListings->count();
     }
 
     $journeySteps = [
@@ -314,27 +321,7 @@
 
     $nextScheduleEvent = $upcomingSchedule[0] ?? null;
 
-    $recentMessages = collect([
-        [
-            'name' => $hasReservation ? 'Maria Santos' : 'BoardMatch Advisor',
-            'message' => $hasReservation
-                ? 'Hi '.$firstName.', your reservation details are ready for review.'
-                : 'Complete your preferences to unlock better boarding house matches.',
-            'time' => '10:30 AM',
-            'unread' => $hasReservation ? 2 : 0,
-            'initials' => $hasReservation ? 'MS' : 'BA',
-        ],
-        [
-            'name' => $hasReservation ? 'James Lorenzo' : 'Payments Desk',
-            'message' => $hasPendingPayment
-                ? 'Please upload your payment receipt so we can confirm your reservation.'
-                : 'Your dashboard is up to date. Reach out if you need assistance.',
-            'time' => 'Yesterday',
-            'unread' => $hasPendingPayment ? 1 : 0,
-            'initials' => $hasReservation ? 'JL' : 'PD',
-        ],
-    ]);
-    $unreadCount = (int) $recentMessages->sum(fn ($message) => (int) ($message['unread'] ?? 0));
+    $unreadCount = (int) ($ownerReplyCount ?? 0);
 
     $notificationCount = 0;
     if ($tenant
@@ -352,36 +339,7 @@
         $notificationCount = (int) $notificationQuery->count();
     }
 
-    $recentActivity = collect([
-        [
-            'title' => $hasReservation ? 'Reservation Confirmed' : 'Profile Updated',
-            'detail' => $hasReservation ? 'Your reservation at '.$reservationHouse.' is active.' : 'Finish your profile to improve match quality.',
-            'time' => '2 days ago',
-            'tone' => 'blue',
-        ],
-        [
-            'title' => $hasPendingPayment ? 'Payment Pending' : 'Payment Partially Paid',
-            'detail' => $hasPendingPayment
-                ? 'Upload your payment receipt to continue the application.'
-                : 'Your recent payment has been recorded in the system.',
-            'time' => '3 days ago',
-            'tone' => 'emerald',
-        ],
-        [
-            'title' => 'Profile Updated',
-            'detail' => $hasPreferences ? 'Your preferences are helping drive better matches.' : 'Set your budget and housing needs to get started.',
-            'time' => '5 days ago',
-            'tone' => 'amber',
-        ],
-        [
-            'title' => 'New Match Found',
-            'detail' => $recommendations->isNotEmpty()
-                ? 'We found '.$recommendations->count().' boarding house matches for you.'
-                : 'New recommendations will appear once more listings match your profile.',
-            'time' => '1 week ago',
-            'tone' => 'purple',
-        ],
-    ]);
+    $recentActivity = collect($recentActivityItems ?? []);
 
     $incomingPendingCount = $incomingPendingCount ?? 0;
     $outgoingPendingCount = $outgoingPendingCount ?? 0;
@@ -478,51 +436,6 @@
                 ];
             })->filter()->values();
         }
-    }
-
-    if ($notificationItems->isEmpty()) {
-        $notificationItems = collect([
-            [
-                'label' => 'Reservation Status',
-                'title' => 'Reservation approved',
-                'detail' => $hasReservation ? 'Your current reservation is active and ready for the next step.' : 'Reservation updates will appear here as soon as you submit one.',
-                'tone' => 'blue',
-                'icon' => 'reservations',
-                'href' => $r('user.reservations.index'),
-                'time' => 'Just now',
-                'unread' => true,
-            ],
-            [
-                'label' => 'Payment Update',
-                'title' => $hasPendingPayment ? 'Payment pending' : 'Payment confirmed',
-                'detail' => $hasPendingPayment ? 'Your payment is still due. Secure your reservation to avoid delays.' : 'Your latest payment has been recorded.',
-                'tone' => 'amber',
-                'icon' => 'payments',
-                'href' => $r('user.payments.index'),
-                'time' => '1 hour ago',
-                'unread' => $hasPendingPayment,
-            ],
-            [
-                'label' => 'New Message',
-                'title' => 'Message from owner',
-                'detail' => 'Quick updates from owners and coordinators appear here for fast follow-up.',
-                'tone' => 'emerald',
-                'icon' => 'messages',
-                'href' => $r('user.messages.index'),
-                'time' => 'Today',
-                'unread' => $unreadCount > 0,
-            ],
-            [
-                'label' => 'System Announcement',
-                'title' => 'BoardMatch reminder',
-                'detail' => 'Keep your profile, reservation, and payment details up to date.',
-                'tone' => 'slate',
-                'icon' => 'notifications',
-                'href' => $r('user.notifications.index'),
-                'time' => 'This week',
-                'unread' => false,
-            ],
-        ]);
     }
 
     $bestMatchScore = max($matchScore, (int) ($recommendations->max('match') ?? 0));
@@ -711,7 +624,15 @@
                         <h2 class="mt-1 text-lg font-black tracking-tight text-slate-950">{{ $reservationHouse }}</h2>
                         <p class="mt-1 text-xs text-slate-500">{{ $hasReservation ? 'Your housing details and move-in plan.' : 'Start a reservation once you find the right boarding house.' }}</p>
                     </div>
-                    <span class="inline-flex w-fit rounded-full px-3 py-1 text-xs font-bold {{ $hasReservation ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-500' }}">{{ $reservationStatus }}</span>
+                    @php
+                        $reservationBadgeTone = match (true) {
+                            $reservationExpired => 'bg-rose-50 text-rose-600',
+                            $reservationStatus === 'Pending Review' => 'bg-amber-50 text-amber-600',
+                            $hasReservation => 'bg-emerald-50 text-emerald-600',
+                            default => 'bg-slate-100 text-slate-500',
+                        };
+                    @endphp
+                    <span class="inline-flex w-fit rounded-full px-3 py-1 text-xs font-bold {{ $reservationBadgeTone }}">{{ $reservationStatus }}</span>
                 </div>
 
                 <div class="grid gap-0 lg:grid-cols-[220px_minmax(0,1fr)]">
@@ -723,10 +644,16 @@
                             loading="lazy"
                             onerror="this.onerror=null;this.src='{{ $placeholderImage }}';"
                         >
-                        <div class="absolute inset-x-4 bottom-4 flex items-center justify-between rounded-2xl bg-white/90 px-3 py-2 shadow-sm backdrop-blur">
-                            <span class="text-xs font-bold text-slate-500">Match score</span>
-                            <span class="text-sm font-black text-blue-600">{{ max($bestMatchScore, 80) }}%</span>
-                        </div>
+                        @if($holdCountdown)
+                            <div class="absolute inset-x-4 bottom-4 flex items-center justify-between rounded-2xl bg-white/90 px-3 py-2 shadow-sm backdrop-blur">
+                                <span class="text-xs font-bold text-amber-600">{{ $holdCountdown }}</span>
+                            </div>
+                        @elseif($bestMatchScore > 0)
+                            <div class="absolute inset-x-4 bottom-4 flex items-center justify-between rounded-2xl bg-white/90 px-3 py-2 shadow-sm backdrop-blur">
+                                <span class="text-xs font-bold text-slate-500">Match score</span>
+                                <span class="text-sm font-black text-blue-600">{{ $bestMatchScore }}%</span>
+                            </div>
+                        @endif
                     </div>
 
                     <div class="p-3 sm:p-4">
@@ -780,8 +707,13 @@
                                 </svg>
                             </div>
                             <p class="mt-4 text-sm font-black text-slate-950">No recommendations yet</p>
-                            <p class="mt-2 text-sm text-slate-500">Complete your preferences first to get better AI recommendations.</p>
-                            <a href="{{ $r('user.preferences.index') }}" class="mt-3 inline-flex h-8 items-center justify-center rounded-lg bg-blue-600 px-3 text-xs font-bold text-white transition hover:bg-blue-700">Complete Preferences</a>
+                            @if($hasPreferences)
+                                <p class="mt-2 text-sm text-slate-500">No listings match your preferences right now. Browse all boarding houses or adjust your preferences.</p>
+                                <a href="{{ $r('user.boarding-houses.index') }}" class="mt-3 inline-flex h-8 items-center justify-center rounded-lg bg-blue-600 px-3 text-xs font-bold text-white transition hover:bg-blue-700">Browse All Listings</a>
+                            @else
+                                <p class="mt-2 text-sm text-slate-500">Complete your preferences first to get better AI recommendations.</p>
+                                <a href="{{ $r('user.preferences.index') }}" class="mt-3 inline-flex h-8 items-center justify-center rounded-lg bg-blue-600 px-3 text-xs font-bold text-white transition hover:bg-blue-700">Complete Preferences</a>
+                            @endif
                         </div>
                     @else
                         @foreach($recommendations as $house)
@@ -826,7 +758,7 @@
                         <p class="mt-1.5 text-xl font-black text-slate-950">{{ $savedCount }}</p>
                     </div>
                     <div class="rounded-lg border border-slate-100 bg-slate-50/70 p-2.5">
-                        <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Unread Messages</p>
+                        <p class="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Recent Replies</p>
                         <p class="mt-1.5 text-xl font-black text-slate-950">{{ $unreadCount }}</p>
                     </div>
                 </div>
@@ -948,7 +880,7 @@
             </div>
 
             <div class="mt-3 divide-y divide-slate-100">
-                @foreach($notificationItems as $notification)
+                @forelse($notificationItems as $notification)
                     @php
                         $notificationTone = [
                             'blue' => 'bg-blue-50 text-blue-600',
@@ -984,7 +916,12 @@
                             <span class="inline-flex rounded-full bg-blue-600 px-2 py-1 text-[10px] font-bold text-white">New</span>
                         @endif
                     </a>
-                @endforeach
+                @empty
+                    <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-center">
+                        <p class="text-sm font-black text-slate-950">No notifications yet</p>
+                        <p class="mt-2 text-sm text-slate-500">Reservation, payment, and message updates will show up here.</p>
+                    </div>
+                @endforelse
             </div>
         </section>
 
@@ -998,7 +935,7 @@
             </div>
 
             <div class="mt-3 space-y-2">
-                @foreach($recentActivity as $activity)
+                @forelse($recentActivity as $activity)
                     @php
                         $activityTone = [
                             'blue' => 'bg-blue-50 text-blue-600',
@@ -1021,14 +958,19 @@
                             <p class="mt-1 text-xs leading-5 text-slate-500">{{ $activity['detail'] }}</p>
                         </div>
                     </div>
-                @endforeach
+                @empty
+                    <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-center">
+                        <p class="text-sm font-black text-slate-950">No activity yet</p>
+                        <p class="mt-2 text-sm text-slate-500">Actions like saving a listing or submitting a reservation will appear here.</p>
+                    </div>
+                @endforelse
             </div>
 
             <div class="mt-3 rounded-lg border border-slate-100 bg-slate-50/70 p-2.5">
                 <div class="flex items-center justify-between gap-3">
                     <div>
                         <p class="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Messages</p>
-                        <p class="mt-1 text-xs font-black text-slate-950">{{ $unreadCount > 0 ? $unreadCount.' unread '.\Illuminate\Support\Str::plural('message', $unreadCount) : 'No unread messages' }}</p>
+                        <p class="mt-1 text-xs font-black text-slate-950">{{ $unreadCount > 0 ? $unreadCount.' new '.\Illuminate\Support\Str::plural('reply', $unreadCount).' this week' : 'No new replies this week' }}</p>
                     </div>
                     <a href="{{ $r('user.messages.index') }}" class="inline-flex h-9 items-center justify-center rounded-lg bg-white px-3 text-xs font-bold text-blue-600 ring-1 ring-blue-200 transition hover:bg-blue-50">Open Inbox</a>
                 </div>

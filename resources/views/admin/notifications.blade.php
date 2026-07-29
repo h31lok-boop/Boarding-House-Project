@@ -1,6 +1,10 @@
 <x-layouts.dashboard>
 <x-admin.shell :show-header="false">
 @php
+    $workspace = request()->routeIs('owner.*') ? 'owner' : 'admin';
+    $route = fn (string $name, $params = []) => route($workspace.'.'.$name, $params);
+    $isOwnerWorkspace = $workspace === 'owner';
+
     $typeGroups = $typeGroups ?? [
         'reservation' => ['reservation'],
         'payment' => ['payment'],
@@ -174,7 +178,7 @@
 
     <section class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/60">
         <div class="grid gap-2.5 xl:grid-cols-[minmax(240px,1fr)_190px_190px_auto_auto]">
-            <form method="GET" action="{{ route('admin.notifications.index') }}" class="contents">
+            <form method="GET" action="{{ $route('notifications.index') }}" class="contents">
                 <label class="relative block">
                     <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -223,7 +227,7 @@
                 </button>
             </form>
 
-            <form method="POST" action="{{ route('admin.notifications.clear') }}" onsubmit="return confirm('Clear all notifications? This cannot be undone.');">
+            <form method="POST" action="{{ $route('notifications.clear') }}" onsubmit="return confirm('Clear all notifications? This cannot be undone.');">
                 @csrf
                 @method('DELETE')
                 <button
@@ -324,19 +328,19 @@
                                         >
                                             View Details
                                         </button>
-                                        <form method="POST" action="{{ route('admin.notifications.update', $notification->id) }}">
+                                        <form method="POST" action="{{ $route('notifications.update', $notification->id) }}">
                                             @csrf
                                             @method('PATCH')
                                             <input type="hidden" name="action" value="mark_read">
                                             <button class="flex w-full items-center rounded-xl px-3 py-2.5 text-left font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700">Mark as Read</button>
                                         </form>
-                                        <form method="POST" action="{{ route('admin.notifications.update', $notification->id) }}">
+                                        <form method="POST" action="{{ $route('notifications.update', $notification->id) }}">
                                             @csrf
                                             @method('PATCH')
                                             <input type="hidden" name="action" value="resend">
                                             <button class="flex w-full items-center rounded-xl px-3 py-2.5 text-left font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700">Resend Notification</button>
                                         </form>
-                                        <form method="POST" action="{{ route('admin.notifications.destroy', $notification->id) }}" onsubmit="return confirm('Delete this notification?');">
+                                        <form method="POST" action="{{ $route('notifications.destroy', $notification->id) }}" onsubmit="return confirm('Delete this notification?');">
                                             @csrf
                                             @method('DELETE')
                                             <button class="flex w-full items-center rounded-xl px-3 py-2.5 text-left font-semibold text-rose-600 transition hover:bg-rose-50">Delete</button>
@@ -431,10 +435,9 @@
         x-show="sendOpen"
         x-cloak
         x-transition
-        @click.self="sendOpen = false"
         class="bm-modal-overlay"
     >
-        <form method="POST" action="{{ route('admin.notifications.store') }}" class="bm-modal bm-modal--lg">
+        <form method="POST" action="{{ $route('notifications.store') }}" class="bm-modal bm-modal--lg">
             @csrf
             <div class="bm-modal__header">
                 <div>
@@ -456,10 +459,12 @@
                         <label>
                             Recipient Type
                             <select name="recipient_type" x-model="recipientType" required>
-                                <option value="all_tenants">All Tenants</option>
+                                <option value="all_tenants">{{ $isOwnerWorkspace ? 'All My Tenants' : 'All Tenants' }}</option>
                                 <option value="specific_tenant">Specific Tenant</option>
+                                @unless ($isOwnerWorkspace)
                                 <option value="all_owners">All Owners</option>
                                 <option value="admin_only">Admin Only</option>
+                                @endunless
                             </select>
                         </label>
                         <label x-show="recipientType === 'specific_tenant'" x-cloak>
@@ -511,7 +516,6 @@
         x-show="detailOpen"
         x-cloak
         x-transition
-        @click.self="detailOpen = false"
         class="bm-modal-overlay"
     >
         <div class="bm-modal">

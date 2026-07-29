@@ -56,7 +56,7 @@ $maxWidth = [
     <div
         data-modal-backdrop
         x-show="show"
-        class="fixed inset-0 transform transition-all bg-black/75 backdrop-blur-sm"
+        class="fixed inset-0 transform transition-all bg-black/30 backdrop-blur-sm"
         aria-hidden="true"
         x-transition:enter="ease-out duration-300"
         x-transition:enter-start="opacity-0"

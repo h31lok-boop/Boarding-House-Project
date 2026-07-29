@@ -30,7 +30,7 @@
             </svg>
         </button>
 
-        <form method="POST" action="{{ route('admin.settings.two-factor.update') }}" class="flex items-center gap-3 rounded-[1.2rem] border border-slate-200 bg-slate-50/70 p-3">
+        <form method="POST" action="{{ route(request()->routeIs('owner.*') ? 'owner.settings.two-factor.update' : 'admin.settings.two-factor.update') }}" class="flex items-center gap-3 rounded-[1.2rem] border border-slate-200 bg-slate-50/70 p-3">
             @csrf
             @method('PUT')
             <input type="hidden" name="two_factor_enabled" value="0">

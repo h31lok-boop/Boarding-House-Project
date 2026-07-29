@@ -103,7 +103,7 @@
         <div class="border-t border-slate-200 px-5 py-4 dark:border-slate-800">{{ $receipts->links() }}</div>
     </section>
 
-    <div data-modal-root role="dialog" aria-modal="true" x-show="rejectOpen" x-cloak @click.self="rejectOpen = false" @keydown.escape.window="rejectOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+    <div data-modal-root role="dialog" aria-modal="true" x-show="rejectOpen" x-cloak @keydown.escape.window="rejectOpen = false" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm">
         <form method="POST" :action="rejectUrl" class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
             @csrf
             @method('PATCH')

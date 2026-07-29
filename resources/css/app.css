@@ -95,12 +95,30 @@ body.modal-open [data-modal-active='true'] > :not([data-modal-backdrop]) {
     z-index: 1;
 }
 
+/* Push every fixed/sticky element behind the active modal overlay */
+body.modal-open .admin-sidebar,
+body.modal-open .user-sidebar,
+body.modal-open [class*="sidebar"],
+body.modal-open .sidebar-overlay,
+body.modal-open header:not([data-modal-active] header) {
+    z-index: 1 !important;
+    pointer-events: none !important;
+    user-select: none !important;
+}
+
+/* Belt-and-suspenders: anything the JS marked inert is also CSS-blocked */
+[inert], [inert] * {
+    pointer-events: none !important;
+    user-select: none !important;
+    cursor: default !important;
+}
+
 .bm-modal-overlay {
     align-items: center;
-    backdrop-filter: blur(10px);
+    backdrop-filter: blur(4px);
     background:
-        radial-gradient(circle at top, rgba(37, 99, 235, 0.12), transparent 24rem),
-        rgba(15, 23, 42, 0.68);
+        radial-gradient(circle at top, rgba(37, 99, 235, 0.06), transparent 24rem),
+        rgba(15, 23, 42, 0.25);
     display: flex;
     inset: 0;
     justify-content: center;
@@ -1088,6 +1106,55 @@ body.modal-open [data-modal-active='true'] > :not([data-modal-backdrop]) {
     font-weight: 700;
     gap: 0.75rem;
     margin-top: 0.6rem;
+}
+
+.bm-route-step {
+    align-items: flex-start;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    display: grid;
+    gap: 0.9rem;
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 0.95rem 1rem;
+}
+
+.bm-route-step + .bm-route-step {
+    margin-top: 0.75rem;
+}
+
+.bm-route-step__count {
+    align-items: center;
+    background: #dbeafe;
+    border-radius: 999px;
+    color: #1d4ed8;
+    display: inline-flex;
+    font-size: 0.78rem;
+    font-weight: 800;
+    height: 1.9rem;
+    justify-content: center;
+    width: 1.9rem;
+}
+
+.bm-route-step__body {
+    min-width: 0;
+}
+
+.bm-route-step__instruction {
+    color: #0f172a;
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1.5;
+}
+
+.bm-route-step__meta {
+    color: #64748b;
+    display: flex;
+    flex-wrap: wrap;
+    font-size: 0.75rem;
+    font-weight: 700;
+    gap: 0.75rem;
+    margin-top: 0.45rem;
 }
 
 @keyframes bm-map-pulse {

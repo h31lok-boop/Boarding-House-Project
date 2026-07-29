@@ -22,7 +22,8 @@ test('preferences page exposes the requested responsive preference controls', fu
         ->assertSee('name="room_type"', false)
         ->assertSee('name="amenities[]"', false)
         ->assertSee('Save Preferences')
-        ->assertSee('AI Readiness');
+        ->assertSee('Budget Range')
+        ->assertSee('Maximum Distance from DSSC');
 });
 
 test('user preferences are saved and used to refresh boarding house matches', function () {

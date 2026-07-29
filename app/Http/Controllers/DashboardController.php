@@ -3,19 +3,23 @@
 namespace App\Http\Controllers;
 
 use App\Models\BoardingHouse;
+use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\User;
 use App\Services\BoardingHouseRecommendationService;
+use App\Services\ReservationLifecycleService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class DashboardController extends Controller
 {
     public function __construct(
         private readonly BoardingHouseRecommendationService $recommendationService,
+        private readonly ReservationLifecycleService $reservationLifecycle,
     ) {}
 
     public function index()
@@ -86,29 +90,9 @@ class DashboardController extends Controller
 
     public function owner(Request $request)
     {
-        return $this->adminDashboard($request);
-    }
+        abort_unless($request->user()?->isStrictOwner(), 403);
 
-    public function adminDashboard(Request $request)
-    {
-        $user = $request->user();
-        abort_unless($user && $user->isAdmin(), 403);
-
-        return view('admin.dashboard');
-    }
-
-    public function ownerMaintenance(Request $request)
-    {
-        $user = $request->user();
-        abort_unless($user && $user->isAdmin(), 403);
-
-        [$openRequestsCount, $resolvedRequestsCount] = $this->computeMaintenanceCounts();
-
-        return view('admin.notifications', [
-            'openRequestsCount' => $openRequestsCount,
-            'resolvedRequestsCount' => $resolvedRequestsCount,
-            'hasMaintenanceModule' => Schema::hasTable('maintenance_requests'),
-        ]);
+        return redirect()->route('owner.dashboard');
     }
 
     public function tenant(Request $request)
@@ -125,20 +109,239 @@ class DashboardController extends Controller
         $hasPreferences = $this->recommendationService->hasPreferences($user);
         $preferenceSummary = $this->recommendationService->preferenceSummary($user);
 
-        return view('user.dashboard', array_merge(
+        $reservation = Schema::hasTable('reservations')
+            ? $this->reservationLifecycle->relevantReservationForUser($user->id)
+            : null;
+
+        $data = array_merge(
             $this->buildTenantDashboardData($user),
             [
                 'aiRecommendations' => $aiRecommendations,
                 'hasPreferences' => $hasPreferences,
                 'preferenceSummary' => $preferenceSummary,
-            ]
-        ));
+                'activeReservation' => $this->tenantActiveReservation($reservation),
+                'recentActivityItems' => $this->tenantRecentActivity($user, $reservation),
+                'ownerReplyCount' => $this->tenantOwnerReplyCount($user),
+            ],
+            $this->tenantRoommateRequestCounts($user)
+        );
+
+        $reservationAlert = $this->reservationAlertFor($reservation);
+        if ($reservationAlert) {
+            array_unshift($data['alerts'], $reservationAlert);
+        }
+
+        return view('user.dashboard', $data);
+    }
+
+    private function tenantActiveReservation(?Reservation $reservation): ?array
+    {
+        if (! $reservation) {
+            return null;
+        }
+
+        $status = strtolower(trim((string) ($reservation->status ?? 'pending')));
+        $paymentStatus = strtolower(trim((string) ($reservation->payment_status ?? '')));
+        $isPaid = in_array($paymentStatus, ['paid', 'approved', 'settled'], true);
+        $isExpired = $status === 'expired';
+
+        $statusLabel = match ($status) {
+            'pending' => 'Pending Review',
+            'reserved', 'approved', 'confirmed' => 'Confirmed',
+            'expired' => 'Expired',
+            default => Str::headline($status ?: 'Pending'),
+        };
+
+        $expiresAt = $reservation->expires_at;
+        $holdCountdown = null;
+        if (! $isExpired && ! $isPaid && $expiresAt && $expiresAt->isFuture()) {
+            $holdCountdown = 'Hold expires '.$expiresAt->diffForHumans();
+        }
+
+        return [
+            'id' => $reservation->id,
+            'house_name' => $reservation->boardingHouse?->name ?? 'Boarding house',
+            'address' => trim((string) ($reservation->boardingHouse?->address ?? '')),
+            'room_no' => $reservation->room?->room_no,
+            'room_description' => trim((string) ($reservation->room?->description ?? '')),
+            'status' => $status,
+            'status_label' => $statusLabel,
+            'is_expired' => $isExpired,
+            'is_paid' => $isPaid,
+            'check_in_date' => $reservation->check_in_date?->format('M d, Y'),
+            'total_amount' => (float) ($reservation->total_amount ?? 0),
+            'hold_countdown' => $holdCountdown,
+            'image_url' => $reservation->boardingHouse?->cover_image_url,
+        ];
+    }
+
+    private function reservationAlertFor(?Reservation $reservation): ?array
+    {
+        if (! $reservation) {
+            return null;
+        }
+
+        $status = strtolower(trim((string) ($reservation->status ?? '')));
+        $paymentStatus = strtolower(trim((string) ($reservation->payment_status ?? '')));
+        $isPaid = in_array($paymentStatus, ['paid', 'approved', 'settled'], true);
+        $houseName = $reservation->boardingHouse?->name ?? 'your boarding house';
+
+        if ($status === 'expired') {
+            return [
+                'title' => 'Reservation expired',
+                'detail' => 'Your reservation for '.$houseName.' expired and the room was released. Browse matches to reserve again.',
+                'level' => 'danger',
+                'href' => route('user.reservations.index'),
+            ];
+        }
+
+        if (in_array($status, ['pending', 'reserved'], true) && ! $isPaid && $reservation->expires_at?->isFuture()) {
+            return [
+                'title' => 'Reservation hold expiring',
+                'detail' => 'Your hold on '.$houseName.' expires '.$reservation->expires_at->diffForHumans().'. Settle the payment to keep the room.',
+                'level' => 'warning',
+                'href' => route('user.payments.index'),
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{incomingPendingCount: int, outgoingPendingCount: int}
+     */
+    private function tenantRoommateRequestCounts(User $tenant): array
+    {
+        if (! Schema::hasTable('roommate_match_requests')) {
+            return ['incomingPendingCount' => 0, 'outgoingPendingCount' => 0];
+        }
+
+        $pending = DB::table('roommate_match_requests')
+            ->whereRaw('LOWER(status) = ?', ['pending']);
+
+        return [
+            'incomingPendingCount' => (int) (clone $pending)->where('recipient_id', $tenant->id)->count(),
+            'outgoingPendingCount' => (int) (clone $pending)->where('sender_id', $tenant->id)->count(),
+        ];
+    }
+
+    private function tenantOwnerReplyCount(User $tenant): int
+    {
+        if (! Schema::hasTable('inquiries') || ! Schema::hasColumn('inquiries', 'replied_at')) {
+            return 0;
+        }
+
+        return (int) DB::table('inquiries')
+            ->where('user_id', $tenant->id)
+            ->where('replied_at', '>=', now()->subDays(7))
+            ->count();
+    }
+
+    /**
+     * @return array<int, array{title: string, detail: string, time: string, tone: string}>
+     */
+    private function tenantRecentActivity(User $tenant, ?Reservation $reservation): array
+    {
+        $events = collect();
+
+        if ($reservation) {
+            $houseName = $reservation->boardingHouse?->name ?? 'a boarding house';
+
+            if ($reservation->created_at) {
+                $events->push([
+                    'title' => 'Reservation Submitted',
+                    'detail' => 'You reserved a room at '.$houseName.'.',
+                    'at' => $reservation->created_at,
+                    'tone' => 'blue',
+                ]);
+            }
+
+            if ($reservation->approved_at) {
+                $events->push([
+                    'title' => 'Reservation Approved',
+                    'detail' => 'The owner approved your reservation at '.$houseName.'.',
+                    'at' => $reservation->approved_at,
+                    'tone' => 'emerald',
+                ]);
+            }
+
+            if ($reservation->expired_at) {
+                $events->push([
+                    'title' => 'Reservation Expired',
+                    'detail' => 'Your reservation at '.$houseName.' expired and the room was released.',
+                    'at' => $reservation->expired_at,
+                    'tone' => 'amber',
+                ]);
+            }
+        }
+
+        if (Schema::hasTable('payment_receipts') && Schema::hasColumn('payment_receipts', 'user_id')) {
+            $receipt = DB::table('payment_receipts')
+                ->where('user_id', $tenant->id)
+                ->orderByDesc('id')
+                ->first();
+
+            if ($receipt && ! empty($receipt->created_at)) {
+                $receiptStatus = strtolower(trim((string) ($receipt->status ?? 'pending')));
+                $events->push([
+                    'title' => 'Payment Receipt '.Str::headline($receiptStatus ?: 'Submitted'),
+                    'detail' => $receiptStatus === 'approved'
+                        ? 'Your payment receipt was verified and approved.'
+                        : ($receiptStatus === 'rejected'
+                            ? 'Your payment receipt was rejected. Upload a new one to continue.'
+                            : 'Your payment receipt is awaiting verification.'),
+                    'at' => Carbon::parse($receipt->created_at),
+                    'tone' => $receiptStatus === 'rejected' ? 'amber' : 'emerald',
+                ]);
+            }
+        }
+
+        if (Schema::hasTable('user_preferences')) {
+            $preferences = DB::table('user_preferences')
+                ->where('user_id', $tenant->id)
+                ->orderByDesc('updated_at')
+                ->first();
+
+            if ($preferences && ! empty($preferences->updated_at)) {
+                $events->push([
+                    'title' => 'Preferences Updated',
+                    'detail' => 'Your housing preferences are driving your current matches.',
+                    'at' => Carbon::parse($preferences->updated_at),
+                    'tone' => 'purple',
+                ]);
+            }
+        }
+
+        if (Schema::hasTable('favorites')) {
+            $favorite = $tenant->favorites()->with('boardingHouse')->latest('id')->first();
+
+            if ($favorite?->created_at) {
+                $events->push([
+                    'title' => 'Listing Saved',
+                    'detail' => 'You saved '.($favorite->boardingHouse?->name ?? 'a boarding house').' to your shortlist.',
+                    'at' => $favorite->created_at,
+                    'tone' => 'blue',
+                ]);
+            }
+        }
+
+        return $events
+            ->sortByDesc('at')
+            ->take(4)
+            ->map(fn (array $event) => [
+                'title' => $event['title'],
+                'detail' => $event['detail'],
+                'time' => $event['at']->diffForHumans(),
+                'tone' => $event['tone'],
+            ])
+            ->values()
+            ->all();
     }
 
     public function search(Request $request)
     {
         $user = $request->user();
-        abort_unless($user && $user->isAdmin(), 403);
+        abort_unless($user && $user->isSuperAdmin(), 403);
 
         $keyword = trim((string) $request->query('q', ''));
         if ($keyword === '') {

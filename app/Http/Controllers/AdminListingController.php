@@ -10,7 +10,7 @@ class AdminListingController extends Controller
 {
     public function listings(Request $request)
     {
-        abort_unless($request->user()?->isAdmin(), 403);
+        abort_unless($request->user()?->isManager(), 403);
 
         $houses = BoardingHouse::query()
             ->with(['images:id,boarding_house_id,image_path,is_primary,sort_order'])
@@ -22,18 +22,32 @@ class AdminListingController extends Controller
 
     public function myBoardingHouse(Request $request)
     {
-        abort_unless($request->user()?->isAdmin(), 403);
+        abort_unless($request->user()?->isManager(), 403);
+
+        $house = BoardingHouse::where('owner_id', $request->user()->id)->first();
+
+        if (! $house) {
+            $request->query->set('owner', 'mine');
+            return app(AdminOwnerController::class)->boardingHouses($request);
+        }
 
         $request->query->set('owner', 'mine');
 
-        return app(AdminOwnerController::class)->boardingHouses($request);
+        return app(AdminOwnerController::class)
+            ->singleBoardingHouse($request, $house);
     }
 
     public function rooms(Request $request)
     {
-        abort_unless($request->user()?->isAdmin(), 403);
+        abort_unless($request->user()?->isManager(), 403);
+
+        $isOwner = (bool) $request->user()?->isStrictOwner();
+        $ownerHouseIds = $isOwner
+            ? BoardingHouse::where('owner_id', $request->user()->id)->pluck('id')
+            : collect();
 
         $rooms = Room::with('boardingHouse')
+            ->when($isOwner, fn ($query) => $query->whereIn('boarding_house_id', $ownerHouseIds))
             ->when($request->filled('q'), function ($query) use ($request) {
                 $term = '%'.$request->query('q').'%';
                 $query->where(function ($q) use ($term) {
@@ -49,7 +63,10 @@ class AdminListingController extends Controller
             ->paginate(12)
             ->withQueryString();
 
-        $boardingHouses = BoardingHouse::query()->orderBy('name')->get();
+        $boardingHouses = BoardingHouse::query()
+            ->when($isOwner, fn ($query) => $query->whereIn('id', $ownerHouseIds))
+            ->orderBy('name')
+            ->get();
 
         return view('admin.rooms', compact('rooms', 'boardingHouses'));
     }

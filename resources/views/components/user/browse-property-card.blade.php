@@ -47,6 +47,11 @@
                 <svg class="h-3.5 w-3.5 shrink-0 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" /></svg>
                 <span class="truncate">{{ $listing['distance_label'] }}</span>
             </p>
+
+            <p class="mt-1 flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+                <svg class="h-3.5 w-3.5 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12v6.75m0-6.75 8.955-8.955a1.125 1.125 0 0 1 1.59 0L21.75 12M2.25 12h19.5m0 0v6.75M6 18.75V15a1.5 1.5 0 0 1 1.5-1.5h9A1.5 1.5 0 0 1 18 15v3.75" /></svg>
+                <span class="truncate">{{ $listing['room'] }}</span>
+            </p>
         </div>
 
         <div class="flex items-end justify-between gap-2">
@@ -63,9 +68,14 @@
             </p>
         </div>
 
-        <a href="{{ $listing['url'] }}" class="inline-flex h-9 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 text-xs font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-400/70">
-            View Details
-            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
-        </a>
+        <div class="grid grid-cols-2 gap-2">
+            <a href="{{ $listing['url'] }}" class="inline-flex h-9 items-center justify-center rounded-xl border border-blue-200 bg-white px-3 text-xs font-bold text-blue-600 transition hover:bg-blue-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-100 dark:border-blue-400/30 dark:bg-slate-950 dark:text-blue-300 dark:hover:bg-blue-400/10">
+                View Details
+            </a>
+            <a href="{{ $listing['url'] }}#reservation-panel" class="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3 text-xs font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/25 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200">
+                Reserve
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
+            </a>
+        </div>
     </div>
 </article>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BoardingHouse;
 use App\Models\Room;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -11,7 +12,8 @@ class RoomController extends Controller
 {
     public function __construct()
     {
-        $this->middleware(['auth', 'admin']);
+        // Access is enforced per-route (owner middleware) and per-record (RoomPolicy).
+        $this->middleware('auth');
     }
 
     public function store(Request $request)
@@ -28,6 +30,10 @@ class RoomController extends Controller
             'description' => ['nullable', 'string'],
             'image' => ['nullable', 'image', 'mimes:jpeg,png,webp', 'max:5120'],
         ]);
+
+        // A room may only be created under a boarding house the caller may manage.
+        $boardingHouse = BoardingHouse::findOrFail($data['boarding_house_id']);
+        $this->authorize('update', $boardingHouse);
 
         $data['capacity'] = $data['capacity'] ?? 1;
         $data['available_slots'] = $data['available_slots'] ?? $data['capacity'];
@@ -52,6 +58,8 @@ class RoomController extends Controller
 
     public function update(Request $request, Room $room)
     {
+        $this->authorize('update', $room);
+
         $requiresDetails = $request->wantsJson();
 
         $data = $request->validate([
@@ -93,6 +101,8 @@ class RoomController extends Controller
 
     public function destroy(Request $request, Room $room)
     {
+        $this->authorize('delete', $room);
+
         if ($room->image) {
             Storage::disk('public')->delete($room->image);
         }
@@ -107,6 +117,8 @@ class RoomController extends Controller
 
     private function formatRoom(Room $room): array
     {
+        $ns = request()->routeIs('owner.*') ? 'owner' : 'admin';
+
         return [
             'id' => $room->id,
             'room_no' => $room->room_no,
@@ -118,8 +130,8 @@ class RoomController extends Controller
             'boarding_house_id' => $room->boarding_house_id,
             'boarding_house_name' => $room->boardingHouse?->name,
             'image_url' => $room->image ? Storage::url($room->image) : '',
-            'update_url' => route('admin.rooms.update', $room),
-            'delete_url' => route('admin.rooms.destroy', $room),
+            'update_url' => route($ns.'.rooms.update', $room),
+            'delete_url' => route($ns.'.rooms.destroy', $room),
         ];
     }
 }

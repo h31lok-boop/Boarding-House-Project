@@ -11,6 +11,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             GeoBoardWiringSeeder::class,
             DsscBoardingHouseSeeder::class,
+            AdminSeeder::class,
         ]);
     }
 

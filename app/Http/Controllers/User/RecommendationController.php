@@ -14,6 +14,7 @@ use App\Services\LocationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
@@ -98,6 +99,7 @@ class RecommendationController extends Controller
             'houseRecommendations' => $houseRecommendations,
             'houseRecommendationCount' => $houseRecommendations->count(),
             'houseFilters' => $houseFilters,
+            'favoriteHouseIds' => $this->favoriteHouseIds($tenant),
             'deepSeekConfigured' => $this->deepSeekService->isConfigured(),
             'matches' => $filteredMatches->take(20),
             'matchCount' => $filteredMatches->count(),
@@ -255,12 +257,33 @@ class RecommendationController extends Controller
             'house_sort' => $sort,
             'room_type' => $roomType === 'any' ? null : $roomType,
             'dssc_area' => $dsscArea,
+            'min_score' => min(max((int) $request->query('house_min_score', 0), 0), 100),
+            'available_now' => $request->query('available_now') === '1',
+            'within_budget' => $request->query('within_budget') === '1',
         ];
     }
 
     private function applyHouseFilters($recommendations, array $filters)
     {
         $items = collect($recommendations);
+
+        if (! empty($filters['min_score'])) {
+            $items = $items->filter(function ($item) use ($filters): bool {
+                $score = $item['recommendation']['recommendation_percent']
+                    ?? $item['recommendation']['match_score']
+                    ?? 0;
+
+                return (int) round((float) $score) >= (int) $filters['min_score'];
+            });
+        }
+
+        if (! empty($filters['available_now'])) {
+            $items = $items->filter(fn ($item) => $this->houseAvailableSlots($item['house']) > 0);
+        }
+
+        if (! empty($filters['within_budget'])) {
+            $items = $items->filter(fn ($item) => (float) ($item['recommendation']['scores']['budget'] ?? 0) >= 0.8);
+        }
 
         if (! empty($filters['room_type'])) {
             $items = $items->filter(fn ($item) => $this->houseMatchesRoomType($item['house'], $filters['room_type']));
@@ -389,6 +412,17 @@ class RecommendationController extends Controller
                     'ai_generated_at' => now(),
                 ]);
         }
+    }
+
+    private function houseAvailableSlots(BoardingHouse $house): int
+    {
+        return (int) collect([
+            $house->available_rooms ?? 0,
+            $house->available_rooms_count ?? 0,
+            $house->room_categories_available_rooms_sum ?? 0,
+            $house->relationLoaded('rooms') ? $house->rooms->sum('available_slots') : 0,
+            $house->relationLoaded('roomCategories') ? $house->roomCategories->sum('available_rooms') : 0,
+        ])->max();
     }
 
     private function houseMatchesRoomType(BoardingHouse $house, string $roomType): bool
@@ -550,6 +584,19 @@ class RecommendationController extends Controller
             ->orderBy('name')
             ->limit(100)
             ->get();
+    }
+
+    private function favoriteHouseIds(User $tenant): array
+    {
+        if (! Schema::hasTable('favorites')) {
+            return [];
+        }
+
+        return DB::table('favorites')
+            ->where('user_id', $tenant->id)
+            ->pluck('boarding_house_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
     }
 
     private function referencePoint(Request $request): array

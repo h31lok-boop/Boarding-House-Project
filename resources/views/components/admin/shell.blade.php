@@ -3,19 +3,38 @@
 ])
 
 @php
+    $currentUser = auth()->user();
+    $isOwnerWorkspace = request()->routeIs('owner.*') && $currentUser?->isStrictOwner();
+    $workspace = $isOwnerWorkspace ? 'owner' : 'admin';
+    $workspacePath = $isOwnerWorkspace ? 'owner' : 'admin';
+    $workspaceRoute = fn (string $suffix) => $workspace.'.'.$suffix;
+
     $showHeader = is_string($showHeader)
         ? ! in_array(strtolower($showHeader), ['false', '0', 'off', 'no', ''], true)
         : (bool) $showHeader;
 
-    if (request()->is('admin/payments*', 'admin/transactions*')) {
+    if (request()->is($workspacePath.'/payments*', $workspacePath.'/transactions*')) {
         $showHeader = false;
     }
 
-    $r = fn ($name, $params = [], $fallback = null) => \Illuminate\Support\Facades\Route::has($name)
-        ? route($name, $params)
-        : (($fallback && \Illuminate\Support\Facades\Route::has($fallback)) ? route($fallback, $params) : url()->current());
+    $r = function ($name, $params = [], $fallback = null) use ($isOwnerWorkspace) {
+        if ($isOwnerWorkspace && str_starts_with($name, 'admin.')) {
+            $ownerName = 'owner.'.substr($name, 6);
+            if (\Illuminate\Support\Facades\Route::has($ownerName)) {
+                return route($ownerName, $params);
+            }
+        }
 
-    $currentUser = auth()->user();
+        if (\Illuminate\Support\Facades\Route::has($name)) {
+            return route($name, $params);
+        }
+
+        if ($fallback && \Illuminate\Support\Facades\Route::has($fallback)) {
+            return route($fallback, $params);
+        }
+
+        return url()->current();
+    };
     $profileImage = $currentUser?->profile_photo ?: $currentUser?->profile_image;
     $accountImageUrl = $profileImage
         ? (\Illuminate\Support\Str::startsWith($profileImage, ['http://', 'https://', '/'])
@@ -27,7 +46,7 @@
     $ownerInitial = strtoupper(substr($ownerName, 0, 1));
     $ownerRole = match (strtolower((string) $currentUser?->role)) {
         'owner' => 'Property Owner',
-        'admin' => 'Owner Administrator',
+        'admin' => 'System Administrator',
         default => 'Owner Workspace',
     };
 
@@ -50,6 +69,22 @@
     if (\Illuminate\Support\Facades\Schema::hasTable('messages')) {
         $messageQuery = \Illuminate\Support\Facades\DB::table('messages');
 
+        if ($isOwnerWorkspace) {
+            $ownerHouseIds = \App\Models\BoardingHouse::query()
+                ->where('owner_id', $currentUser->id)
+                ->pluck('id');
+
+            if (\Illuminate\Support\Facades\Schema::hasColumn('messages', 'boarding_house_id')) {
+                $messageQuery->whereIn('boarding_house_id', $ownerHouseIds);
+            } elseif (\Illuminate\Support\Facades\Schema::hasColumn('messages', 'receiver_id')) {
+                $messageQuery->where('receiver_id', $currentUser->id);
+            } elseif (\Illuminate\Support\Facades\Schema::hasColumn('messages', 'user_id')) {
+                $messageQuery->where('user_id', $currentUser->id);
+            } else {
+                $messageQuery->whereRaw('1 = 0');
+            }
+        }
+
         if (\Illuminate\Support\Facades\Schema::hasColumn('messages', 'is_read')) {
             $messageQuery->where('is_read', false);
         } elseif (\Illuminate\Support\Facades\Schema::hasColumn('messages', 'read_at')) {
@@ -60,83 +95,98 @@
     }
 
     if (\Illuminate\Support\Facades\Schema::hasTable('reservations') && \Illuminate\Support\Facades\Schema::hasColumn('reservations', 'status')) {
-        $pendingReservationCount = (int) \Illuminate\Support\Facades\DB::table('reservations')
-            ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['pending', 'approved', 'reserved'])
-            ->count();
+        $reservationQuery = \Illuminate\Support\Facades\DB::table('reservations')
+            ->whereIn(\Illuminate\Support\Facades\DB::raw('LOWER(status)'), ['pending', 'approved', 'reserved']);
+
+        if ($isOwnerWorkspace) {
+            $ownerHouseIds ??= \App\Models\BoardingHouse::query()
+                ->where('owner_id', $currentUser->id)
+                ->pluck('id');
+            $reservationQuery->whereIn('boarding_house_id', $ownerHouseIds);
+        }
+
+        $pendingReservationCount = (int) $reservationQuery->count();
     }
 
     $pageContext = match (true) {
-        request()->routeIs('admin.dashboard') => [
-            'label' => 'Owner Dashboard',
-            'title' => 'Owner Workspace',
-            'description' => 'Monitor reservations, tenants, payments, and property performance from one compact workspace.',
+        request()->routeIs($workspaceRoute('dashboard')) => [
+            'label' => $isOwnerWorkspace ? 'Owner Dashboard' : 'Admin Dashboard',
+            'title' => 'Hello, ' . ($currentUser?->name ?: 'Jani'),
+            'description' => $isOwnerWorkspace
+                ? 'Your property dashboard at a glance.'
+                : 'System operations, account activity, and platform performance at a glance.',
         ],
-        request()->is('admin/boarding-houses*', 'admin/listings*', 'admin/my-boarding-house*') => [
+        request()->is($workspacePath.'/my-boarding-house*') => [
+            'label' => 'Property Management',
+            'title' => 'My Properties',
+            'description' => 'Manage your boarding houses, rooms, tenants, and property details.',
+        ],
+        request()->is($workspacePath.'/boarding-houses*', $workspacePath.'/listings*') => [
             'label' => 'Property Management',
             'title' => 'Portfolio Listings',
-            'description' => 'Manage property details, listing visibility, amenities, and availability across your boarding houses.',
+            'description' => 'Manage property details, listing visibility, amenities, and availability across all boarding houses.',
         ],
-        request()->is('admin/rooms*') => [
+        request()->is($workspacePath.'/rooms*') => [
             'label' => 'Room Management',
             'title' => 'Room Inventory',
             'description' => 'Track room types, occupancy, rates, and room-level availability for every property.',
         ],
-        request()->is('admin/reservations*') => [
+        request()->is($workspacePath.'/reservations*') => [
             'label' => 'Reservations',
             'title' => 'Reservation Queue',
             'description' => 'Review incoming requests, approvals, move-in schedules, and follow-up actions.',
         ],
-        request()->is('admin/tenants*', 'admin/tenant-profiles*') => [
+        request()->is($workspacePath.'/tenants*', $workspacePath.'/tenant-profiles*') => [
             'label' => 'Tenant Management',
             'title' => 'Tenant Directory',
             'description' => 'Monitor tenant profiles, active stays, and housing history across your listings.',
         ],
-        request()->is('admin/inquiries*') => [
+        request()->is($workspacePath.'/inquiries*') => [
             'label' => 'Inquiry Inbox',
             'title' => 'Property Inquiries',
             'description' => 'Respond to questions from students and keep inquiries moving toward reservation decisions.',
         ],
-        request()->is('admin/messages*') => [
+        request()->is($workspacePath.'/messages*') => [
             'label' => 'Messages',
             'title' => 'Conversation Hub',
             'description' => 'Keep tenant conversations organized, timely, and easy to resolve.',
         ],
-        request()->is('admin/payments*', 'admin/transactions*') => [
+        request()->is($workspacePath.'/payments*', $workspacePath.'/transactions*') => [
             'label' => 'Payments & Earnings',
             'title' => 'Revenue Tracking',
             'description' => 'Record payments, monitor outstanding balances, and review collection status.',
         ],
-        request()->is('admin/payment-verification*') => [
+        request()->is($workspacePath.'/payment-verification*') => [
             'label' => 'Receipt Review',
             'title' => 'Payment Receipt Verification',
             'description' => 'Approve or reject submitted receipts and keep payment records accurate.',
         ],
-        request()->is('admin/notifications*') => [
+        request()->is($workspacePath.'/notifications*') => [
             'label' => 'Notifications',
             'title' => 'Owner Alerts',
             'description' => 'Stay on top of system updates, tenant actions, and account reminders.',
         ],
-        request()->is('admin/reports*') => [
+        request()->is($workspacePath.'/reports*') => [
             'label' => 'Reports & Analytics',
             'title' => 'Performance Reports',
             'description' => 'Review occupancy, revenue, inquiry, and operational performance trends.',
         ],
-        request()->is('admin/match-requests*', 'admin/recommendations*', 'admin/compatibility-scores*') => [
+        request()->is($workspacePath.'/match-requests*', $workspacePath.'/recommendations*', $workspacePath.'/compatibility-scores*') => [
             'label' => 'Matching Insights',
             'title' => 'Demand & Match Insights',
             'description' => 'Review compatibility trends and student demand signals tied to your listings.',
         ],
-        request()->is('admin/settings*') => [
+        request()->is($workspacePath.'/settings*') => [
             'label' => 'Account Settings',
             'title' => 'Owner Account',
             'description' => 'Manage your profile, security settings, and workspace preferences.',
         ],
-        request()->is('admin/help-center*', 'admin/help*') => [
+        request()->is($workspacePath.'/help-center*', $workspacePath.'/help*') => [
             'label' => 'Help Center',
             'title' => 'Owner Support Center',
             'description' => 'Find fast answers, support resources, and operational guidance for your owner workspace.',
         ],
-        request()->is('admin/search*') => [
+        request()->is($workspacePath.'/search*') => [
             'label' => 'Workspace Search',
             'title' => 'Owner Search',
             'description' => 'Search properties, tenants, reservations, payments, and inquiries across your workspace.',
@@ -160,28 +210,28 @@
 
     <aside
         id="adminSidebar"
-        class="sidebar admin-sidebar fixed inset-y-0 left-0 z-50 h-screen w-[240px] shrink-0 overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#0F172A_0%,#111827_48%,#0B1224_100%)] px-3 py-4 shadow-2xl shadow-slate-950/30 flex flex-col"
-        aria-label="Admin sidebar"
+        class="sidebar admin-sidebar fixed inset-y-0 left-0 z-50 h-screen w-[200px] shrink-0 overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#0F172A_0%,#111827_48%,#0B1224_100%)] px-2.5 py-3 shadow-2xl shadow-slate-950/30 flex flex-col"
+        aria-label="{{ $isOwnerWorkspace ? 'Owner sidebar' : 'Admin sidebar' }}"
     >
-        <div class="sidebar-header">
-            <a href="{{ $r('admin.dashboard') }}" class="admin-sidebar-brand flex min-w-0 flex-1 items-center gap-2.5">
-                <div class="sidebar-brand-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-[0_10px_22px_rgba(37,99,235,0.3)] ring-1 ring-white/15">
+        <div class="sidebar-header flex items-center gap-1.5">
+            <a href="{{ $r($workspaceRoute('dashboard')) }}" class="admin-sidebar-brand flex min-w-0 flex-1 items-center gap-2">
+                <div class="sidebar-brand-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-[0_10px_22px_rgba(37,99,235,0.3)] ring-1 ring-white/15">
                     @include('components.sidebar.partials.admin-icon', ['name' => 'boarding-house'])
                 </div>
                 <div class="sidebar-brand-text min-w-0 leading-tight">
-                    <p class="truncate text-lg font-bold tracking-tight text-white">BoardMatch</p>
-                    <p class="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Admin panel</p>
+                    <p class="truncate text-base font-bold tracking-tight text-white">BoardMatch</p>
+                    <p class="truncate text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400">{{ $isOwnerWorkspace ? 'Owner portal' : 'Admin portal' }}</p>
                 </div>
             </a>
             <button
                 type="button"
-                class="h-9 w-9 rounded-lg border border-white/10 bg-white/5 text-slate-200 shadow-sm transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-400/70 flex items-center justify-center"
+                class="h-7 w-7 rounded-lg border border-white/10 bg-white/5 text-slate-200 shadow-sm transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-blue-400/70 flex items-center justify-center"
                 data-sidebar-toggle
                 aria-controls="adminSidebar"
                 aria-expanded="true"
                 aria-label="Toggle sidebar"
             >
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16M4 12h16M4 18h16"/>
                 </svg>
             </button>
@@ -191,7 +241,7 @@
             <x-sidebar.admin-panel />
         </div>
 
-        <p class="sidebar-footer mt-4 border-t border-white/10 pt-3 text-center text-[11px] leading-4 text-slate-500">&copy; {{ date('Y') }} BoardMatch<br>All rights reserved.</p>
+        <p class="sidebar-footer mt-3 border-t border-white/10 pt-2 text-center text-[10px] leading-4 text-slate-500">&copy; {{ date('Y') }} BoardMatch<br>All rights reserved.</p>
     </aside>
 
     <main class="admin-dashboard-main min-w-0 bg-transparent">
@@ -219,39 +269,30 @@
                     <div class="absolute inset-y-0 right-0 hidden w-32 bg-[radial-gradient(circle_at_center,_rgba(16,185,129,0.12),_transparent_68%)] lg:block"></div>
                     <div class="relative flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
                         <div class="min-w-0">
-                            <p class="text-[0.68rem] font-extrabold uppercase tracking-[0.24em] text-blue-600">Owner portal</p>
-                            <div class="mt-0.5 flex items-center gap-2 text-[13px] font-semibold text-slate-500">
-                                <a href="{{ $r('admin.dashboard') }}" class="transition hover:text-blue-700">Workspace</a>
-                                <svg class="h-4 w-4 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m9 5 7 7-7 7"/>
-                                </svg>
-                                <span class="truncate text-slate-700">{{ $pageContext['label'] }}</span>
-                            </div>
-                            <h1 class="mt-1 text-[1.2rem] font-black tracking-tight text-slate-950">{{ $pageContext['title'] }}</h1>
+                            <h1 class="text-[1.2rem] font-black tracking-tight text-slate-950">{{ $pageContext['title'] }}</h1>
                             <p class="mt-1 max-w-3xl text-[11px] leading-5 text-slate-500">{{ $pageContext['description'] }}</p>
                         </div>
 
                         <div class="flex w-full flex-col gap-2 xl:w-auto xl:min-w-[32rem] xl:items-end">
-                            @if (request()->routeIs('admin.dashboard'))
-                                <form method="GET" action="{{ $r('admin.search') }}" class="w-full xl:max-w-[28rem]">
-                                    <label class="relative block">
-                                        <span class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <circle cx="10.5" cy="10.5" r="6.5" stroke-width="1.8"/>
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m16 16 4 4"/>
-                                            </svg>
-                                        </span>
-                                        <input
-                                            name="query"
-                                            value="{{ request('query') }}"
-                                            class="h-9 w-full rounded-xl border border-slate-200 bg-slate-50/90 pl-10 pr-4 text-[13px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
-                                            placeholder="{{ $dashboardSearchPlaceholder }}"
-                                        >
-                                    </label>
-                                </form>
-                            @endif
-
                             <div class="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap xl:justify-end">
+                                @if (request()->routeIs($workspaceRoute('dashboard')) && ! $isOwnerWorkspace)
+                                    <form method="GET" action="{{ $r('admin.search') }}" class="min-w-0 flex-1 sm:flex-none">
+                                        <label class="relative block">
+                                            <span class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <circle cx="10.5" cy="10.5" r="6.5" stroke-width="1.8"/>
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m16 16 4 4"/>
+                                                </svg>
+                                            </span>
+                                            <input
+                                                name="query"
+                                                value="{{ request('query') }}"
+                                                class="h-9 w-full min-w-[120px] max-w-[180px] rounded-xl border border-slate-200 bg-slate-50/90 pl-9 pr-3 text-[12px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+                                                placeholder="Search..."
+                                            >
+                                        </label>
+                                    </form>
+                                @endif
                                 <a href="{{ $r('admin.reservations') }}" class="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 text-[11px] font-bold text-emerald-700 transition hover:bg-emerald-100">
                                     <span>Reservations</span>
                                     <span class="rounded-full bg-white px-2 py-0.5 text-[11px] leading-none text-emerald-700">{{ $pendingReservationCount }}</span>

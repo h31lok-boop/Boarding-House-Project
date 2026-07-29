@@ -13,7 +13,7 @@ class AdminHelpCenterController extends Controller
     public function index(Request $request): View
     {
         $owner = $request->user();
-        abort_unless($owner && $owner->isAdmin(), 403);
+        abort_unless($owner && $owner->isSuperAdmin(), 403);
 
         $supportRequests = SupportRequest::query()
             ->latest()

@@ -16,8 +16,8 @@ class AdminMiddleware
             return redirect()->route('login');
         }
 
-        if (! $user->isAdmin()) {
-            abort(403, 'Access denied. This page is only for owners.');
+        if (! $user->isSuperAdmin()) {
+            abort(403, 'Access denied. This page is only for administrators.');
         }
 
         return $next($request);

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\PaymentReceiptStoreRequest;
 use App\Models\Booking;
 use App\Models\PaymentReceipt;
+use App\Services\ReservationLifecycleService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -14,9 +15,22 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PaymentReceiptController extends Controller
 {
+    public function __construct(
+        private readonly ReservationLifecycleService $reservationLifecycleService,
+    ) {}
+
     public function store(PaymentReceiptStoreRequest $request)
     {
+        $this->reservationLifecycleService->expireStaleReservations();
         $user = $request->user();
+        $relevantReservation = $this->reservationLifecycleService->relevantReservationForUser($user->id);
+
+        if ($relevantReservation && ! $this->reservationLifecycleService->canProcessPayment($relevantReservation)) {
+            return redirect()
+                ->route('user.reservations.index')
+                ->with('error', 'This reservation has already expired. Receipt uploads are no longer allowed.');
+        }
+
         $file = $request->file('receipt');
         $path = $file?->store('payment-receipts', 'public');
         $bookingId = $request->input('booking_id') ?: $this->latestBookingIdFor($user->id);
@@ -38,6 +52,13 @@ class PaymentReceiptController extends Controller
         ]);
 
         $this->notifyAdmins($receipt);
+
+        if ($relevantReservation && Schema::hasColumn('reservations', 'payment_status')) {
+            $relevantReservation->forceFill([
+                'payment_status' => 'pending',
+                'notes' => trim(($relevantReservation->notes ? $relevantReservation->notes."\n" : '').'Deposit receipt submitted on '.now()->format('M d, Y h:i A').'.'),
+            ])->save();
+        }
 
         return redirect()
             ->route('user.payments.index')
@@ -96,8 +117,14 @@ class PaymentReceiptController extends Controller
     private function authorizeReceiptAccess(Request $request, PaymentReceipt $receipt): void
     {
         $user = $request->user();
+        $receipt->loadMissing('booking.room.boardingHouse');
+        $ownerCanView = $user?->isStrictOwner()
+            && (int) ($receipt->booking?->room?->boardingHouse?->owner_id) === (int) $user->id;
 
-        abort_unless($user && ($user->isAdmin() || (int) $receipt->user_id === (int) $user->id), 403);
+        abort_unless(
+            $user && ($user->isSuperAdmin() || $ownerCanView || (int) $receipt->user_id === (int) $user->id),
+            403
+        );
     }
 
     private function notifyAdmins(PaymentReceipt $receipt): void
@@ -106,8 +133,12 @@ class PaymentReceiptController extends Controller
             return;
         }
 
+        $receipt->loadMissing('booking.room.boardingHouse');
+        $propertyOwnerId = $receipt->booking?->room?->boardingHouse?->owner_id;
+
         $admins = DB::table('users')
-            ->whereIn(DB::raw('LOWER(role)'), ['admin', 'owner'])
+            ->whereRaw('LOWER(role) = ?', ['admin'])
+            ->when($propertyOwnerId, fn ($query) => $query->orWhere('id', $propertyOwnerId))
             ->get(['id']);
 
         foreach ($admins as $admin) {
