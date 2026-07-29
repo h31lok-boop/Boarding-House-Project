@@ -147,234 +147,243 @@
         };
     @endphp
 
-    <div
-        x-data="{
-            editOpen: false,
-            filterOpen: false,
-            menuOpen: null,
-            selected: {},
-            filtering: false,
-            submitting: false,
-            confirmOpen: false,
-            confirmAction: { url: '', method: 'PATCH', status: '', title: '', message: '', label: '', tone: 'emerald' },
-            csrfToken: '{{ csrf_token() }}',
+    <script>
+        window.reservationsData = function (config) {
+            return {
+                editOpen: false,
+                filterOpen: false,
+                menuOpen: null,
+                selected: {},
+                filtering: false,
+                submitting: false,
+                confirmOpen: false,
+                confirmAction: { url: '', method: 'PATCH', status: '', title: '', message: '', label: '', tone: 'emerald' },
+                csrfToken: config.csrfToken,
 
-            /* edit-modal state */
-            editForm: { room_id: '', check_in_date: '', due_date: '', total_amount: '', status: '', payment_status: '', house_rules: '', notes: '' },
-            editRooms: [],
-            editRoomsLoading: false,
-            editSelectedRoom: null,
-            editSaving: false,
-            editSuccess: '',
-            editError: '',
-            editErrors: {},
-            toast: null,
-            _toastTimer: null,
-            selectedTemplate: '',
-            houseRuleTemplates: [
-                { label: 'Standard House Rules', text: '• Respect other tenants. Avoid noise and disturbance.\n• Keep the room and common areas clean.\n• No smoking, drinking, or illegal activities inside the property.\n• Visitors are allowed only from 8:00 AM to 10:00 PM.\n• Pay rent on or before the due date.\n• Report any damage or maintenance issue immediately.\n• Follow all safety and security guidelines.' },
-                { label: 'Strict Rules', text: '• Strictly no visitors allowed inside rooms.\n• Curfew at 10:00 PM for all tenants.\n• No cooking inside rooms — use the common kitchen only.\n• Quiet hours: 9:00 PM to 7:00 AM.\n• No pets allowed.\n• Rent must be paid on or before the 5th of the month.\n• Any violation may result in termination of the lease.' },
-                { label: 'Student-Friendly Rules', text: '• Respect quiet hours (11:00 PM – 6:00 AM).\n• Keep shared spaces clean after use.\n• Visitors allowed until 8:00 PM only.\n• No illegal substances on the premises.\n• Segregate and dispose of garbage properly.\n• Wi-Fi is shared — avoid heavy streaming during peak hours.\n• Report maintenance issues within 24 hours.' },
-            ],
+                /* edit-modal state */
+                editForm: { room_id: '', check_in_date: '', due_date: '', total_amount: '', status: '', payment_status: '', house_rules: '', notes: '' },
+                editRooms: [],
+                editRoomsLoading: false,
+                editSelectedRoom: null,
+                editSaving: false,
+                editSuccess: '',
+                editError: '',
+                editErrors: {},
+                toast: null,
+                _toastTimer: null,
+                selectedTemplate: '',
+                houseRuleTemplates: [
+                    { label: 'Standard House Rules', text: '• Respect other tenants. Avoid noise and disturbance.\n• Keep the room and common areas clean.\n• No smoking, drinking, or illegal activities inside the property.\n• Visitors are allowed only from 8:00 AM to 10:00 PM.\n• Pay rent on or before the due date.\n• Report any damage or maintenance issue immediately.\n• Follow all safety and security guidelines.' },
+                    { label: 'Strict Rules', text: '• Strictly no visitors allowed inside rooms.\n• Curfew at 10:00 PM for all tenants.\n• No cooking inside rooms — use the common kitchen only.\n• Quiet hours: 9:00 PM to 7:00 AM.\n• No pets allowed.\n• Rent must be paid on or before the 5th of the month.\n• Any violation may result in termination of the lease.' },
+                    { label: 'Student-Friendly Rules', text: '• Respect quiet hours (11:00 PM – 6:00 AM).\n• Keep shared spaces clean after use.\n• Visitors allowed until 8:00 PM only.\n• No illegal substances on the premises.\n• Segregate and dispose of garbage properly.\n• Wi-Fi is shared — avoid heavy streaming during peak hours.\n• Report maintenance issues within 24 hours.' },
+                ],
 
-            get availableRoomOptions() {
-                return this.editRooms.filter(r => r.available);
-            },
+                get availableRoomOptions() {
+                    return this.editRooms.filter(r => r.available);
+                },
 
-            get houseRulesWordCount() {
-                const text = (this.editForm.house_rules || '').trim();
-                return text ? text.split(/\s+/).length : 0;
-            },
+                get houseRulesWordCount() {
+                    const text = (this.editForm.house_rules || '').trim();
+                    return text ? text.split(/\s+/).length : 0;
+                },
 
-            openEdit(payload) {
-                this.selected = payload;
-                this.editForm = {
-                    room_id:        payload.room_id       || '',
-                    check_in_date:  payload.check_in_date_raw  || '',
-                    due_date:       payload.due_date_raw   || '',
-                    total_amount:   payload.total_amount_raw != null ? payload.total_amount_raw : '',
-                    status:         ['pending','approved','confirmed','cancelled','completed'].includes(payload.status_value) ? payload.status_value : 'pending',
-                    payment_status: this.normalizePayment(payload.payment_status_value),
-                    house_rules:    payload.house_rules_value   || '',
-                    notes:          payload.notes_value    || '',
-                };
-                if (!this.editForm.due_date && this.editForm.check_in_date) {
-                    this.editForm.due_date = this.addOneMonth(this.editForm.check_in_date);
-                }
-                this.editRooms = [];
-                this.editSelectedRoom = null;
-                this.selectedTemplate = '';
-                this.editSuccess = '';
-                this.editError = '';
-                this.editErrors = {};
-                this.editOpen = true;
-                this.fetchRooms(payload.boarding_house_id, payload.reservation_id);
-            },
-
-            normalizePayment(value) {
-                const v = (value || '').toLowerCase();
-                if (v === 'paid') return 'paid';
-                if (v.includes('partial')) return 'partial';
-                if (v === 'unpaid' || v === 'pending' || v === '') return 'unpaid';
-                return 'unpaid';
-            },
-
-            async fetchRooms(bhId, reservationId) {
-                if (!bhId) return;
-                this.editRoomsLoading = true;
-                try {
-                    const urlTemplate = @json($route('api.boarding-houses.available-rooms', ['boardingHouse' => '__HOUSE__']));
-                    const url = urlTemplate.replace('__HOUSE__', encodeURIComponent(bhId))
-                        + '?reservation_id=' + encodeURIComponent(reservationId || '');
-                    const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' } });
-                    const json = await res.json();
-                    this.editRooms = json.rooms || [];
-                    this.editSelectedRoom = this.editRooms.find(r => String(r.id) === String(this.editForm.room_id)) || null;
-                } catch { this.editRooms = []; }
-                finally { this.editRoomsLoading = false; }
-            },
-
-            onRoomChange() {
-                this.editSelectedRoom = this.editRooms.find(r => String(r.id) === String(this.editForm.room_id)) || null;
-                delete this.editErrors.room_id;
-                if (this.editSelectedRoom && this.editSelectedRoom.price > 0) {
-                    this.editForm.total_amount = this.editSelectedRoom.price;
-                }
-            },
-
-            addOneMonth(dateStr) {
-                const d = new Date(dateStr + 'T00:00:00');
-                if (isNaN(d)) return '';
-                const day = d.getDate();
-                d.setMonth(d.getMonth() + 1);
-                // Clamp overflow (e.g. Jan 31 -> Feb 28)
-                if (d.getDate() !== day) d.setDate(0);
-                return d.toISOString().slice(0, 10);
-            },
-
-            onMoveInChange() {
-                delete this.editErrors.check_in_date;
-                // Auto-calculate next payment due date: one month after move-in
-                if (this.editForm.check_in_date) {
-                    const next = this.addOneMonth(this.editForm.check_in_date);
-                    if (next) { this.editForm.due_date = next; delete this.editErrors.due_date; }
-                }
-            },
-
-            applyTemplate() {
-                const tpl = this.houseRuleTemplates.find(t => t.label === this.selectedTemplate);
-                if (tpl) {
-                    this.editForm.house_rules = tpl.text;
-                    delete this.editErrors.house_rules;
-                }
-            },
-
-            validateEdit() {
-                const errors = {};
-                if (!this.editForm.room_id) errors.room_id = ['Please assign a room before saving.'];
-                if (!this.editForm.check_in_date) errors.check_in_date = ['Move-in date is required.'];
-                if (!this.editForm.due_date) errors.due_date = ['Due date is required.'];
-                if (this.editForm.total_amount === '' || this.editForm.total_amount === null) {
-                    errors.total_amount = ['Monthly rate is required.'];
-                } else if (Number(this.editForm.total_amount) < 0) {
-                    errors.total_amount = ['Monthly rate cannot be negative.'];
-                }
-                if (!this.editForm.status) errors.status = ['Reservation status is required.'];
-                if (!this.editForm.payment_status) errors.payment_status = ['Please choose a payment status.'];
-                if (!(this.editForm.house_rules || '').trim()) errors.house_rules = ['House rules are required. Type them or insert a template.'];
-                this.editErrors = errors;
-                return Object.keys(errors).length === 0;
-            },
-
-            async saveEdit() {
-                if (this.editSaving) return;
-                this.editSuccess = '';
-                this.editError = '';
-                if (!this.validateEdit()) {
-                    this.editError = 'Please fix the highlighted fields before saving.';
-                    return;
-                }
-                this.editSaving = true;
-                try {
-                    const fd = new FormData();
-                    fd.append('_token', this.csrfToken);
-                    fd.append('_method', 'PATCH');
-                    fd.append('_full_edit', '1');
-                    Object.entries(this.editForm).forEach(([k, v]) => fd.append(k, v ?? ''));
-                    const res = await fetch(this.selected.update_url, {
-                        method: 'POST',
-                        headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
-                        body: fd,
-                    });
-                    const json = await res.json();
-                    if (res.ok && json.success) {
-                        this.updateRow(json.reservation);
-                        this.showToast('success', json.message || 'Reservation updated successfully.');
-                        this.editOpen = false;
-                    } else if (res.status === 422 && json.errors) {
-                        this.editErrors = json.errors;
-                        this.editError = 'Please fix the highlighted fields.';
-                    } else {
-                        this.editError = json.message || 'Something went wrong. Please try again.';
+                openEdit(payload) {
+                    this.selected = payload;
+                    this.editForm = {
+                        room_id:        payload.room_id       || '',
+                        check_in_date:  payload.check_in_date_raw  || '',
+                        due_date:       payload.due_date_raw   || '',
+                        total_amount:   payload.total_amount_raw != null ? payload.total_amount_raw : '',
+                        status:         ['pending','approved','confirmed','cancelled','completed'].includes(payload.status_value) ? payload.status_value : 'pending',
+                        payment_status: this.normalizePayment(payload.payment_status_value),
+                        house_rules:    payload.house_rules_value   || '',
+                        notes:          payload.notes_value    || '',
+                    };
+                    if (!this.editForm.due_date && this.editForm.check_in_date) {
+                        this.editForm.due_date = this.addOneMonth(this.editForm.check_in_date);
                     }
-                } catch { this.editError = 'Network error. Please try again.'; }
-                finally { this.editSaving = false; }
-            },
+                    this.editRooms = [];
+                    this.editSelectedRoom = null;
+                    this.selectedTemplate = '';
+                    this.editSuccess = '';
+                    this.editError = '';
+                    this.editErrors = {};
+                    this.editOpen = true;
+                    this.fetchRooms(payload.boarding_house_id, payload.reservation_id);
+                },
 
-            statusBadgeClass(status) {
-                if (['approved', 'confirmed'].includes(status)) return 'border-emerald-200 bg-emerald-50 text-emerald-700';
-                if (status === 'pending') return 'border-amber-200 bg-amber-50 text-amber-700';
-                if (['cancelled', 'rejected'].includes(status)) return 'border-rose-200 bg-rose-50 text-rose-700';
-                return 'border-slate-200 bg-slate-100 text-slate-600';
-            },
+                normalizePayment(value) {
+                    const v = (value || '').toLowerCase();
+                    if (v === 'paid') return 'paid';
+                    if (v.includes('partial')) return 'partial';
+                    if (v === 'unpaid' || v === 'pending' || v === '') return 'unpaid';
+                    return 'unpaid';
+                },
 
-            paymentBadgeClass(payment) {
-                if (payment === 'paid') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
-                if (payment === 'partial') return 'border-amber-200 bg-amber-50 text-amber-700';
-                return 'border-rose-200 bg-rose-50 text-rose-700';
-            },
+                async fetchRooms(bhId, reservationId) {
+                    if (!bhId) return;
+                    this.editRoomsLoading = true;
+                    try {
+                        const urlTemplate = config.availableRoomsUrlTemplate;
+                        const url = urlTemplate.replace('__HOUSE__', encodeURIComponent(bhId))
+                            + '?reservation_id=' + encodeURIComponent(reservationId || '');
+                        const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' } });
+                        const json = await res.json();
+                        this.editRooms = json.rooms || [];
+                        this.editSelectedRoom = this.editRooms.find(r => String(r.id) === String(this.editForm.room_id)) || null;
+                    } catch { this.editRooms = []; }
+                    finally { this.editRoomsLoading = false; }
+                },
 
-            updateRow(r) {
-                if (!r) return;
-                const row = document.querySelector('[data-reservation-row=\'' + r.id + '\']');
-                if (!row) return;
-                const badgeBase = 'inline-flex rounded-full border px-2.5 py-1 text-[11px] font-black shadow-sm ';
-                const set = (name, text) => {
-                    const el = row.querySelector('[data-cell=\'' + name + '\']');
-                    if (el) el.textContent = text;
-                };
-                set('room', r.room_type);
-                set('move_in', r.move_in_formatted);
-                set('amount', r.amount_formatted);
-                const statusEl = row.querySelector('[data-cell=\'status\']');
-                if (statusEl) { statusEl.textContent = r.status_label; statusEl.className = badgeBase + this.statusBadgeClass(r.status_value); }
-                const payEl = row.querySelector('[data-cell=\'payment\']');
-                if (payEl) { payEl.textContent = r.payment_label; payEl.className = badgeBase + this.paymentBadgeClass(r.payment_status_value); }
-                // Keep the cached payload in sync so reopening the modal shows saved values
-                this.selected.room_id = r.room_id;
-                this.selected.status_value = r.status_value;
-                this.selected.payment_status_value = r.payment_status_value;
-                this.selected.check_in_date_raw = r.check_in_date || '';
-                this.selected.due_date_raw = r.due_date || '';
-                this.selected.total_amount_raw = r.total_amount;
-                this.selected.house_rules_value = r.house_rules || '';
-                this.selected.notes_value = r.notes || '';
-            },
+                onRoomChange() {
+                    this.editSelectedRoom = this.editRooms.find(r => String(r.id) === String(this.editForm.room_id)) || null;
+                    delete this.editErrors.room_id;
+                    if (this.editSelectedRoom && this.editSelectedRoom.price > 0) {
+                        this.editForm.total_amount = this.editSelectedRoom.price;
+                    }
+                },
 
-            showToast(type, message) {
-                this.toast = { type, message };
-                clearTimeout(this._toastTimer);
-                this._toastTimer = setTimeout(() => { this.toast = null; }, 3500);
-            },
+                addOneMonth(dateStr) {
+                    const d = new Date(dateStr + 'T00:00:00');
+                    if (isNaN(d)) return '';
+                    const day = d.getDate();
+                    d.setMonth(d.getMonth() + 1);
+                    // Clamp overflow (e.g. Jan 31 -> Feb 28)
+                    if (d.getDate() !== day) d.setDate(0);
+                    return d.toISOString().slice(0, 10);
+                },
 
-            askConfirm(action) {
-                if (this.submitting) return;
-                this.confirmAction = action;
-                this.menuOpen = null;
-                this.editOpen = false;
-                this.confirmOpen = true;
-            },
-        }"
+                onMoveInChange() {
+                    delete this.editErrors.check_in_date;
+                    // Auto-calculate next payment due date: one month after move-in
+                    if (this.editForm.check_in_date) {
+                        const next = this.addOneMonth(this.editForm.check_in_date);
+                        if (next) { this.editForm.due_date = next; delete this.editErrors.due_date; }
+                    }
+                },
+
+                applyTemplate() {
+                    const tpl = this.houseRuleTemplates.find(t => t.label === this.selectedTemplate);
+                    if (tpl) {
+                        this.editForm.house_rules = tpl.text;
+                        delete this.editErrors.house_rules;
+                    }
+                },
+
+                validateEdit() {
+                    const errors = {};
+                    if (!this.editForm.room_id) errors.room_id = ['Please assign a room before saving.'];
+                    if (!this.editForm.check_in_date) errors.check_in_date = ['Move-in date is required.'];
+                    if (!this.editForm.due_date) errors.due_date = ['Due date is required.'];
+                    if (this.editForm.total_amount === '' || this.editForm.total_amount === null) {
+                        errors.total_amount = ['Monthly rate is required.'];
+                    } else if (Number(this.editForm.total_amount) < 0) {
+                        errors.total_amount = ['Monthly rate cannot be negative.'];
+                    }
+                    if (!this.editForm.status) errors.status = ['Reservation status is required.'];
+                    if (!this.editForm.payment_status) errors.payment_status = ['Please choose a payment status.'];
+                    if (!(this.editForm.house_rules || '').trim()) errors.house_rules = ['House rules are required. Type them or insert a template.'];
+                    this.editErrors = errors;
+                    return Object.keys(errors).length === 0;
+                },
+
+                async saveEdit() {
+                    if (this.editSaving) return;
+                    this.editSuccess = '';
+                    this.editError = '';
+                    if (!this.validateEdit()) {
+                        this.editError = 'Please fix the highlighted fields before saving.';
+                        return;
+                    }
+                    this.editSaving = true;
+                    try {
+                        const fd = new FormData();
+                        fd.append('_token', this.csrfToken);
+                        fd.append('_method', 'PATCH');
+                        fd.append('_full_edit', '1');
+                        Object.entries(this.editForm).forEach(([k, v]) => fd.append(k, v ?? ''));
+                        const res = await fetch(this.selected.update_url, {
+                            method: 'POST',
+                            headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+                            body: fd,
+                        });
+                        const json = await res.json();
+                        if (res.ok && json.success) {
+                            this.updateRow(json.reservation);
+                            this.showToast('success', json.message || 'Reservation updated successfully.');
+                            this.editOpen = false;
+                        } else if (res.status === 422 && json.errors) {
+                            this.editErrors = json.errors;
+                            this.editError = 'Please fix the highlighted fields.';
+                        } else {
+                            this.editError = json.message || 'Something went wrong. Please try again.';
+                        }
+                    } catch { this.editError = 'Network error. Please try again.'; }
+                    finally { this.editSaving = false; }
+                },
+
+                statusBadgeClass(status) {
+                    if (['approved', 'confirmed'].includes(status)) return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+                    if (status === 'pending') return 'border-amber-200 bg-amber-50 text-amber-700';
+                    if (['cancelled', 'rejected'].includes(status)) return 'border-rose-200 bg-rose-50 text-rose-700';
+                    return 'border-slate-200 bg-slate-100 text-slate-600';
+                },
+
+                paymentBadgeClass(payment) {
+                    if (payment === 'paid') return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+                    if (payment === 'partial') return 'border-amber-200 bg-amber-50 text-amber-700';
+                    return 'border-rose-200 bg-rose-50 text-rose-700';
+                },
+
+                updateRow(r) {
+                    if (!r) return;
+                    const row = document.querySelector('[data-reservation-row=\'' + r.id + '\']');
+                    if (!row) return;
+                    const badgeBase = 'inline-flex rounded-full border px-2.5 py-1 text-[11px] font-black shadow-sm ';
+                    const set = (name, text) => {
+                        const el = row.querySelector('[data-cell=\'' + name + '\']');
+                        if (el) el.textContent = text;
+                    };
+                    set('room', r.room_type);
+                    set('move_in', r.move_in_formatted);
+                    set('amount', r.amount_formatted);
+                    const statusEl = row.querySelector('[data-cell=\'status\']');
+                    if (statusEl) { statusEl.textContent = r.status_label; statusEl.className = badgeBase + this.statusBadgeClass(r.status_value); }
+                    const payEl = row.querySelector('[data-cell=\'payment\']');
+                    if (payEl) { payEl.textContent = r.payment_label; payEl.className = badgeBase + this.paymentBadgeClass(r.payment_status_value); }
+                    // Keep the cached payload in sync so reopening the modal shows saved values
+                    this.selected.room_id = r.room_id;
+                    this.selected.status_value = r.status_value;
+                    this.selected.payment_status_value = r.payment_status_value;
+                    this.selected.check_in_date_raw = r.check_in_date || '';
+                    this.selected.due_date_raw = r.due_date || '';
+                    this.selected.total_amount_raw = r.total_amount;
+                    this.selected.house_rules_value = r.house_rules || '';
+                    this.selected.notes_value = r.notes || '';
+                },
+
+                showToast(type, message) {
+                    this.toast = { type, message };
+                    clearTimeout(this._toastTimer);
+                    this._toastTimer = setTimeout(() => { this.toast = null; }, 3500);
+                },
+
+                askConfirm(action) {
+                    if (this.submitting) return;
+                    this.confirmAction = action;
+                    this.menuOpen = null;
+                    this.editOpen = false;
+                    this.confirmOpen = true;
+                },
+            };
+        };
+    </script>
+
+    <div
+        x-data="reservationsData({
+            csrfToken: '{{ csrf_token() }}',
+            availableRoomsUrlTemplate: @json($route('api.boarding-houses.available-rooms', ['boardingHouse' => '__HOUSE__']))
+        })"
         x-init="window.addEventListener('pageshow', () => { filtering = false; submitting = false; editSaving = false; })"
         @keydown.escape.window="if (!submitting && !editSaving) { editOpen = false; filterOpen = false; menuOpen = null; confirmOpen = false; }"
         class="space-y-5 text-slate-950"
