@@ -369,6 +369,63 @@
                 </header>
             @endif
 
+            @if (! $showHeader && $isOwnerWorkspace)
+                <div class="relative mb-4 rounded-[1.1rem] border border-white/80 bg-white/88 px-3 py-2.5 shadow-[0_14px_30px_rgba(15,23,42,0.06)] backdrop-blur xl:px-3.5">
+                    <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-slate-500">Owner Workspace</p>
+                        </div>
+                        <div class="relative" x-data="{ adminProfileOpenFallback: false, adminProfileReadyFallback: false }">
+                            <button
+                                type="button"
+                                @click.stop="adminProfileOpenFallback = ! adminProfileOpenFallback; adminProfileReadyFallback = false; if (adminProfileOpenFallback) setTimeout(() => adminProfileReadyFallback = true, 120)"
+                                class="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                                aria-haspopup="menu"
+                                :aria-expanded="adminProfileOpenFallback"
+                            >
+                                <span class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-emerald-500 to-blue-600 text-sm font-bold text-white">
+                                    @if ($accountImageUrl)
+                                        <img src="{{ $accountImageUrl }}" alt="{{ $ownerName }}" class="h-full w-full object-cover">
+                                    @else
+                                        {{ $ownerInitial }}
+                                    @endif
+                                </span>
+                                <span class="min-w-0 text-left">
+                                    <span class="block truncate text-sm font-bold text-slate-900">{{ $ownerName }}</span>
+                                    <span class="block truncate text-xs text-slate-500">{{ $ownerRole }}</span>
+                                </span>
+                                <svg class="h-4 w-4 shrink-0 text-slate-400 transition" :class="adminProfileOpenFallback ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/>
+                                </svg>
+                            </button>
+
+                            <div
+                                x-cloak
+                                x-show="adminProfileOpenFallback"
+                                x-transition
+                                @click.outside="adminProfileOpenFallback = false; adminProfileReadyFallback = false"
+                                @click.stop
+                                class="absolute right-0 top-full z-[80] mt-2 w-[min(17.5rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/12"
+                                :class="adminProfileReadyFallback ? 'pointer-events-auto' : 'pointer-events-none'"
+                                role="menu"
+                            >
+                                <div class="border-b border-slate-100 px-4 py-4">
+                                    <p class="truncate text-base font-bold text-slate-950">{{ $ownerName }}</p>
+                                    <p class="mt-0.5 truncate text-sm text-slate-500">{{ $currentUser?->email }}</p>
+                                </div>
+                                <div class="p-2 text-sm">
+                                    <a href="{{ $r('owner.settings.index') }}" class="block rounded-xl px-3 py-3 text-base font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700" role="menuitem">Account Settings</a>
+                                    <form method="POST" action="{{ route('logout') }}">
+                                        @csrf
+                                        <button class="flex w-full items-center rounded-xl px-3 py-3 text-left text-base font-semibold text-rose-600 transition hover:bg-rose-50" role="menuitem">Log Out</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             <x-toast />
 
             <div class="relative">

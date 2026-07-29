@@ -39,7 +39,7 @@
 
         <div class="mx-auto max-w-[1540px] space-y-5 px-4 py-5 sm:px-6 2xl:px-8">
             {{-- Header --}}
-            @if ($topBar && request()->routeIs('user.dashboard') && !request()->is('admin/*'))
+            @if ($topBar && ! request()->is('admin/*'))
                 <div class="ui-card flex items-center gap-3 p-3.5">
                     <form method="GET" action="{{ $r('user.boarding-houses.index') }}" class="flex flex-1 gap-2.5">
                         <input name="q" type="text" placeholder="{{ $searchPlaceholder }}" class="flex-1 ui-input text-sm">

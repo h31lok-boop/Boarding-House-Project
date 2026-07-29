@@ -44,7 +44,7 @@
         'bg-rose-100 text-rose-700',
     ];
 
-    $threadPayloadFor = function ($thread) use ($replyNotifications, $openStatuses, $resolvedStatuses, $initialsFor, $shortDateFor, $dateTimeFor, $locationFor, $avatarTones) {
+    $threadPayloadFor = function ($thread) use ($route, $replyNotifications, $openStatuses, $resolvedStatuses, $initialsFor, $shortDateFor, $dateTimeFor, $locationFor, $avatarTones) {
         $tenant = $thread->user;
         $house = $thread->boardingHouse;
         $status = strtolower((string) ($thread->status ?? 'pending'));

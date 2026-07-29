@@ -258,7 +258,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/payment-receipts', [PaymentReceiptController::class, 'store'])->name('payment-receipts.store');
         Route::delete('/payment-receipts/{receipt}', [PaymentReceiptController::class, 'destroy'])->name('payment-receipts.destroy');
         Route::get('/messages', [TenantAreaController::class, 'messages'])->name('messages');
-        Route::get('/messages', [TenantAreaController::class, 'messages'])->name('messages.index');
+        Route::get('/messages/inbox', [TenantAreaController::class, 'messages'])->name('messages.index');
         Route::post('/messages', [TenantAreaController::class, 'storeMessage'])->name('messages.store');
         Route::get('/help-center', [HelpCenterController::class, 'index'])->name('help');
         Route::get('/help-center', [HelpCenterController::class, 'index'])->name('help-center.index');
