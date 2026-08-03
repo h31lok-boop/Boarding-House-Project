@@ -315,6 +315,11 @@ class BoardingHouse extends Model
         return $this->hasManyThrough(PaymentReceipt::class, Booking::class);
     }
 
+    public function services()
+    {
+        return $this->hasMany(BoardingHouseService::class);
+    }
+
     public function scopeApproved($query)
     {
         return $query->where('approval_status', 'approved');

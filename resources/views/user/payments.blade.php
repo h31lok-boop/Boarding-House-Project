@@ -31,7 +31,7 @@
             : 'You are currently up to date. New billing items will appear here once available.');
 @endphp
 
-<div class="space-y-4">
+<div x-data="{ detailOpen: false, selected: {} }" class="space-y-4">
     <x-user.page-header
         eyebrow="Payment Center"
         title="Payments"
@@ -91,8 +91,43 @@
             <x-payments.upload-card
                 :receipt="$latestReceipt"
                 :bookings="$bookings"
-                :action="route('user.payment-receipts.store')"
-            />
+            :action="route('user.payment-receipts.store')"
+            :gcash-account="$gcashAccount ?? []"
+        />
+
+            @if (collect($receipts ?? [])->isNotEmpty())
+                        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                            <div class="border-b border-slate-100 px-3.5 py-3 dark:border-slate-800"><h2 class="text-sm font-semibold text-slate-950 dark:text-white">My receipts</h2></div>
+                            <div class="divide-y divide-slate-100 dark:divide-slate-800">
+                                @foreach ($receipts as $receipt)
+                                    @php
+                                        $receiptPayload = [
+                                            'kind' => 'receipt',
+                                            'number' => $receipt->receipt_number ?: 'Receipt #'.$receipt->id,
+                                            'date' => $receipt->payment_date?->format('M d, Y') ?: 'Not set',
+                                            'method' => $receipt->payment_method,
+                                            'amount' => $money($receipt->amount),
+                                            'status' => $receipt->status === \App\Models\PaymentReceipt::STATUS_APPROVED ? 'Approved' : 'Pending verification',
+                                            'reference' => $receipt->reference_number ?: 'None',
+                                            'transaction' => $receipt->transaction_id ?: 'None',
+                                            'receipt_url' => $receipt->status === \App\Models\PaymentReceipt::STATUS_APPROVED ? route('payment-receipts.print', $receipt) : null,
+                                        ];
+                                    @endphp
+                                    <div
+                                        class="flex cursor-pointer flex-wrap items-center justify-between gap-3 px-3.5 py-3 transition hover:bg-blue-50/40 focus-within:bg-blue-50/40"
+                                        role="button"
+                                        tabindex="0"
+                                        @click="selected = {{ \Illuminate\Support\Js::from($receiptPayload) }}; detailOpen = true"
+                                        @keydown.enter="selected = {{ \Illuminate\Support\Js::from($receiptPayload) }}; detailOpen = true"
+                                        @keydown.space.prevent="selected = {{ \Illuminate\Support\Js::from($receiptPayload) }}; detailOpen = true"
+                                    >
+                                        <div><p class="text-xs font-bold text-slate-900 dark:text-white">{{ $receiptPayload['number'] }}</p><p class="mt-0.5 text-[11px] text-slate-500">{{ $receiptPayload['date'] }} · {{ $receiptPayload['method'] }}</p></div>
+                                        <div class="flex items-center gap-3"><span class="text-sm font-bold text-slate-900 dark:text-white">{{ $receiptPayload['amount'] }}</span>@if ($receipt->status === \App\Models\PaymentReceipt::STATUS_APPROVED)<a @click.stop href="{{ route('payment-receipts.print', $receipt) }}" target="_blank" class="text-xs font-bold text-blue-600 hover:text-blue-700">Preview / Print</a>@else<span class="text-xs font-semibold text-amber-600">Pending verification</span>@endif</div>
+                                    </div>
+                                @endforeach
+                    </div>
+                </section>
+            @endif
 
             @if (($confirmPayment['available'] ?? false) || $paymentSchedule->isNotEmpty())
                 <section class="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
@@ -150,7 +185,14 @@
                         </thead>
                         <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
                             @forelse ($paymentSchedule as $schedule)
-                                <tr class="transition duration-150 hover:bg-blue-50/40 dark:hover:bg-slate-800/60">
+                                <tr
+                                    class="cursor-pointer transition duration-150 hover:bg-blue-50/40 focus-within:bg-blue-50/40 dark:hover:bg-slate-800/60"
+                                    role="button"
+                                    tabindex="0"
+                                    @click="selected = {{ \Illuminate\Support\Js::from(array_merge(['kind' => 'schedule'], $schedule)) }}; detailOpen = true"
+                                    @keydown.enter="selected = {{ \Illuminate\Support\Js::from(array_merge(['kind' => 'schedule'], $schedule)) }}; detailOpen = true"
+                                    @keydown.space.prevent="selected = {{ \Illuminate\Support\Js::from(array_merge(['kind' => 'schedule'], $schedule)) }}; detailOpen = true"
+                                >
                                     <td class="whitespace-nowrap px-3.5 py-3 font-medium text-slate-700 dark:text-slate-200">{{ $schedule['due_date'] }}</td>
                                     <td class="px-3.5 py-3 text-slate-700 dark:text-slate-300">{{ $schedule['type'] }}</td>
                                     <td class="whitespace-nowrap px-3.5 py-3 text-right font-semibold tabular-nums text-slate-950 dark:text-white">{{ $money($schedule['amount']) }}</td>
@@ -221,6 +263,38 @@
             </section>
         </aside>
     </div>
+
+    <template x-teleport="body">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="detailOpen" x-cloak @keydown.escape.window="detailOpen = false" class="bm-modal-overlay">
+            <div class="bm-modal bm-modal--sm">
+                <div class="bm-modal__header">
+                    <div>
+                        <p class="bm-modal__eyebrow">Payment Center</p>
+                        <h2 class="bm-modal__title" x-text="selected.kind === 'receipt' ? 'Receipt Details' : 'Payment Schedule Details'"></h2>
+                    </div>
+                    <button type="button" @click="detailOpen = false" class="bm-modal__close" aria-label="Close payment details">&times;</button>
+                </div>
+                <div class="bm-modal__body">
+                    <dl class="space-y-3 text-sm">
+                        <div class="flex justify-between gap-4 border-b border-slate-100 pb-2 dark:border-slate-800"><dt class="font-semibold text-slate-500" x-text="selected.kind === 'receipt' ? 'Receipt Number' : 'Due Date'"></dt><dd class="text-right font-semibold text-slate-950 dark:text-white" x-text="selected.number || selected.due_date"></dd></div>
+                        <div class="flex justify-between gap-4 border-b border-slate-100 pb-2 dark:border-slate-800"><dt class="font-semibold text-slate-500">Type / Method</dt><dd class="text-right text-slate-700 dark:text-slate-300" x-text="selected.method || selected.type"></dd></div>
+                        <div class="flex justify-between gap-4 border-b border-slate-100 pb-2 dark:border-slate-800"><dt class="font-semibold text-slate-500">Amount</dt><dd class="text-right font-bold text-slate-950 dark:text-white" x-text="selected.kind === 'receipt' ? selected.amount : (selected.amount ? '₱' + Number(selected.amount).toLocaleString(undefined, { minimumFractionDigits: 2 }) : 'Not set')"></dd></div>
+                        <div class="flex justify-between gap-4 border-b border-slate-100 pb-2 dark:border-slate-800"><dt class="font-semibold text-slate-500">Status</dt><dd class="text-right font-semibold text-slate-700 dark:text-slate-300" x-text="selected.status"></dd></div>
+                        <template x-if="selected.kind === 'receipt'">
+                            <div class="space-y-3">
+                                <div class="flex justify-between gap-4"><dt class="font-semibold text-slate-500">Reference</dt><dd class="text-right font-mono text-xs text-slate-700 dark:text-slate-300" x-text="selected.reference"></dd></div>
+                                <div class="flex justify-between gap-4"><dt class="font-semibold text-slate-500">Transaction ID</dt><dd class="text-right font-mono text-xs text-slate-700 dark:text-slate-300" x-text="selected.transaction"></dd></div>
+                            </div>
+                        </template>
+                    </dl>
+                </div>
+                <div class="bm-modal__footer">
+                    <a x-show="selected.receipt_url" :href="selected.receipt_url" target="_blank" class="bm-modal__button bm-modal__button--primary">Preview / Print</a>
+                    <button type="button" @click="detailOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
+                </div>
+            </div>
+        </div>
+    </template>
 </div>
 </x-user.shell>
 </x-layouts.dashboard>

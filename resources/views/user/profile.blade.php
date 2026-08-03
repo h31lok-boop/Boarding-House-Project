@@ -118,6 +118,36 @@
             'value' => (string) old('internet_usage', $profile->internet_usage ?? 'moderate'),
             'options' => ['light' => 'Light', 'moderate' => 'Moderate', 'heavy' => 'Heavy', 'remote_work' => 'Remote work'],
         ],
+        [
+            'name' => 'social_style',
+            'label' => 'Roommate social style',
+            'value' => (string) old('social_style', $profile->social_style ?? 'balanced'),
+            'options' => ['talkative' => 'Talkative', 'balanced' => 'Balanced', 'introvert' => 'Introvert / quiet'],
+        ],
+        [
+            'name' => 'cooking_habit',
+            'label' => 'Cooking habits',
+            'value' => (string) old('cooking_habit', $profile->cooking_habit ?? 'occasional_cooking'),
+            'options' => ['enjoys_cooking' => 'Enjoys cooking', 'occasional_cooking' => 'Sometimes cooks', 'rarely_cooks' => 'Rarely cooks'],
+        ],
+        [
+            'name' => 'work_schedule',
+            'label' => 'Work / study schedule',
+            'value' => (string) old('work_schedule', $profile->work_schedule ?? 'flexible_schedule'),
+            'options' => ['day_schedule' => 'Day schedule', 'flexible_schedule' => 'Flexible', 'night_shift' => 'Night shift / night owl'],
+        ],
+        [
+            'name' => 'guest_preference',
+            'label' => 'Guests in the room',
+            'value' => (string) old('guest_preference', $profile->guest_preference ?? 'occasional_guests'),
+            'options' => ['no_guests' => 'No guests', 'occasional_guests' => 'Occasional guests', 'guests_welcome' => 'Guests welcome'],
+        ],
+        [
+            'name' => 'sharing_style',
+            'label' => 'Shared items and space',
+            'value' => (string) old('sharing_style', $profile->sharing_style ?? 'ask_first'),
+            'options' => ['shares_easily' => 'Shares easily', 'ask_first' => 'Ask first', 'personal_space' => 'Personal space'],
+        ],
     ];
 
     $amenityIcon = function (string $name): string {
@@ -343,7 +373,7 @@
                 </section>
 
                 {{-- Lifestyle (Optional) --}}
-                <section class="{{ $cardClass }}" x-data="{ open: {{ $errors->hasAny(['study_habits', 'sleeping_schedule', 'smoking_preference', 'drinking_preference', 'pets_preference', 'internet_usage', 'lifestyle_notes']) ? 'true' : 'false' }} }">
+                <section class="{{ $cardClass }}" x-data="{ open: {{ $errors->hasAny(['study_habits', 'sleeping_schedule', 'smoking_preference', 'drinking_preference', 'pets_preference', 'internet_usage', 'social_style', 'cooking_habit', 'work_schedule', 'guest_preference', 'sharing_style', 'lifestyle_notes']) ? 'true' : 'false' }} }">
                     <button type="button" @click="open = !open" class="flex w-full items-center justify-between gap-3 text-left" :aria-expanded="open">
                         <div>
                             <h2 class="{{ $sectionTitleClass }}">Lifestyle <span class="font-medium text-slate-400">(Optional)</span></h2>

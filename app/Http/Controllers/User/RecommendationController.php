@@ -694,6 +694,11 @@ class RecommendationController extends Controller
             'drinking_preference' => $profile?->drinking_preference,
             'pets_preference' => $profile?->pets_preference,
             'internet_usage' => $profile?->internet_usage,
+            'social_style' => $profile?->social_style,
+            'cooking_habit' => $profile?->cooking_habit,
+            'work_schedule' => $profile?->work_schedule,
+            'guest_preference' => $profile?->guest_preference,
+            'sharing_style' => $profile?->sharing_style,
             'hobbies' => $profile?->hobbies,
             'additional_notes' => $profile?->additional_notes,
         ];

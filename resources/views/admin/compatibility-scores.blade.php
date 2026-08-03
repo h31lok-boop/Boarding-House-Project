@@ -39,12 +39,18 @@
                             <th class="px-5 py-3 text-left">Tenant</th>
                             <th class="px-5 py-3 text-left">Candidate</th>
                             <th class="px-5 py-3 text-left">Score</th>
-                            <th class="px-5 py-3 text-right">Details</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y ui-border">
                         @forelse ($scores as $score)
-                            <tr>
+                            <tr
+                                class="cursor-pointer transition hover:bg-slate-50/80 focus-within:bg-blue-50/40"
+                                role="button"
+                                tabindex="0"
+                                @click="selected = {{ \Illuminate\Support\Js::from($score) }}; detailOpen = true"
+                                @keydown.enter="selected = {{ \Illuminate\Support\Js::from($score) }}; detailOpen = true"
+                                @keydown.space.prevent="selected = {{ \Illuminate\Support\Js::from($score) }}; detailOpen = true"
+                            >
                                 <td class="px-5 py-4 font-semibold">#{{ $loop->iteration }}</td>
                                 <td class="px-5 py-4">{{ $score['tenant']->name }}</td>
                                 <td class="px-5 py-4">{{ $score['candidate']->name }}</td>
@@ -54,20 +60,17 @@
                                         <span class="font-semibold">{{ $score['percent'] }}%</span>
                                     </div>
                                 </td>
-                                <td class="px-5 py-4 text-right">
-                                    <button type="button" class="btn-secondary px-3 py-1.5 text-xs" @click="selected = {{ \Illuminate\Support\Js::from($score) }}; detailOpen = true">View Details</button>
-                                </td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="px-5 py-8 text-center ui-muted">No compatibility scores available.</td></tr>
+                            <tr><td colspan="4" class="px-5 py-8 text-center ui-muted">No compatibility scores available.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
         </div>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="detailOpen" x-cloak @keydown.escape.window="detailOpen = false" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm">
-            <div class="ui-card w-full max-w-xl p-6">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="detailOpen" x-cloak @keydown.escape.window="detailOpen = false" class="bm-modal-overlay">
+            <div class="bm-modal bm-modal--lg">
                 <div class="flex items-center justify-between"><h2 class="text-lg font-semibold">Match Details</h2><button type="button" @click="detailOpen = false" class="text-xl ui-muted">x</button></div>
                 <div class="mt-5">
                     <p class="text-4xl font-bold text-[color:var(--brand-600)]" x-text="`${selected.percent || 0}%`"></p>
@@ -83,7 +86,7 @@
                         <template x-for="item in selected.conflicts || []"><p class="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700" x-text="item"></p></template>
                     </div>
                 </div>
-                <div class="mt-6 flex justify-end"><button type="button" @click="detailOpen = false" class="btn-secondary">Close</button></div>
+                <div class="bm-modal__footer"><button type="button" @click="detailOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button></div>
             </div>
         </div>
     </div>

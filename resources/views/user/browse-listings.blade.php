@@ -71,7 +71,13 @@
             'distance_label' => $distanceLabel,
             'availability_label' => $availableRooms <= 2 && $availableRooms > 0 ? $availableRooms.' Rooms Left' : 'Available Now',
             'availability_tone' => $availableRooms <= 2 && $availableRooms > 0 ? 'orange' : 'green',
+            'address' => $house->full_address ?: ($house->address ?: ($house->display_barangay ?: 'Digos City')),
+            'description' => $house->description,
+            'house_rules' => $house->house_rules,
+            'amenities' => $house->amenities->pluck('name')->values(),
+            'available_rooms' => $availableRooms,
             'url' => route('user.boarding-houses.show', $house),
+            'reserve_url' => route('user.boarding-houses.show', $house).'#reservation-panel',
         ];
     })->values();
 
@@ -116,6 +122,7 @@
 
 <div
     x-data="boardingHouseFinder()"
+    @boarding-house-selected.window="openListing($event.detail)"
     class="housing-finder-compact space-y-3 text-slate-950 dark:text-white"
     :class="filtering ? 'pointer-events-none' : ''"
 >
@@ -333,13 +340,68 @@
             </div>
         </section>
     @endif
+    <template x-teleport="body">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="detailOpen" x-cloak x-transition.opacity @keydown.escape.window="detailOpen = false" @click.self="detailOpen = false" class="bm-modal-overlay">
+            <div class="bm-modal bm-modal--lg">
+                <div class="bm-modal__header">
+                    <div class="min-w-0">
+                        <p class="bm-modal__eyebrow">Boarding House</p>
+                        <h2 class="bm-modal__title truncate" x-text="selectedListing.name"></h2>
+                        <p class="bm-modal__subtitle">Review the listing before opening the full reservation page.</p>
+                    </div>
+                    <button type="button" @click="detailOpen = false" class="bm-modal__close" aria-label="Close boarding house details modal">×</button>
+                </div>
+                <div class="bm-modal__body">
+                    <div class="grid gap-5 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                        <img :src="selectedListing.image" :alt="selectedListing.name" class="h-52 w-full rounded-2xl object-cover" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}';">
+                        <div class="space-y-4">
+                            <div>
+                                <p class="text-sm font-bold text-slate-950 dark:text-white" x-text="selectedListing.address"></p>
+                                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400" x-text="selectedListing.distance_label"></p>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-800/60">
+                                    <p class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Monthly rate</p>
+                                    <p class="mt-1 text-sm font-bold text-slate-950 dark:text-white" x-html="selectedListing.price_label"></p>
+                                </div>
+                                <div class="rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-800/60">
+                                    <p class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Availability</p>
+                                    <p class="mt-1 text-sm font-bold text-emerald-600" x-text="selectedListing.availability_label"></p>
+                                </div>
+                            </div>
+                            <p class="text-sm leading-6 text-slate-600 dark:text-slate-300" x-text="selectedListing.description || 'No description provided yet.'"></p>
+                        </div>
+                    </div>
+                    <div class="mt-5 border-t border-slate-200 pt-4 dark:border-slate-700">
+                        <h3 class="text-sm font-bold text-slate-950 dark:text-white">Amenities</h3>
+                        <div class="mt-2 flex flex-wrap gap-2">
+                            <template x-if="!selectedListing.amenities || selectedListing.amenities.length === 0">
+                                <span class="text-xs text-slate-500">No amenities listed.</span>
+                            </template>
+                            <template x-for="amenity in selectedListing.amenities || []" :key="amenity">
+                                <span class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300" x-text="amenity"></span>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+                <div class="bm-modal__footer">
+                    <button type="button" @click="detailOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
+                    <a :href="selectedListing.url" class="bm-modal__button bm-modal__button--secondary">Full Details</a>
+                    <a :href="selectedListing.reserve_url" class="bm-modal__button bm-modal__button--primary">Reserve Room</a>
+                </div>
+            </div>
+        </div>
+    </template>
+
 </div>
 
-<script>
+    <script>
     function boardingHouseFinder() {
         return {
             saved: [],
             filtering: false,
+            selectedListing: {},
+            detailOpen: false,
             init() {
                 // Reset the loading state when returning via browser back/forward cache.
                 window.addEventListener('pageshow', () => { this.filtering = false; });
@@ -353,6 +415,10 @@
             },
             isSaved(id) {
                 return this.saved.includes(id);
+            },
+            openListing(listing) {
+                this.selectedListing = listing || {};
+                this.detailOpen = true;
             },
         };
     }

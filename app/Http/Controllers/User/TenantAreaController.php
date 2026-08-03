@@ -34,6 +34,7 @@ class TenantAreaController extends Controller
             'boardingHouse.images',
             'boardingHouse.owner',
             'boardingHouse.ownerProfile',
+            'boardingHouse.services',
             'room',
         ];
 
@@ -63,6 +64,7 @@ class TenantAreaController extends Controller
                 'rooms',
                 'owner',
                 'ownerProfile',
+                'services',
                 'city',
                 'province',
             ])
@@ -75,7 +77,11 @@ class TenantAreaController extends Controller
             ? PaymentReceipt::where('user_id', $tenant->id)->latest()->first()
             : null;
 
-        return view('user.reservations', compact('reservations', 'currentReservation', 'latestReceipt', 'selectedHouse'));
+        $receipts = Schema::hasTable('payment_receipts')
+            ? PaymentReceipt::query()->where('user_id', $tenant->id)->latest('payment_date')->latest('id')->limit(20)->get()
+            : collect();
+
+        return view('user.reservations', compact('reservations', 'currentReservation', 'latestReceipt', 'receipts', 'selectedHouse'));
     }
 
     public function cancelReservation(Request $request, Reservation $reservation)
@@ -116,10 +122,10 @@ class TenantAreaController extends Controller
         $tenant = $this->tenant($request);
         abort_unless(Schema::hasTable('tenant_payment_methods'), 404);
 
-        $type = $request->input('type', 'other');
+        $type = $request->input('type', 'gcash');
 
         $rules = [
-            'type' => ['required', 'in:visa,mastercard,gcash,bank,cash,other'],
+            'type' => ['required', 'in:gcash'],
         ];
 
         if (in_array($type, ['visa', 'mastercard', 'bank'])) {
@@ -192,6 +198,7 @@ class TenantAreaController extends Controller
         $payMethod = TenantPaymentMethod::where('id', $validated['payment_method_id'])
             ->where('user_id', $tenant->id)
             ->firstOrFail();
+        abort_unless($payMethod->type === 'gcash', 422, 'Tenants may only pay online using GCash.');
 
         $hasTenantCol   = Schema::hasTable('tenants') && Schema::hasColumn('payments', 'tenant_id');
         $hasUserCol     = Schema::hasColumn('payments', 'user_id');
@@ -369,6 +376,8 @@ class TenantAreaController extends Controller
             ])->save();
         }
 
+        $this->issueTenantConfirmedReceipt($tenant->id, $result, $tenantRecord, $relevantReservation);
+
         $methodLabel = ucfirst($payMethod->type)
             . ($payMethod->last_four     ? ' ••••' . $payMethod->last_four    : '')
             . ($payMethod->account_number ? ' ' . $payMethod->account_number  : '');
@@ -378,6 +387,57 @@ class TenantAreaController extends Controller
             ->with('payment_ref', $result)
             ->with('payment_method_label', $methodLabel)
             ->with('success', 'Payment confirmed successfully.');
+    }
+
+    private function issueTenantConfirmedReceipt(int $userId, string $reference, mixed $tenantRecord, ?Reservation $reservation): void
+    {
+        if (! Schema::hasTable('payment_receipts') || ! Schema::hasTable('payments')) {
+            return;
+        }
+
+        $paymentQuery = Payment::query()
+            ->where('status', 'paid')
+            ->where(function ($query) use ($reference) {
+                $query->where('reference_no', $reference)
+                    ->orWhere('reference_number', $reference);
+            });
+
+        if ($tenantRecord) {
+            $paymentQuery->where('tenant_id', $tenantRecord->id);
+        } elseif (Schema::hasColumn('payments', 'user_id')) {
+            $paymentQuery->where('user_id', $userId);
+        } else {
+            return;
+        }
+
+        $payment = $paymentQuery->latest('id')->first();
+        if (! $payment || PaymentReceipt::where('payment_id', $payment->id)->exists()) {
+            return;
+        }
+
+        $bookingId = null;
+        if (Schema::hasTable('bookings') && Schema::hasColumn('bookings', 'user_id')) {
+            $bookingId = $reservation && Schema::hasColumn('bookings', 'reservation_id')
+                ? Booking::where('user_id', $userId)->where('reservation_id', $reservation->id)->value('id')
+                : Booking::where('user_id', $userId)->latest('id')->value('id');
+        }
+
+        $receiptNumber = 'RCT-GCASH-'.now()->format('Y').'-'.str_pad((string) $payment->id, 6, '0', STR_PAD_LEFT);
+        PaymentReceipt::create([
+            'user_id' => $userId,
+            'booking_id' => $bookingId,
+            'payment_id' => $payment->id,
+            'payment_method' => 'GCash',
+            'amount' => $payment->amount,
+            'reference_number' => $payment->reference_number ?: $payment->reference_no,
+            'receipt_number' => $receiptNumber,
+            'payment_date' => $payment->paid_at?->toDateString() ?: today(),
+            'status' => PaymentReceipt::STATUS_APPROVED,
+            'reviewed_at' => now(),
+            'notes' => 'GCash payment confirmed in the tenant payment center.',
+        ]);
+
+        $payment->forceFill(['receipt_number' => $receiptNumber])->save();
     }
 
     public function messages(Request $request)
@@ -528,6 +588,12 @@ class TenantAreaController extends Controller
 
     private function paymentDashboardData(int $tenantId): array
     {
+        $gcashOwner = Reservation::query()
+            ->with('boardingHouse.ownerProfile')
+            ->where('user_id', $tenantId)
+            ->latest('id')
+            ->first()?->boardingHouse?->ownerProfile;
+
         $latestReceipt = Schema::hasTable('payment_receipts')
             ? PaymentReceipt::query()
                 ->where('user_id', $tenantId)
@@ -553,6 +619,15 @@ class TenantAreaController extends Controller
             ? PaymentReceipt::query()
                 ->where('user_id', $tenantId)
                 ->where('status', PaymentReceipt::STATUS_APPROVED)
+                ->get()
+            : collect();
+
+        $receipts = Schema::hasTable('payment_receipts')
+            ? PaymentReceipt::query()
+                ->where('user_id', $tenantId)
+                ->latest('payment_date')
+                ->latest('id')
+                ->limit(20)
                 ->get()
             : collect();
 
@@ -644,38 +719,18 @@ class TenantAreaController extends Controller
             ];
         }
 
-        $paymentMethodOptions = [
-            [
-                'value' => 'visa',
-                'label' => 'Visa',
-            ],
-            [
-                'value' => 'mastercard',
-                'label' => 'Mastercard',
-            ],
-            [
-                'value' => 'gcash',
-                'label' => 'GCash',
-            ],
-            [
-                'value' => 'bank',
-                'label' => 'Bank Transfer',
-            ],
-            [
-                'value' => 'cash',
-                'label' => 'Cash Payment',
-            ],
-            [
-                'value' => 'other',
-                'label' => 'Other',
-            ],
-        ];
+        $paymentMethodOptions = [['value' => 'gcash', 'label' => 'GCash']];
 
         $defaultMethod = $paymentMethods->firstWhere('is_default', true);
 
         return [
             'stats' => $stats,
             'latestReceipt' => $latestReceipt,
+            'receipts' => $receipts,
+            'gcashAccount' => [
+                'name' => $gcashOwner?->gcash_account_name,
+                'number' => $gcashOwner?->gcash_number,
+            ],
             'bookings' => $bookings,
             'paymentSchedule' => $paymentSchedule,
             'paymentMethodsList' => $paymentMethods,

@@ -186,6 +186,7 @@
                                 $meta = $typeMeta[$type];
                                 $isUnread = $notification->read_at === null;
                                 $detailPayload = [
+                                    'id' => $notification->id,
                                     'title' => $notification->title,
                                     'message' => $notification->message,
                                     'type' => $meta['singular'],
@@ -198,10 +199,19 @@
                                     'statusClass' => $isUnread ? 'bg-blue-50 text-blue-700' : 'bg-emerald-50 text-emerald-700',
                                     'statusDot' => $isUnread ? 'bg-blue-600' : 'bg-emerald-500',
                                     'readAt' => $notification->read_at ? \Illuminate\Support\Carbon::parse($notification->read_at)->format('M d, Y — h:i A') : null,
+                                    'read_url' => route('user.notifications.read', $notification->id),
+                                    'delete_url' => route('user.notifications.destroy', $notification->id),
                                 ];
                             @endphp
 
-                            <article class="group px-6 py-4 transition duration-150 hover:bg-slate-50/80 {{ $isUnread ? 'bg-blue-50/40' : '' }}">
+                            <article
+                                class="group cursor-pointer px-6 py-4 transition duration-150 hover:bg-slate-50/80 focus-within:bg-blue-50/40 {{ $isUnread ? 'bg-blue-50/40' : '' }}"
+                                role="button"
+                                tabindex="0"
+                                @click="selected = {{ \Illuminate\Support\Js::from($detailPayload) }}; detailOpen = true"
+                                @keydown.enter="selected = {{ \Illuminate\Support\Js::from($detailPayload) }}; detailOpen = true"
+                                @keydown.space.prevent="selected = {{ \Illuminate\Support\Js::from($detailPayload) }}; detailOpen = true"
+                            >
                                 <div class="flex items-start gap-4">
                                     <span class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {{ $meta['iconWrap'] }}">
                                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
@@ -226,7 +236,7 @@
                                             {{ \Illuminate\Support\Str::limit($notification->message, 160) }}
                                         </p>
 
-                                        <div class="mt-2.5 flex flex-wrap items-center gap-2">
+                                        <div class="hidden">
                                             <span class="rounded-full px-2.5 py-0.5 text-[10px] font-bold {{ $meta['pill'] }}">{{ $meta['singular'] }}</span>
 
                                             <span class="flex-1"></span>
@@ -382,7 +392,18 @@
             </div>
 
             {{-- Footer --}}
-            <div class="flex justify-end border-t border-slate-100 px-6 py-4">
+            <div class="flex flex-wrap justify-end gap-2 border-t border-slate-100 px-6 py-4">
+                <template x-if="selected.status === 'Unread'">
+                    <form method="POST" :action="selected.read_url">
+                        @csrf
+                        <button class="inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700">Mark as Read</button>
+                    </form>
+                </template>
+                <form method="POST" :action="selected.delete_url">
+                    @csrf
+                    @method('DELETE')
+                    <button class="inline-flex h-10 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-100">Delete</button>
+                </form>
                 <button
                     type="button"
                     @click="detailOpen = false"

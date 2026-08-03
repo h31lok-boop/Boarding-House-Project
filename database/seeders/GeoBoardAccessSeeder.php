@@ -30,7 +30,7 @@ class GeoBoardAccessSeeder extends Seeder
 
         $admin = $this->upsertUser(
             'Jani',
-            $this->seedEmailFor('owner', 'owner@example.com', ['owner', 'jani']),
+            $this->seedEmailFor('owner', '  ', ['owner', 'jani']),
             $this->seedPasswordFor('admin', 'admin123', ['owner', 'jani']),
             'owner',
             '09170000002',

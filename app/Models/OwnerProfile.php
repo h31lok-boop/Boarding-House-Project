@@ -27,6 +27,14 @@ class OwnerProfile extends Model
         'verification_status',
         'verified_by',
         'verified_at',
+        'gcash_account_name',
+        'gcash_number',
+        'gcash_api_key',
+    ];
+
+    protected $casts = [
+        'gcash_api_key' => 'encrypted',
+        'verified_at' => 'datetime',
     ];
 
     public function user()

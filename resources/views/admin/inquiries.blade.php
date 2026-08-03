@@ -121,7 +121,6 @@
                                 <th class="px-3 py-2">Message Preview</th>
                                 <th class="px-3 py-2">Status</th>
                                 <th class="px-3 py-2">Date</th>
-                                <th class="px-3 py-2 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
@@ -144,7 +143,14 @@
                                         'reply_url' => $route('inquiries.update', $inquiry),
                                     ];
                                 @endphp
-                                <tr class="bg-white transition hover:bg-slate-50/90">
+                                <tr
+                                    class="cursor-pointer bg-white transition hover:bg-slate-50/90 focus-within:bg-blue-50/40"
+                                    role="button"
+                                    tabindex="0"
+                                    @click="openView({{ \Illuminate\Support\Js::from($payload) }})"
+                                    @keydown.enter="openView({{ \Illuminate\Support\Js::from($payload) }})"
+                                    @keydown.space.prevent="openView({{ \Illuminate\Support\Js::from($payload) }})"
+                                >
                                     <td class="px-3 py-2.5">
                                         <div class="flex items-center gap-2">
                                             <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[10px] font-bold text-blue-700">{{ $initialsFor($tenantName) }}</div>
@@ -164,8 +170,8 @@
                                         <span class="inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black {{ $badge($inquiry->status) }}">{{ $label($inquiry->status) }}</span>
                                     </td>
                                     <td class="whitespace-nowrap px-3 py-2.5 text-slate-600">{{ $date ? $date->format('M j, Y') : '—' }}</td>
-                                    <td class="px-3 py-2.5">
-                                        <div class="flex justify-end gap-1">
+                                    <td class="hidden">
+                                        <div class="hidden">
                                             <button type="button" @click="openView({{ \Illuminate\Support\Js::from($payload) }})" class="inline-flex h-7 items-center justify-center rounded-lg border border-slate-200 bg-white px-2 text-[10px] font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">View</button>
                                             <button type="button" @click="openReply({{ \Illuminate\Support\Js::from($payload) }})" class="inline-flex h-7 items-center justify-center rounded-lg bg-blue-600 px-2 text-[10px] font-semibold text-white transition hover:bg-blue-700">Reply</button>
                                         </div>
@@ -173,7 +179,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="px-3 py-10 text-center">
+                                    <td colspan="5" class="px-3 py-10 text-center">
                                         <svg class="mx-auto h-8 w-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 6h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H9l-5 4v-4H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z"/></svg>
                                         <p class="mt-3 text-sm font-medium text-slate-500">No inquiries found</p>
                                         <p class="mt-1 text-xs text-slate-400">{{ $hasActiveFilters ? 'Try adjusting your search or filters.' : 'Tenant inquiries will appear here once submitted.' }}</p>
@@ -196,8 +202,8 @@
         </main>
     </div>
 
-    <div x-show="viewOpen" x-cloak class="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-3 backdrop-blur-sm">
-        <div class="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
+    <div x-show="viewOpen" x-cloak class="bm-modal-overlay">
+        <div class="bm-modal bm-modal--lg">
             <div class="flex items-center justify-between">
                 <div>
                     <h2 class="text-sm font-bold text-slate-900" x-text="selected.tenant"></h2>
@@ -216,15 +222,15 @@
                 <p class="font-semibold text-slate-600">Message</p>
                 <p class="whitespace-pre-line leading-5 text-slate-600" x-text="selected.message"></p>
             </div>
-            <div class="mt-4 flex justify-end gap-2">
-                <button type="button" @click="viewOpen = false" class="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">Close</button>
-                <button type="button" @click="viewOpen = false; openReply(selected)" class="inline-flex h-8 items-center justify-center rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700">Reply</button>
+            <div class="bm-modal__footer">
+                <button type="button" @click="viewOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
+                <button type="button" @click="viewOpen = false; openReply(selected)" class="bm-modal__button bm-modal__button--primary">Reply</button>
             </div>
         </div>
     </div>
 
-    <div x-show="replyOpen" x-cloak class="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-3 backdrop-blur-sm">
-        <form method="POST" :action="selected.reply_url || '#'" class="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
+    <div x-show="replyOpen" x-cloak class="bm-modal-overlay">
+        <form method="POST" :action="selected.reply_url || '#'" class="bm-modal bm-modal--lg">
             @csrf @method('PATCH')
             <input type="hidden" name="status" value="replied">
             <div class="flex items-center justify-between">
@@ -241,9 +247,9 @@
                 Reply Message
                 <textarea name="reply" rows="4" required placeholder="Write a clear response..." class="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white"></textarea>
             </label>
-            <div class="mt-4 flex justify-end gap-2">
-                <button type="button" @click="replyOpen = false" class="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">Cancel</button>
-                <button class="inline-flex h-8 items-center justify-center rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700">Send Reply</button>
+            <div class="bm-modal__footer">
+                <button type="button" @click="replyOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button>
+                <button class="bm-modal__button bm-modal__button--primary">Send Reply</button>
             </div>
         </form>
     </div>

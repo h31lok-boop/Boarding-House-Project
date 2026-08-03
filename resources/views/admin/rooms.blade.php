@@ -146,7 +146,6 @@
                             <th class="px-5 py-3 text-left">Capacity</th>
                             <th class="px-5 py-3 text-left">Price</th>
                             <th class="px-5 py-3 text-left">Status</th>
-                            <th class="px-5 py-3 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
@@ -165,9 +164,17 @@
                                     'status' => $room->status ?: 'Available',
                                     'description' => $room->description,
                                     'update_url' => $route('rooms.update', $room),
+                                    'destroy_url' => $route('rooms.destroy', $room),
                                 ];
                             @endphp
-                            <tr class="hover:bg-gray-50">
+                            <tr
+                                class="cursor-pointer hover:bg-blue-50/40 focus:outline-none focus-visible:bg-blue-50/60"
+                                role="button"
+                                tabindex="0"
+                                @click="selected = {{ \Illuminate\Support\Js::from($payload) }}; viewOpen = true"
+                                @keydown.enter.prevent="selected = {{ \Illuminate\Support\Js::from($payload) }}; viewOpen = true"
+                                @keydown.space.prevent="selected = {{ \Illuminate\Support\Js::from($payload) }}; viewOpen = true"
+                            >
                                 <td class="px-5 py-3 font-medium text-gray-800">{{ $roomNo }}</td>
                                 <td class="px-5 py-3 text-gray-600">{{ $roomType }}</td>
                                 <td class="px-5 py-3 text-gray-500">{{ $floor }}</td>
@@ -178,8 +185,8 @@
                                         {{ $payload['status'] }}
                                     </span>
                                 </td>
-                                <td class="px-5 py-3">
-                                    <div class="flex justify-end gap-2">
+                                <td class="hidden">
+                                    <div class="hidden" aria-hidden="true">
                                         <button type="button" title="View"
                                                 class="h-7 w-7 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-500"
                                                 @click="selected = {{ \Illuminate\Support\Js::from($payload) }}; viewOpen = true">
@@ -200,7 +207,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="7" class="px-5 py-10 text-center text-gray-400">No rooms found.</td></tr>
+                            <tr><td colspan="6" class="px-5 py-10 text-center text-gray-400">No rooms found.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -212,6 +219,7 @@
         </div>
 
         {{-- Add Room Modal --}}
+        <template x-teleport="body">
         <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak @keydown.escape.window="addOpen = false" class="bm-modal-overlay">
             <form method="POST" action="{{ $route('rooms.store') }}" class="bm-modal bm-modal--lg">
                 @csrf
@@ -248,8 +256,10 @@
                 </div>
             </form>
         </div>
+        </template>
 
         {{-- View Room Modal --}}
+        <template x-teleport="body">
         <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak @keydown.escape.window="viewOpen = false" class="bm-modal-overlay">
             <div class="bm-modal">
                 <div class="bm-modal__header">
@@ -272,13 +282,22 @@
                         <div class="bm-modal__detail"><dt>Description</dt><dd class="text-gray-700" x-text="selected.description || 'No description'"></dd></div>
                     </dl>
                 </div>
-                <div class="bm-modal__footer">
+                <div class="bm-modal__footer items-center justify-between">
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" @click="selected = JSON.parse(JSON.stringify(selected)); editOpen = true; viewOpen = false" class="bm-modal__button bm-modal__button--primary">Edit</button>
+                        <form method="POST" :action="selected.destroy_url" onsubmit="return confirm('Delete this room?')">
+                            @csrf @method('DELETE')
+                            <button class="inline-flex h-9 items-center justify-center rounded-xl bg-rose-600 px-4 text-sm font-bold text-white shadow-sm shadow-rose-600/20 transition hover:bg-rose-700">Delete</button>
+                        </form>
+                    </div>
                     <button type="button" @click="viewOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
                 </div>
             </div>
         </div>
+        </template>
 
         {{-- Edit Room Modal --}}
+        <template x-teleport="body">
         <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak @keydown.escape.window="editOpen = false" class="bm-modal-overlay">
             <form method="POST" :action="selected.update_url" class="bm-modal bm-modal--lg">
                 @csrf @method('PUT')
@@ -315,6 +334,7 @@
                 </div>
             </form>
         </div>
+        </template>
 
     </div>
 </x-admin.shell>

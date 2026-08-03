@@ -48,7 +48,7 @@
 .pg-btn.ellipsis{border:none;background:transparent;cursor:default;}
 </style>
 
-<div x-data="{ addOpen: false, editOpen: false, selected: {} }" class="space-y-5">
+<div x-data="{ addOpen: false, viewOpen: false, editOpen: false, selected: {} }" class="space-y-5">
 
     <x-user.page-header
         eyebrow="Feedback"
@@ -120,12 +120,11 @@
 
                 {{-- Table header --}}
                 <div class="grid items-center gap-4 border-b border-gray-100 bg-gray-50 px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-gray-400"
-                     style="grid-template-columns:2fr 1fr 3fr 1.3fr 1fr">
+                     style="grid-template-columns:2fr 1fr 3fr 1.3fr">
                     <span>Property</span>
                     <span>Rating</span>
                     <span>Review</span>
                     <span>Date</span>
-                    <span>Action</span>
                 </div>
 
                 {{-- Rows --}}
@@ -138,11 +137,21 @@
                         'name' => $house?->name ?? 'Boarding House',
                         'rating' => (int) $review->rating,
                         'comment' => $review->comment,
+                        'address' => $house?->address ?? 'Address unavailable',
+                        'date' => optional($review->created_at)->format('M d, Y'),
+                        'time' => optional($review->created_at)->format('h:i A'),
                         'update_url' => route('user.reviews.update', $review),
+                        'delete_url' => route('user.reviews.destroy', $review),
                     ];
                 @endphp
-                <div class="grid items-start gap-4 border-b border-gray-100 px-4 py-4 last:border-0 hover:bg-gray-50/50 transition-colors"
-                     style="grid-template-columns:2fr 1fr 3fr 1.3fr 1fr">
+                <div
+                     class="grid cursor-pointer items-start gap-4 border-b border-gray-100 px-4 py-4 last:border-0 transition-colors hover:bg-gray-50/50 focus-within:bg-indigo-50/40"
+                     style="grid-template-columns:2fr 1fr 3fr 1.3fr"
+                     role="button"
+                     tabindex="0"
+                     @click="selected = {{ \Illuminate\Support\Js::from($payload) }}; viewOpen = true"
+                     @keydown.enter="selected = {{ \Illuminate\Support\Js::from($payload) }}; viewOpen = true"
+                     @keydown.space.prevent="selected = {{ \Illuminate\Support\Js::from($payload) }}; viewOpen = true">
 
                     {{-- Property --}}
                     <div class="flex items-start gap-3 min-w-0">
@@ -182,8 +191,8 @@
                         <p class="text-xs text-gray-400">{{ optional($review->created_at)->format('h:i A') }}</p>
                     </div>
 
-                    {{-- Action --}}
-                    <div class="flex items-center gap-2 pt-1" x-data="{ menuOpen: false }">
+                    {{-- Hidden legacy action markup; actions live in the details modal. --}}
+                    <div class="hidden" x-data="{ menuOpen: false }">
                         <button type="button"
                                 @click="selected = {{ \Illuminate\Support\Js::from($payload) }}; editOpen = true"
                                 class="text-sm font-semibold text-indigo-600 hover:text-indigo-800 transition-colors">
@@ -398,6 +407,38 @@
                 <button type="submit" class="bm-modal__button bm-modal__button--primary">Submit Review</button>
             </div>
         </form>
+    </div>
+
+    {{-- Review Details Modal --}}
+    <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak
+         @click.self="viewOpen=false" @keydown.escape.window="viewOpen=false"
+         class="bm-modal-overlay">
+        <div class="bm-modal">
+            <div class="bm-modal__header">
+                <div>
+                    <p class="bm-modal__eyebrow">View</p>
+                    <h2 class="bm-modal__title" x-text="selected.name"></h2>
+                    <p class="bm-modal__subtitle">Your submitted review</p>
+                </div>
+                <button type="button" @click="viewOpen=false" class="bm-modal__close" aria-label="Close review details modal">&times;</button>
+            </div>
+            <div class="bm-modal__body">
+                <dl class="space-y-3 text-sm">
+                    <div class="flex justify-between gap-4 border-b border-gray-100 pb-3"><dt class="font-semibold text-gray-500">Address</dt><dd class="text-right text-gray-800" x-text="selected.address"></dd></div>
+                    <div class="flex justify-between gap-4 border-b border-gray-100 pb-3"><dt class="font-semibold text-gray-500">Rating</dt><dd class="font-bold text-amber-500" x-text="`${selected.rating || 0} / 5 stars`"></dd></div>
+                    <div class="flex justify-between gap-4 border-b border-gray-100 pb-3"><dt class="font-semibold text-gray-500">Submitted</dt><dd class="text-right text-gray-800" x-text="`${selected.date || 'Not set'} ${selected.time || ''}`"></dd></div>
+                    <div><dt class="font-semibold text-gray-500">Comment</dt><dd class="mt-2 whitespace-pre-line leading-6 text-gray-700" x-text="selected.comment || 'No comment provided.'"></dd></div>
+                </dl>
+            </div>
+            <div class="bm-modal__footer">
+                <button type="button" @click="editOpen=true; viewOpen=false" class="bm-modal__button bm-modal__button--primary">Edit</button>
+                <form method="POST" :action="selected.delete_url" onsubmit="return confirm('Delete this review?')">
+                    @csrf @method('DELETE')
+                    <button class="bm-modal__button border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">Delete</button>
+                </form>
+                <button type="button" @click="viewOpen=false" class="bm-modal__button bm-modal__button--secondary">Close</button>
+            </div>
+        </div>
     </div>
 
     {{-- Edit Review Modal --}}

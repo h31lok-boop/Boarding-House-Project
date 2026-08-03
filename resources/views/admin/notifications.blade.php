@@ -248,7 +248,6 @@
                         <th class="px-6 py-4">Type</th>
                         <th class="px-6 py-4">Status</th>
                         <th class="px-6 py-4">Date</th>
-                        <th class="px-6 py-4 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
@@ -264,9 +263,18 @@
                                 'status' => $statusMeta['label'],
                                 'date' => $createdAt ? $createdAt->format('M j, Y') : 'No date',
                                 'time' => $createdAt ? $createdAt->format('h:i A') : '',
+                                'update_url' => $route('notifications.update', $notification->id),
+                                'delete_url' => $route('notifications.destroy', $notification->id),
                             ];
                         @endphp
-                        <tr class="transition hover:bg-slate-50/80">
+                        <tr
+                            class="cursor-pointer transition hover:bg-slate-50/80 focus-within:bg-blue-50/40"
+                            role="button"
+                            tabindex="0"
+                            @click="openDetails({{ \Illuminate\Support\Js::from($payload) }})"
+                            @keydown.enter="openDetails({{ \Illuminate\Support\Js::from($payload) }})"
+                            @keydown.space.prevent="openDetails({{ \Illuminate\Support\Js::from($payload) }})"
+                        >
                             <td class="px-6 py-4">
                                 <div class="flex items-center gap-4">
                                     <span class="h-3 w-3 shrink-0 rounded-full {{ $statusMeta['label'] === 'Unread' ? 'bg-blue-600' : 'bg-slate-300' }}"></span>
@@ -302,8 +310,8 @@
                                 <p class="font-semibold text-slate-700">{{ $payload['date'] }}</p>
                                 <p class="mt-1 text-sm text-slate-500">{{ $payload['time'] }}</p>
                             </td>
-                            <td class="px-6 py-4">
-                                <div class="relative flex justify-end" @click.outside="if (activeMenu === {{ $notification->id }}) activeMenu = null">
+                            <td class="hidden">
+                                <div class="hidden" @click.outside="if (activeMenu === {{ $notification->id }}) activeMenu = null">
                                     <button
                                         type="button"
                                         @click="activeMenu = activeMenu === {{ $notification->id }} ? null : {{ $notification->id }}"
@@ -351,7 +359,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="px-6 py-14">
+                            <td colspan="4" class="px-6 py-14">
                                 <div class="mx-auto max-w-sm text-center">
                                     <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
                                         <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -540,6 +548,25 @@
                 </div>
             </div>
             <div class="bm-modal__footer">
+                <template x-if="selected.status === 'Unread'">
+                    <form method="POST" :action="selected.update_url">
+                        @csrf
+                        @method('PATCH')
+                        <input type="hidden" name="action" value="mark_read">
+                        <button class="bm-modal__button bm-modal__button--primary">Mark as Read</button>
+                    </form>
+                </template>
+                <form method="POST" :action="selected.update_url">
+                    @csrf
+                    @method('PATCH')
+                    <input type="hidden" name="action" value="resend">
+                    <button class="bm-modal__button bm-modal__button--secondary">Resend</button>
+                </form>
+                <form method="POST" :action="selected.delete_url" onsubmit="return confirm('Delete this notification?');">
+                    @csrf
+                    @method('DELETE')
+                    <button class="bm-modal__button border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">Delete</button>
+                </form>
                 <button type="button" @click="detailOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
             </div>
         </div>

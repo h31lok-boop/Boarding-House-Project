@@ -19,6 +19,8 @@ class Payment extends Model
         'payment_method',
         'payment_type',
         'reference_no',
+        'reference_number',
+        'receipt_number',
         'notes',
     ];
 
@@ -36,5 +38,10 @@ class Payment extends Model
     public function boardingHouse()
     {
         return $this->belongsTo(BoardingHouse::class);
+    }
+
+    public function receipts()
+    {
+        return $this->hasMany(PaymentReceipt::class);
     }
 }

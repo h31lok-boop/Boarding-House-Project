@@ -51,7 +51,6 @@
                             <th class="px-5 py-3 text-left">Role</th>
                             <th class="px-5 py-3 text-left">Status</th>
                             <th class="px-5 py-3 text-left">Contact</th>
-                            <th class="px-5 py-3 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y ui-border">
@@ -77,9 +76,17 @@
                                     'last_login' => optional($user->updated_at)->diffForHumans() ?? 'Unknown',
                                     'verified' => (bool) $user->email_verified_at,
                                     'update_url' => route('admin.users.update', $user),
+                                    'delete_url' => auth()->id() === $user->id ? null : route('admin.users.destroy', $user),
                                 ];
                             @endphp
-                            <tr>
+                            <tr
+                                class="cursor-pointer transition hover:bg-slate-50/80 focus-within:bg-blue-50/40"
+                                role="button"
+                                tabindex="0"
+                                @click="openView({{ \Illuminate\Support\Js::from($payload) }})"
+                                @keydown.enter="openView({{ \Illuminate\Support\Js::from($payload) }})"
+                                @keydown.space.prevent="openView({{ \Illuminate\Support\Js::from($payload) }})"
+                            >
                                 <td class="px-5 py-4">
                                     <p class="font-semibold">{{ $user->name }}</p>
                                     <p class="text-xs ui-muted">{{ $user->email }}</p>
@@ -87,8 +94,8 @@
                                 <td class="px-5 py-4">{{ $user->role === 'admin' ? 'Admin / Owner' : 'Student / Tenant' }}</td>
                                 <td class="px-5 py-4"><span class="badge border {{ $badge($active) }}">{{ $active ? 'Active' : 'Inactive' }}</span></td>
                                 <td class="px-5 py-4 ui-muted">{{ $user->phone ?? $user->contact_number ?? 'Not set' }}</td>
-                                <td class="px-5 py-4">
-                                    <div class="flex justify-end gap-2">
+                                <td class="hidden">
+                                    <div class="hidden">
                                         <button type="button" class="btn-secondary px-3 py-1.5 text-xs" @click="openView({{ \Illuminate\Support\Js::from($payload) }})">View</button>
                                         <button type="button" class="btn-secondary px-3 py-1.5 text-xs" @click="selected = {{ \Illuminate\Support\Js::from($payload) }}; editOpen = true">Edit</button>
                                         @unless (auth()->id() === $user->id)
@@ -101,7 +108,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="px-5 py-8 text-center ui-muted">No users found.</td></tr>
+                            <tr><td colspan="4" class="px-5 py-8 text-center ui-muted">No users found.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -221,6 +228,13 @@
                     </div>
                 </div>
                 <div class="bm-modal__footer">
+                    <button type="button" @click="editOpen = true; viewOpen = false" class="bm-modal__button bm-modal__button--primary">Edit</button>
+                    <template x-if="selected.delete_url">
+                        <form method="POST" :action="selected.delete_url" onsubmit="return confirm('Delete this user account?')">
+                            @csrf @method('DELETE')
+                            <button class="bm-modal__button border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">Delete</button>
+                        </form>
+                    </template>
                     <button type="button" @click="viewOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
                 </div>
             </div>

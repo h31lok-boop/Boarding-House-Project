@@ -18,23 +18,23 @@ class PaymentReceiptStoreRequest extends FormRequest
 
         return [
             'booking_id' => ['nullable', 'integer', Rule::exists('bookings', 'id')->where('user_id', $this->user()?->id)],
-            'payment_method' => ['required', Rule::in(['GCash', 'Maya', 'Bank Transfer', 'Cash Payment'])],
+            'payment_method' => ['required', Rule::in(['GCash'])],
             'amount' => ['required', 'numeric', 'min:1', 'max:999999.99'],
             'reference_number' => [
-                Rule::requiredIf(fn () => in_array($paymentMethod, ['GCash', 'Maya', 'Bank Transfer'], true)),
+                Rule::requiredIf(fn () => $paymentMethod === 'GCash'),
                 'nullable',
                 'string',
                 'max:100',
             ],
             'transaction_id' => [
-                Rule::requiredIf(fn () => $paymentMethod === 'Bank Transfer'),
+                Rule::prohibited(),
                 'nullable',
                 'string',
                 'max:100',
             ],
             'payment_date' => ['required', 'date', 'before_or_equal:today'],
             'receipt' => [
-                Rule::requiredIf(fn () => $paymentMethod !== 'Cash Payment'),
+                Rule::required(),
                 'nullable',
                 'file',
                 'mimes:jpg,jpeg,png,pdf',

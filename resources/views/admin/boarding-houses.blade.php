@@ -135,6 +135,10 @@
                     ? 'https://www.google.com/maps/search/?api=1&query='.$house->latitude.','.$house->longitude
                     : null,
                 'update_url' => $route('listings.update', $house),
+                'destroy_url' => $route('listings.destroy', array_filter([
+                    'boarding_house' => $house,
+                    'return_to_my_boarding_house' => $isMineView ? 1 : null,
+                ])),
             ];
 
             return [
@@ -478,11 +482,6 @@
                             <span class="inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-medium {{ $property['status_classes'] }}">
                                 {{ $property['visible_status'] }}
                             </span>
-                            <button type="button" title="Edit Property" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" @click="editDetails({{ \Illuminate\Support\Js::from($property['payload']) }})">
-                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M16.862 4.487a2.1 2.1 0 0 1 2.97 2.97L8.416 18.873l-4.5.5.5-4.5 12.446-10.386Z"/>
-                                </svg>
-                            </button>
                         </div>
                     </div>
                 </div>
@@ -575,7 +574,14 @@
             @else
                 <div class="divide-y divide-slate-200 lg:hidden">
                     @foreach ($listingRows as $listing)
-                        <article class="space-y-4 px-5 py-5">
+                        <article
+                            class="cursor-pointer space-y-4 px-5 py-5 transition hover:bg-blue-50/30 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-500"
+                            role="button"
+                            tabindex="0"
+                            @click="showDetails({{ \Illuminate\Support\Js::from($listing['payload']) }})"
+                            @keydown.enter.prevent="showDetails({{ \Illuminate\Support\Js::from($listing['payload']) }})"
+                            @keydown.space.prevent="showDetails({{ \Illuminate\Support\Js::from($listing['payload']) }})"
+                        >
                             <div class="flex items-start gap-3">
                                 <div class="flex h-20 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                                     <img src="{{ $listing['thumbnail_url'] }}" class="h-full w-full object-cover" alt="{{ $listing['name'] }}" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}'">
@@ -628,7 +634,7 @@
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-3 gap-2">
+                            <div class="hidden" aria-hidden="true">
                                 <button type="button" class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50" @click="showDetails({{ \Illuminate\Support\Js::from($listing['payload']) }})">
                                     <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
@@ -665,12 +671,18 @@
                                 <th class="px-5 py-3.5 text-left font-medium">Rooms</th>
                                 <th class="px-5 py-3.5 text-left font-medium">Occupancy</th>
                                 <th class="px-5 py-3.5 text-left font-medium">Status</th>
-                                <th class="px-5 py-3.5 text-right font-medium">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-200">
                             @foreach ($listingRows as $listing)
-                                <tr class="align-top transition hover:bg-slate-50/70">
+                                <tr
+                                    class="cursor-pointer align-top transition hover:bg-blue-50/40 focus:outline-none focus-visible:bg-blue-50/60"
+                                    role="button"
+                                    tabindex="0"
+                                    @click="showDetails({{ \Illuminate\Support\Js::from($listing['payload']) }})"
+                                    @keydown.enter.prevent="showDetails({{ \Illuminate\Support\Js::from($listing['payload']) }})"
+                                    @keydown.space.prevent="showDetails({{ \Illuminate\Support\Js::from($listing['payload']) }})"
+                                >
                                     <td class="px-5 py-4.5">
                                         <div class="flex items-start gap-4">
                                             <div class="flex h-16 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
@@ -718,8 +730,8 @@
                                             {{ $listing['visible_status'] }}
                                         </span>
                                     </td>
-                                    <td class="px-5 py-4.5">
-                                        <div class="flex justify-end gap-1.5">
+                                    <td class="hidden">
+                                        <div class="hidden" aria-hidden="true">
                                             <button type="button" title="View" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" @click="showDetails({{ \Illuminate\Support\Js::from($listing['payload']) }})">
                                                 <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
@@ -786,7 +798,8 @@
             </section>
         @endif
 
-        <div data-modal-skip role="dialog" aria-modal="true" x-show="addOpen" x-cloak x-transition.opacity @keydown.escape.window="addOpen = false" class="bm-modal-overlay" style="display: none;">
+        <template x-teleport="body">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak x-transition.opacity @keydown.escape.window="addOpen = false" class="bm-modal-overlay" style="display: none;">
             <form method="POST" action="{{ $route('listings.store') }}" enctype="multipart/form-data" class="bm-modal bm-modal--xl">
                 @csrf
                 @if ($isMineView)
@@ -897,8 +910,10 @@
                 <div class="bm-modal__footer"><button type="button" @click="addOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button><button class="bm-modal__button bm-modal__button--primary">Save Listing</button></div>
             </form>
         </div>
+        </template>
 
-        <div data-modal-skip role="dialog" aria-modal="true" x-show="viewOpen" x-cloak x-transition.opacity @keydown.escape.window="viewOpen = false" class="bm-modal-overlay" style="display: none;">
+        <template x-teleport="body">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak x-transition.opacity @keydown.escape.window="viewOpen = false" class="bm-modal-overlay" style="display: none;">
             <div class="bm-modal bm-modal--xl">
                 <div class="bm-modal__header">
                     <div>
@@ -1043,11 +1058,23 @@
                     </div>
                 </div>
                 </div>
-                <div class="bm-modal__footer"><button type="button" @click="viewOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button></div>
+                <div class="bm-modal__footer items-center justify-between">
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" @click="editDetails(selected); viewOpen = false" class="bm-modal__button bm-modal__button--primary">Edit</button>
+                        <button
+                            type="button"
+                            @click="askConfirm({ url: selected.destroy_url, title: 'Delete this boarding house?', message: `This will permanently remove ${selected.name}. This cannot be undone.`, label: 'Yes, Delete' }); viewOpen = false"
+                            class="inline-flex h-9 items-center justify-center rounded-xl bg-rose-600 px-4 text-sm font-bold text-white shadow-sm shadow-rose-600/20 transition hover:bg-rose-700"
+                        >Delete</button>
+                    </div>
+                    <button type="button" @click="viewOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
+                </div>
             </div>
         </div>
+        </template>
 
-        <div data-modal-skip role="dialog" aria-modal="true" x-show="editOpen" x-cloak x-transition.opacity @keydown.escape.window="editOpen = false" class="bm-modal-overlay" style="display: none;">
+        <template x-teleport="body">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak x-transition.opacity @keydown.escape.window="editOpen = false" class="bm-modal-overlay" style="display: none;">
             <form method="POST" :action="selected.update_url" enctype="multipart/form-data" class="bm-modal bm-modal--xl">
                 @csrf @method('PUT')
                 @if ($isMineView)
@@ -1176,7 +1203,7 @@
                 <div class="bm-modal__footer"><button type="button" @click="editOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button><button class="bm-modal__button bm-modal__button--primary">Save Changes</button></div>
             </form>
         </div>
-    </div>
+        </template>
 
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
@@ -1382,9 +1409,10 @@
     </script>
 
     {{-- Delete confirmation modal --}}
+    <template x-teleport="body">
     <div data-modal-root role="dialog" aria-modal="true" x-show="confirmOpen" x-cloak x-transition
-        class="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-3 backdrop-blur-sm">
-        <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/15">
+        class="bm-modal-overlay">
+        <div class="bm-modal bm-modal--sm">
             <div class="flex items-start gap-3.5">
                 <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
                     <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1403,6 +1431,8 @@
                 <button class="inline-flex h-9 items-center justify-center rounded-xl bg-rose-600 px-4 text-sm font-bold text-white shadow-sm shadow-rose-600/20 transition hover:bg-rose-700" x-text="confirmAction.label || 'Delete'"></button>
             </form>
         </div>
+    </div>
+    </template>
     </div>
 </x-admin.shell>
 </x-layouts.dashboard>

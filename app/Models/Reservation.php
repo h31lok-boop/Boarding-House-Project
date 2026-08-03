@@ -29,6 +29,10 @@ class Reservation extends Model
         'status',
         'notes',
         'house_rules',
+        'booking_type',
+        'priority_rank',
+        'payment_method',
+        'payment_reference',
     ];
 
     protected $casts = [
@@ -42,6 +46,7 @@ class Reservation extends Model
         'approved_at' => 'datetime',
         'expired_at' => 'datetime',
         'room_released_at' => 'datetime',
+        'priority_rank' => 'integer',
     ];
 
     public function user()
@@ -57,6 +62,11 @@ class Reservation extends Model
     public function room()
     {
         return $this->belongsTo(Room::class);
+    }
+
+    public function services()
+    {
+        return $this->hasMany(ReservationService::class);
     }
 
     public function isExpired(): bool

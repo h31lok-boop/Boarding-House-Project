@@ -441,6 +441,20 @@
                                 <textarea name="notes" rows="3" class="mt-1 w-full rounded-xl border-slate-200 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500/20" placeholder="Tell the owner anything important about your move-in.">{{ old('notes') }}</textarea>
                                 @error('notes')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
                             </label>
+                            @if ($activeHouse?->services?->where('is_active', true)->isNotEmpty())
+                                <div>
+                                    <p class="text-xs font-semibold text-slate-600 dark:text-slate-300">Optional services</p>
+                                    <div class="mt-2 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                        @foreach ($activeHouse->services->where('is_active', true) as $service)
+                                            <label class="flex items-center justify-between gap-3 text-xs text-slate-700">
+                                                <span class="flex items-center gap-2"><input type="checkbox" name="service_ids[]" value="{{ $service->id }}" class="rounded border-slate-300 text-blue-600">{{ $service->name }}</span>
+                                                <span class="font-semibold">₱{{ number_format((float) $service->price, 2) }} / {{ str_replace('_', ' ', $service->billing_type) }}</span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                    @error('service_ids')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
+                                </div>
+                            @endif
                             <label class="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
                                 <input type="checkbox" name="terms_accepted" value="1" class="mt-1 rounded border-slate-300 text-blue-600 focus:ring-blue-500" @checked(old('terms_accepted'))>
                                 <span>I agree to the reservation terms, cancellation policy, and 48-hour expiration rule.</span>

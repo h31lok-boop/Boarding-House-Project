@@ -151,6 +151,7 @@
         window.reservationsData = function (config) {
             return {
                 editOpen: false,
+                walkInOpen: false,
                 filterOpen: false,
                 menuOpen: null,
                 selected: {},
@@ -475,6 +476,101 @@
             </div>
         </header>
 
+        <section class="rounded-2xl border border-blue-100 bg-blue-50/50 p-5 shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div><h2 class="text-sm font-bold text-slate-950">Front desk walk-in booking</h2><p class="mt-1 text-xs text-slate-500">Paid walk-ins are automatically prioritized and get a printable receipt.</p></div>
+                <button type="button" @click="walkInOpen = true" class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-[13px] font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 5v14m7-7H5"/></svg>
+                    Create Walk-in
+                </button>
+            </div>
+        </section>
+
+        <template x-teleport="body">
+            <div data-modal-root role="dialog" aria-modal="true" x-show="walkInOpen" x-cloak @click.self="walkInOpen = false" @keydown.escape.window="walkInOpen = false" class="bm-modal-overlay">
+                <form method="POST" action="{{ $route('reservations.walk-in.store') }}" class="bm-modal bm-modal--lg">
+                    @csrf
+                    <div class="bm-modal__header">
+                        <div>
+                            <p class="bm-modal__eyebrow">Front Desk</p>
+                            <h2 class="bm-modal__title">Create Walk-in Reservation</h2>
+                            <p class="bm-modal__subtitle">Record a same-day booking, payment status, and optional services.</p>
+                        </div>
+                        <button type="button" @click="walkInOpen = false" class="bm-modal__close" aria-label="Close walk-in reservation modal">&times;</button>
+                    </div>
+                    <div class="bm-modal__body">
+                        <div class="bm-modal__grid bm-modal__grid--two-col">
+                            <label>Tenant
+                                <select name="tenant_id" required>
+                                    <option value="">Select tenant</option>
+                                    @foreach (($walkInTenants ?? []) as $tenantRecord)
+                                        <option value="{{ $tenantRecord->id }}">{{ $tenantRecord->user?->name }} · {{ $tenantRecord->boardingHouse?->name }}</option>
+                                    @endforeach
+                                </select>
+                            </label>
+                            <label>Boarding House
+                                <select name="boarding_house_id" required>
+                                    <option value="">Select boarding house</option>
+                                    @foreach (($walkInHouses ?? []) as $house)
+                                        <option value="{{ $house->id }}">{{ $house->name }}</option>
+                                    @endforeach
+                                </select>
+                            </label>
+                            <label>Room <span class="font-normal text-slate-400">(optional)</span>
+                                <select name="room_id">
+                                    <option value="">Any available room</option>
+                                    @foreach (($walkInHouses ?? []) as $house)
+                                        @foreach ($house->rooms->filter(fn ($room) => strtolower((string) $room->status) === 'available' && (int) ($room->available_slots ?? 1) > 0) as $room)
+                                            <option value="{{ $room->id }}">{{ $house->name }} · {{ $room->room_no ?? $room->room_number ?? $room->name ?? 'Room #'.$room->id }}</option>
+                                        @endforeach
+                                    @endforeach
+                                </select>
+                            </label>
+                            <label>Total Amount
+                                <input name="total_amount" required type="number" min="0" step="0.01" placeholder="0.00">
+                            </label>
+                            <label>Check-in Date
+                                <input name="check_in_date" type="date" value="{{ today()->toDateString() }}">
+                            </label>
+                            <label>Payment Status
+                                <select name="payment_status" required><option value="paid">Paid</option><option value="unpaid">Unpaid</option></select>
+                            </label>
+                            <label>Payment Method
+                                <select name="payment_method" required><option value="cash">Cash</option><option value="gcash">GCash</option></select>
+                            </label>
+                            <label>Payment Reference <span class="font-normal text-slate-400">(optional)</span>
+                                <input name="payment_reference" placeholder="Reference number">
+                            </label>
+                            <label class="sm:col-span-2">Notes <span class="font-normal text-slate-400">(optional)</span>
+                                <textarea name="notes" rows="3" placeholder="Add notes about this walk-in booking"></textarea>
+                            </label>
+                        </div>
+
+                        <section class="bm-modal__section mt-5">
+                            <div>
+                                <h3 class="bm-modal__section-title">Optional Services</h3>
+                                <p class="bm-modal__section-copy">Add laundry, parking, cleaning, or other services to this reservation.</p>
+                            </div>
+                            <div class="mt-4 flex flex-wrap gap-2">
+                                @foreach (($walkInHouses ?? []) as $house)
+                                    @foreach ($house->services->where('is_active', true) as $service)
+                                        <label class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+                                            <input type="checkbox" name="service_ids[]" value="{{ $service->id }}" class="rounded border-slate-300 text-blue-600">
+                                            {{ $house->name }} · {{ $service->name }} (₱{{ number_format((float) $service->price, 2) }})
+                                        </label>
+                                    @endforeach
+                                @endforeach
+                            </div>
+                        </section>
+                    </div>
+                    <div class="bm-modal__footer">
+                        <button type="button" @click="walkInOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button>
+                        <button class="bm-modal__button bm-modal__button--primary">Save Walk-in Reservation</button>
+                    </div>
+                </form>
+            </div>
+        </template>
+
         {{-- Stat Cards --}}
         @php
             $unpaidCount = $quickMetrics->firstWhere('label', 'Unpaid Deposits')['value'] ?? 0;
@@ -536,7 +632,6 @@
                                     <th class="px-5 py-3.5">Reservation Status</th>
                                     <th class="px-5 py-3.5">Payment Status</th>
                                     <th class="px-5 py-3.5">Amount</th>
-                                    <th class="px-5 py-3.5 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
@@ -625,8 +720,22 @@
                                             'label' => 'Yes, Delete',
                                             'tone' => 'rose',
                                         ];
+                                        $payload['actions'] = [
+                                            'approve' => $confirmApprove,
+                                            'reject' => $confirmReject,
+                                            'cancel' => $confirmCancel,
+                                            'delete' => $confirmDelete,
+                                        ];
                                     @endphp
-                                    <tr class="bg-white transition duration-200 hover:bg-slate-50/90" data-reservation-row="{{ $reservation->id }}">
+                                    <tr
+                                        class="cursor-pointer bg-white transition duration-200 hover:bg-slate-50/90 focus-within:bg-blue-50/40"
+                                        data-reservation-row="{{ $reservation->id }}"
+                                        role="button"
+                                        tabindex="0"
+                                        @click="openEdit({{ \Illuminate\Support\Js::from($payload) }})"
+                                        @keydown.enter="openEdit({{ \Illuminate\Support\Js::from($payload) }})"
+                                        @keydown.space.prevent="openEdit({{ \Illuminate\Support\Js::from($payload) }})"
+                                    >
                                         <td class="whitespace-nowrap px-5 py-4 text-xs font-black text-slate-800">{{ $reservationNo }}</td>
                                         <td class="px-5 py-4">
                                             <div class="flex items-center gap-2.5">
@@ -660,8 +769,8 @@
                                             </span>
                                         </td>
                                         <td class="whitespace-nowrap px-5 py-4 text-[13px] font-semibold text-slate-900" data-cell="amount">{{ $amount > 0 ? 'PHP '.number_format($amount, 2) : 'PHP 0.00' }}</td>
-                                        <td class="px-5 py-4">
-                                            <div class="flex justify-end gap-1.5">
+                                        <td class="hidden">
+                                            <div class="hidden">
                                                 <button
                                                     type="button"
                                                     class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
@@ -702,7 +811,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="9" class="px-5 py-16">
+                                        <td colspan="8" class="px-5 py-16">
                                             <div class="mx-auto max-w-md text-center">
                                                 <div class="mx-auto flex h-24 w-24 items-center justify-center rounded-[2rem] bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.18),_transparent_62%),linear-gradient(180deg,#eff6ff_0%,#ffffff_100%)] text-blue-600 shadow-inner">
                                                     <svg class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1034,7 +1143,40 @@
                 </div>
 
                 {{-- Footer --}}
-                <div class="flex shrink-0 items-center justify-end gap-2.5 border-t border-slate-100 bg-white px-7 py-4">
+                <div class="flex shrink-0 flex-wrap items-center justify-end gap-2.5 border-t border-slate-100 bg-white px-7 py-4">
+                    <button
+                        type="button"
+                        x-show="selected.status_value === 'pending'"
+                        @click="askConfirm(selected.actions.approve)"
+                        class="inline-flex h-10 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-[13px] font-bold text-emerald-700 transition hover:bg-emerald-100"
+                    >Approve</button>
+                    <button
+                        type="button"
+                        x-show="selected.status_value === 'pending'"
+                        @click="askConfirm(selected.actions.reject)"
+                        class="inline-flex h-10 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-4 text-[13px] font-bold text-rose-700 transition hover:bg-rose-100"
+                    >Reject</button>
+                    <button
+                        type="button"
+                        x-show="selected.status_value !== 'pending' && !['confirmed', 'approved', 'cancelled', 'rejected', 'expired'].includes(selected.status_value)"
+                        @click="askConfirm(selected.actions.approve)"
+                        class="inline-flex h-10 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-[13px] font-bold text-emerald-700 transition hover:bg-emerald-100"
+                    >Confirm</button>
+                    <button
+                        type="button"
+                        x-show="!['cancelled', 'rejected', 'expired'].includes(selected.status_value)"
+                        @click="askConfirm(selected.actions.cancel)"
+                        class="inline-flex h-10 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-4 text-[13px] font-bold text-rose-700 transition hover:bg-rose-100"
+                    >Cancel Reservation</button>
+                    <a
+                        :href="selected.payment_url"
+                        class="inline-flex h-10 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-4 text-[13px] font-bold text-blue-700 transition hover:bg-blue-100"
+                    >Payments</a>
+                    <button
+                        type="button"
+                        @click="askConfirm(selected.actions.delete)"
+                        class="inline-flex h-10 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-4 text-[13px] font-bold text-rose-700 transition hover:bg-rose-100"
+                    >Delete</button>
                     <button type="button" @click="editOpen = false" :disabled="editSaving" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-[13px] font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">
                         Cancel
                     </button>

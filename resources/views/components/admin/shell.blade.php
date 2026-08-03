@@ -370,12 +370,12 @@
             @endif
 
             @if (! $showHeader && $isOwnerWorkspace)
-                <div class="relative mb-4 rounded-[1.1rem] border border-white/80 bg-white/88 px-3 py-2.5 shadow-[0_14px_30px_rgba(15,23,42,0.06)] backdrop-blur xl:px-3.5">
+                <div class="relative z-[60] mb-4 overflow-visible rounded-[1.1rem] border border-white/80 bg-white/88 px-3 py-2.5 shadow-[0_14px_30px_rgba(15,23,42,0.06)] backdrop-blur xl:px-3.5">
                     <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                         <div class="min-w-0">
                             <p class="text-sm font-semibold text-slate-500">Owner Workspace</p>
                         </div>
-                        <div class="relative" x-data="{ adminProfileOpenFallback: false, adminProfileReadyFallback: false }">
+                        <div class="relative z-[70]" x-data="{ adminProfileOpenFallback: false, adminProfileReadyFallback: false }">
                             <button
                                 type="button"
                                 @click.stop="adminProfileOpenFallback = ! adminProfileOpenFallback; adminProfileReadyFallback = false; if (adminProfileOpenFallback) setTimeout(() => adminProfileReadyFallback = true, 120)"
@@ -428,7 +428,7 @@
 
             <x-toast />
 
-            <div class="relative">
+            <div class="relative z-0">
                 {{ $slot }}
             </div>
         </div>

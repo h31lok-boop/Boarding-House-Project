@@ -3,6 +3,7 @@
     'bookings' => collect(),
     'action' => '#',
     'inputId' => 'receipt-upload',
+    'gcashAccount' => [],
     'loading' => false,
 ])
 
@@ -204,7 +205,7 @@
                         required
                         class="mt-1 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm focus:border-[#2563eb] focus:ring-[#2563eb]/30 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                     >
-                        @foreach (['GCash', 'Maya', 'Bank Transfer', 'Cash Payment'] as $method)
+                        @foreach (['GCash'] as $method)
                             <option value="{{ $method }}" @selected($initialPaymentMethod === $method)>{{ $method }}</option>
                         @endforeach
                     </select>
@@ -236,8 +237,8 @@
                             <div class="min-w-0">
                                 <p class="text-[11px] font-semibold text-slate-950 dark:text-white" x-text="paymentMethod"></p>
                                 <div x-show="paymentMethod === 'GCash'" class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                                    <p>0912 345 6789</p>
-                                    <p>Juan Dela Cruz</p>
+                                    <p>{{ $gcashAccount['number'] ?? 'Owner GCash number not set' }}</p>
+                                    <p>{{ $gcashAccount['name'] ?? 'Ask the owner for the account name' }}</p>
                                 </div>
                                 <div x-show="paymentMethod === 'Maya'" x-cloak class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                                     <p>juan.delacruz@example.com</p>

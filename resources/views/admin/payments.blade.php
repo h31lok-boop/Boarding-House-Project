@@ -59,7 +59,6 @@
                                     <th class="px-3.5 py-2">Amount</th>
                                     <th class="px-3.5 py-2">Due</th>
                                     <th class="px-3.5 py-2">Status</th>
-                                    <th class="px-3.5 py-2 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
@@ -76,12 +75,22 @@
                                             'status' => strtolower((string) ($payment->status ?? 'pending')),
                                             'status_label' => $statusLabel($payment->status),
                                             'reference_no' => $payment->reference_no,
+                                            'payment_method' => $payment->payment_method ?: 'cash',
                                             'notes' => $payment->notes,
                                             'update_url' => $route('payments.update', $payment),
                                             'recorded_at' => $payment->paid_at?->format('M d, Y h:i A') ?? ($payment->created_at?->format('M d, Y h:i A') ?? 'Not recorded'),
+                                            'receipt_id' => $payment->receipts->first()?->id,
+                                            'receipt_url' => $payment->receipts->first() ? route('payment-receipts.print', $payment->receipts->first()) : null,
                                         ];
                                     @endphp
-                                    <tr class="bg-white transition hover:bg-slate-50/90">
+                                    <tr
+                                        class="cursor-pointer bg-white transition hover:bg-slate-50/90 focus-within:bg-blue-50/40"
+                                        role="button"
+                                        tabindex="0"
+                                        @click="selected = {{ \Illuminate\Support\Js::from($payload) }}; detailStatus = selected.status || 'pending'; detailOpen = true"
+                                        @keydown.enter="selected = {{ \Illuminate\Support\Js::from($payload) }}; detailStatus = selected.status || 'pending'; detailOpen = true"
+                                        @keydown.space.prevent="selected = {{ \Illuminate\Support\Js::from($payload) }}; detailStatus = selected.status || 'pending'; detailOpen = true"
+                                    >
                                         <td class="px-3.5 py-2.5">
                                             <div class="flex items-center gap-2">
                                                 <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[10px] font-black text-blue-700">{{ $tenantInitials }}</div>
@@ -96,9 +105,12 @@
                                         <td class="whitespace-nowrap px-3.5 py-2.5">
                                             <span class="inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black {{ $badge($payment->status) }}">{{ $statusLabel($payment->status) }}</span>
                                         </td>
-                                        <td class="px-3.5 py-2.5">
-                                            <div class="flex justify-end gap-1">
+                                        <td class="hidden">
+                                            <div class="hidden">
                                                 <button type="button" class="inline-flex h-7 items-center justify-center rounded-lg border border-slate-200 bg-white px-2 text-[10px] font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" @click="selected = {{ \Illuminate\Support\Js::from($payload) }}; detailStatus = selected.status || 'pending'; detailOpen = true">View</button>
+                                                @if ($payment->receipts->first())
+                                                    <a target="_blank" href="{{ route('payment-receipts.print', $payment->receipts->first()) }}" class="inline-flex h-7 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-2 text-[10px] font-semibold text-blue-700">Receipt</a>
+                                                @endif
                                                 @if (strtolower((string) $payment->status) !== 'paid')
                                                     <form method="POST" action="{{ $route('payments.update', $payment) }}">
                                                         @csrf @method('PATCH')
@@ -177,6 +189,10 @@
                         </select>
                     </label>
                     <label class="text-xs font-semibold text-slate-700">
+                        Payment Method
+                        <select name="payment_method" class="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white"><option value="cash">Cash</option><option value="gcash">GCash</option></select>
+                    </label>
+                    <label class="text-xs font-semibold text-slate-700">
                         Reference No.
                         <input name="reference_no" class="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white">
                     </label>
@@ -241,10 +257,28 @@
                     <input name="reference_no" type="text" :value="selected.reference_no || ''" class="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white">
                 </label>
                 <label class="mt-3 block text-xs font-semibold text-slate-700">
+                    Payment Method
+                    <select name="payment_method" x-model="selected.payment_method" class="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white"><option value="cash">Cash</option><option value="gcash">GCash</option></select>
+                </label>
+                <label class="mt-3 block text-xs font-semibold text-slate-700">
                     Notes
                     <textarea name="notes" rows="2" class="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white" x-text="selected.notes || ''"></textarea>
                 </label>
-                <div class="mt-4 flex justify-end gap-2">
+                <div class="mt-4 flex flex-wrap justify-end gap-2">
+                    <a
+                        x-show="selected.receipt_url"
+                        :href="selected.receipt_url"
+                        target="_blank"
+                        class="inline-flex h-8 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
+                    >Preview Receipt</a>
+                    <button
+                        type="submit"
+                        name="status"
+                        value="paid"
+                        x-show="selected.status !== 'paid'"
+                        @click="detailStatus = 'paid'"
+                        class="inline-flex h-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                    >Mark Paid</button>
                     <button type="button" @click="detailOpen = false" class="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">Cancel</button>
                     <button class="inline-flex h-8 items-center justify-center rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700">Save Changes</button>
                 </div>

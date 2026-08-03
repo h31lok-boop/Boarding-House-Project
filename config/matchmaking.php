@@ -12,6 +12,11 @@ return [
         'drinking_preference' => 0.06,
         'pets_preference' => 0.06,
         'internet_usage' => 0.05,
+        'social_style' => 0.05,
+        'cooking_habit' => 0.04,
+        'work_schedule' => 0.06,
+        'guest_preference' => 0.03,
+        'sharing_style' => 0.02,
         'hobbies' => 0.05,
     ],
 

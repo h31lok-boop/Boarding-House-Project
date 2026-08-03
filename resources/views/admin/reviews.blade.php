@@ -42,9 +42,18 @@
                         'rating' => $rating,
                         'comment' => $review->comment,
                         'title' => $review->title,
+                        'status' => $review->status ?? 'pending',
+                        'update_url' => route('admin.reviews.update', $review),
                     ];
                 @endphp
-                <article class="ui-card p-5">
+                <article
+                    class="ui-card cursor-pointer p-5 transition hover:bg-blue-50/30 focus-within:bg-blue-50/30"
+                    role="button"
+                    tabindex="0"
+                    @click="selected = {{ \Illuminate\Support\Js::from($payload) }}; detailOpen = true"
+                    @keydown.enter="selected = {{ \Illuminate\Support\Js::from($payload) }}; detailOpen = true"
+                    @keydown.space.prevent="selected = {{ \Illuminate\Support\Js::from($payload) }}; detailOpen = true"
+                >
                     <div class="flex items-start justify-between gap-3">
                         <div>
                             <h2 class="font-semibold">{{ $review->title ?: $review->boardingHouse->name ?? 'Review' }}</h2>
@@ -54,7 +63,7 @@
                     </div>
                     <p class="mt-3 text-lg font-bold text-[color:var(--brand-600)]">{{ $rating }} / 5</p>
                     <p class="mt-2 text-sm">{{ $review->comment ?: 'No comment provided.' }}</p>
-                    <div class="mt-5 flex flex-wrap gap-2">
+                    <div class="hidden">
                         <button type="button" class="btn-secondary px-3 py-1.5 text-xs" @click="selected = {{ \Illuminate\Support\Js::from($payload) }}; detailOpen = true">View</button>
                         @foreach (['published' => 'Publish', 'hidden' => 'Hide'] as $status => $label)
                             <form method="POST" action="{{ route('admin.reviews.update', $review) }}">@csrf @method('PATCH')<input type="hidden" name="status" value="{{ $status }}"><button class="{{ $status === 'hidden' ? 'btn-danger' : 'btn-secondary' }} px-3 py-1.5 text-xs">{{ $label }}</button></form>
@@ -68,8 +77,8 @@
 
         <div>{{ $reviews->links() }}</div>
 
-        <div data-modal-root role="dialog" aria-modal="true" x-show="detailOpen" x-cloak @keydown.escape.window="detailOpen = false" class="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-4 backdrop-blur-sm">
-            <div class="ui-card w-full max-w-lg p-6">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="detailOpen" x-cloak @keydown.escape.window="detailOpen = false" class="bm-modal-overlay">
+            <div class="bm-modal bm-modal--lg">
                 <div class="flex items-center justify-between mb-5"><h2 class="text-lg font-semibold">Review Details</h2><button type="button" @click="detailOpen = false" class="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-400"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div>
                 <p class="mt-5 text-3xl font-bold text-[color:var(--brand-600)]" x-text="`${selected.rating || 0} / 5`"></p>
                 <dl class="mt-5 grid gap-3 text-sm">
@@ -77,7 +86,19 @@
                     <div><dt class="ui-muted">Boarding House</dt><dd x-text="selected.house"></dd></div>
                     <div><dt class="ui-muted">Comment</dt><dd x-text="selected.comment || 'No comment provided.'"></dd></div>
                 </dl>
-                <div class="mt-6 flex justify-end"><button type="button" @click="detailOpen = false" class="btn-secondary">Close</button></div>
+                <div class="bm-modal__footer">
+                    <form method="POST" :action="selected.update_url">
+                        @csrf @method('PATCH')
+                        <input type="hidden" name="status" value="published">
+                        <button class="bm-modal__button bm-modal__button--primary">Publish</button>
+                    </form>
+                    <form method="POST" :action="selected.update_url">
+                        @csrf @method('PATCH')
+                        <input type="hidden" name="status" value="hidden">
+                        <button class="bm-modal__button border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">Hide</button>
+                    </form>
+                    <button type="button" @click="detailOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
+                </div>
             </div>
         </div>
     </div>

@@ -65,6 +65,11 @@ class CompatibilityService
             'drinking_preference' => $this->scoreEquality($tenant->drinking_preference, $candidate->drinking_preference),
             'pets_preference' => $this->scoreEquality($tenant->pets_preference, $candidate->pets_preference),
             'internet_usage' => $this->scoreEquality($tenant->internet_usage, $candidate->internet_usage),
+            'social_style' => $this->scoreEquality($tenant->social_style, $candidate->social_style),
+            'cooking_habit' => $this->scoreEquality($tenant->cooking_habit, $candidate->cooking_habit),
+            'work_schedule' => $this->scoreEquality($tenant->work_schedule, $candidate->work_schedule),
+            'guest_preference' => $this->scoreEquality($tenant->guest_preference, $candidate->guest_preference),
+            'sharing_style' => $this->scoreEquality($tenant->sharing_style, $candidate->sharing_style),
             'hobbies' => $this->scoreHobbies($tenant->hobbies ?? [], $candidate->hobbies ?? []),
             default => 0.0,
         };
@@ -190,6 +195,21 @@ class CompatibilityService
             'internet_usage' => $tenant->internet_usage === $candidate->internet_usage
                 ? 'Internet usage patterns align'
                 : 'Internet usage differs',
+            'social_style' => $tenant->social_style === $candidate->social_style
+                ? 'Social energy is compatible'
+                : 'Social energy differs',
+            'cooking_habit' => $tenant->cooking_habit === $candidate->cooking_habit
+                ? 'Cooking habits align'
+                : 'Cooking habits differ',
+            'work_schedule' => $tenant->work_schedule === $candidate->work_schedule
+                ? 'Daily work schedule aligns'
+                : 'Daily work schedules differ',
+            'guest_preference' => $tenant->guest_preference === $candidate->guest_preference
+                ? 'Guest preferences align'
+                : 'Guest preferences differ',
+            'sharing_style' => $tenant->sharing_style === $candidate->sharing_style
+                ? 'Shared-space expectations align'
+                : 'Shared-space expectations differ',
             'hobbies' => 'Shared hobbies or interests',
             default => null,
         };
@@ -208,6 +228,11 @@ class CompatibilityService
             'drinking_preference' => 'Drinking Preference',
             'pets_preference' => 'Pets Preference',
             'internet_usage' => 'Internet Usage',
+            'social_style' => 'Social Style',
+            'cooking_habit' => 'Cooking Habits',
+            'work_schedule' => 'Work Schedule',
+            'guest_preference' => 'Guest Preference',
+            'sharing_style' => 'Sharing Style',
             'hobbies' => 'Hobbies',
             default => ucfirst(str_replace('_', ' ', $criterion)),
         };

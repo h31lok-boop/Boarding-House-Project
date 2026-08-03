@@ -48,7 +48,6 @@
                             <th class="px-5 py-3 text-left">Recipient</th>
                             <th class="px-5 py-3 text-left">Boarding House</th>
                             <th class="px-5 py-3 text-left">Status</th>
-                            <th class="px-5 py-3 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y ui-border">
@@ -60,15 +59,23 @@
                                     'boarding_house' => $match->boardingHouse->name ?? 'Not selected',
                                     'message' => $match->message,
                                     'status' => $match->status,
+                                    'update_url' => route('admin.match-requests.update', $match->id),
                                 ];
                             @endphp
-                            <tr>
+                            <tr
+                                class="cursor-pointer transition hover:bg-slate-50/80 focus-within:bg-blue-50/40"
+                                role="button"
+                                tabindex="0"
+                                @click="selected = {{ \Illuminate\Support\Js::from($payload) }}; viewOpen = true"
+                                @keydown.enter="selected = {{ \Illuminate\Support\Js::from($payload) }}; viewOpen = true"
+                                @keydown.space.prevent="selected = {{ \Illuminate\Support\Js::from($payload) }}; viewOpen = true"
+                            >
                                 <td class="px-5 py-4">{{ $match->sender->name ?? 'Sender' }}</td>
                                 <td class="px-5 py-4">{{ $match->recipient->name ?? 'Recipient' }}</td>
                                 <td class="px-5 py-4 ui-muted">{{ $match->boardingHouse->name ?? 'Not selected' }}</td>
                                 <td class="px-5 py-4"><span class="badge border {{ $badge($match->status) }}">{{ ucfirst($match->status ?? 'pending') }}</span></td>
-                                <td class="px-5 py-4">
-                                    <div class="flex justify-end gap-2">
+                                <td class="hidden">
+                                    <div class="hidden">
                                         <button type="button" class="btn-secondary px-3 py-1.5 text-xs" @click="selected = {{ \Illuminate\Support\Js::from($payload) }}; viewOpen = true">View</button>
                                         @if ($match->status === 'pending')
                                             <form method="POST" action="{{ route('admin.match-requests.update', $match->id) }}">@csrf @method('PATCH')<input type="hidden" name="status" value="accepted"><button class="btn-secondary px-3 py-1.5 text-xs">Accept</button></form>
@@ -78,7 +85,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="px-5 py-8 text-center ui-muted">No match requests found.</td></tr>
+                            <tr><td colspan="4" class="px-5 py-8 text-center ui-muted">No match requests found.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -140,6 +147,20 @@
                     </dl>
                 </div>
                 <div class="bm-modal__footer">
+                    <template x-if="selected.status === 'pending'">
+                        <div class="flex gap-2">
+                            <form method="POST" :action="selected.update_url">
+                                @csrf @method('PATCH')
+                                <input type="hidden" name="status" value="accepted">
+                                <button class="bm-modal__button bm-modal__button--primary">Accept</button>
+                            </form>
+                            <form method="POST" :action="selected.update_url">
+                                @csrf @method('PATCH')
+                                <input type="hidden" name="status" value="declined">
+                                <button class="bm-modal__button border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">Decline</button>
+                            </form>
+                        </div>
+                    </template>
                     <button type="button" @click="viewOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
                 </div>
             </div>

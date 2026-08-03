@@ -9,7 +9,14 @@
         : 'bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-400/10 dark:text-emerald-300 dark:ring-emerald-400/20';
 @endphp
 
-<article {{ $attributes->merge(['class' => 'group overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm shadow-slate-200/70 transition duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-200/80 dark:border-slate-800 dark:bg-slate-900 dark:shadow-slate-950/30']) }}>
+<article
+    {{ $attributes->merge(['class' => 'group cursor-pointer overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm shadow-slate-200/70 transition duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-200/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-slate-800 dark:bg-slate-900 dark:shadow-slate-950/30']) }}
+    role="button"
+    tabindex="0"
+    @click="$dispatch('boarding-house-selected', {{ \Illuminate\Support\Js::from($listing) }})"
+    @keydown.enter.prevent="$dispatch('boarding-house-selected', {{ \Illuminate\Support\Js::from($listing) }})"
+    @keydown.space.prevent="$dispatch('boarding-house-selected', {{ \Illuminate\Support\Js::from($listing) }})"
+>
     <div class="relative aspect-[16/9] overflow-hidden bg-slate-100 dark:bg-slate-800">
         <img
             src="{{ $listing['image'] }}"
@@ -29,7 +36,7 @@
             type="button"
             class="absolute right-2.5 top-2.5 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-slate-600 shadow-sm ring-1 ring-slate-200 transition hover:text-rose-500 dark:bg-slate-950/90 dark:text-slate-200 dark:ring-slate-700"
             :class="{ 'text-rose-500': isSaved({{ $listing['id'] }}) }"
-            @click="toggleSaved({{ $listing['id'] }})"
+            @click.stop="toggleSaved({{ $listing['id'] }})"
             aria-label="Save {{ $listing['name'] }}"
         >
             <svg class="h-4 w-4" :fill="isSaved({{ $listing['id'] }}) ? 'currentColor' : 'none'" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" /></svg>
@@ -69,10 +76,10 @@
         </div>
 
         <div class="grid grid-cols-2 gap-2">
-            <a href="{{ $listing['url'] }}" class="inline-flex h-9 items-center justify-center rounded-xl border border-blue-200 bg-white px-3 text-xs font-bold text-blue-600 transition hover:bg-blue-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-100 dark:border-blue-400/30 dark:bg-slate-950 dark:text-blue-300 dark:hover:bg-blue-400/10">
-                View Details
-            </a>
-            <a href="{{ $listing['url'] }}#reservation-panel" class="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3 text-xs font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/25 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200">
+            <span class="inline-flex h-9 items-center justify-center rounded-xl border border-blue-200 bg-white px-3 text-xs font-bold text-blue-600 dark:border-blue-400/30 dark:bg-slate-950 dark:text-blue-300">
+                Click for Details
+            </span>
+            <a href="{{ $listing['url'] }}#reservation-panel" @click.stop class="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3 text-xs font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/25 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200">
                 Reserve
                 <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" /></svg>
             </a>

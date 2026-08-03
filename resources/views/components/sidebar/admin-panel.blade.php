@@ -82,6 +82,13 @@
                     'active' => $isPath($workspacePath.'/payments*', $workspacePath.'/payment-verification*'),
                 ],
                 [
+                    'key' => 'services',
+                    'label' => 'Services',
+                    'href' => $r($workspace.'.services.index'),
+                    'icon' => 'sparkles',
+                    'active' => $isPath($workspacePath.'/services*'),
+                ],
+                [
                     'key' => 'transactions',
                     'label' => 'Transactions',
                     'href' => $r('admin.transactions.index'),
@@ -113,6 +120,13 @@
                     'href' => $r('admin.settings.index', [], 'admin.settings'),
                     'icon' => 'settings',
                     'active' => $isPath($workspacePath.'/settings*'),
+                ],
+                [
+                    'key' => 'payment-settings',
+                    'label' => 'GCash Settings',
+                    'href' => $r($workspace.'.payment-settings'),
+                    'icon' => 'payments',
+                    'active' => $isPath($workspacePath.'/payment-settings*'),
                 ],
             ],
         ],
@@ -160,12 +174,3 @@
         </section>
     @endforeach
 </nav>
-<form method="POST" action="{{ route('logout') }}" class="mt-4">
-    @csrf
-    <button type="submit" class="w-full rounded-xl px-3 py-3 text-left text-sm font-semibold text-rose-600 transition hover:bg-rose-50 hover:text-rose-700 {{ $navInactive }}">
-        <span class="sidebar-icon flex h-4 w-4 shrink-0 items-center justify-center">
-            @include('components.sidebar.partials.admin-icon', ['name' => 'logout'])
-        </span>
-        <span class="sidebar-text min-w-0 flex-1 truncate">Log Out</span>
-    </button>
-</form>

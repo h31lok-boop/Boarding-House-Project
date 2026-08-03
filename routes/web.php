@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\PaymentReceiptVerificationController;
 use App\Http\Controllers\AdminListingController;
 use App\Http\Controllers\AdminOwnerController;
 use App\Http\Controllers\BoardingHouseController;
+use App\Http\Controllers\BoardingHouseServiceController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Map\BoardingHouseMapController;
 use App\Http\Controllers\Owner\OwnerController;
@@ -51,6 +52,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     Route::get('/payment-receipts/{receipt}', [PaymentReceiptController::class, 'show'])->name('payment-receipts.show');
+    Route::get('/payment-receipts/{receipt}/print', [PaymentReceiptController::class, 'print'])->name('payment-receipts.print');
     Route::get('/payment-receipts/{receipt}/download', [PaymentReceiptController::class, 'download'])->name('payment-receipts.download');
 
     /*
@@ -80,6 +82,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/listings/{boarding_house}', [BoardingHouseController::class, 'update'])->name('listings.update');
         Route::delete('/listings/{boarding_house}', [BoardingHouseController::class, 'destroy'])->name('listings.destroy');
 
+        // Additional tenant-bookable services (laundry, parking, cleaning, etc.)
+        Route::get('/services', [BoardingHouseServiceController::class, 'index'])->name('services.index');
+        Route::post('/services', [BoardingHouseServiceController::class, 'store'])->name('services.store');
+        Route::put('/services/{service}', [BoardingHouseServiceController::class, 'update'])->name('services.update');
+        Route::delete('/services/{service}', [BoardingHouseServiceController::class, 'destroy'])->name('services.destroy');
+
         // Rooms, reservations & payments (shared admin/owner pages)
         Route::get('/rooms', [AdminListingController::class, 'rooms'])->name('rooms');
         Route::post('/rooms', [RoomController::class, 'store'])->name('rooms.store');
@@ -88,10 +96,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/reservations', [AdminOwnerController::class, 'reservations'])->name('reservations');
         Route::get('/reservations/list', [AdminOwnerController::class, 'reservations'])->name('reservations.index');
         Route::get('/reservations/export', [AdminOwnerController::class, 'exportReservations'])->name('reservations.export');
+        Route::post('/reservations/walk-in', [AdminOwnerController::class, 'storeWalkInReservation'])->name('reservations.walk-in.store');
         Route::patch('/reservations/{reservation}', [AdminOwnerController::class, 'updateReservation'])->name('reservations.update');
         Route::delete('/reservations/{reservation}', [AdminOwnerController::class, 'destroyReservation'])->name('reservations.destroy');
         Route::get('/api/boarding-houses/{boardingHouse}/available-rooms', [AdminOwnerController::class, 'availableRooms'])->name('api.boarding-houses.available-rooms');
         Route::get('/payments', [AdminOwnerController::class, 'payments'])->name('payments');
+        Route::get('/payment-settings', [AdminOwnerController::class, 'paymentSettings'])->name('payment-settings');
+        Route::put('/payment-settings', [AdminOwnerController::class, 'updatePaymentSettings'])->name('payment-settings.update');
         Route::get('/transactions', [AdminOwnerController::class, 'payments'])->name('transactions.index');
         Route::post('/payments', [AdminOwnerController::class, 'storePayment'])->name('payments.store');
         Route::patch('/payments/{payment}', [AdminOwnerController::class, 'updatePayment'])->name('payments.update');
@@ -167,6 +178,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/listings/{boarding_house}', [BoardingHouseController::class, 'update'])->name('listings.update');
         Route::delete('/listings/{boarding_house}', [BoardingHouseController::class, 'destroy'])->name('listings.destroy');
 
+        // Additional tenant-bookable services (laundry, parking, cleaning, etc.)
+        Route::get('/services', [BoardingHouseServiceController::class, 'index'])->name('services.index');
+        Route::post('/services', [BoardingHouseServiceController::class, 'store'])->name('services.store');
+        Route::put('/services/{service}', [BoardingHouseServiceController::class, 'update'])->name('services.update');
+        Route::delete('/services/{service}', [BoardingHouseServiceController::class, 'destroy'])->name('services.destroy');
+
         // Rooms
         Route::get('/rooms', [OwnerController::class, 'rooms'])->name('rooms');
         Route::post('/rooms', [RoomController::class, 'store'])->name('rooms.store');
@@ -177,12 +194,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/reservations', [OwnerController::class, 'reservations'])->name('reservations');
         Route::get('/reservations/list', [OwnerController::class, 'reservations'])->name('reservations.index');
         Route::get('/reservations/export', [OwnerController::class, 'exportReservations'])->name('reservations.export');
+        Route::post('/reservations/walk-in', [OwnerController::class, 'storeWalkInReservation'])->name('reservations.walk-in.store');
         Route::patch('/reservations/{reservation}', [OwnerController::class, 'updateReservation'])->name('reservations.update');
         Route::delete('/reservations/{reservation}', [OwnerController::class, 'destroyReservation'])->name('reservations.destroy');
         Route::get('/api/boarding-houses/{boardingHouse}/available-rooms', [OwnerController::class, 'availableRooms'])->name('api.boarding-houses.available-rooms');
 
         // Payments
         Route::get('/payments', [OwnerController::class, 'payments'])->name('payments');
+        Route::get('/payment-verification', [PaymentReceiptVerificationController::class, 'index'])->name('payment-receipts.index');
+        Route::patch('/payment-verification/{receipt}/approve', [PaymentReceiptVerificationController::class, 'approve'])->name('payment-receipts.approve');
+        Route::patch('/payment-verification/{receipt}/reject', [PaymentReceiptVerificationController::class, 'reject'])->name('payment-receipts.reject');
+        Route::get('/payment-settings', [OwnerController::class, 'paymentSettings'])->name('payment-settings');
+        Route::put('/payment-settings', [OwnerController::class, 'updatePaymentSettings'])->name('payment-settings.update');
         Route::get('/transactions', [OwnerController::class, 'payments'])->name('transactions.index');
         Route::post('/payments', [OwnerController::class, 'storePayment'])->name('payments.store');
         Route::patch('/payments/{payment}', [OwnerController::class, 'updatePayment'])->name('payments.update');

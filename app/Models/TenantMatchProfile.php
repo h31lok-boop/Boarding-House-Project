@@ -22,8 +22,14 @@ class TenantMatchProfile extends Model
         'drinking_preference',
         'pets_preference',
         'internet_usage',
+        'social_style',
+        'cooking_habit',
+        'work_schedule',
+        'guest_preference',
+        'sharing_style',
         'hobbies',
         'preferred_amenity_ids',
+        'preferred_roommate_traits',
         'additional_notes',
         'completed_at',
     ];
@@ -35,6 +41,7 @@ class TenantMatchProfile extends Model
         'noise_tolerance' => 'integer',
         'hobbies' => 'array',
         'preferred_amenity_ids' => 'array',
+        'preferred_roommate_traits' => 'array',
         'completed_at' => 'datetime',
     ];
 

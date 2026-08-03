@@ -4,7 +4,9 @@ namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
 use App\Models\BoardingHouse;
+use App\Models\BoardingHouseService;
 use App\Models\Reservation;
+use App\Models\ReservationService;
 use App\Models\Room;
 use App\Services\ReservationLifecycleService;
 use Illuminate\Http\Request;
@@ -41,8 +43,32 @@ class ReservationController extends Controller
             'emergency_contact_name' => ['nullable', 'string', 'max:255'],
             'emergency_contact_number' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'service_ids' => ['nullable', 'array', 'max:10'],
+            'service_ids.*' => ['integer', 'exists:boarding_house_services,id'],
             'terms_accepted' => ['required', 'accepted'],
         ]);
+
+        $selectedServiceIds = collect($data['service_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+        $selectedServices = BoardingHouseService::query()
+            ->whereIn('id', $selectedServiceIds)
+            ->where('boarding_house_id', $boardingHouse->id)
+            ->where('is_active', true)
+            ->get();
+
+        if ($selectedServiceIds->count() !== $selectedServices->count()) {
+            return back()->withErrors(['service_ids' => 'Choose valid services offered by this boarding house.'])->withInput();
+        }
+
+        /*
+         * Keep service selection tied to this house. IDs from another house
+         * must never be silently added to a tenant booking.
+         */
+        $selectedServices = $selectedServices
+            ->filter(fn (BoardingHouseService $service) => $selectedServiceIds->contains($service->id))
+            ->values();
 
         $selectedRoom = null;
         if (! empty($data['room_id'])) {
@@ -84,8 +110,9 @@ class ReservationController extends Controller
         $price = $selectedRoom?->price
             ?? $boardingHouse->effective_price
             ?? (is_numeric($boardingHouse->price ?? null) ? (float) $boardingHouse->price : null);
+        $servicesTotal = $selectedServices->sum(fn (BoardingHouseService $service) => (float) $service->price);
 
-        $reservation = DB::transaction(function () use ($tenant, $boardingHouse, $data, $notes, $selectedRoom, $price) {
+        $reservation = DB::transaction(function () use ($tenant, $boardingHouse, $data, $notes, $selectedRoom, $price, $selectedServices, $servicesTotal) {
             if ($selectedRoom) {
                 $selectedRoom->refresh();
                 $this->reservationLifecycleService->holdSelectedRoom($selectedRoom);
@@ -103,13 +130,27 @@ class ReservationController extends Controller
                 'emergency_contact_number' => $data['emergency_contact_number']
                     ?? $tenant->tenantProfile?->emergency_contact_number
                     ?? $tenant->emergency_contact,
-                'total_amount' => $price ?? 0,
+                'total_amount' => (float) ($price ?? 0) + $servicesTotal,
                 'payment_status' => Schema::hasColumn('reservations', 'payment_status') ? 'unpaid' : null,
                 'terms_accepted_at' => Schema::hasColumn('reservations', 'terms_accepted_at') ? now() : null,
                 'expires_at' => Schema::hasColumn('reservations', 'expires_at') ? now()->addHours(48) : null,
                 'notes' => $notes,
                 'status' => 'pending',
+                'booking_type' => 'reservation',
+                'priority_rank' => 2,
             ]);
+
+            foreach ($selectedServices as $service) {
+                ReservationService::create([
+                    'reservation_id' => $reservation->id,
+                    'boarding_house_service_id' => $service->id,
+                    'quantity' => 1,
+                    'unit_price' => $service->price,
+                    'total_price' => $service->price,
+                ]);
+            }
+
+            $this->createBooking($reservation, $tenant->id, $boardingHouse->id, $selectedRoom?->id);
 
             $this->reservationLifecycleService->notifyReservationSubmitted($reservation->loadMissing('boardingHouse'));
 
@@ -119,5 +160,33 @@ class ReservationController extends Controller
         return redirect()
             ->route('user.reservations.index')
             ->with('success', 'Reservation request submitted.');
+    }
+
+    private function createBooking(Reservation $reservation, int $userId, int $boardingHouseId, ?int $roomId): void
+    {
+        if (! Schema::hasTable('bookings')) {
+            return;
+        }
+
+        $columns = [
+            'user_id' => $userId,
+            'boarding_house_id' => $boardingHouseId,
+            'room_id' => $roomId,
+            'reservation_id' => $reservation->id,
+            'booking_type' => 'reservation',
+            'status' => 'Pending',
+            'payment_status' => 'unpaid',
+            'total_amount' => $reservation->total_amount ?? 0,
+            'start_date' => $reservation->check_in_date?->toDateString(),
+            'end_date' => $reservation->check_out_date?->toDateString(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+
+        $columns = collect($columns)
+            ->filter(fn ($value, $column) => Schema::hasColumn('bookings', $column))
+            ->all();
+
+        DB::table('bookings')->insert($columns);
     }
 }

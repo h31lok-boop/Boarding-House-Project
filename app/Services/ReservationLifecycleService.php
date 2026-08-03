@@ -114,6 +114,9 @@ class ReservationLifecycleService
 
     public function holdSelectedRoom(Room $room): void
     {
+        $room = Room::query()->lockForUpdate()->find($room->id);
+        abort_if(! $room, 422, 'Selected room is no longer available.');
+
         $blockedStatuses = ['occupied', 'maintenance'];
         $currentStatus = strtolower((string) ($room->status ?? 'available'));
         $availableSlots = (int) ($room->available_slots ?? ($room->capacity ?? 1));

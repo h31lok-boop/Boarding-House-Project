@@ -155,6 +155,11 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasOne(\App\Models\TenantProfile::class);
     }
 
+    public function ownerProfile()
+    {
+        return $this->hasOne(\App\Models\OwnerProfile::class);
+    }
+
     public function tenantMatchProfile()
     {
         return $this->hasOne(\App\Models\TenantMatchProfile::class);

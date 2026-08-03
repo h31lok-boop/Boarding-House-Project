@@ -400,7 +400,6 @@
                                 <th class="px-5 py-3.5">Assignment</th>
                                 <th class="px-5 py-3.5">Profile Snapshot</th>
                                 <th class="px-5 py-3.5">Status</th>
-                                <th class="w-[156px] px-5 py-3.5 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
@@ -467,9 +466,17 @@
                                         'reservations' => $reservationRows,
                                         'payments' => $paymentRows,
                                         'update_url' => $route('tenant-profiles.update', $tenant),
+                                        'delete_url' => $isOwnerWorkspace ? null : route('admin.users.destroy', $tenant),
                                     ];
                                 @endphp
-                                <tr class="align-top transition hover:bg-slate-50/80">
+                                <tr
+                                    class="cursor-pointer align-top transition hover:bg-blue-50/40 focus:outline-none focus-visible:bg-blue-50/60"
+                                    role="button"
+                                    tabindex="0"
+                                    @click="openView({{ \Illuminate\Support\Js::from($payload) }})"
+                                    @keydown.enter.prevent="openView({{ \Illuminate\Support\Js::from($payload) }})"
+                                    @keydown.space.prevent="openView({{ \Illuminate\Support\Js::from($payload) }})"
+                                >
                                     <td class="px-5 py-4">
                                         <div class="flex items-start gap-3">
                                             <div class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 text-sm font-bold text-blue-700">
@@ -522,8 +529,8 @@
                                             <p class="text-[11px] text-slate-400">Updated {{ $formatRelativeDate($tenant->updated_at ?: $tenant->created_at) }}</p>
                                         </div>
                                     </td>
-                                    <td class="w-[156px] px-5 py-4 align-middle">
-                                        <div class="flex items-center justify-center gap-3 whitespace-nowrap">
+                                    <td class="hidden">
+                                        <div class="hidden" aria-hidden="true">
                                             <button
                                                 type="button"
                                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
@@ -568,7 +575,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="5" class="px-6 py-16">
+                                    <td colspan="4" class="px-6 py-16">
                                         <div class="mx-auto max-w-md text-center">
                                             <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
                                                 @include('components.sidebar.partials.admin-icon', ['name' => 'tenants'])
@@ -634,6 +641,7 @@
 
     </div>
 
+    <template x-teleport="body">
     <div
         data-modal-root
         role="dialog"
@@ -737,12 +745,24 @@
                     </template>
                 </div>
             </div>
-            <div class="bm-modal__footer">
+            <div class="bm-modal__footer items-center justify-between">
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" @click="openEdit(selected); viewOpen = false" class="bm-modal__button bm-modal__button--primary">Edit</button>
+                    @unless ($isOwnerWorkspace)
+                    <form method="POST" :action="selected.delete_url" onsubmit="return confirm('Delete this tenant account? This action cannot be undone.');">
+                        @csrf
+                        @method('DELETE')
+                        <button class="inline-flex h-9 items-center justify-center rounded-xl bg-rose-600 px-4 text-sm font-bold text-white shadow-sm shadow-rose-600/20 transition hover:bg-rose-700">Delete</button>
+                    </form>
+                    @endunless
+                </div>
                 <button type="button" @click="viewOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
             </div>
         </div>
     </div>
+    </template>
 
+    <template x-teleport="body">
     <div
         data-modal-root
         role="dialog"
@@ -797,8 +817,10 @@
             </div>
         </form>
     </div>
+    </template>
 
     @unless ($isOwnerWorkspace)
+    <template x-teleport="body">
     <div
         data-modal-root
         role="dialog"
@@ -850,6 +872,7 @@
             </div>
         </form>
     </div>
+    </template>
     @endunless
 </div>
 </x-admin.shell>

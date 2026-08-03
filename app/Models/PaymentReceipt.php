@@ -22,6 +22,8 @@ class PaymentReceipt extends Model
         'amount',
         'reference_number',
         'transaction_id',
+        'payment_id',
+        'receipt_number',
         'payment_date',
         'receipt_path',
         'original_filename',
@@ -54,6 +56,11 @@ class PaymentReceipt extends Model
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function payment(): BelongsTo
+    {
+        return $this->belongsTo(Payment::class);
     }
 
     public function getReceiptUrlAttribute(): ?string
