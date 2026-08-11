@@ -2,13 +2,13 @@
 
 @php
     $tones = [
-        'emerald' => ['icon' => 'bg-emerald-50 text-emerald-700', 'line' => '#059669', 'wash' => 'from-emerald-50/70'],
-        'blue' => ['icon' => 'bg-blue-50 text-blue-700', 'line' => '#2563eb', 'wash' => 'from-blue-50/70'],
-        'cyan' => ['icon' => 'bg-cyan-50 text-cyan-700', 'line' => '#0891b2', 'wash' => 'from-cyan-50/70'],
-        'indigo' => ['icon' => 'bg-indigo-50 text-indigo-700', 'line' => '#4f46e5', 'wash' => 'from-indigo-50/70'],
-        'amber' => ['icon' => 'bg-amber-50 text-amber-700', 'line' => '#d97706', 'wash' => 'from-amber-50/70'],
-        'rose' => ['icon' => 'bg-rose-50 text-rose-700', 'line' => '#e11d48', 'wash' => 'from-rose-50/70'],
-        'slate' => ['icon' => 'bg-slate-100 text-slate-600', 'line' => '#64748b', 'wash' => 'from-slate-50'],
+        'emerald' => ['icon' => 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300', 'line' => '#059669', 'wash' => 'from-emerald-50/70'],
+        'blue' => ['icon' => 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300', 'line' => '#2563eb', 'wash' => 'from-blue-50/70'],
+        'cyan' => ['icon' => 'bg-cyan-50 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-300', 'line' => '#0891b2', 'wash' => 'from-cyan-50/70'],
+        'indigo' => ['icon' => 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300', 'line' => '#4f46e5', 'wash' => 'from-indigo-50/70'],
+        'amber' => ['icon' => 'bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300', 'line' => '#d97706', 'wash' => 'from-amber-50/70'],
+        'rose' => ['icon' => 'bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300', 'line' => '#e11d48', 'wash' => 'from-rose-50/70'],
+        'slate' => ['icon' => 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300', 'line' => '#64748b', 'wash' => 'from-slate-50'],
     ];
     $tone = $tones[$metric['tone'] ?? 'slate'];
     $values = collect($metric['sparkline'] ?? [])->map(fn ($value) => (float) $value)->values();
@@ -22,7 +22,7 @@
     href="{{ $metric['href'] }}"
     title="{{ $metric['tooltip'] }}"
     aria-label="{{ $metric['label'] }}: {{ $metric['value'] }}. {{ $metric['meta'] }}"
-    class="group relative min-h-[8.25rem] overflow-hidden rounded-[1.15rem] border border-slate-200/80 bg-gradient-to-br {{ $tone['wash'] }} via-white to-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.045)] transition duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_15px_32px_rgba(15,23,42,0.08)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+    class="group relative min-h-[8.25rem] overflow-hidden rounded-[1.15rem] border border-slate-200/80 bg-gradient-to-br {{ $tone['wash'] }} via-white to-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.045)] transition duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_15px_32px_rgba(15,23,42,0.08)] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 dark:shadow-slate-950/30 dark:hover:border-slate-600"
 >
     <div class="flex items-start justify-between gap-3">
         <span class="flex h-8 w-8 items-center justify-center rounded-xl {{ $tone['icon'] }}">

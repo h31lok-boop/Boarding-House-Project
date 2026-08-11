@@ -2,7 +2,7 @@
 
 use App\Models\User;
 
-test('admin boarding houses page renders the streamlined owner listings layout', function () {
+test('admin boarding houses page keeps review controls and the professional property editor', function () {
     $admin = User::factory()->create([
         'role' => 'admin',
         'is_active' => true,
@@ -12,16 +12,16 @@ test('admin boarding houses page renders the streamlined owner listings layout',
     $this->actingAs($admin)
         ->get(route('admin.boarding-houses'))
         ->assertOk()
-        ->assertSee('Property Management')
         ->assertSee('Boarding Houses')
-        ->assertSee('Review property details, room inventory, and listing status in a cleaner owner workspace.')
         ->assertSee('Add Boarding House')
         ->assertSee('Listings')
         ->assertSee('Apply')
-        ->assertSee('Boarding Houses')
-        ->assertDontSee('Total Rooms')
-        ->assertDontSee('Occupied Rooms')
-        ->assertDontSee('Occupancy Rate')
+        ->assertSee('Boarding House Details')
+        ->assertSee('data-property-photo-workspace', false)
+        ->assertSee('data-property-photo-carousel', false)
+        ->assertSee('data-property-location-map', false)
+        ->assertSee('Add property photos')
+        ->assertDontSee('data-owner-direct-editor', false)
         ->assertDontSee('Registered properties in your portfolio')
         ->assertDontSee('Owner portal')
         ->assertDontSee('Portfolio Listings')

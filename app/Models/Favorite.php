@@ -18,6 +18,11 @@ class Favorite extends Model
         'notes',
     ];
 
+    protected $casts = [
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+    ];
+
     public function user()
     {
         return $this->belongsTo(User::class);

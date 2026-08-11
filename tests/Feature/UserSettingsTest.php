@@ -24,8 +24,9 @@ test('user can view the profile settings page', function () {
         ->get(route('user.settings.index'))
         ->assertOk()
         ->assertSee('Profile Settings')
-        ->assertSee('Save Personal Info')
-        ->assertSee('Save Contact Info');
+        ->assertSee('Personal Information')
+        ->assertSee('Contact Information')
+        ->assertSee('Save Changes');
 });
 
 test('user can update personal information and profile photo', function () {
@@ -38,7 +39,7 @@ test('user can update personal information and profile photo', function () {
         'last_name' => 'Reyes',
         'date_of_birth' => '2001-02-03',
         'gender' => 'Female',
-        'profile_photo' => UploadedFile::fake()->image('avatar.jpg')->size(512),
+        'profile_photo' => testImageUpload('avatar.png'),
     ]);
 
     $response

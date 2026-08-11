@@ -300,7 +300,7 @@
     @endonce
 
     <div x-data="ownerSupportDashboard({ faqs: @js($faqItems) })" class="space-y-3 text-slate-950">
-        <section class="overflow-hidden rounded-[1.4rem] border border-slate-200 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_34%),linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] shadow-[0_18px_38px_rgba(15,23,42,0.06)]">
+        <section class="overflow-hidden rounded-[1.4rem] border border-slate-200 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_34%),linear-gradient(180deg,#ffffff_0%,#f8fbff_100%)] shadow-[0_18px_38px_rgba(15,23,42,0.06)] dark:bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.16),transparent_34%),linear-gradient(180deg,#0f172a_0%,#111c30_100%)]">
             <div class="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] xl:px-5 xl:py-5">
                 <div class="min-w-0">
                     <div class="inline-flex items-center gap-3 rounded-2xl border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-100/40">

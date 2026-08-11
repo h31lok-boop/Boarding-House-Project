@@ -54,12 +54,9 @@
                             <button type="submit" class="sr-only">Apply dashboard filters</button>
                         </form>
 
-                        <a href="{{ route('owner.notifications.index') }}" class="relative inline-flex h-11 w-11 items-center justify-center self-end rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2" aria-label="Open notifications, {{ $notificationsCount }} unread">
-                            <x-owner.dashboard.icon name="notification" class="h-5 w-5" />
-                            @if ($notificationsCount > 0)
-                                <span class="absolute -right-1.5 -top-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-rose-600 px-1.5 py-1 text-[9px] font-black leading-none text-white">{{ $notificationsCount > 99 ? '99+' : $notificationsCount }}</span>
-                            @endif
-                        </a>
+                        <span class="self-end">
+                            <x-header-notification-link :href="route('owner.notifications.index')" :count="$notificationsCount" size="lg" />
+                        </span>
                     </div>
                 </div>
             </header>

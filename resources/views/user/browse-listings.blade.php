@@ -51,17 +51,42 @@
             (int) ($house->available_rooms_count ?? 0),
             (int) ($house->room_categories_available_rooms_sum ?? 0),
         );
-        $image = $house->cover_image_url ?? null;
+        $photoUrls = collect($house->gallery_image_urls ?? [])
+            ->filter()
+            ->reject($isPlaceholderImage)
+            ->unique()
+            ->values();
+        if ($photoUrls->isEmpty()) {
+            $photoUrls = collect([$fallbackPhotos[$index % count($fallbackPhotos)]]);
+        }
+        $image = $photoUrls->first();
         $distance = $house->dssc_distance_km ?? $house->distance_from_dssc ?? null;
         $distanceLabel = $house->dssc_distance_label
             ?? ($distance !== null
                 ? ((float) $distance < 1 ? number_format((float) $distance * 1000).'m from DSSC Main Campus' : number_format((float) $distance, 1).' km from DSSC Main Campus')
                 : 'Near Digos City');
 
+        $address = $house->full_address ?: ($house->address ?: ($house->display_barangay ?: 'Digos City'));
+        $latitude = is_numeric($house->latitude) ? (float) $house->latitude : null;
+        $longitude = is_numeric($house->longitude) ? (float) $house->longitude : null;
+        $hasCoordinates = $latitude !== null && $longitude !== null;
+        $mapUrl = $hasCoordinates
+            ? 'https://www.openstreetmap.org/?mlat='.rawurlencode((string) $latitude).'&mlon='.rawurlencode((string) $longitude).'#map=17/'.rawurlencode((string) $latitude).'/'.rawurlencode((string) $longitude)
+            : 'https://www.openstreetmap.org/search?query='.rawurlencode($address);
+        $mapEmbedUrl = $hasCoordinates
+            ? 'https://www.openstreetmap.org/export/embed.html?'.http_build_query([
+                'bbox' => implode(',', [$longitude - 0.003, $latitude - 0.002, $longitude + 0.003, $latitude + 0.002]),
+                'layer' => 'mapnik',
+                'marker' => $latitude.','.$longitude,
+            ], '', '&', PHP_QUERY_RFC3986)
+            : null;
+
         return [
             'id' => (int) $house->id,
             'name' => $house->name,
-            'image' => $isPlaceholderImage($image) ? $fallbackPhotos[$index % count($fallbackPhotos)] : $image,
+            'image' => $image,
+            'photos' => $photoUrls->all(),
+            'photo_count' => $photoUrls->count(),
             'price_label' => $price !== null ? '&#8369;'.number_format((float) $price) : 'Ask owner',
             'has_price' => $price !== null,
             'room' => $house->roomCategories->first()?->name ?: $propertyTypeLabel($house->property_type),
@@ -71,7 +96,12 @@
             'distance_label' => $distanceLabel,
             'availability_label' => $availableRooms <= 2 && $availableRooms > 0 ? $availableRooms.' Rooms Left' : 'Available Now',
             'availability_tone' => $availableRooms <= 2 && $availableRooms > 0 ? 'orange' : 'green',
-            'address' => $house->full_address ?: ($house->address ?: ($house->display_barangay ?: 'Digos City')),
+            'address' => $address,
+            'latitude' => $latitude,
+            'longitude' => $longitude,
+            'has_coordinates' => $hasCoordinates,
+            'map_embed_url' => $mapEmbedUrl,
+            'map_url' => $mapUrl,
             'description' => $house->description,
             'house_rules' => $house->house_rules,
             'amenities' => $house->amenities->pluck('name')->values(),
@@ -111,6 +141,11 @@
     ];
 
     $budgetMax = (int) ($preferenceSummary['preferred_rental_budget'] ?? request('max_price', 3500));
+    $dsscMapUrl = 'https://www.openstreetmap.org/?mlat='.
+        rawurlencode((string) ($dsscLandmark['latitude'] ?? config('dssc.latitude'))).
+        '&mlon='.rawurlencode((string) ($dsscLandmark['longitude'] ?? config('dssc.longitude'))).
+        '#map=14/'.rawurlencode((string) ($dsscLandmark['latitude'] ?? config('dssc.latitude'))).
+        '/'.rawurlencode((string) ($dsscLandmark['longitude'] ?? config('dssc.longitude')));
     $browseTabs = [
         ['key' => 'recommended', 'label' => 'Recommended for You', 'href' => route('user.boarding-houses.index', ['tab' => 'recommended'])],
         ['key' => 'near', 'label' => 'Near DSSC', 'href' => route('user.boarding-houses.index', ['tab' => 'near', 'dssc_area' => 'near', 'dssc_radius' => 1, 'available_only' => 1, 'sort' => 'distance_dssc'])],
@@ -278,6 +313,15 @@
 
     </div>
 
+    @if (collect($mapHouses ?? [])->isNotEmpty())
+        <x-user.browse-map-panel
+            :dssc-landmark="$dsscLandmark"
+            :map-houses="$mapHouses"
+            :map-url="$dsscMapUrl"
+            :show-match-scores="$showMatchScores"
+        />
+    @endif
+
     @if ($showNoDsscState)
         <section class="rounded-xl border border-dashed border-blue-200 bg-white p-8 text-center shadow-sm dark:border-blue-400/20 dark:bg-slate-900">
             <h2 class="text-lg font-bold text-slate-950 dark:text-white">No boarding houses near DSSC found yet</h2>
@@ -341,8 +385,8 @@
         </section>
     @endif
     <template x-teleport="body">
-        <div data-modal-root role="dialog" aria-modal="true" x-show="detailOpen" x-cloak x-transition.opacity @keydown.escape.window="detailOpen = false" @click.self="detailOpen = false" class="bm-modal-overlay">
-            <div class="bm-modal bm-modal--lg">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="detailOpen" x-cloak x-transition.opacity @keydown.escape.window="detailOpen = false" @keydown.left.window="if (detailOpen) previousPhoto()" @keydown.right.window="if (detailOpen) nextPhoto()" @click.self="detailOpen = false" class="bm-modal-overlay">
+            <div class="bm-modal bm-modal--xl">
                 <div class="bm-modal__header">
                     <div class="min-w-0">
                         <p class="bm-modal__eyebrow">Boarding House</p>
@@ -352,13 +396,85 @@
                     <button type="button" @click="detailOpen = false" class="bm-modal__close" aria-label="Close boarding house details modal">×</button>
                 </div>
                 <div class="bm-modal__body">
-                    <div class="grid gap-5 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-                        <img :src="selectedListing.image" :alt="selectedListing.name" class="h-52 w-full rounded-2xl object-cover" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}';">
+                    <div class="grid gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(21rem,0.85fr)]">
+                        <section data-renter-quick-photo-carousel class="relative min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                            <img :src="currentPhoto()" alt="Property photo" class="h-[300px] w-full object-cover sm:h-[390px]" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}';">
+
+                            <button
+                                type="button"
+                                x-show="photoCount() > 1"
+                                @click.stop="previousPhoto()"
+                                class="absolute left-3 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/25 bg-slate-950/70 text-white shadow-xl backdrop-blur transition hover:scale-105 hover:bg-slate-950"
+                                aria-label="Previous property photo"
+                                title="Previous photo"
+                            >
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 18-6-6 6-6"/></svg>
+                            </button>
+                            <button
+                                type="button"
+                                x-show="photoCount() > 1"
+                                @click.stop="nextPhoto()"
+                                class="absolute right-3 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/25 bg-slate-950/70 text-white shadow-xl backdrop-blur transition hover:scale-105 hover:bg-slate-950"
+                                aria-label="Next property photo"
+                                title="Next photo"
+                            >
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 18 6-6-6-6"/></svg>
+                            </button>
+
+                            <div class="absolute inset-x-0 bottom-0 flex items-end justify-center bg-gradient-to-t from-slate-950/75 via-slate-950/20 to-transparent px-4 pb-4 pt-16">
+                                <span class="rounded-full bg-slate-950/70 px-3 py-1.5 text-xs font-bold text-white backdrop-blur">
+                                    <span x-text="photoIndex + 1"></span> / <span x-text="photoCount()"></span>
+                                </span>
+                            </div>
+                        </section>
+
                         <div class="space-y-4">
-                            <div>
-                                <p class="text-sm font-bold text-slate-950 dark:text-white" x-text="selectedListing.address"></p>
+                            <div class="rounded-2xl border border-slate-200 bg-slate-50/70 p-3.5 dark:border-slate-700 dark:bg-slate-800/60">
+                                <p class="text-[10px] font-bold uppercase tracking-[0.14em] text-blue-600 dark:text-blue-300">Property location</p>
+                                <p class="mt-1.5 text-sm font-bold leading-5 text-slate-950 dark:text-white" x-text="selectedListing.address"></p>
                                 <p class="mt-1 text-xs text-slate-500 dark:text-slate-400" x-text="selectedListing.distance_label"></p>
                             </div>
+
+                            <section data-renter-quick-location-map class="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900">
+                                <div class="flex items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
+                                    <p class="text-xs font-bold text-slate-700 dark:text-slate-200">Map preview</p>
+                                    <div class="flex items-center gap-1.5">
+                                        <div x-show="selectedListing.has_coordinates && !mapMinimized" class="flex items-center overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+                                            <button type="button" @click="zoomMapOut()" :disabled="mapZoom <= 12" class="grid h-7 w-8 place-items-center bg-white text-base font-bold text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800" aria-label="Zoom out map" title="Zoom out">−</button>
+                                            <span class="h-7 w-px bg-slate-200 dark:bg-slate-700"></span>
+                                            <button type="button" @click="zoomMapIn()" :disabled="mapZoom >= 19" class="grid h-7 w-8 place-items-center bg-white text-base font-bold text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800" aria-label="Zoom in map" title="Zoom in">+</button>
+                                        </div>
+                                        <button type="button" @click="mapMinimized = !mapMinimized" class="inline-flex h-7 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-bold text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800" :aria-expanded="String(!mapMinimized)">
+                                            <span x-text="mapMinimized ? 'Show map' : 'Minimize map'"></span>
+                                            <svg class="h-3.5 w-3.5 transition-transform" :class="mapMinimized ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 15 6-6 6 6"/></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div x-show="!mapMinimized" x-transition.opacity>
+                                    <template x-if="selectedListing.has_coordinates && selectedListing.map_embed_url">
+                                        <iframe
+                                            :src="quickMapEmbedUrl()"
+                                            title="Boarding house location map"
+                                            class="relative z-10 h-44 w-full border-0 pointer-events-auto sm:h-48"
+                                            loading="lazy"
+                                            referrerpolicy="no-referrer-when-downgrade"
+                                        ></iframe>
+                                    </template>
+                                    <template x-if="!selectedListing.has_coordinates">
+                                        <div class="flex h-44 flex-col items-center justify-center px-5 text-center sm:h-48">
+                                            <span class="grid h-10 w-10 place-items-center rounded-full bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+                                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/></svg>
+                                            </span>
+                                            <p class="mt-2 text-xs font-semibold text-slate-600 dark:text-slate-300">The owner has not pinned this property on the map yet.</p>
+                                        </div>
+                                    </template>
+                                    <a :href="selectedListing.map_url" target="_blank" rel="noopener noreferrer" class="flex h-10 items-center justify-center gap-2 border-t border-slate-200 bg-white text-xs font-bold text-blue-600 transition hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-950 dark:text-blue-300 dark:hover:bg-slate-800">
+                                        Open larger map
+                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13.5 4.5H19.5V10.5M19 5 11 13M19.5 13.5V18A1.5 1.5 0 0 1 18 19.5H6A1.5 1.5 0 0 1 4.5 18V6A1.5 1.5 0 0 1 6 4.5H10.5"/></svg>
+                                    </a>
+                                </div>
+                            </section>
+
                             <div class="grid grid-cols-2 gap-2">
                                 <div class="rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-800/60">
                                     <p class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Monthly rate</p>
@@ -401,6 +517,9 @@
             saved: [],
             filtering: false,
             selectedListing: {},
+            photoIndex: 0,
+            mapMinimized: false,
+            mapZoom: 17,
             detailOpen: false,
             init() {
                 // Reset the loading state when returning via browser back/forward cache.
@@ -418,7 +537,65 @@
             },
             openListing(listing) {
                 this.selectedListing = listing || {};
+                this.photoIndex = 0;
+                this.mapMinimized = false;
+                this.mapZoom = 17;
                 this.detailOpen = true;
+            },
+            selectedPhotos() {
+                const photos = Array.isArray(this.selectedListing.photos)
+                    ? this.selectedListing.photos.filter(Boolean)
+                    : [];
+
+                return photos.length > 0
+                    ? photos
+                    : [this.selectedListing.image || @js(asset('images/boarding-house-placeholder.svg'))];
+            },
+            photoCount() {
+                return this.selectedPhotos().length;
+            },
+            currentPhoto() {
+                const photos = this.selectedPhotos();
+                this.photoIndex = Math.min(Math.max(this.photoIndex, 0), photos.length - 1);
+
+                return photos[this.photoIndex];
+            },
+            previousPhoto() {
+                const count = this.photoCount();
+                this.photoIndex = count > 1 ? (this.photoIndex - 1 + count) % count : 0;
+            },
+            nextPhoto() {
+                const count = this.photoCount();
+                this.photoIndex = count > 1 ? (this.photoIndex + 1) % count : 0;
+            },
+            quickMapEmbedUrl() {
+                const latitude = Number(this.selectedListing.latitude);
+                const longitude = Number(this.selectedListing.longitude);
+
+                if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+                    return this.selectedListing.map_embed_url || 'about:blank';
+                }
+
+                const horizontalSpan = 0.003 * (2 ** (17 - this.mapZoom));
+                const verticalSpan = horizontalSpan * 0.67;
+                const parameters = new URLSearchParams({
+                    bbox: [
+                        longitude - horizontalSpan,
+                        latitude - verticalSpan,
+                        longitude + horizontalSpan,
+                        latitude + verticalSpan,
+                    ].join(','),
+                    layer: 'mapnik',
+                    marker: `${latitude},${longitude}`,
+                });
+
+                return `https://www.openstreetmap.org/export/embed.html?${parameters.toString()}`;
+            },
+            zoomMapOut() {
+                this.mapZoom = Math.max(12, this.mapZoom - 1);
+            },
+            zoomMapIn() {
+                this.mapZoom = Math.min(19, this.mapZoom + 1);
             },
         };
     }

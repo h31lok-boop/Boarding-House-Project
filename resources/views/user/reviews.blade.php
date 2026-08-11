@@ -46,6 +46,9 @@
 .pg-btn.arrow{color:#9ca3af;border:none;background:transparent;}
 .pg-btn.arrow:hover{color:#1d4ed8;}
 .pg-btn.ellipsis{border:none;background:transparent;cursor:default;}
+[data-theme='dark'] .pg-btn{background:#0f172a;border-color:#334155;color:#cbd5e1;}
+[data-theme='dark'] .pg-btn:hover,[data-theme='dark'] .pg-btn.active{border-color:#60a5fa;color:#93c5fd;}
+[data-theme='dark'] .pg-btn.arrow,[data-theme='dark'] .pg-btn.ellipsis{background:transparent;}
 </style>
 
 <div x-data="{ addOpen: false, viewOpen: false, editOpen: false, selected: {} }" class="space-y-5">

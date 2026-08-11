@@ -19,8 +19,7 @@ class BoardingHouseController extends Controller
 {
     public function __construct(
         private readonly LocationService $locationService,
-    )
-    {
+    ) {
         // Access is enforced per-route (owner middleware) and per-record (BoardingHousePolicy).
         $this->middleware('auth');
     }
@@ -32,6 +31,15 @@ class BoardingHouseController extends Controller
     private function routeNs(Request $request): string
     {
         return $request->routeIs('owner.*') ? 'owner' : 'admin';
+    }
+
+    private function listingRedirectRoute(string $namespace, bool $singlePropertyView): string
+    {
+        if ($singlePropertyView) {
+            return $namespace.'.my-boarding-house';
+        }
+
+        return $namespace === 'owner' ? 'owner.boarding-houses' : 'admin.listings';
     }
 
     public function index()
@@ -48,9 +56,7 @@ class BoardingHouseController extends Controller
     {
         $requiresDetails = $request->wantsJson();
         $ns = $this->routeNs($request);
-        $redirectRoute = $request->boolean('return_to_my_boarding_house')
-            ? $ns.'.my-boarding-house'
-            : $ns.'.listings';
+        $redirectRoute = $this->listingRedirectRoute($ns, $request->boolean('return_to_my_boarding_house'));
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -186,9 +192,7 @@ class BoardingHouseController extends Controller
 
         $requiresDetails = $request->wantsJson();
         $ns = $this->routeNs($request);
-        $redirectRoute = $request->boolean('return_to_my_boarding_house')
-            ? $ns.'.my-boarding-house'
-            : $ns.'.listings';
+        $redirectRoute = $this->listingRedirectRoute($ns, $request->boolean('return_to_my_boarding_house'));
 
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -386,9 +390,7 @@ class BoardingHouseController extends Controller
         $this->authorize('delete', $boarding_house);
 
         $ns = $this->routeNs($request);
-        $redirectRoute = $request->boolean('return_to_my_boarding_house')
-            ? $ns.'.my-boarding-house'
-            : $ns.'.listings';
+        $redirectRoute = $this->listingRedirectRoute($ns, $request->boolean('return_to_my_boarding_house'));
 
         $activeTenants = $boarding_house->tenants()
             ->whereIn('status', ['active', 'occupied'])
@@ -435,6 +437,85 @@ class BoardingHouseController extends Controller
         ]);
 
         return redirect()->route($redirectRoute)->with('success', 'Boarding house deleted.');
+    }
+
+    public function storePhotos(Request $request, BoardingHouse $boarding_house)
+    {
+        $this->authorize('update', $boarding_house);
+
+        $request->validate([
+            'photos' => ['required', 'array', 'min:1', 'max:10'],
+            'photos.*' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ]);
+
+        $boarding_house->load('images');
+        $files = array_values($request->file('photos', []));
+        if ($boarding_house->images->count() + count($files) > 10) {
+            throw ValidationException::withMessages([
+                'photos' => 'A boarding house may have up to 10 photos. Remove an existing photo before uploading more.',
+            ]);
+        }
+
+        $uploadedPaths = [];
+
+        try {
+            DB::transaction(function () use ($boarding_house, $files, &$uploadedPaths) {
+                $this->storeNewImages(
+                    $boarding_house,
+                    $files,
+                    '',
+                    $uploadedPaths,
+                    $boarding_house->images->isEmpty(),
+                );
+            });
+        } catch (Throwable $exception) {
+            Storage::disk('public')->delete($uploadedPaths);
+            throw $exception;
+        }
+
+        return back()->with('success', count($files).' '.Str::plural('photo', count($files)).' uploaded successfully.');
+    }
+
+    public function setCoverPhoto(Request $request, BoardingHouse $boarding_house, BoardingHouseImage $image)
+    {
+        $this->authorize('update', $boarding_house);
+        abort_unless((int) $image->boarding_house_id === (int) $boarding_house->id, 404);
+
+        DB::transaction(function () use ($boarding_house, $image) {
+            $boarding_house->images()->update(['is_primary' => false]);
+            $image->forceFill(['is_primary' => true])->save();
+            $this->syncFeaturedImage($boarding_house, $image->image_path);
+        });
+
+        return back()->with('success', 'Cover photo updated. Tenants will now see it first.');
+    }
+
+    public function destroyPhoto(Request $request, BoardingHouse $boarding_house, BoardingHouseImage $image)
+    {
+        $this->authorize('update', $boarding_house);
+        abort_unless((int) $image->boarding_house_id === (int) $boarding_house->id, 404);
+
+        $path = $image->image_path;
+        $wasCover = (bool) $image->is_primary;
+
+        DB::transaction(function () use ($boarding_house, $image, $path, $wasCover) {
+            $image->delete();
+            $this->clearLegacyImageReferences($boarding_house, [$path]);
+
+            if ($wasCover) {
+                $nextCover = $boarding_house->images()->orderBy('sort_order')->orderBy('id')->first();
+                if ($nextCover) {
+                    $nextCover->forceFill(['is_primary' => true])->save();
+                    $this->syncFeaturedImage($boarding_house, $nextCover->image_path);
+                }
+            }
+        });
+
+        if (! $this->imagePathIsReferenced($path)) {
+            Storage::disk('public')->delete($path);
+        }
+
+        return back()->with('success', 'Property photo removed.');
     }
 
     private function sanitizeBoardingHouseInput(array $data): array
@@ -517,7 +598,7 @@ class BoardingHouseController extends Controller
             $cover = $newImages[$newCoverIndex] ?? null;
         }
 
-        $cover ??= $ordered->firstWhere('is_primary', true) ?? $ordered->first();
+        $cover ??= $ordered->first();
 
         $house->images()->update(['is_primary' => false]);
         if ($cover) {

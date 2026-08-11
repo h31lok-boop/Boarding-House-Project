@@ -233,7 +233,7 @@
             <div class="space-y-4">
                 {{-- Budget --}}
                 <section class="{{ $cardClass }}">
-                    <h2 class="{{ $sectionTitleClass }}">Budget</h2>
+                    <h2 class="{{ $sectionTitleClass }}">Budget Range</h2>
                     <p class="{{ $sectionHintClass }}">Monthly rent range in PHP.</p>
 
                     <div class="mt-4 grid gap-3.5 sm:grid-cols-2">
@@ -322,7 +322,7 @@
 
                 {{-- Distance --}}
                 <section class="{{ $cardClass }}">
-                    <h2 class="{{ $sectionTitleClass }}">Distance</h2>
+                    <h2 class="{{ $sectionTitleClass }}">Maximum Distance from DSSC</h2>
                     <p class="{{ $sectionHintClass }}">How far from DSSC you're willing to stay.</p>
 
                     <div class="mt-4">

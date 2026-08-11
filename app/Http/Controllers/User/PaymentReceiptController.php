@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\PaymentReceiptStoreRequest;
 use App\Models\Booking;
 use App\Models\PaymentReceipt;
 use App\Services\ReservationLifecycleService;
@@ -19,50 +18,11 @@ class PaymentReceiptController extends Controller
         private readonly ReservationLifecycleService $reservationLifecycleService,
     ) {}
 
-    public function store(PaymentReceiptStoreRequest $request)
+    public function store(Request $request)
     {
-        $this->reservationLifecycleService->expireStaleReservations();
-        $user = $request->user();
-        $relevantReservation = $this->reservationLifecycleService->relevantReservationForUser($user->id);
-
-        if ($relevantReservation && ! $this->reservationLifecycleService->canProcessPayment($relevantReservation)) {
-            return redirect()
-                ->route('user.reservations.index')
-                ->with('error', 'This reservation has already expired. Receipt uploads are no longer allowed.');
-        }
-
-        $file = $request->file('receipt');
-        $path = $file?->store('payment-receipts', 'public');
-        $bookingId = $request->input('booking_id') ?: $this->latestBookingIdFor($user->id);
-
-        $receipt = PaymentReceipt::create([
-            'user_id' => $user->id,
-            'booking_id' => $bookingId,
-            'payment_method' => $request->input('payment_method'),
-            'amount' => $request->input('amount'),
-            'reference_number' => $request->input('reference_number'),
-            'transaction_id' => $request->input('transaction_id'),
-            'payment_date' => $request->input('payment_date'),
-            'receipt_path' => $path,
-            'original_filename' => $file?->getClientOriginalName(),
-            'mime_type' => $file?->getMimeType(),
-            'file_size' => $file?->getSize(),
-            'notes' => $request->input('notes'),
-            'status' => PaymentReceipt::STATUS_PENDING_REVIEW,
-        ]);
-
-        $this->notifyAdmins($receipt);
-
-        if ($relevantReservation && Schema::hasColumn('reservations', 'payment_status')) {
-            $relevantReservation->forceFill([
-                'payment_status' => 'pending',
-                'notes' => trim(($relevantReservation->notes ? $relevantReservation->notes."\n" : '').'Deposit receipt submitted on '.now()->format('M d, Y h:i A').'.'),
-            ])->save();
-        }
-
         return redirect()
             ->route('user.payments.index')
-            ->with('success', 'Payment proof submitted successfully.');
+            ->with('error', 'Manual payment proof submissions are disabled. Please use PayMongo secure checkout.');
     }
 
     public function show(Request $request, PaymentReceipt $receipt)

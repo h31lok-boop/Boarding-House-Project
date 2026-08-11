@@ -259,7 +259,7 @@
                         type="button"
                         @click="openThread({{ \Illuminate\Support\Js::from($payload) }})"
                         class="block w-full border-b border-slate-100 px-4 py-3 text-left transition"
-                        :class="selected.id === {{ $thread->id }} ? 'bg-blue-50/90 shadow-[inset_3px_0_0_0_#2563eb]' : 'bg-white hover:bg-slate-50'"
+                        :class="selected.id === {{ $thread->id }} ? 'bg-blue-50/90 dark:bg-blue-500/15 shadow-[inset_3px_0_0_0_#2563eb]' : 'bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800'"
                     >
                         <span class="flex items-start gap-3">
                             <span class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold {{ $payload['avatar_tone'] }}">
@@ -474,7 +474,7 @@
                         </div>
                     </div>
 
-                    <div class="min-h-0 flex-1 space-y-4 overflow-y-auto bg-[linear-gradient(180deg,rgba(248,250,252,0.88),rgba(241,245,249,0.64))] px-4 py-4">
+                    <div class="min-h-0 flex-1 space-y-4 overflow-y-auto bg-[linear-gradient(180deg,rgba(248,250,252,0.88),rgba(241,245,249,0.64))] px-4 py-4 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(30,41,59,0.78))]">
                         <div class="flex items-center justify-between rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 text-[11px] text-slate-500 shadow-sm">
                             <span>Active Chat Panel</span>
                             <span class="font-medium text-slate-400">Live-style view with current inquiry history</span>

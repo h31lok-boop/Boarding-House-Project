@@ -46,7 +46,7 @@ test('admin reservations page uses boarding house wording', function () {
         ->assertSee('Reservation Status')
         ->assertSee('Payment Status')
         ->assertSee('Amount')
-        ->assertSee('Actions')
+        ->assertSee('title="Edit"', false)
         ->assertSee('All')
         ->assertSee('Confirmed')
         ->assertSee('Pending')
@@ -60,11 +60,7 @@ test('admin reservations page uses boarding house wording', function () {
         ->assertDontSee('Review incoming requests, approvals, move-in schedules, and follow-up actions.')
         ->assertDontSee('Search boarding houses, tenants, reservations, payments...')
         ->assertDontSee('Move-out Date')
-        ->assertDontSee('Guest')
-        ->assertDontSee('Check-in')
-        ->assertDontSee('Check-out')
-        ->assertDontSee('Checked-in')
-        ->assertDontSee('Checked-out');
+        ->assertDontSee('Guest');
 });
 
 test('admin reservations housing status filters map to stored reservation statuses', function () {

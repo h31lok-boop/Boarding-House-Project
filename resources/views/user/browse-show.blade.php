@@ -156,13 +156,10 @@
                 <h1 class="mt-1 text-2xl font-bold text-gray-900">{{ $house->name }}</h1>
             </div>
 
-            <section class="grid gap-3 lg:grid-cols-[1fr_180px]">
-                <div class="relative overflow-hidden rounded-xl border border-gray-200 bg-gray-100">
+            <section data-renter-photo-carousel class="relative overflow-hidden rounded-2xl border border-gray-200 bg-gray-100 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <div class="relative overflow-hidden">
                     <button type="button" id="galleryMainButton" class="absolute inset-0 z-10" aria-label="Open photo preview"></button>
-                    <img id="galleryMainImage" src="{{ $mainImage }}" alt="{{ $house->name }}" class="h-[260px] w-full object-cover sm:h-[360px]" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}'">
-                    <div class="absolute left-4 top-4 z-20 rounded-full bg-black/70 px-3 py-1 text-xs font-semibold text-white">
-                        {{ $galleryImages->count() }} {{ \Illuminate\Support\Str::plural('image', $galleryImages->count()) }}
-                    </div>
+                    <img id="galleryMainImage" src="{{ $mainImage }}" alt="Property photo" class="h-[320px] w-full object-cover sm:h-[460px] lg:h-[560px]" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}'">
                     <div class="absolute right-4 top-4 z-20 flex gap-2">
                         <form method="POST" action="{{ route('user.boarding-houses.favorite', $house) }}">
                             @csrf
@@ -174,19 +171,31 @@
                             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/><path stroke-linecap="round" stroke-linejoin="round" d="M16 6l-4-4-4 4"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 2v14"/></svg>
                         </button>
                     </div>
-                </div>
-                <div class="grid grid-cols-3 gap-3 lg:grid-cols-1">
-                    @foreach($galleryImages->take(5) as $imageUrl)
-                        <button type="button" class="gallery-thumbnail overflow-hidden rounded-lg border border-gray-200 bg-gray-100 transition hover:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500" data-gallery-src="{{ $imageUrl }}" aria-label="Show photo {{ $loop->iteration }}">
-                            <img src="{{ $imageUrl }}" alt="{{ $house->name }} thumbnail {{ $loop->iteration }}" class="h-24 w-full object-cover lg:h-[82px]" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}'">
+
+                    @if($galleryImages->count() > 1)
+                        <button type="button" id="galleryPrevious" class="absolute left-4 top-1/2 z-30 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/25 bg-slate-950/65 text-white shadow-xl backdrop-blur transition hover:scale-105 hover:bg-slate-950" aria-label="Previous property photo" title="Previous photo">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 18-6-6 6-6"/></svg>
                         </button>
-                    @endforeach
+                        <button type="button" id="galleryNext" class="absolute right-4 top-1/2 z-30 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/25 bg-slate-950/65 text-white shadow-xl backdrop-blur transition hover:scale-105 hover:bg-slate-950" aria-label="Next property photo" title="Next photo">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 18 6-6-6-6"/></svg>
+                        </button>
+                    @endif
+
+                    <div class="absolute inset-x-0 bottom-0 z-20 flex items-end justify-center bg-gradient-to-t from-slate-950/70 via-slate-950/20 to-transparent px-4 pb-4 pt-16">
+                        <div class="rounded-full bg-slate-950/65 px-3 py-1.5 text-xs font-bold text-white backdrop-blur">
+                            <span id="galleryCurrentPosition">1</span> / {{ $galleryImages->count() }}
+                        </div>
+                    </div>
                 </div>
             </section>
 
             <div id="galleryLightbox" class="fixed inset-0 z-[70] hidden items-center justify-center bg-slate-950/90 p-4" role="dialog" aria-modal="true" aria-label="Boarding house photo preview">
                 <button type="button" id="galleryLightboxClose" class="absolute right-5 top-5 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-2xl text-white hover:bg-white/20" aria-label="Close photo preview">&times;</button>
-                <img id="galleryLightboxImage" src="{{ $mainImage }}" alt="{{ $house->name }} enlarged photo" class="max-h-[88vh] max-w-[96vw] rounded-xl object-contain shadow-2xl">
+                @if($galleryImages->count() > 1)
+                    <button type="button" id="galleryLightboxPrevious" class="absolute left-4 top-1/2 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur transition hover:bg-white/20 sm:left-8" aria-label="Previous enlarged property photo"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 18-6-6 6-6"/></svg></button>
+                    <button type="button" id="galleryLightboxNext" class="absolute right-4 top-1/2 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-full border border-white/20 bg-white/10 text-white backdrop-blur transition hover:bg-white/20 sm:right-8" aria-label="Next enlarged property photo"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 18 6-6-6-6"/></svg></button>
+                @endif
+                <img id="galleryLightboxImage" src="{{ $mainImage }}" alt="Property photo" class="max-h-[88vh] max-w-[90vw] rounded-xl object-contain shadow-2xl" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}'">
             </div>
 
             <div class="grid gap-6 xl:grid-cols-[1fr_340px]">
@@ -319,7 +328,7 @@
                     <section class="bm-location-map ui-card overflow-hidden" data-boardmatch-location-map>
                         <script type="application/json" data-map-config>{!! json_encode($mapConfig, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
 
-                        <div class="border-b border-slate-100 bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.16),_transparent_42%),linear-gradient(135deg,_#eff6ff_0%,_#ffffff_42%,_#f8fafc_100%)] px-5 py-5 sm:px-6">
+                        <div class="border-b border-slate-100 bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.16),_transparent_42%),linear-gradient(135deg,_#eff6ff_0%,_#ffffff_42%,_#f8fafc_100%)] px-5 py-5 dark:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.18),_transparent_42%),linear-gradient(135deg,_#1e293b_0%,_#0f172a_42%,_#111827_100%)] sm:px-6">
                             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                                 <div class="flex items-start gap-3">
                                     <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-sm shadow-blue-600/25">
@@ -819,17 +828,27 @@
                 const lightbox = document.getElementById('galleryLightbox');
                 const lightboxImage = document.getElementById('galleryLightboxImage');
                 const lightboxClose = document.getElementById('galleryLightboxClose');
+                const previousButton = document.getElementById('galleryPrevious');
+                const nextButton = document.getElementById('galleryNext');
+                const lightboxPrevious = document.getElementById('galleryLightboxPrevious');
+                const lightboxNext = document.getElementById('galleryLightboxNext');
+                const positionLabel = document.getElementById('galleryCurrentPosition');
+                const galleryImages = @js($galleryImages->all());
+                let galleryIndex = 0;
 
-                document.querySelectorAll('.gallery-thumbnail').forEach((thumbnail) => {
-                    thumbnail.addEventListener('click', () => {
-                        const source = thumbnail.dataset.gallerySrc;
-                        if (!source || !mainImage) return;
-                        mainImage.src = source;
-                        mainImage.alt = thumbnail.querySelector('img')?.alt || @js($house->name);
-                        document.querySelectorAll('.gallery-thumbnail').forEach(item => item.classList.remove('border-blue-500', 'ring-2', 'ring-blue-100'));
-                        thumbnail.classList.add('border-blue-500', 'ring-2', 'ring-blue-100');
-                    });
-                });
+                const showGalleryPhoto = (index) => {
+                    if (!galleryImages.length) return;
+                    galleryIndex = (index + galleryImages.length) % galleryImages.length;
+                    const source = galleryImages[galleryIndex];
+                    if (mainImage) mainImage.src = source;
+                    if (lightboxImage) lightboxImage.src = source;
+                    if (positionLabel) positionLabel.textContent = String(galleryIndex + 1);
+                };
+
+                previousButton?.addEventListener('click', () => showGalleryPhoto(galleryIndex - 1));
+                nextButton?.addEventListener('click', () => showGalleryPhoto(galleryIndex + 1));
+                lightboxPrevious?.addEventListener('click', () => showGalleryPhoto(galleryIndex - 1));
+                lightboxNext?.addEventListener('click', () => showGalleryPhoto(galleryIndex + 1));
 
                 const closeLightbox = () => {
                     lightbox?.classList.add('hidden');
@@ -839,7 +858,7 @@
 
                 mainButton?.addEventListener('click', () => {
                     if (!lightbox || !lightboxImage || !mainImage) return;
-                    lightboxImage.src = mainImage.src;
+                    showGalleryPhoto(galleryIndex);
                     lightbox.classList.remove('hidden');
                     lightbox.classList.add('flex');
                     document.body.classList.add('overflow-hidden');
@@ -850,6 +869,9 @@
                 });
                 document.addEventListener('keydown', (event) => {
                     if (event.key === 'Escape') closeLightbox();
+                    if (!lightbox?.classList.contains('flex')) return;
+                    if (event.key === 'ArrowLeft') showGalleryPhoto(galleryIndex - 1);
+                    if (event.key === 'ArrowRight') showGalleryPhoto(galleryIndex + 1);
                 });
 
                 shareButton?.addEventListener('click', async () => {

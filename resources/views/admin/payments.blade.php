@@ -190,7 +190,7 @@
                     </label>
                     <label class="text-xs font-semibold text-slate-700">
                         Payment Method
-                        <select name="payment_method" class="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white"><option value="cash">Cash</option><option value="gcash">GCash</option></select>
+                        <select name="payment_method" class="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white"><option value="cash">Cash</option><option value="paymongo">PayMongo</option></select>
                     </label>
                     <label class="text-xs font-semibold text-slate-700">
                         Reference No.
@@ -258,7 +258,7 @@
                 </label>
                 <label class="mt-3 block text-xs font-semibold text-slate-700">
                     Payment Method
-                    <select name="payment_method" x-model="selected.payment_method" class="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white"><option value="cash">Cash</option><option value="gcash">GCash</option></select>
+                    <select name="payment_method" x-model="selected.payment_method" class="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white"><option value="cash">Cash</option><option value="paymongo">PayMongo</option></select>
                 </label>
                 <label class="mt-3 block text-xs font-semibold text-slate-700">
                     Notes

@@ -73,7 +73,7 @@ test('submitted reservations receive a 48 hour expiration and hold the selected 
         ->assertOk()
         ->assertSee('Reserve Your Boarding House Room')
         ->assertSee('Turn-by-Turn Directions')
-        ->assertSee('Reservation Form');
+        ->assertSee('Reservation Details');
 });
 
 test('expiration command expires stale reservations, releases rooms, and blocks payments', function () {

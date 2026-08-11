@@ -12,11 +12,10 @@ test('admin inquiries page renders the owner inquiries header', function () {
     $this->actingAs($admin)
         ->get(route('admin.inquiries'))
         ->assertOk()
-        ->assertSee('Inquiry Dashboard')
         ->assertSee('Property Inquiries')
+        ->assertSee('Manage tenant questions and requests.')
         ->assertSee('Total Inquiries')
-        ->assertSee('Average Response Time')
-        ->assertSee('Current Filter')
-        ->assertSee('Status Summary')
-        ->assertSee('Inquiry List');
+        ->assertSee('Pending Follow-up')
+        ->assertSee('All statuses')
+        ->assertSee('Message Preview');
 });

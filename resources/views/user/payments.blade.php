@@ -21,13 +21,13 @@
     ])->all();
 
     $summaryBannerTitle = $confirmPayment['available'] ?? false
-        ? 'Ready for payment confirmation'
+        ? 'Ready for secure checkout'
         : ($paymentSchedule->isNotEmpty() ? 'Outstanding billing items' : 'No outstanding balance');
 
     $summaryBannerDescription = $confirmPayment['available'] ?? false
-        ? 'Use your default saved method to confirm the next due payment.'
+        ? 'Pay the next due bill through PayMongo Hosted Checkout.'
         : ($paymentSchedule->isNotEmpty()
-            ? 'Review your schedule and upload receipt proof once payment is completed.'
+            ? 'Review your schedule. Online payments become available when the property owner enables PayMongo.'
             : 'You are currently up to date. New billing items will appear here once available.');
 @endphp
 
@@ -35,7 +35,7 @@
     <x-user.page-header
         eyebrow="Payment Center"
         title="Payments"
-        subtitle="Track live billing details, submit receipt proof, and manage your saved payment methods."
+        subtitle="Track billing details, pay securely through PayMongo, and access verified receipts."
     />
 
     @if (session('success'))
@@ -88,12 +88,20 @@
 
     <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div class="space-y-4">
-            <x-payments.upload-card
-                :receipt="$latestReceipt"
-                :bookings="$bookings"
-            :action="route('user.payment-receipts.store')"
-            :gcash-account="$gcashAccount ?? []"
-        />
+            <section class="overflow-hidden rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-4 shadow-sm dark:border-blue-400/20 dark:from-blue-500/10 dark:to-slate-900">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div class="flex items-start gap-3">
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-sm font-black text-white">PM</div>
+                        <div>
+                            <h2 class="text-sm font-bold text-slate-950 dark:text-white">PayMongo secure checkout</h2>
+                            <p class="mt-1 max-w-2xl text-xs leading-5 text-slate-600 dark:text-slate-300">Card, GCash, and QR Ph payments are handled on PayMongo's hosted page. BoardMatch records payment only after gateway verification.</p>
+                        </div>
+                    </div>
+                    <span class="inline-flex self-start rounded-full px-2.5 py-1 text-[11px] font-bold {{ ($paymongoConfigured ?? false) ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300' }}">
+                        {{ ($paymongoConfigured ?? false) ? 'Gateway ready' : 'Owner setup required' }}
+                    </span>
+                </div>
+            </section>
 
             @if (collect($receipts ?? [])->isNotEmpty())
                         <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -136,26 +144,25 @@
                             <h2 class="text-sm font-semibold text-slate-950 dark:text-white">Quick Payment Action</h2>
                             <p class="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">
                                 {{ ($confirmPayment['available'] ?? false)
-                                    ? 'Confirm the next due amount using your default saved payment method.'
-                                    : 'Add a default payment method first to enable one-click confirmation.' }}
+                                    ? 'Continue to PayMongo to pay the exact amount on the next open bill.'
+                                    : 'The property owner must enable PayMongo before online checkout is available.' }}
                             </p>
                         </div>
 
                         @if ($confirmPayment['available'] ?? false)
-                            <form method="POST" action="{{ route('user.payments.confirm') }}" class="flex flex-wrap items-center gap-2">
+                            <form method="POST" action="{{ route('user.paymongo.checkout') }}" class="flex flex-wrap items-center gap-2">
                                 @csrf
-                                <input type="hidden" name="payment_method_id" value="{{ $confirmPayment['method_id'] }}">
-                                <input type="hidden" name="payment_amount" value="{{ $confirmPayment['amount'] }}">
+                                <input type="hidden" name="payment_id" value="{{ $confirmPayment['payment_id'] }}">
                                 <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200/70 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700">
                                     {{ $confirmPayment['method_label'] }}
                                 </span>
                                 <button type="submit" class="inline-flex h-9 items-center justify-center rounded-xl bg-[#2563eb] px-3.5 text-xs font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-[#1d4ed8] hover:shadow-md hover:shadow-blue-600/25 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200">
-                                    Confirm {{ $money($confirmPayment['amount']) }}
+                                    Pay {{ $money($confirmPayment['amount']) }} securely
                                 </button>
                             </form>
                         @elseif ($paymentSchedule->isNotEmpty())
                             <span class="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200/70 dark:bg-amber-400/10 dark:text-amber-300 dark:ring-amber-400/20">
-                                Add a default payment method
+                                PayMongo unavailable
                             </span>
                         @endif
                     </div>

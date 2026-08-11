@@ -276,6 +276,7 @@ class BoardingHouseBrowseController extends Controller
         );
         $house->dssc_distance_km = $this->recommendationService->distanceFromDssc($house);
         $house->dssc_distance_label = $this->locationService->distanceLabel($house->dssc_distance_km);
+        $house->setAttribute('gallery_image_urls', $this->galleryImageUrls($house)->all());
 
         if ($canRecommend) {
             $house->recommendation = $this->recommendationService->score($tenant, $house, $refLat, $refLng);
@@ -436,12 +437,15 @@ class BoardingHouseBrowseController extends Controller
             'room_type_label' => $typeLabel,
             'amenities'       => $house->amenities->map(fn ($a) => ['id' => $a->id, 'name' => $a->name])->values()->toArray(),
             'images_count'    => $house->images->count(),
+            'images'          => collect($house->gallery_image_urls ?? [$this->resolveImageUrl($house)])->values()->all(),
             'match_score'     => (int) ($house->match_score ?? 70),
             'match_label'     => $house->match_label ?? 'Good Match',
             'distance_km'     => $house->distance_km,
             'distance_from_dssc' => $house->dssc_distance_km,
             'distance_from_dssc_label' => $house->dssc_distance_label,
             'image_url'       => $this->resolveImageUrl($house),
+            'latitude'        => $house->latitude !== null ? (float) $house->latitude : null,
+            'longitude'       => $house->longitude !== null ? (float) $house->longitude : null,
             'url'             => route('user.boarding-houses.show', $house),
             'rating'          => round((float) ($house->reviews_avg_rating ?? 0), 1),
             'reviews_count'   => (int) ($house->reviews_count ?? 0),
@@ -712,6 +716,7 @@ class BoardingHouseBrowseController extends Controller
             ->with([
                 'amenities:id,name',
                 'images:id,boarding_house_id,image_path,is_primary,sort_order',
+                'photos:id,boarding_house_id,photo_path',
                 'city:id,city_name',
                 'barangayReference:id,barangay_name',
                 'roomCategories:id,boarding_house_id,name,monthly_rate,available_rooms,is_available',
@@ -877,6 +882,7 @@ class BoardingHouseBrowseController extends Controller
                 'rooms:id,boarding_house_id,room_no,price,status,available_slots',
                 'roomCategories:id,boarding_house_id,name,monthly_rate,available_rooms,is_available',
                 'images:id,boarding_house_id,image_path,is_primary,sort_order',
+                'photos:id,boarding_house_id,photo_path',
                 'city:id,city_name',
                 'barangayReference:id,barangay_name',
                 'province:id,province_name',

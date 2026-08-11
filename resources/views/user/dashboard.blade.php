@@ -460,7 +460,7 @@
 
 <x-user.shell :top-bar="false">
 <div x-data="{ profileOpen: false }" @keydown.escape.window="profileOpen = false" class="space-y-3 text-slate-950 dark:text-white">
-    <header class="rounded-[18px] border border-slate-200/80 bg-white px-3 py-3 shadow-sm sm:px-4">
+    <header class="sticky top-[4.25rem] z-30 rounded-[18px] border border-slate-200/80 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-4 md:top-3">
         <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div class="min-w-0">
                 <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-600">Tenant Dashboard</p>
@@ -483,14 +483,8 @@
 
                 <div class="flex items-center justify-between gap-2 lg:justify-end">
                     <div class="flex items-center gap-2">
-                        <a href="{{ $r('user.notifications.index') }}" class="relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300" aria-label="Notifications">
-                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 0 0 5.454-1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.022 23.848 23.848 0 0 0 5.455 1.31m5.714 0a3 3 0 1 1-5.714 0" />
-                            </svg>
-                            @if($notificationCount > 0)
-                                <span class="absolute -right-1 -top-1 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{{ $notificationCount > 99 ? '99+' : $notificationCount }}</span>
-                            @endif
-                        </a>
+                        <x-header-notification-link :href="$r('user.notifications.index')" :count="$notificationCount" />
+                        <x-theme-icon-toggle />
 
                         <a href="{{ $r('user.messages.index') }}" class="relative flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300" aria-label="Messages">
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">

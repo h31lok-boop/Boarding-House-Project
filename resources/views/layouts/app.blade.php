@@ -12,16 +12,22 @@
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=manrope:400,500,600,700&display=swap" rel="stylesheet" />
 
-        <!-- Scripts -->
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
         <script>
             (function () {
-                const stored = localStorage.getItem('theme');
-                if (stored) {
-                    document.documentElement.setAttribute('data-theme', stored);
+                try {
+                    const stored = localStorage.getItem('theme');
+                    const theme = stored === 'dark' || stored === 'light'
+                        ? stored
+                        : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
+                    document.documentElement.setAttribute('data-theme', theme);
+                } catch (error) {
+                    document.documentElement.setAttribute('data-theme', 'light');
                 }
             })();
         </script>
+        <!-- Scripts -->
+        @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans antialiased ui-bg">
         <div class="min-h-screen flex">

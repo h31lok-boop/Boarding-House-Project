@@ -588,12 +588,6 @@ class TenantAreaController extends Controller
 
     private function paymentDashboardData(int $tenantId): array
     {
-        $gcashOwner = Reservation::query()
-            ->with('boardingHouse.ownerProfile')
-            ->where('user_id', $tenantId)
-            ->latest('id')
-            ->first()?->boardingHouse?->ownerProfile;
-
         $latestReceipt = Schema::hasTable('payment_receipts')
             ? PaymentReceipt::query()
                 ->where('user_id', $tenantId)
@@ -719,39 +713,34 @@ class TenantAreaController extends Controller
             ];
         }
 
-        $paymentMethodOptions = [['value' => 'gcash', 'label' => 'GCash']];
-
-        $defaultMethod = $paymentMethods->firstWhere('is_default', true);
+        $paymongoConfigured = (bool) ($nextDue['paymongo_configured'] ?? false);
 
         return [
             'stats' => $stats,
             'latestReceipt' => $latestReceipt,
             'receipts' => $receipts,
-            'gcashAccount' => [
-                'name' => $gcashOwner?->gcash_account_name,
-                'number' => $gcashOwner?->gcash_number,
-            ],
+            'paymongoConfigured' => $paymongoConfigured,
             'bookings' => $bookings,
             'paymentSchedule' => $paymentSchedule,
             'paymentMethodsList' => $paymentMethods,
-            'paymentMethodOptions' => $paymentMethodOptions,
+            'paymentMethodOptions' => [],
             'summaryItems' => $summaryItems,
             'summaryTotal' => $nextDue ? (float) $nextDue['amount'] : $pendingAmount,
             'statusGuide' => [
-                ['label' => 'Submitted', 'description' => 'Receipt uploaded and waiting for review.'],
-                ['label' => 'Under Review', 'description' => 'The landlord is verifying payment details.'],
-                ['label' => 'Approved or Rejected', 'description' => 'You receive a notification once the review is complete.'],
+                ['label' => 'Secure checkout', 'description' => 'Pay on the PayMongo hosted payment page.'],
+                ['label' => 'Gateway verification', 'description' => 'PayMongo signs and confirms the completed transaction.'],
+                ['label' => 'Receipt issued', 'description' => 'BoardMatch records the payment and creates your receipt.'],
             ],
             'confirmPayment' => [
-                'available' => (bool) ($defaultMethod && $nextDue),
+                'available' => (bool) ($paymongoConfigured && $nextDue),
                 'amount' => (float) ($nextDue['amount'] ?? 0),
-                'method_id' => $defaultMethod?->id,
-                'method_label' => $defaultMethod?->display_label,
+                'payment_id' => $nextDue['id'] ?? null,
+                'method_label' => 'PayMongo',
                 'due_date' => $nextDue['due_date_label'] ?? null,
             ],
             'paymentStatsMeta' => [
                 'approved_receipts' => $approvedReceipts->count(),
-                'default_method_id' => $paymentMethods->firstWhere('is_default', true)?->id,
+                'paymongo_configured' => $paymongoConfigured,
             ],
         ];
     }
@@ -793,7 +782,7 @@ class TenantAreaController extends Controller
             return collect();
         }
 
-        $query = Payment::query()->with('boardingHouse');
+        $query = Payment::query()->with(['boardingHouse.ownerProfile', 'boardingHouse.owner.ownerProfile']);
         $hasUserColumn = Schema::hasColumn('payments', 'user_id');
         $hasTenantColumn = Schema::hasColumn('payments', 'tenant_id');
         $tenantRecordId = null;
@@ -847,6 +836,9 @@ class TenantAreaController extends Controller
                     'paid_date' => $paidDate,
                     'reference' => $payment->reference_no ?: ($hasReferenceNumber ? $payment->reference_number : null),
                     'boarding_house_name' => $payment->boardingHouse?->name,
+                    'paymongo_configured' => app(\App\Services\PaymongoService::class)->isConfigured(
+                        $payment->boardingHouse?->ownerProfile ?: $payment->boardingHouse?->owner?->ownerProfile
+                    ),
                 ];
             })
             ->values();

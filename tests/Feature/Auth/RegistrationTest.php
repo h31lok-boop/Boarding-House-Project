@@ -94,10 +94,10 @@ test('owners can register from the public form', function () {
         'rent_max' => 6500,
         'amenities' => ['wifi', 'kitchen'],
         'house_rules' => 'No smoking inside the premises.',
-        'proof_of_ownership' => UploadedFile::fake()->image('permit.jpg'),
+        'proof_of_ownership' => testImageUpload('permit.png'),
         'photos' => [
-            UploadedFile::fake()->image('front.jpg'),
-            UploadedFile::fake()->image('room.png'),
+            testImageUpload('front.png'),
+            testImageUpload('room.png'),
         ],
         'terms' => '1',
     ]);

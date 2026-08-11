@@ -13,6 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(\App\Http\Middleware\ForceUtf8ResponseHeaders::class);
 
+        $middleware->validateCsrfTokens(except: [
+            'webhooks/paymongo',
+        ]);
+
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'owner' => \App\Http\Middleware\OwnerMiddleware::class,

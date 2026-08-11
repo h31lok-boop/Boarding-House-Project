@@ -228,13 +228,12 @@ class BoardingHouse extends Model
 
     public function images()
     {
-        return $this->hasMany(BoardingHouseImage::class)->orderBy('is_primary', 'desc')->orderBy('sort_order');
+        return $this->hasMany(BoardingHouseImage::class)->orderBy('sort_order')->orderBy('id');
     }
 
     public function coverImage()
     {
         return $this->hasOne(BoardingHouseImage::class)
-            ->orderByDesc('is_primary')
             ->orderBy('sort_order')
             ->orderBy('id');
     }
@@ -247,7 +246,7 @@ class BoardingHouse extends Model
     public function getCoverImagePathAttribute(): ?string
     {
         $image = $this->relationLoaded('images')
-            ? $this->images->firstWhere('is_primary', true) ?? $this->images->first()
+            ? $this->images->first()
             : $this->coverImage()->first();
 
         if ($image?->image_path) {

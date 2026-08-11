@@ -151,7 +151,7 @@
 <div class="space-y-5">
     <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-            <h1 class="text-xl font-bold tracking-tight text-slate-950 dark:text-white">Reservations</h1>
+            <h1 class="text-xl font-bold tracking-tight text-slate-950 dark:text-white">{{ $activeHouse ? 'Reserve Your Boarding House Room' : 'Reservations' }}</h1>
             <p class="mt-1 max-w-2xl text-[13px] leading-6 text-slate-500 dark:text-slate-400">Review the property, route, payment summary, and reservation terms in one place.</p>
         </div>
         <a href="{{ route('user.boarding-houses.index') }}" class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/25 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200">
@@ -249,7 +249,8 @@
                     <div class="border-b border-slate-100 px-5 py-4 dark:border-slate-800">
                         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <h2 class="text-sm font-bold text-slate-950 dark:text-white">Route to {{ $activeHouse->name }}</h2>
+                                <h2 class="text-sm font-bold text-slate-950 dark:text-white">Turn-by-Turn Directions</h2>
+                                <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Route to {{ $activeHouse->name }}</p>
                                 <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Live directions from your location via OpenStreetMap.</p>
                             </div>
                             <span class="inline-flex w-fit items-center rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
@@ -401,7 +402,7 @@
             <aside class="space-y-5 xl:sticky xl:top-6 xl:self-start">
                 <section id="reservation-form" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 scroll-mt-6 dark:border-slate-800 dark:bg-slate-950">
                     <div class="flex items-start justify-between gap-3">
-                        <h2 class="text-sm font-bold text-slate-950 dark:text-white">{{ $currentReservation ? 'Reservation Details' : 'Submit Request' }}</h2>
+                        <h2 class="text-sm font-bold text-slate-950 dark:text-white">{{ $currentReservation ? 'Reservation Details' : 'Reservation Form' }}</h2>
                         <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">{{ $referenceNumber }}</span>
                     </div>
 

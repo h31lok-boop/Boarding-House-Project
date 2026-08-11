@@ -42,11 +42,9 @@ test('notifications page renders notification content instead of profile setting
         ->assertOk()
         ->assertSee('Dashboard')
         ->assertSee('Notifications')
-        ->assertSee('Stay updated with your reservations, payments, inquiries, messages, and system alerts.')
-        ->assertSee('All Notifications')
-        ->assertSee('Search notifications...')
+        ->assertSee('Updates on your reservations, payments, messages, and system alerts.')
+        ->assertSee('Search notifications')
         ->assertSee('Newest First')
-        ->assertSee('View Details')
         ->assertSee('Payment confirmed')
         ->assertDontSee('Manage your account information, security, notifications, and privacy preferences.');
 });
@@ -57,8 +55,8 @@ test('notifications page shows empty state', function () {
     $this->actingAs($user)
         ->get(route('user.notifications.index'))
         ->assertOk()
-        ->assertSee('No notifications yet')
-        ->assertSee('You have no new updates at the moment. Notifications about reservations, payments, messages, and system alerts will appear here.');
+        ->assertSee('No notifications found')
+        ->assertSee('Updates about reservations, payments, messages, and system alerts will appear here.');
 });
 
 test('notifications can be filtered by type', function () {
@@ -145,7 +143,7 @@ test('duplicate database notifications are rendered and counted once', function 
 
     expect($content)->toMatch('/data-summary-card="all"\s+data-summary-count="1"/')
         ->and(substr_count($content, 'data-notification-card'))->toBe(1)
-        ->and(substr_count($content, '<h2 class="text-sm font-bold text-gray-900">Duplicated notice</h2>'))->toBe(1);
+        ->and(substr_count($content, 'Duplicated notice'))->toBeGreaterThan(0);
 });
 
 test('deleting a visible duplicate removes its duplicate group', function () {

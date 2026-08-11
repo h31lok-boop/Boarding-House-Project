@@ -108,6 +108,13 @@
             'label' => 'ACCOUNT',
             'items' => [
                 [
+                    'key' => 'notifications',
+                    'label' => 'Notifications',
+                    'href' => $r($routeName('notifications.index')),
+                    'icon' => 'notifications',
+                    'active' => $isPath($workspacePath.'/notifications*'),
+                ],
+                [
                     'key' => 'reports',
                     'label' => 'Reports',
                     'href' => $r('admin.reports.index', [], 'admin.reports'),
@@ -123,7 +130,7 @@
                 ],
                 [
                     'key' => 'payment-settings',
-                    'label' => 'GCash Settings',
+                    'label' => 'PayMongo Settings',
                     'href' => $r($workspace.'.payment-settings'),
                     'icon' => 'payments',
                     'active' => $isPath($workspacePath.'/payment-settings*'),

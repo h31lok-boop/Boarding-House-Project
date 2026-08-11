@@ -110,6 +110,32 @@
             request('q') ? 'Search: '.request('q') : null,
         ])->filter()->values();
 
+        $walkInTenantOptions = collect($walkInTenants ?? [])->map(fn ($tenantRecord) => [
+            'id' => (string) $tenantRecord->id,
+            'house_id' => (string) $tenantRecord->boarding_house_id,
+            'name' => $tenantRecord->user?->name ?? 'Tenant #'.$tenantRecord->id,
+            'house' => $tenantRecord->boardingHouse?->name ?? 'Boarding house',
+        ])->values();
+        $walkInHouseOptions = collect($walkInHouses ?? [])->map(fn ($house) => [
+            'id' => (string) $house->id,
+            'name' => $house->name,
+            'rooms' => $house->rooms
+                ->filter(fn ($room) => strtolower((string) $room->status) === 'available' && (int) ($room->available_slots ?? 1) > 0)
+                ->map(fn ($room) => [
+                    'id' => (string) $room->id,
+                    'label' => $room->room_no ?? $room->room_number ?? $room->name ?? 'Room #'.$room->id,
+                    'price' => (float) ($room->price ?? 0),
+                ])->values(),
+            'services' => $house->services
+                ->where('is_active', true)
+                ->map(fn ($service) => [
+                    'id' => (string) $service->id,
+                    'name' => $service->name,
+                    'price' => (float) $service->price,
+                ])->values(),
+        ])->values();
+        $oldWalkInServiceIds = collect(old('service_ids', []))->map(fn ($id) => (string) $id)->values()->all();
+
         $roomTypeLabel = function ($reservation): string {
             return $reservation->room->room_type
                 ?? $reservation->room->type
@@ -151,7 +177,17 @@
         window.reservationsData = function (config) {
             return {
                 editOpen: false,
-                walkInOpen: false,
+                walkInOpen: Boolean(config.walkInOpen),
+                walkInSaving: false,
+                walkInTenants: config.walkInTenants || [],
+                walkInHouses: config.walkInHouses || [],
+                walkIn: config.walkIn || {
+                    tenant_id: '',
+                    boarding_house_id: '',
+                    room_id: '',
+                    total_amount: '',
+                    service_ids: [],
+                },
                 filterOpen: false,
                 menuOpen: null,
                 selected: {},
@@ -178,6 +214,54 @@
                     { label: 'Strict Rules', text: '• Strictly no visitors allowed inside rooms.\n• Curfew at 10:00 PM for all tenants.\n• No cooking inside rooms — use the common kitchen only.\n• Quiet hours: 9:00 PM to 7:00 AM.\n• No pets allowed.\n• Rent must be paid on or before the 5th of the month.\n• Any violation may result in termination of the lease.' },
                     { label: 'Student-Friendly Rules', text: '• Respect quiet hours (11:00 PM – 6:00 AM).\n• Keep shared spaces clean after use.\n• Visitors allowed until 8:00 PM only.\n• No illegal substances on the premises.\n• Segregate and dispose of garbage properly.\n• Wi-Fi is shared — avoid heavy streaming during peak hours.\n• Report maintenance issues within 24 hours.' },
                 ],
+
+                get walkInSelectedHouse() {
+                    return this.walkInHouses.find(house => String(house.id) === String(this.walkIn.boarding_house_id)) || null;
+                },
+
+                get walkInTenantOptions() {
+                    if (!this.walkIn.boarding_house_id) return this.walkInTenants;
+                    return this.walkInTenants.filter(tenant => String(tenant.house_id) === String(this.walkIn.boarding_house_id));
+                },
+
+                get walkInRoomOptions() {
+                    return this.walkInSelectedHouse?.rooms || [];
+                },
+
+                get walkInServiceOptions() {
+                    return this.walkInSelectedHouse?.services || [];
+                },
+
+                openWalkIn() {
+                    this.walkInSaving = false;
+                    this.walkInOpen = true;
+                },
+
+                onWalkInTenantChange() {
+                    const tenant = this.walkInTenants.find(item => String(item.id) === String(this.walkIn.tenant_id));
+                    if (!tenant) return;
+                    this.walkIn.boarding_house_id = String(tenant.house_id);
+                    this.onWalkInHouseChange();
+                },
+
+                onWalkInHouseChange() {
+                    const tenant = this.walkInTenants.find(item => String(item.id) === String(this.walkIn.tenant_id));
+                    if (tenant && String(tenant.house_id) !== String(this.walkIn.boarding_house_id)) {
+                        this.walkIn.tenant_id = '';
+                    }
+
+                    if (!this.walkInRoomOptions.some(room => String(room.id) === String(this.walkIn.room_id))) {
+                        this.walkIn.room_id = '';
+                    }
+
+                    const validServiceIds = new Set(this.walkInServiceOptions.map(service => String(service.id)));
+                    this.walkIn.service_ids = (this.walkIn.service_ids || []).filter(id => validServiceIds.has(String(id)));
+                },
+
+                onWalkInRoomChange() {
+                    const room = this.walkInRoomOptions.find(item => String(item.id) === String(this.walkIn.room_id));
+                    if (room && Number(room.price) >= 0) this.walkIn.total_amount = Number(room.price).toFixed(2);
+                },
 
                 get availableRoomOptions() {
                     return this.editRooms.filter(r => r.available);
@@ -383,7 +467,17 @@
     <div
         x-data="reservationsData({
             csrfToken: '{{ csrf_token() }}',
-            availableRoomsUrlTemplate: @json($route('api.boarding-houses.available-rooms', ['boardingHouse' => '__HOUSE__']))
+            availableRoomsUrlTemplate: @json($route('api.boarding-houses.available-rooms', ['boardingHouse' => '__HOUSE__'])),
+            walkInOpen: @js($errors->walkIn->any()),
+            walkInTenants: @js($walkInTenantOptions),
+            walkInHouses: @js($walkInHouseOptions),
+            walkIn: @js([
+                'tenant_id' => (string) old('tenant_id', ''),
+                'boarding_house_id' => (string) old('boarding_house_id', ''),
+                'room_id' => (string) old('room_id', ''),
+                'total_amount' => old('total_amount', ''),
+                'service_ids' => $oldWalkInServiceIds,
+            ])
         })"
         x-init="window.addEventListener('pageshow', () => { filtering = false; submitting = false; editSaving = false; })"
         @keydown.escape.window="if (!submitting && !editSaving) { editOpen = false; filterOpen = false; menuOpen = null; confirmOpen = false; }"
@@ -479,7 +573,7 @@
         <section class="rounded-2xl border border-blue-100 bg-blue-50/50 p-5 shadow-sm">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div><h2 class="text-sm font-bold text-slate-950">Front desk walk-in booking</h2><p class="mt-1 text-xs text-slate-500">Paid walk-ins are automatically prioritized and get a printable receipt.</p></div>
-                <button type="button" @click="walkInOpen = true" class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-[13px] font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700">
+                <button type="button" @click="openWalkIn()" class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-[13px] font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 5v14m7-7H5"/></svg>
                     Create Walk-in
                 </button>
@@ -488,7 +582,7 @@
 
         <template x-teleport="body">
             <div data-modal-root role="dialog" aria-modal="true" x-show="walkInOpen" x-cloak @click.self="walkInOpen = false" @keydown.escape.window="walkInOpen = false" class="bm-modal-overlay">
-                <form method="POST" action="{{ $route('reservations.walk-in.store') }}" class="bm-modal bm-modal--lg">
+                <form method="POST" action="{{ $route('reservations.walk-in.store') }}" @submit="walkInSaving = true" class="bm-modal bm-modal--lg">
                     @csrf
                     <div class="bm-modal__header">
                         <div>
@@ -499,50 +593,64 @@
                         <button type="button" @click="walkInOpen = false" class="bm-modal__close" aria-label="Close walk-in reservation modal">&times;</button>
                     </div>
                     <div class="bm-modal__body">
+                        @if ($errors->walkIn->any())
+                            <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
+                                <p class="font-bold">The walk-in reservation was not saved.</p>
+                                <ul class="mt-1 list-disc space-y-1 pl-5">
+                                    @foreach ($errors->walkIn->all() as $message)
+                                        <li>{{ $message }}</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        @endif
                         <div class="bm-modal__grid bm-modal__grid--two-col">
-                            <label>Tenant
-                                <select name="tenant_id" required>
-                                    <option value="">Select tenant</option>
-                                    @foreach (($walkInTenants ?? []) as $tenantRecord)
-                                        <option value="{{ $tenantRecord->id }}">{{ $tenantRecord->user?->name }} · {{ $tenantRecord->boardingHouse?->name }}</option>
-                                    @endforeach
-                                </select>
-                            </label>
                             <label>Boarding House
-                                <select name="boarding_house_id" required>
+                                <select name="boarding_house_id" x-model="walkIn.boarding_house_id" @change="onWalkInHouseChange()" required>
                                     <option value="">Select boarding house</option>
-                                    @foreach (($walkInHouses ?? []) as $house)
-                                        <option value="{{ $house->id }}">{{ $house->name }}</option>
-                                    @endforeach
+                                    <template x-for="house in walkInHouses" :key="house.id">
+                                        <option :value="String(house.id)" x-text="house.name"></option>
+                                    </template>
                                 </select>
+                                @error('boarding_house_id', 'walkIn')<span class="mt-1 block text-xs font-semibold text-rose-600">{{ $message }}</span>@enderror
+                            </label>
+                            <label>Tenant
+                                <select name="tenant_id" x-model="walkIn.tenant_id" @change="onWalkInTenantChange()" required>
+                                    <option value="">Select tenant</option>
+                                    <template x-for="tenant in walkInTenantOptions" :key="tenant.id">
+                                        <option :value="String(tenant.id)" x-text="tenant.name"></option>
+                                    </template>
+                                </select>
+                                <span x-show="walkIn.boarding_house_id && walkInTenantOptions.length === 0" class="mt-1 block text-xs font-semibold text-amber-600">No active tenant is assigned to this property.</span>
+                                @error('tenant_id', 'walkIn')<span class="mt-1 block text-xs font-semibold text-rose-600">{{ $message }}</span>@enderror
                             </label>
                             <label>Room <span class="font-normal text-slate-400">(optional)</span>
-                                <select name="room_id">
+                                <select name="room_id" x-model="walkIn.room_id" @change="onWalkInRoomChange()" :disabled="!walkIn.boarding_house_id">
                                     <option value="">Any available room</option>
-                                    @foreach (($walkInHouses ?? []) as $house)
-                                        @foreach ($house->rooms->filter(fn ($room) => strtolower((string) $room->status) === 'available' && (int) ($room->available_slots ?? 1) > 0) as $room)
-                                            <option value="{{ $room->id }}">{{ $house->name }} · {{ $room->room_no ?? $room->room_number ?? $room->name ?? 'Room #'.$room->id }}</option>
-                                        @endforeach
-                                    @endforeach
+                                    <template x-for="room in walkInRoomOptions" :key="room.id">
+                                        <option :value="String(room.id)" x-text="room.label"></option>
+                                    </template>
                                 </select>
+                                @error('room_id', 'walkIn')<span class="mt-1 block text-xs font-semibold text-rose-600">{{ $message }}</span>@enderror
                             </label>
                             <label>Total Amount
-                                <input name="total_amount" required type="number" min="0" step="0.01" placeholder="0.00">
+                                <input name="total_amount" x-model="walkIn.total_amount" required type="number" min="0" step="0.01" placeholder="0.00">
+                                @error('total_amount', 'walkIn')<span class="mt-1 block text-xs font-semibold text-rose-600">{{ $message }}</span>@enderror
                             </label>
                             <label>Check-in Date
-                                <input name="check_in_date" type="date" value="{{ today()->toDateString() }}">
+                                <input name="check_in_date" type="date" value="{{ old('check_in_date', today()->toDateString()) }}">
+                                @error('check_in_date', 'walkIn')<span class="mt-1 block text-xs font-semibold text-rose-600">{{ $message }}</span>@enderror
                             </label>
                             <label>Payment Status
-                                <select name="payment_status" required><option value="paid">Paid</option><option value="unpaid">Unpaid</option></select>
+                                <select name="payment_status" required><option value="paid" @selected(old('payment_status', 'paid') === 'paid')>Paid</option><option value="unpaid" @selected(old('payment_status') === 'unpaid')>Unpaid</option></select>
                             </label>
                             <label>Payment Method
-                                <select name="payment_method" required><option value="cash">Cash</option><option value="gcash">GCash</option></select>
+                                <select name="payment_method" required><option value="cash" @selected(old('payment_method', 'cash') === 'cash')>Cash</option><option value="paymongo" @selected(old('payment_method') === 'paymongo')>PayMongo</option></select>
                             </label>
                             <label>Payment Reference <span class="font-normal text-slate-400">(optional)</span>
-                                <input name="payment_reference" placeholder="Reference number">
+                                <input name="payment_reference" value="{{ old('payment_reference') }}" placeholder="Reference number">
                             </label>
                             <label class="sm:col-span-2">Notes <span class="font-normal text-slate-400">(optional)</span>
-                                <textarea name="notes" rows="3" placeholder="Add notes about this walk-in booking"></textarea>
+                                <textarea name="notes" rows="3" placeholder="Add notes about this walk-in booking">{{ old('notes') }}</textarea>
                             </label>
                         </div>
 
@@ -552,20 +660,22 @@
                                 <p class="bm-modal__section-copy">Add laundry, parking, cleaning, or other services to this reservation.</p>
                             </div>
                             <div class="mt-4 flex flex-wrap gap-2">
-                                @foreach (($walkInHouses ?? []) as $house)
-                                    @foreach ($house->services->where('is_active', true) as $service)
-                                        <label class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
-                                            <input type="checkbox" name="service_ids[]" value="{{ $service->id }}" class="rounded border-slate-300 text-blue-600">
-                                            {{ $house->name }} · {{ $service->name }} (₱{{ number_format((float) $service->price, 2) }})
-                                        </label>
-                                    @endforeach
-                                @endforeach
+                                <template x-for="service in walkInServiceOptions" :key="service.id">
+                                    <label class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+                                        <input type="checkbox" name="service_ids[]" :value="String(service.id)" x-model="walkIn.service_ids" class="rounded border-slate-300 text-blue-600">
+                                        <span x-text="service.name + ' (₱' + Number(service.price).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ')' "></span>
+                                    </label>
+                                </template>
+                                <p x-show="walkIn.boarding_house_id && walkInServiceOptions.length === 0" class="text-xs text-slate-500">No active services for this property.</p>
                             </div>
+                            @error('service_ids', 'walkIn')<span class="mt-2 block text-xs font-semibold text-rose-600">{{ $message }}</span>@enderror
                         </section>
                     </div>
                     <div class="bm-modal__footer">
                         <button type="button" @click="walkInOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button>
-                        <button class="bm-modal__button bm-modal__button--primary">Save Walk-in Reservation</button>
+                        <button :disabled="walkInSaving" class="bm-modal__button bm-modal__button--primary disabled:cursor-not-allowed disabled:opacity-60">
+                            <span x-text="walkInSaving ? 'Saving Walk-in...' : 'Save Walk-in Reservation'"></span>
+                        </button>
                     </div>
                 </form>
             </div>
@@ -813,7 +923,7 @@
                                     <tr>
                                         <td colspan="8" class="px-5 py-16">
                                             <div class="mx-auto max-w-md text-center">
-                                                <div class="mx-auto flex h-24 w-24 items-center justify-center rounded-[2rem] bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.18),_transparent_62%),linear-gradient(180deg,#eff6ff_0%,#ffffff_100%)] text-blue-600 shadow-inner">
+                                                <div class="mx-auto flex h-24 w-24 items-center justify-center rounded-[2rem] bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.18),_transparent_62%),linear-gradient(180deg,#eff6ff_0%,#ffffff_100%)] text-blue-600 shadow-inner dark:bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.2),_transparent_62%),linear-gradient(180deg,#1e293b_0%,#0f172a_100%)]">
                                                     <svg class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z"/>
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.6" d="M9 14h6"/>

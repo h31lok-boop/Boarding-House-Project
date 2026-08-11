@@ -27,7 +27,7 @@ class PaymentReceiptStoreRequest extends FormRequest
                 'max:100',
             ],
             'transaction_id' => [
-                Rule::prohibited(),
+                'prohibited',
                 'nullable',
                 'string',
                 'max:100',

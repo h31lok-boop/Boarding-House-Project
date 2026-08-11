@@ -45,3 +45,16 @@ function something()
 {
     // ..
 }
+
+/**
+ * Create a real, tiny PNG upload without requiring the optional GD extension.
+ */
+function testImageUpload(string $name = 'image.png'): \Illuminate\Http\UploadedFile
+{
+    $png = base64_decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+        true,
+    );
+
+    return \Illuminate\Http\UploadedFile::fake()->createWithContent($name, $png);
+}

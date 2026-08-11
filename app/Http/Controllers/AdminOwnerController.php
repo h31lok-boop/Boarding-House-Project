@@ -29,6 +29,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class AdminOwnerController extends Controller
 {
@@ -1724,7 +1725,7 @@ class AdminOwnerController extends Controller
         ];
 
         $walkInTenants = Schema::hasTable('tenants')
-            ? Tenant::with('user')
+            ? Tenant::with(['user', 'boardingHouse'])
                 ->when($ownerHouseIds !== null, fn ($query) => $query->whereIn('boarding_house_id', $ownerHouseIds))
                 ->whereIn('status', ['active', 'occupied'])
                 ->latest()
@@ -1791,14 +1792,14 @@ class AdminOwnerController extends Controller
     {
         $this->authorizeAdmin($request);
 
-        $data = $request->validate([
+        $data = $request->validateWithBag('walkIn', [
             'tenant_id' => ['required', 'integer', 'exists:tenants,id'],
             'boarding_house_id' => ['required', 'integer', 'exists:boarding_houses,id'],
             'room_id' => ['nullable', 'integer', 'exists:rooms,id'],
             'check_in_date' => ['nullable', 'date'],
             'total_amount' => ['required', 'numeric', 'min:0', 'max:999999.99'],
             'payment_status' => ['required', Rule::in(['paid', 'unpaid'])],
-            'payment_method' => ['required', Rule::in(['cash', 'gcash'])],
+            'payment_method' => ['required', Rule::in(['cash', 'paymongo'])],
             'payment_reference' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'service_ids' => ['nullable', 'array', 'max:10'],
@@ -1814,13 +1815,30 @@ class AdminOwnerController extends Controller
             ->with('user')
             ->whereKey($data['tenant_id'])
             ->where('boarding_house_id', $house->id)
-            ->firstOrFail();
+            ->first();
+
+        if (! $tenantRecord) {
+            return back()
+                ->withErrors(['tenant_id' => 'Select a tenant assigned to the chosen boarding house.'], 'walkIn')
+                ->withInput();
+        }
 
         $room = null;
         if (! empty($data['room_id'])) {
-            $room = Room::query()->whereKey($data['room_id'])->where('boarding_house_id', $house->id)->firstOrFail();
-            abort_if(in_array(strtolower((string) $room->status), ['occupied', 'maintenance'], true), 422, 'Selected room is not available.');
-            abort_if((int) ($room->available_slots ?? 1) < 1, 422, 'Selected room is not available.');
+            $room = Room::query()->whereKey($data['room_id'])->where('boarding_house_id', $house->id)->first();
+
+            if (! $room) {
+                return back()
+                    ->withErrors(['room_id' => 'Select a room from the chosen boarding house.'], 'walkIn')
+                    ->withInput();
+            }
+
+            if (in_array(strtolower((string) $room->status), ['occupied', 'maintenance'], true)
+                || (int) ($room->available_slots ?? 1) < 1) {
+                return back()
+                    ->withErrors(['room_id' => 'Selected room is no longer available.'], 'walkIn')
+                    ->withInput();
+            }
         }
 
         $serviceIds = collect($data['service_ids'] ?? [])->map(fn ($id) => (int) $id)->unique();
@@ -1829,100 +1847,114 @@ class AdminOwnerController extends Controller
             ->where('boarding_house_id', $house->id)
             ->where('is_active', true)
             ->get();
-        abort_if($services->count() !== $serviceIds->count(), 422, 'One or more selected services are invalid.');
+        if ($services->count() !== $serviceIds->count()) {
+            return back()
+                ->withErrors(['service_ids' => 'Choose services offered by the selected boarding house.'], 'walkIn')
+                ->withInput();
+        }
 
         $amount = (float) $data['total_amount'] + (float) $services->sum('price');
         $isPaid = $data['payment_status'] === 'paid';
 
-        DB::transaction(function () use ($data, $tenantRecord, $house, $room, $services, $amount, $isPaid, $request) {
-            if ($room) {
-                $room->refresh();
-                $this->reservationLifecycleService->holdSelectedRoom($room);
-            }
+        try {
+            DB::transaction(function () use ($data, $tenantRecord, $house, $room, $services, $amount, $isPaid, $request) {
+                if ($room) {
+                    $room->refresh();
+                    $this->reservationLifecycleService->holdSelectedRoom($room);
+                }
 
-            $reservation = Reservation::create([
-                'user_id' => $tenantRecord->user_id,
-                'boarding_house_id' => $house->id,
-                'room_id' => $room?->id,
-                'check_in_date' => $data['check_in_date'] ?? today()->toDateString(),
-                'occupants' => 1,
-                'total_amount' => $amount,
-                'payment_status' => $isPaid ? 'paid' : 'unpaid',
-                'payment_method' => $data['payment_method'],
-                'payment_reference' => $data['payment_reference'] ?? null,
-                'status' => $isPaid ? 'confirmed' : 'pending',
-                'booking_type' => 'walk_in',
-                'priority_rank' => $isPaid ? 1 : 2,
-                'approved_at' => $isPaid ? now() : null,
-                'notes' => trim(($data['notes'] ?? '')."\nWalk-in recorded at the front desk."),
-            ]);
-
-            foreach ($services as $service) {
-                ReservationService::create([
-                    'reservation_id' => $reservation->id,
-                    'boarding_house_service_id' => $service->id,
-                    'quantity' => 1,
-                    'unit_price' => $service->price,
-                    'total_price' => $service->price,
-                ]);
-            }
-
-            $payment = null;
-            if ($isPaid && Schema::hasTable('payments')) {
-                $payment = Payment::create([
-                    'tenant_id' => $tenantRecord->id,
-                    'boarding_house_id' => $house->id,
-                    'amount' => $amount,
-                    'due_date' => $reservation->check_in_date,
-                    'paid_at' => now(),
-                    'status' => 'paid',
-                    'payment_method' => $data['payment_method'],
-                    'payment_type' => 'reservation',
-                    'reference_no' => $data['payment_reference'] ?? null,
-                    'reference_number' => $data['payment_reference'] ?? null,
-                    'notes' => 'Walk-in payment for reservation #'.$reservation->id,
-                ]);
-            }
-
-            $receiptNumber = 'RCT-'.now()->format('Y').'-'.str_pad((string) $reservation->id, 6, '0', STR_PAD_LEFT);
-            if (! Schema::hasTable('bookings')) {
-                return;
-            }
-
-            $booking = collect([
-                'user_id' => $tenantRecord->user_id,
-                'boarding_house_id' => $house->id,
-                'room_id' => $room?->id,
-                'reservation_id' => $reservation->id,
-                'booking_type' => 'walk_in',
-                'status' => $isPaid ? 'Confirmed' : 'Pending',
-                'payment_status' => $isPaid ? 'paid' : 'unpaid',
-                'payment_method' => $data['payment_method'],
-                'total_amount' => $amount,
-                'receipt_number' => $isPaid ? $receiptNumber : null,
-                'start_date' => $reservation->check_in_date?->toDateString(),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ])->filter(fn ($value, $column) => Schema::hasColumn('bookings', $column))->all();
-            $bookingId = DB::table('bookings')->insertGetId($booking);
-
-            if ($isPaid && Schema::hasTable('payment_receipts')) {
-                PaymentReceipt::create([
+                $reservation = Reservation::create([
                     'user_id' => $tenantRecord->user_id,
-                    'booking_id' => $bookingId,
-                    'payment_id' => $payment?->id,
-                    'payment_method' => $data['payment_method'] === 'gcash' ? 'GCash' : 'Cash Payment',
-                    'amount' => $amount,
-                    'reference_number' => $data['payment_reference'] ?? null,
-                    'receipt_number' => $receiptNumber,
-                    'payment_date' => today(),
-                    'status' => PaymentReceipt::STATUS_APPROVED,
-                    'reviewed_at' => now(),
-                    'reviewed_by' => $request->user()->id,
-                    'notes' => 'Walk-in payment recorded by owner/admin.',
+                    'boarding_house_id' => $house->id,
+                    'room_id' => $room?->id,
+                    'check_in_date' => $data['check_in_date'] ?? today()->toDateString(),
+                    'occupants' => 1,
+                    'total_amount' => $amount,
+                    'payment_status' => $isPaid ? 'paid' : 'unpaid',
+                    'payment_method' => $data['payment_method'],
+                    'payment_reference' => $data['payment_reference'] ?? null,
+                    'status' => $isPaid ? 'confirmed' : 'pending',
+                    'booking_type' => 'walk_in',
+                    'priority_rank' => $isPaid ? 1 : 2,
+                    'approved_at' => $isPaid ? now() : null,
+                    'notes' => trim(($data['notes'] ?? '')."\nWalk-in recorded at the front desk."),
                 ]);
+
+                foreach ($services as $service) {
+                    ReservationService::create([
+                        'reservation_id' => $reservation->id,
+                        'boarding_house_service_id' => $service->id,
+                        'quantity' => 1,
+                        'unit_price' => $service->price,
+                        'total_price' => $service->price,
+                    ]);
+                }
+
+                $payment = null;
+                if ($isPaid && Schema::hasTable('payments')) {
+                    $payment = Payment::create([
+                        'tenant_id' => $tenantRecord->id,
+                        'boarding_house_id' => $house->id,
+                        'amount' => $amount,
+                        'due_date' => $reservation->check_in_date,
+                        'paid_at' => now(),
+                        'status' => 'paid',
+                        'payment_method' => $data['payment_method'],
+                        'payment_type' => 'reservation',
+                        'reference_no' => $data['payment_reference'] ?? null,
+                        'reference_number' => $data['payment_reference'] ?? null,
+                        'notes' => 'Walk-in payment for reservation #'.$reservation->id,
+                    ]);
+                }
+
+                $receiptNumber = 'RCT-'.now()->format('Y').'-'.str_pad((string) $reservation->id, 6, '0', STR_PAD_LEFT);
+                if (! Schema::hasTable('bookings')) {
+                    return;
+                }
+
+                $booking = collect([
+                    'user_id' => $tenantRecord->user_id,
+                    'boarding_house_id' => $house->id,
+                    'room_id' => $room?->id,
+                    'reservation_id' => $reservation->id,
+                    'booking_type' => 'walk_in',
+                    'status' => $isPaid ? 'Confirmed' : 'Pending',
+                    'payment_status' => $isPaid ? 'paid' : 'unpaid',
+                    'payment_method' => $data['payment_method'],
+                    'total_amount' => $amount,
+                    'receipt_number' => $isPaid ? $receiptNumber : null,
+                    'start_date' => $reservation->check_in_date?->toDateString(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ])->filter(fn ($value, $column) => Schema::hasColumn('bookings', $column))->all();
+                $bookingId = DB::table('bookings')->insertGetId($booking);
+
+                if ($isPaid && Schema::hasTable('payment_receipts')) {
+                    PaymentReceipt::create([
+                        'user_id' => $tenantRecord->user_id,
+                        'booking_id' => $bookingId,
+                        'payment_id' => $payment?->id,
+                        'payment_method' => $data['payment_method'] === 'paymongo' ? 'PayMongo' : 'Cash Payment',
+                        'amount' => $amount,
+                        'reference_number' => $data['payment_reference'] ?? null,
+                        'receipt_number' => $receiptNumber,
+                        'payment_date' => today(),
+                        'status' => PaymentReceipt::STATUS_APPROVED,
+                        'reviewed_at' => now(),
+                        'reviewed_by' => $request->user()->id,
+                        'notes' => 'Walk-in payment recorded by owner/admin.',
+                    ]);
+                }
+            });
+        } catch (HttpExceptionInterface $exception) {
+            if ($exception->getStatusCode() === 422) {
+                return back()
+                    ->withErrors(['room_id' => $exception->getMessage() ?: 'Selected room is no longer available.'], 'walkIn')
+                    ->withInput();
             }
-        });
+
+            throw $exception;
+        }
 
         return back()->with('success', 'Walk-in booking recorded and placed in the '.($isPaid ? 'paid' : 'unpaid').' queue.');
     }
@@ -2412,9 +2444,10 @@ class AdminOwnerController extends Controller
 
         $data = $request->validate([
             'owner_id' => ['nullable', 'integer', 'exists:users,id'],
-            'gcash_account_name' => ['nullable', 'string', 'max:120'],
-            'gcash_number' => ['nullable', 'string', 'max:30'],
-            'gcash_api_key' => ['nullable', 'string', 'max:500'],
+            'paymongo_public_key' => ['nullable', 'string', 'max:500', 'regex:/^pk_(test|live)_[A-Za-z0-9]+$/'],
+            'paymongo_secret_key' => ['nullable', 'string', 'max:500', 'regex:/^sk_(test|live)_[A-Za-z0-9]+$/'],
+            'paymongo_webhook_secret' => ['nullable', 'string', 'max:500'],
+            'paymongo_enabled' => ['nullable', 'boolean'],
         ]);
 
         $ownerId = $request->user()?->isStrictOwner()
@@ -2425,12 +2458,16 @@ class AdminOwnerController extends Controller
             abort_unless((int) $ownerId === (int) $request->user()->id, 403);
         }
 
-        OwnerProfile::updateOrCreate(
-            ['user_id' => $ownerId],
-            collect($data)->except('owner_id')->filter(fn ($value) => $value !== null)->all()
-        );
+        $profile = OwnerProfile::firstOrNew(['user_id' => $ownerId]);
+        foreach (['paymongo_public_key', 'paymongo_secret_key', 'paymongo_webhook_secret'] as $credential) {
+            if (filled($data[$credential] ?? null)) {
+                $profile->{$credential} = $data[$credential];
+            }
+        }
+        $profile->paymongo_enabled = $request->boolean('paymongo_enabled');
+        $profile->save();
 
-        return back()->with('success', 'GCash payment settings saved.');
+        return back()->with('success', 'PayMongo payment settings saved securely.');
     }
 
     public function storePayment(Request $request)
@@ -2444,7 +2481,7 @@ class AdminOwnerController extends Controller
             'due_date' => ['nullable', 'date'],
             'paid_at' => ['nullable', 'date'],
             'status' => ['required', Rule::in(['paid', 'unpaid', 'pending', 'overdue'])],
-            'payment_method' => ['nullable', Rule::in(['cash', 'gcash'])],
+            'payment_method' => ['nullable', Rule::in(['cash', 'paymongo'])],
             'payment_type' => ['nullable', Rule::in(['rent', 'reservation', 'service', 'other'])],
             'reference_no' => ['nullable', 'string', 'max:100'],
             'reference_number' => ['nullable', 'string', 'max:100'],
@@ -2482,7 +2519,7 @@ class AdminOwnerController extends Controller
 
         $data = $request->validate([
             'status' => ['required', Rule::in(['paid', 'unpaid', 'pending', 'overdue'])],
-            'payment_method' => ['nullable', Rule::in(['cash', 'gcash'])],
+            'payment_method' => ['nullable', Rule::in(['cash', 'paymongo'])],
             'reference_no' => ['nullable', 'string', 'max:100'],
             'reference_number' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:1000'],
@@ -2516,7 +2553,7 @@ class AdminOwnerController extends Controller
         PaymentReceipt::create([
             'user_id' => $tenantUserId,
             'payment_id' => $payment->id,
-            'payment_method' => strtolower((string) $payment->payment_method) === 'gcash' ? 'GCash' : 'Cash Payment',
+            'payment_method' => strtolower((string) $payment->payment_method) === 'paymongo' ? 'PayMongo' : 'Cash Payment',
             'amount' => $payment->amount,
             'reference_number' => $payment->reference_number ?: $payment->reference_no,
             'receipt_number' => $receiptNumber,

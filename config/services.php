@@ -58,4 +58,15 @@ return [
         'walking_routing_url' => env('BOARDMATCH_WALKING_ROUTING_URL', 'https://routing.openstreetmap.de/routed-foot'),
     ],
 
+    'paymongo' => [
+        'base_url' => env('PAYMONGO_BASE_URL', 'https://api.paymongo.com'),
+        'public_key' => env('PAYMONGO_PUBLIC_KEY'),
+        'secret_key' => env('PAYMONGO_SECRET_KEY'),
+        'webhook_secret' => env('PAYMONGO_WEBHOOK_SECRET'),
+        'payment_methods' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', env('PAYMONGO_PAYMENT_METHODS', 'card,gcash,qrph'))
+        ))),
+    ],
+
 ];

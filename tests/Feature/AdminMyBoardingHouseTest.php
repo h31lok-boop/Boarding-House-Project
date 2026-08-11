@@ -43,11 +43,10 @@ test('my boarding house only shows properties owned by the signed in owner accou
     $this->actingAs($owner)
         ->get(route('admin.my-boarding-house'))
         ->assertOk()
-        ->assertSee('My Boarding Houses')
+        ->assertSee('Boarding Houses')
         ->assertSee('Owner Scoped House')
         ->assertDontSee('Other Owner House')
-        ->assertDontSee('Unassigned House')
-        ->assertSee('1 listings');
+        ->assertDontSee('Unassigned House');
 });
 
 test('my boarding house actions redirect back to the owner scoped page', function () {

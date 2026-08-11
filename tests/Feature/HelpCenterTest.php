@@ -18,7 +18,7 @@ test('user can view the help center page', function () {
         ->get(route('user.help-center.index'))
         ->assertOk()
         ->assertSee('Help Center')
-        ->assertSee('Still Need Help?');
+        ->assertSee('Submit a Ticket');
 });
 
 test('user can submit a support request with a screenshot', function () {

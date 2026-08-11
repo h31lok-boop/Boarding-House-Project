@@ -6,6 +6,7 @@ use App\Models\Room;
 use App\Models\RoommateMatchRequest;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -112,4 +113,21 @@ test('dashboard reports real roommate request counts and drops placeholder conte
 
     expect($response->viewData('incomingPendingCount'))->toBe(1);
     expect($response->viewData('outgoingPendingCount'))->toBe(0);
+});
+
+test('dashboard formats saved listing activity when mysql returns timestamp text', function () {
+    [$tenant, $owner, $house] = tenantDashboardActors();
+
+    DB::table('favorites')->insert([
+        'user_id' => $tenant->id,
+        'boarding_house_id' => $house->id,
+        'created_at' => now()->subMinutes(5)->toDateTimeString(),
+        'updated_at' => now()->subMinutes(5)->toDateTimeString(),
+    ]);
+
+    $this->actingAs($tenant)
+        ->get(route('user.dashboard'))
+        ->assertOk()
+        ->assertSee('Listing Saved')
+        ->assertSee('Casa Esperanza Dormitory');
 });

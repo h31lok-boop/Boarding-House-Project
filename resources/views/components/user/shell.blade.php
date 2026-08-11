@@ -13,9 +13,25 @@
             ? $profileImage
             : \Illuminate\Support\Facades\Storage::url($profileImage))
         : asset('images/boardmatch-mark.svg');
+    $notificationsCount = 0;
+
+    if ($currentUser
+        && \Illuminate\Support\Facades\Schema::hasTable('notifications')
+        && \Illuminate\Support\Facades\Schema::hasColumn('notifications', 'user_id')) {
+        $notificationQuery = \Illuminate\Support\Facades\DB::table('notifications')
+            ->where('user_id', $currentUser->id);
+
+        if (\Illuminate\Support\Facades\Schema::hasColumn('notifications', 'read_at')) {
+            $notificationQuery->whereNull('read_at');
+        } elseif (\Illuminate\Support\Facades\Schema::hasColumn('notifications', 'is_read')) {
+            $notificationQuery->where('is_read', false);
+        }
+
+        $notificationsCount = (int) $notificationQuery->count();
+    }
 @endphp
 
-<div class="user-shell w-full bg-[#f7f8fb]">
+<div class="user-shell w-full bg-[#f7f8fb] dark:bg-[#020617]">
     {{-- Sidebar --}}
     <div class="sidebar-overlay" data-sidebar-overlay aria-hidden="true"></div>
 
@@ -29,8 +45,24 @@
         <x-sidebar.user-panel />
     </aside>
 
-    <main class="user-dashboard-main min-w-0 bg-[#f7f8fb]">
-        <div class="sticky top-0 z-30 mb-3 border-b border-slate-200 bg-[#f7f8fb]/95 px-4 py-2.5 backdrop-blur md:hidden">
+    <button
+        type="button"
+        class="sidebar-reopen-button"
+        data-sidebar-toggle
+        data-sidebar-reopen
+        aria-controls="userSidebar"
+        aria-expanded="false"
+        aria-label="Open sidebar"
+        title="Open sidebar"
+    >
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+        <span class="sr-only">Open sidebar</span>
+    </button>
+
+    <main class="user-dashboard-main min-w-0 bg-[#f7f8fb] dark:bg-[#020617]">
+        <div class="sticky top-0 z-30 mb-3 border-b border-slate-200 bg-[#f7f8fb]/95 px-4 py-2.5 backdrop-blur dark:border-slate-700 dark:bg-slate-950/95 md:hidden">
             <button type="button" class="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400/70" data-sidebar-toggle aria-controls="userSidebar" aria-expanded="false" aria-label="Open sidebar">
                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16M4 12h16M4 18h16"/></svg>
                 <span>Menu</span>
@@ -40,21 +72,20 @@
         <div class="mx-auto max-w-[1540px] space-y-5 px-4 py-5 sm:px-6 2xl:px-8">
             {{-- Header --}}
             @if ($topBar && ! request()->is('admin/*'))
-                <div class="ui-card flex items-center gap-3 p-3.5">
-                    <form method="GET" action="{{ $r('user.boarding-houses.index') }}" class="flex flex-1 gap-2.5">
-                        <input name="q" type="text" placeholder="{{ $searchPlaceholder }}" class="flex-1 ui-input text-sm">
-                        <button class="rounded-lg bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700">Search</button>
+                <div class="ui-card sticky top-[4.25rem] z-30 flex flex-col gap-3 p-3.5 sm:flex-row sm:items-center md:top-3">
+                    <form method="GET" action="{{ $r('user.boarding-houses.index') }}" class="flex w-full min-w-0 gap-2.5 sm:flex-1">
+                        <input name="q" type="text" placeholder="{{ $searchPlaceholder }}" class="min-w-0 flex-1 ui-input text-sm">
+                        <button class="shrink-0 rounded-lg bg-indigo-600 px-3 text-sm font-semibold text-white hover:bg-indigo-700 sm:px-4">Search</button>
                     </form>
-                    <div class="flex items-center gap-2">
-                        <button class="h-9 w-9 rounded-full ui-surface border ui-border flex items-center justify-center shadow">
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                        </button>
-                        <button type="button" class="theme-toggle" data-theme-toggle><span>Theme:</span> <span data-theme-label>Light</span></button>
+                    <div class="flex w-full min-w-0 items-center justify-end gap-2 sm:w-auto">
+                        <x-header-notification-link :href="$r('user.notifications.index')" :count="$notificationsCount" />
+                        <x-theme-icon-toggle />
                         <div class="relative z-[70]" x-data="{ open: false, confirm: false }">
                             <button @click="open = !open" class="flex items-center gap-2 px-2 py-1 rounded-full hover:bg-[color:var(--surface-2)]">
                                 <div class="h-9 w-9 overflow-hidden rounded-full border ui-border shadow">
                                     <img src="{{ $accountImageUrl }}" alt="{{ $currentUser?->name ?? 'Account' }}" class="h-full w-full object-cover">
                                 </div>
+                                <span class="hidden max-w-32 truncate text-sm font-semibold sm:block">{{ $currentUser?->name ?? 'User' }}</span>
                                 <svg class="h-4 w-4 ui-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                             </button>
                             <div x-show="open" @click.outside="open = false" x-transition class="absolute right-0 top-full z-[80] mt-2 w-52 ui-surface rounded-xl border ui-border shadow-lg">
@@ -69,7 +100,7 @@
                                 </div>
                             </div>
                             <div data-modal-root role="dialog" aria-modal="true" x-show="confirm" x-cloak x-transition class="fixed inset-0 z-[90] flex items-center justify-center overflow-y-auto bg-black/30 p-4 backdrop-blur-sm">
-                                <div class="ui-card p-6 w-[320px] shadow-xl">
+                                <div class="ui-card w-full max-w-[320px] p-6 shadow-xl">
                                     <h3 class="text-lg font-semibold mb-2">Confirm Logout</h3>
                                     <p class="text-sm ui-muted mb-4">Are you sure you want to log out?</p>
                                     <div class="flex justify-end gap-2">

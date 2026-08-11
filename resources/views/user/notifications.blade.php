@@ -66,12 +66,12 @@
     });
 @endphp
 
-<div x-data="{ detailOpen: false, selected: {} }" class="mx-auto w-full max-w-3xl space-y-5 text-slate-900">
+<div x-data="{ detailOpen: false, selected: {} }" class="mx-auto w-full max-w-3xl space-y-5 text-slate-900 dark:text-slate-100">
     {{-- Header --}}
     <header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-            <h1 class="text-2xl font-bold tracking-tight text-slate-900">Notifications</h1>
-            <p class="mt-1 text-sm text-slate-500">Updates on your reservations, payments, messages, and system alerts.</p>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Notifications</h1>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Updates on your reservations, payments, messages, and system alerts.</p>
         </div>
 
         <div class="flex items-center gap-2">
@@ -95,7 +95,7 @@
                 <button
                     type="submit"
                     @disabled($totalCount === 0)
-                    class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
                     Clear all
                 </button>
@@ -117,14 +117,14 @@
                 value="{{ $search }}"
                 type="search"
                 placeholder="Search notifications…"
-                class="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-700 shadow-sm shadow-slate-200/50 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                class="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-700 shadow-sm shadow-slate-200/50 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:shadow-none dark:focus:ring-blue-400/20"
             >
         </label>
         <div class="relative sm:w-44">
             <select
                 name="sort"
                 onchange="this.form.submit()"
-                class="h-12 w-full appearance-none rounded-2xl border border-slate-200 bg-white px-4 pr-9 text-sm font-medium text-slate-600 shadow-sm shadow-slate-200/50 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100"
+                class="h-12 w-full appearance-none rounded-2xl border border-slate-200 bg-white px-4 pr-9 text-sm font-medium text-slate-600 shadow-sm shadow-slate-200/50 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:shadow-none dark:focus:ring-blue-400/20"
             >
                 @foreach ($sortOptions as $key => $label)
                     <option value="{{ $key }}" @selected($sort === $key)>{{ $label }}</option>
@@ -144,9 +144,10 @@
             @endphp
             <a
                 href="{{ route('user.notifications.index', $queryFor(['filter' => $key])) }}"
+                @if ($key === 'all') data-summary-card="all" data-summary-count="{{ $totalCount }}" @endif
                 class="inline-flex h-9 items-center gap-2 rounded-full px-4 text-[13px] font-semibold transition {{ $isActiveTab
                     ? 'bg-blue-600 text-white shadow-sm'
-                    : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 hover:text-slate-900 hover:ring-slate-300' }}"
+                    : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 hover:text-slate-900 hover:ring-slate-300 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700 dark:hover:bg-slate-800 dark:hover:text-white' }}"
             >
                 <span>{{ $label }}</span>
                 @if ($key === 'unread' && $unreadCount > 0)
@@ -157,7 +158,7 @@
     </nav>
 
     {{-- Notification list --}}
-    <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-200/60">
+    <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
         @if ($groupedNotifications->isEmpty())
             <div class="px-6 py-16 text-center">
                 <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
@@ -165,8 +166,8 @@
                         {!! $notificationIcon('system') !!}
                     </svg>
                 </div>
-                <p class="mt-4 text-base font-bold text-slate-900">No notifications found</p>
-                <p class="mx-auto mt-1.5 max-w-md text-sm leading-6 text-slate-500">
+                <p class="mt-4 text-base font-bold text-slate-900 dark:text-white">No notifications found</p>
+                <p class="mx-auto mt-1.5 max-w-md text-sm leading-6 text-slate-500 dark:text-slate-400">
                     @if ($search !== '' || $filter !== 'all')
                         Nothing matched your search or filter. <a href="{{ route('user.notifications.index') }}" class="font-semibold text-blue-600 hover:underline">Clear filters</a>
                     @else
@@ -205,7 +206,8 @@
                             @endphp
 
                             <article
-                                class="group cursor-pointer px-6 py-4 transition duration-150 hover:bg-slate-50/80 focus-within:bg-blue-50/40 {{ $isUnread ? 'bg-blue-50/40' : '' }}"
+                                data-notification-card
+                                class="group cursor-pointer px-6 py-4 transition duration-150 hover:bg-slate-50/80 focus-within:bg-blue-50/40 dark:hover:bg-slate-800/70 dark:focus-within:bg-blue-400/10 {{ $isUnread ? 'bg-blue-50/40 dark:bg-blue-400/5' : '' }}"
                                 role="button"
                                 tabindex="0"
                                 @click="selected = {{ \Illuminate\Support\Js::from($detailPayload) }}; detailOpen = true"

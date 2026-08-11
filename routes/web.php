@@ -8,6 +8,7 @@ use App\Http\Controllers\BoardingHouseController;
 use App\Http\Controllers\BoardingHouseServiceController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Map\BoardingHouseMapController;
+use App\Http\Controllers\PaymongoCheckoutController;
 use App\Http\Controllers\Owner\OwnerController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoomController;
@@ -27,6 +28,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => view('welcome'));
+
+Route::post('/webhooks/paymongo', [PaymongoCheckoutController::class, 'webhook'])->name('paymongo.webhook');
 
 Route::middleware('guest')->get('/auth', fn () => redirect()->route('login'))->name('auth.choice');
 
@@ -81,6 +84,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/listings', [BoardingHouseController::class, 'store'])->name('listings.store');
         Route::put('/listings/{boarding_house}', [BoardingHouseController::class, 'update'])->name('listings.update');
         Route::delete('/listings/{boarding_house}', [BoardingHouseController::class, 'destroy'])->name('listings.destroy');
+        Route::post('/listings/{boarding_house}/photos', [BoardingHouseController::class, 'storePhotos'])->name('listings.photos.store');
+        Route::patch('/listings/{boarding_house}/photos/{image}/cover', [BoardingHouseController::class, 'setCoverPhoto'])->name('listings.photos.cover');
+        Route::delete('/listings/{boarding_house}/photos/{image}', [BoardingHouseController::class, 'destroyPhoto'])->name('listings.photos.destroy');
 
         // Additional tenant-bookable services (laundry, parking, cleaning, etc.)
         Route::get('/services', [BoardingHouseServiceController::class, 'index'])->name('services.index');
@@ -177,6 +183,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/listings', [BoardingHouseController::class, 'store'])->name('listings.store');
         Route::put('/listings/{boarding_house}', [BoardingHouseController::class, 'update'])->name('listings.update');
         Route::delete('/listings/{boarding_house}', [BoardingHouseController::class, 'destroy'])->name('listings.destroy');
+        Route::post('/listings/{boarding_house}/photos', [BoardingHouseController::class, 'storePhotos'])->name('listings.photos.store');
+        Route::patch('/listings/{boarding_house}/photos/{image}/cover', [BoardingHouseController::class, 'setCoverPhoto'])->name('listings.photos.cover');
+        Route::delete('/listings/{boarding_house}/photos/{image}', [BoardingHouseController::class, 'destroyPhoto'])->name('listings.photos.destroy');
 
         // Additional tenant-bookable services (laundry, parking, cleaning, etc.)
         Route::get('/services', [BoardingHouseServiceController::class, 'index'])->name('services.index');
@@ -277,7 +286,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/payment-methods', [TenantAreaController::class, 'storePaymentMethod'])->name('payment-methods.store');
         Route::patch('/payment-methods/{method}/default', [TenantAreaController::class, 'setDefaultPaymentMethod'])->name('payment-methods.default');
         Route::delete('/payment-methods/{method}', [TenantAreaController::class, 'destroyPaymentMethod'])->name('payment-methods.destroy');
-        Route::post('/payments/confirm', [TenantAreaController::class, 'confirmPayment'])->name('payments.confirm');
+        Route::post('/payments/paymongo/checkout', [PaymongoCheckoutController::class, 'store'])->name('paymongo.checkout');
+        Route::post('/payments/confirm', [PaymongoCheckoutController::class, 'legacyConfirm'])->name('payments.confirm');
+        Route::get('/payments/paymongo/{checkout}/return', [PaymongoCheckoutController::class, 'returned'])->middleware('signed')->name('paymongo.return');
+        Route::get('/payments/paymongo/{checkout}/cancel', [PaymongoCheckoutController::class, 'cancel'])->name('paymongo.cancel');
         Route::post('/payment-receipts', [PaymentReceiptController::class, 'store'])->name('payment-receipts.store');
         Route::delete('/payment-receipts/{receipt}', [PaymentReceiptController::class, 'destroy'])->name('payment-receipts.destroy');
         Route::get('/messages', [TenantAreaController::class, 'messages'])->name('messages');

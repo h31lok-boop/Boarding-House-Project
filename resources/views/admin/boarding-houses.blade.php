@@ -181,11 +181,17 @@
             editPhotos: [],
             createCoverSelection: '',
             editCoverSelection: '',
+            editPhotoCursor: 0,
             photoStore() {
                 window.boardingHousePhotoFiles ??= { create: new Map(), edit: new Map() };
                 return window.boardingHousePhotoFiles;
             },
             showDetails(house) {
+                if (@js($isMineView)) {
+                    this.editDetails(house);
+                    return;
+                }
+
                 this.selected = house;
                 this.viewOpen = true;
                 this.$nextTick(() => window.dispatchEvent(new CustomEvent('boarding-house-map:show', { detail: house })));
@@ -199,7 +205,9 @@
                 this.editCoverSelection = this.selected.images.find(image => image.is_cover)
                     ? `existing:${this.selected.images.find(image => image.is_cover).id}`
                     : '';
+                this.editPhotoCursor = 0;
                 this.editOpen = true;
+                this.$nextTick(() => window.dispatchEvent(new CustomEvent('boarding-house-map:edit')));
             },
             handlePhotoFiles(event, mode) {
                 const existingCount = mode === 'edit'
@@ -235,6 +243,7 @@
                     this.editPhotos.forEach(photo => URL.revokeObjectURL(photo.url));
                     this.editPhotos = photos;
                     if (!this.editCoverSelection && photos.length) this.editCoverSelection = 'new:0';
+                    if (photos.length) this.editPhotoCursor = existingCount;
                     this.syncPhotoInput('edit');
                 }
             },
@@ -249,7 +258,12 @@
 
                 const current = mode === 'create' ? this.createCoverSelection : this.editCoverSelection;
                 if (current === `new:${index}`) {
-                    const fallback = photos.length ? 'new:0' : '';
+                    const existingFallback = mode === 'edit'
+                        ? (this.selected.images || []).find(image => !image.removed)
+                        : null;
+                    const fallback = photos.length
+                        ? 'new:0'
+                        : (existingFallback ? `existing:${existingFallback.id}` : '');
                     if (mode === 'create') this.createCoverSelection = fallback;
                     else this.editCoverSelection = fallback;
                 } else if (current.startsWith('new:')) {
@@ -260,6 +274,7 @@
                     }
                 }
                 this.syncPhotoInput(mode);
+                if (mode === 'edit') this.editPhotoCursor = Math.max(0, Math.min(this.editPhotoCursor, this.editorPhotos().length - 1));
             },
             moveNewPhoto(mode, index, direction) {
                 const photos = mode === 'create' ? this.createPhotos : this.editPhotos;
@@ -299,12 +314,72 @@
                     const fallback = (this.selected.images || []).find(candidate => !candidate.removed);
                     this.editCoverSelection = fallback ? `existing:${fallback.id}` : (this.editPhotos.length ? 'new:0' : '');
                 }
+                this.editPhotoCursor = Math.max(0, Math.min(this.editPhotoCursor, this.editorPhotos().length - 1));
+            },
+            editorPhotos() {
+                const existing = (this.selected.images || [])
+                    .map((image, sourceIndex) => ({
+                        kind: 'existing',
+                        uid: `existing-${image.id}`,
+                        key: `existing:${image.id}`,
+                        sourceIndex,
+                        url: image.url,
+                        image,
+                    }))
+                    .filter(photo => !photo.image.removed);
+                const added = this.editPhotos.map((photo, sourceIndex) => ({
+                    kind: 'new',
+                    uid: `new-${photo.id}`,
+                    key: `new:${sourceIndex}`,
+                    sourceIndex,
+                    url: photo.url,
+                    name: photo.name,
+                    photo,
+                }));
+
+                return [...existing, ...added];
+            },
+            currentEditorPhoto() {
+                const photos = this.editorPhotos();
+                return photos[Math.max(0, Math.min(this.editPhotoCursor, photos.length - 1))] || null;
+            },
+            showEditorPhoto(direction) {
+                const count = this.editorPhotos().length;
+                if (count < 2) return;
+                this.editPhotoCursor = (this.editPhotoCursor + direction + count) % count;
+            },
+            makeCurrentEditorPhotoCover() {
+                const current = this.currentEditorPhoto();
+                if (current) this.editCoverSelection = current.key;
+            },
+            moveCurrentEditorPhoto(direction) {
+                const current = this.currentEditorPhoto();
+                if (!current) return;
+                if (current.kind === 'existing') this.moveExistingPhoto(current.sourceIndex, direction);
+                else this.moveNewPhoto('edit', current.sourceIndex, direction);
+                this.$nextTick(() => {
+                    const nextIndex = this.editorPhotos().findIndex(photo => photo.uid === current.uid);
+                    if (nextIndex >= 0) this.editPhotoCursor = nextIndex;
+                });
+            },
+            removeCurrentEditorPhoto() {
+                const current = this.currentEditorPhoto();
+                if (!current) return;
+                if (current.kind === 'existing') this.toggleExistingPhoto(current.image);
+                else this.removeNewPhoto('edit', current.sourceIndex);
+                this.$nextTick(() => {
+                    this.editPhotoCursor = Math.max(0, Math.min(this.editPhotoCursor, this.editorPhotos().length - 1));
+                });
+            },
+            restoreRemovedEditorPhotos() {
+                (this.selected.images || []).forEach(image => { image.removed = false; });
+                this.editPhotoCursor = 0;
             }
         }"
         class="space-y-5 text-slate-950"
     >
         <section class="overflow-hidden rounded-[1.6rem] border border-slate-200/80 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
-            <div class="border-b border-slate-200/80 bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.08),_transparent_30%),linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-5 sm:px-6">
+            <div class="border-b border-slate-200/80 bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.08),_transparent_30%),linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-5 dark:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.16),_transparent_34%),linear-gradient(180deg,#0f172a_0%,#111c30_100%)] sm:px-6">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div class="min-w-0">
                         <h1 class="mt-2 text-[1.95rem] font-semibold tracking-[-0.04em] text-slate-950">{{ $pageTitle }}</h1>
@@ -875,25 +950,22 @@
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <h3 class="text-sm font-bold text-slate-950">Boarding House Photos</h3>
-                            <p class="mt-1 text-xs text-slate-500">Upload up to 10 JPG, PNG, or WEBP photos. Maximum 5 MB each.</p>
+                            <p class="mt-1 text-xs text-slate-500">Upload up to 10 JPG, PNG, or WEBP photos. The first photo becomes the listing background.</p>
                         </div>
                         <label class="btn-secondary cursor-pointer justify-center">
                             Upload Photos
                             <input x-ref="createPhotoInput" type="file" name="photos[]" multiple accept="image/jpeg,image/png,image/webp" class="sr-only" @change="handlePhotoFiles($event, 'create')">
                         </label>
                     </div>
-                    <input type="hidden" name="cover_selection" :value="createCoverSelection">
                     <div x-show="createPhotos.length" class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                         <template x-for="(photo, index) in createPhotos" :key="photo.id">
                             <article class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
                                 <div class="relative">
-                                    <img :src="photo.url" :alt="photo.name" class="h-32 w-full object-cover">
-                                    <span x-show="createCoverSelection === `new:${index}`" class="absolute left-2 top-2 rounded-full bg-blue-600 px-2.5 py-1 text-[10px] font-bold text-white">Cover Photo</span>
+                                    <img :src="photo.url" alt="New property photo" class="h-32 w-full object-cover" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}'">
                                 </div>
                                 <div class="space-y-2 p-3">
                                     <p class="truncate text-xs font-semibold text-slate-700" x-text="photo.name"></p>
                                     <div class="flex flex-wrap gap-1.5">
-                                        <button type="button" class="rounded-lg bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-700" @click="createCoverSelection = `new:${index}`">Set as Cover</button>
                                         <button type="button" class="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-600" @click="moveNewPhoto('create', index, -1)" :disabled="index === 0">Up</button>
                                         <button type="button" class="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-600" @click="moveNewPhoto('create', index, 1)" :disabled="index === createPhotos.length - 1">Down</button>
                                         <button type="button" class="rounded-lg bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-600" @click="removeNewPhoto('create', index)">Remove</button>
@@ -912,6 +984,7 @@
         </div>
         </template>
 
+        @unless ($isMineView)
         <template x-teleport="body">
         <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak x-transition.opacity @keydown.escape.window="viewOpen = false" class="bm-modal-overlay" style="display: none;">
             <div class="bm-modal bm-modal--xl">
@@ -978,7 +1051,7 @@
                             <h3 class="text-sm font-semibold">Photos</h3>
                             <div class="mt-3 grid grid-cols-2 gap-3">
                                 <template x-for="image in selected.images || []" :key="image.id">
-                                    <img :src="image.url" :alt="selected.name" class="h-32 w-full rounded-xl border border-slate-200 object-cover">
+                                    <img :src="image.url" alt="Property photo" class="h-32 w-full rounded-xl border border-slate-200 object-cover" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}'">
                                 </template>
                                 <template x-if="!selected.images || selected.images.length === 0">
                                     <img src="{{ asset('images/boarding-house-placeholder.svg') }}" alt="No Photo Available" class="col-span-2 h-48 w-full rounded-xl border border-slate-200 object-cover">
@@ -1072,135 +1145,181 @@
             </div>
         </div>
         </template>
+        @endunless
 
         <template x-teleport="body">
-        <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak x-transition.opacity @keydown.escape.window="editOpen = false" class="bm-modal-overlay" style="display: none;">
-            <form method="POST" :action="selected.update_url" enctype="multipart/form-data" class="bm-modal bm-modal--xl">
+        <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak x-transition.opacity @keydown.escape.window="editOpen = false" @click.self="editOpen = false" class="bm-modal-overlay" style="display: none;">
+            <form method="POST" :action="selected.update_url" enctype="multipart/form-data" class="bm-modal bm-modal--property-editor" @if ($isMineView) data-owner-direct-editor @endif>
                 @csrf @method('PUT')
                 @if ($isMineView)
                     <input type="hidden" name="return_to_my_boarding_house" value="1">
                 @endif
                 <div class="bm-modal__header">
                     <div>
-                        <p class="bm-modal__eyebrow">Edit</p>
-                        <h2 class="bm-modal__title">Edit Boarding House</h2>
-                        <p class="bm-modal__subtitle">Update the listing while preserving all existing backend behavior and file handling.</p>
+                        <p class="bm-modal__eyebrow">Property editor</p>
+                        <h2 class="bm-modal__title" x-text="selected.name || 'Edit Boarding House'"></h2>
+                        <p class="bm-modal__subtitle">Manage the photos and information tenants see on your listing.</p>
                     </div>
+                    @unless ($isMineView)
                     <button type="button" @click="editOpen = false" class="bm-modal__close" aria-label="Close edit boarding house modal">x</button>
+                    @endunless
                 </div>
-                <div class="bm-modal__body">
-                <div class="mt-5 grid gap-4 md:grid-cols-2">
-                    <label class="text-sm">Name<input name="name" required class="ui-input mt-1" :value="selected.name"></label>
-                    <label class="text-sm">Owner Account
-                        <select name="owner_id" class="ui-input mt-1" :value="selected.owner_id">
-                            <option value="">Use current admin</option>
-                            @foreach ($owners as $owner)
-                                <option value="{{ $owner->id }}">{{ $owner->name }} - {{ $owner->email }}</option>
-                            @endforeach
-                        </select>
-                    </label>
-                    <label class="text-sm">Monthly Fee<input name="monthly_payment" type="number" min="0" step="0.01" class="ui-input mt-1" :value="selected.monthly_payment"></label>
-                    <label class="text-sm">Capacity<input name="capacity" type="number" min="1" class="ui-input mt-1" :value="selected.capacity"></label>
-                    <label class="text-sm">Available Rooms<input name="available_rooms" type="number" min="0" class="ui-input mt-1" :value="selected.available_rooms"></label>
-                    <label class="text-sm">Approval<select name="approval_status" class="ui-input mt-1" :value="selected.approval_status"><option value="approved">Approved</option><option value="pending">Pending</option><option value="rejected">Rejected</option></select></label>
-                    <label class="text-sm">Owner / Landlord<input name="landlord_info" class="ui-input mt-1" :value="selected.landlord_info || ''"></label>
-                    <label class="text-sm">Contact Person<input name="contact_name" class="ui-input mt-1" :value="selected.contact_name || ''"></label>
-                    <label class="text-sm">Contact Number<input name="contact_phone" class="ui-input mt-1" :value="selected.contact_phone || ''"></label>
-                    <label class="text-sm md:col-span-2">Description<textarea name="description" rows="3" class="ui-input mt-1" x-text="selected.description"></textarea></label>
-                    <label class="text-sm md:col-span-2">House Rules<textarea name="house_rules" rows="3" class="ui-input mt-1" x-text="selected.house_rules"></textarea></label>
-                    <label class="md:col-span-2 flex items-center gap-2 text-sm"><input type="hidden" name="is_active" value="0"><input type="checkbox" name="is_active" value="1" :checked="selected.is_active"> Active listing</label>
-                </div>
-                <section class="mt-6 rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <h3 class="text-sm font-bold text-slate-950">Location</h3>
-                            <p class="mt-1 text-xs text-slate-500">Selecting a map point recalculates the DSSC distance automatically.</p>
-                        </div>
-                        <button type="button" class="btn-secondary justify-center" data-location-picker="edit">Pick Location on Map</button>
-                    </div>
-                    <div class="mt-4 grid gap-4 md:grid-cols-2">
-                        <label class="text-sm md:col-span-2">Complete Address<input id="edit-address" name="address" required class="ui-input mt-1" :value="selected.address"></label>
-                        <label class="text-sm">Barangay<input id="edit-barangay" name="barangay" list="dssc-location-options" class="ui-input mt-1" :value="selected.barangay"></label>
-                        <label class="text-sm">Nearby Landmark<input id="edit-landmark" name="nearby_landmark" class="ui-input mt-1" :value="selected.nearby_landmark"></label>
-                        <label class="text-sm">Distance from DSSC Main Campus (km)<input id="edit-distance" name="distance_from_dssc" type="number" min="0" max="100" step="0.01" class="ui-input mt-1" :value="selected.distance_from_dssc"></label>
-                        <label class="text-sm">Location Status
-                            <select id="edit-location-status" name="location_status" class="ui-input mt-1" :value="selected.location_status || 'approximate'">
-                                <option value="exact">Exact</option>
-                                <option value="approximate">Approximate</option>
-                            </select>
-                        </label>
-                        <label class="text-sm">Latitude<input id="edit-latitude" name="latitude" type="number" step="0.0000001" min="-90" max="90" class="ui-input mt-1" :value="selected.latitude"></label>
-                        <label class="text-sm">Longitude<input id="edit-longitude" name="longitude" type="number" step="0.0000001" min="-180" max="180" class="ui-input mt-1" :value="selected.longitude"></label>
-                        <label class="md:col-span-2 flex items-center gap-2 text-sm">
-                            <input type="hidden" name="is_near_dssc" value="0">
-                            <input id="edit-near-dssc" type="checkbox" name="is_near_dssc" value="1" :checked="selected.is_near_dssc">
-                            Is this near DSSC?
-                        </label>
-                    </div>
-                    <div id="edit-location-map" class="mt-4 hidden h-80 w-full overflow-hidden rounded-xl border border-blue-200 bg-white"></div>
-                </section>
-                <section class="mt-6 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                            <h3 class="text-sm font-bold text-slate-950">Boarding House Photos</h3>
-                            <p class="mt-1 text-xs text-slate-500">Set a cover, reorder photos, remove old images, or upload replacements.</p>
-                        </div>
-                        <label class="btn-secondary cursor-pointer justify-center">
-                            Upload Photos
-                            <input x-ref="editPhotoInput" type="file" name="photos[]" multiple accept="image/jpeg,image/png,image/webp" class="sr-only" @change="handlePhotoFiles($event, 'edit')">
-                        </label>
-                    </div>
-
-                    <input type="hidden" name="cover_selection" :value="editCoverSelection">
-                    <template x-for="image in (selected.images || []).filter(image => image.removed)" :key="`removed-${image.id}`">
-                        <input type="hidden" name="remove_image_ids[]" :value="image.id">
-                    </template>
-                    <template x-for="image in (selected.images || []).filter(image => !image.removed)" :key="`order-${image.id}`">
-                        <input type="hidden" name="image_order[]" :value="image.id">
-                    </template>
-
-                    <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        <template x-for="(image, index) in selected.images || []" :key="image.id">
-                            <article class="overflow-hidden rounded-xl border bg-white shadow-sm" :class="image.removed ? 'border-rose-200 opacity-60' : 'border-slate-200'">
-                                <div class="relative">
-                                    <img :src="image.url" :alt="selected.name" class="h-32 w-full object-cover">
-                                    <span x-show="!image.removed && editCoverSelection === `existing:${image.id}`" class="absolute left-2 top-2 rounded-full bg-blue-600 px-2.5 py-1 text-[10px] font-bold text-white">Cover Photo</span>
-                                    <span x-show="image.removed" class="absolute inset-0 flex items-center justify-center bg-white/75 text-xs font-bold text-rose-700">Will be removed</span>
+                <div class="bm-modal__body !p-0">
+                    <div class="grid min-w-0 xl:grid-cols-[minmax(0,1.15fr)_minmax(24rem,0.85fr)]">
+                        <section data-property-photo-workspace class="min-w-0 border-b border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-950/35 sm:p-5 xl:border-b-0 xl:border-r">
+                            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                <div class="min-w-0">
+                                    <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-300">Photo gallery</p>
+                                    <h3 class="mt-1 text-base font-bold text-slate-950 dark:text-white">Show tenants the real property</h3>
+                                    <p class="mt-1 max-w-xl text-xs leading-5 text-slate-500 dark:text-slate-400">Arrange every photo in the order tenants should see it. The first photo is automatically used as the listing background.</p>
                                 </div>
-                                <div class="flex flex-wrap gap-1.5 p-3">
-                                    <button x-show="!image.removed" type="button" class="rounded-lg bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-700" @click="editCoverSelection = `existing:${image.id}`">Set as Cover</button>
-                                    <button x-show="!image.removed" type="button" class="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-600" @click="moveExistingPhoto(index, -1)" :disabled="index === 0">Up</button>
-                                    <button x-show="!image.removed" type="button" class="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-600" @click="moveExistingPhoto(index, 1)" :disabled="index === selected.images.length - 1">Down</button>
-                                    <button type="button" class="rounded-lg px-2 py-1 text-[11px] font-bold" :class="image.removed ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-600'" @click="toggleExistingPhoto(image)" x-text="image.removed ? 'Undo' : 'Remove'"></button>
-                                </div>
-                            </article>
-                        </template>
+                                <span class="inline-flex shrink-0 self-start rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300" x-text="`${(selected.images || []).filter(image => !image.removed).length + editPhotos.length}/10 photos`"></span>
+                            </div>
 
-                        <template x-for="(photo, index) in editPhotos" :key="photo.id">
-                            <article class="overflow-hidden rounded-xl border border-blue-200 bg-white shadow-sm">
-                                <div class="relative">
-                                    <img :src="photo.url" :alt="photo.name" class="h-32 w-full object-cover">
-                                    <span class="absolute right-2 top-2 rounded-full bg-white/90 px-2 py-1 text-[10px] font-bold text-blue-700">New</span>
-                                    <span x-show="editCoverSelection === `new:${index}`" class="absolute left-2 top-2 rounded-full bg-blue-600 px-2.5 py-1 text-[10px] font-bold text-white">Cover Photo</span>
-                                </div>
-                                <div class="space-y-2 p-3">
-                                    <p class="truncate text-xs font-semibold text-slate-700" x-text="photo.name"></p>
-                                    <div class="flex flex-wrap gap-1.5">
-                                        <button type="button" class="rounded-lg bg-blue-50 px-2 py-1 text-[11px] font-bold text-blue-700" @click="editCoverSelection = `new:${index}`">Set as Cover</button>
-                                        <button type="button" class="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-600" @click="moveNewPhoto('edit', index, -1)" :disabled="index === 0">Up</button>
-                                        <button type="button" class="rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-bold text-slate-600" @click="moveNewPhoto('edit', index, 1)" :disabled="index === editPhotos.length - 1">Down</button>
-                                        <button type="button" class="rounded-lg bg-rose-50 px-2 py-1 text-[11px] font-bold text-rose-600" @click="removeNewPhoto('edit', index)">Remove</button>
+                            <label class="mt-4 flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-blue-200 bg-blue-50/70 px-5 py-6 text-center transition hover:border-blue-400 hover:bg-blue-50 focus-within:ring-4 focus-within:ring-blue-100 dark:border-blue-400/30 dark:bg-blue-400/5 dark:hover:border-blue-400/60">
+                                <span class="grid h-11 w-11 place-items-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/20">
+                                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 16.5V18a2.25 2.25 0 0 0 2.25 2.25h13.5A2.25 2.25 0 0 0 21 18v-1.5m-13.5-6L12 6m0 0 4.5 4.5M12 6v10.5"/></svg>
+                                </span>
+                                <span class="mt-3 text-sm font-bold text-slate-900 dark:text-white">Add property photos</span>
+                                <span class="mt-1 text-xs text-slate-500 dark:text-slate-400">JPG, PNG, or WEBP · up to 5 MB each · maximum 10</span>
+                                <input x-ref="editPhotoInput" type="file" name="photos[]" multiple accept="image/jpeg,image/png,image/webp" class="sr-only" @change="handlePhotoFiles($event, 'edit')">
+                            </label>
+
+                            <template x-for="image in (selected.images || []).filter(image => image.removed)" :key="`removed-${image.id}`">
+                                <input type="hidden" name="remove_image_ids[]" :value="image.id">
+                            </template>
+                            <template x-for="image in (selected.images || []).filter(image => !image.removed)" :key="`order-${image.id}`">
+                                <input type="hidden" name="image_order[]" :value="image.id">
+                            </template>
+
+                            <div data-property-photo-carousel class="mt-4" x-show="editorPhotos().length">
+                                <div class="relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 shadow-xl dark:border-slate-700">
+                                    <template x-if="currentEditorPhoto()">
+                                        <img :src="currentEditorPhoto().url" alt="Property photo" class="h-[28rem] w-full object-cover sm:h-[34rem]" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}'">
+                                    </template>
+                                    <div class="pointer-events-none absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-slate-950 via-slate-950/45 to-transparent"></div>
+
+                                    <button x-show="editorPhotos().length > 1" type="button" @click="showEditorPhoto(-1)" class="absolute left-4 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/25 bg-slate-950/65 text-white shadow-xl backdrop-blur transition hover:scale-105 hover:bg-slate-950" aria-label="Previous property photo" title="Previous photo">
+                                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 18-6-6 6-6"/></svg>
+                                    </button>
+                                    <button x-show="editorPhotos().length > 1" type="button" @click="showEditorPhoto(1)" class="absolute right-4 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/25 bg-slate-950/65 text-white shadow-xl backdrop-blur transition hover:scale-105 hover:bg-slate-950" aria-label="Next property photo" title="Next photo">
+                                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 18 6-6-6-6"/></svg>
+                                    </button>
+
+                                    <div class="absolute inset-x-4 bottom-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                                        <div class="text-white">
+                                            <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-white/65">Gallery position</p>
+                                            <p class="mt-1 text-sm font-bold"><span x-text="editPhotoCursor + 1"></span> of <span x-text="editorPhotos().length"></span></p>
+                                        </div>
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <button type="button" @click="moveCurrentEditorPhoto(-1)" class="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3 text-[11px] font-bold text-white backdrop-blur transition hover:bg-white/20" title="Move active photo earlier"><svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 18-6-6 6-6"/></svg> Earlier</button>
+                                            <button type="button" @click="moveCurrentEditorPhoto(1)" class="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3 text-[11px] font-bold text-white backdrop-blur transition hover:bg-white/20" title="Move active photo later">Later <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 18 6-6-6-6"/></svg></button>
+                                            <button type="button" @click="removeCurrentEditorPhoto()" class="grid h-9 w-9 place-items-center rounded-xl bg-rose-600 text-white shadow transition hover:bg-rose-700" aria-label="Remove active property photo" title="Remove photo"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M6 7h12m-9 0V5.75A1.75 1.75 0 0 1 10.75 4h2.5A1.75 1.75 0 0 1 15 5.75V7m-7 0 .7 11.2A2 2 0 0 0 10.7 20h2.6a2 2 0 0 0 2-1.8L16 7"/></svg></button>
+                                        </div>
                                     </div>
                                 </div>
-                            </article>
-                        </template>
+
+                                <div class="mt-3 flex items-center justify-between gap-3">
+                                    <div class="flex max-w-full items-center gap-1.5 overflow-hidden" aria-label="Photo position indicators">
+                                        <template x-for="(photo, index) in editorPhotos()" :key="photo.uid">
+                                            <button type="button" @click="editPhotoCursor = index" class="h-1.5 rounded-full transition-all" :class="editPhotoCursor === index ? 'w-8 bg-blue-600' : 'w-3 bg-slate-300 hover:bg-slate-400 dark:bg-slate-700'" :aria-label="`Show property photo ${index + 1}`"></button>
+                                        </template>
+                                    </div>
+                                    <button x-show="(selected.images || []).some(image => image.removed)" type="button" @click="restoreRemovedEditorPhotos()" class="shrink-0 text-[11px] font-bold text-emerald-700 hover:text-emerald-800 dark:text-emerald-300">Undo removed photos</button>
+                                </div>
+                            </div>
+
+                            <div x-show="(!selected.images || selected.images.every(image => image.removed)) && !editPhotos.length" class="mt-4 rounded-2xl border border-dashed border-amber-300 bg-amber-50 px-5 py-8 text-center dark:border-amber-400/30 dark:bg-amber-400/10">
+                                <p class="text-sm font-bold text-amber-900 dark:text-amber-200">No property photos selected</p>
+                                <p class="mt-1 text-xs text-amber-700 dark:text-amber-300">Add at least one clear exterior or room photo to make the listing trustworthy.</p>
+                            </div>
+                            @error('photos')<p class="mt-3 text-xs font-semibold text-rose-600">{{ $message }}</p>@enderror
+                            @error('photos.*')<p class="mt-3 text-xs font-semibold text-rose-600">{{ $message }}</p>@enderror
+                        </section>
+
+                        <section class="min-w-0 space-y-5 bg-white p-4 dark:bg-slate-900 sm:p-5">
+                            <div class="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+                                <div>
+                                    <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Listing details</p>
+                                    <h3 class="mt-1 text-base font-bold text-slate-950 dark:text-white">Property information</h3>
+                                </div>
+                                <div class="mt-4 grid gap-4 md:grid-cols-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200 md:col-span-2">Property name<input name="name" required class="ui-input mt-1.5" :value="selected.name"></label>
+                                    @unless ($isMineView)
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Owner account
+                                        <select name="owner_id" class="ui-input mt-1.5" :value="selected.owner_id">
+                                            <option value="">Use current admin</option>
+                                            @foreach ($owners as $owner)
+                                                <option value="{{ $owner->id }}">{{ $owner->name }} - {{ $owner->email }}</option>
+                                            @endforeach
+                                        </select>
+                                    </label>
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Approval
+                                        <select name="approval_status" class="ui-input mt-1.5" :value="selected.approval_status"><option value="approved">Approved</option><option value="pending">Pending</option><option value="rejected">Rejected</option></select>
+                                    </label>
+                                    @endunless
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Monthly fee<input name="monthly_payment" type="number" min="0" step="0.01" class="ui-input mt-1.5" :value="selected.monthly_payment"></label>
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Capacity<input name="capacity" type="number" min="1" class="ui-input mt-1.5" :value="selected.capacity"></label>
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Available rooms<input name="available_rooms" type="number" min="0" class="ui-input mt-1.5" :value="selected.available_rooms"></label>
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Owner / landlord<input name="landlord_info" class="ui-input mt-1.5" :value="selected.landlord_info || ''"></label>
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Contact person<input name="contact_name" class="ui-input mt-1.5" :value="selected.contact_name || ''"></label>
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Contact number<input name="contact_phone" class="ui-input mt-1.5" :value="selected.contact_phone || ''"></label>
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200 md:col-span-2">Description<textarea name="description" rows="4" class="ui-input mt-1.5" x-model="selected.description"></textarea></label>
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200 md:col-span-2">House rules<textarea name="house_rules" rows="4" class="ui-input mt-1.5" x-model="selected.house_rules"></textarea></label>
+                                    <label class="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 md:col-span-2">
+                                        <span><span class="block">Visible to tenants</span><span class="mt-0.5 block text-[11px] font-normal text-slate-500 dark:text-slate-400">Turn off to temporarily hide this listing.</span></span>
+                                        <span><input type="hidden" name="is_active" value="0"><input type="checkbox" name="is_active" value="1" :checked="selected.is_active" class="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="rounded-2xl border border-blue-100 bg-blue-50/50 p-4 dark:border-blue-400/20 dark:bg-blue-400/5">
+                                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div>
+                                        <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-300">Location</p>
+                                        <h3 class="mt-1 text-base font-bold text-slate-950 dark:text-white">Tag the property on the map</h3>
+                                        <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Click the exact building location to place the marker. Drag the marker anytime to correct it.</p>
+                                    </div>
+                                    <button type="button" class="btn-secondary shrink-0 justify-center" data-location-picker="edit">Center marker</button>
+                                </div>
+                                <div class="mt-4 overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-sm dark:border-blue-400/30 dark:bg-slate-900">
+                                    <div id="edit-location-map" data-property-location-map class="h-80 w-full sm:h-96"></div>
+                                    <div class="flex items-start gap-3 border-t border-blue-100 bg-white px-4 py-3 dark:border-blue-400/20 dark:bg-slate-900">
+                                        <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-400/10 dark:text-blue-300"><svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 21s7-4.35 7-11a7 7 0 1 0-14 0c0 6.65 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5" stroke-width="2"/></svg></span>
+                                        <div><p class="text-xs font-bold text-slate-800 dark:text-slate-100">Property marker</p><p class="mt-0.5 text-[11px] leading-5 text-slate-500 dark:text-slate-400">The coordinates and DSSC distance below update automatically from this marker.</p></div>
+                                    </div>
+                                </div>
+                                <div class="mt-4 grid gap-4 md:grid-cols-2">
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200 md:col-span-2">Complete address<input id="edit-address" name="address" required class="ui-input mt-1.5" :value="selected.address"></label>
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Barangay<input id="edit-barangay" name="barangay" list="dssc-location-options" class="ui-input mt-1.5" :value="selected.barangay"></label>
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Nearby landmark<input id="edit-landmark" name="nearby_landmark" class="ui-input mt-1.5" :value="selected.nearby_landmark"></label>
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Distance from DSSC (km)<input id="edit-distance" name="distance_from_dssc" type="number" min="0" max="100" step="0.01" class="ui-input mt-1.5" :value="selected.distance_from_dssc"></label>
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Location accuracy
+                                        <select id="edit-location-status" name="location_status" class="ui-input mt-1.5" :value="selected.location_status || 'approximate'">
+                                            <option value="exact">Exact</option>
+                                            <option value="approximate">Approximate</option>
+                                        </select>
+                                    </label>
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Latitude<input id="edit-latitude" name="latitude" type="number" step="0.0000001" min="-90" max="90" class="ui-input mt-1.5" :value="selected.latitude"></label>
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Longitude<input id="edit-longitude" name="longitude" type="number" step="0.0000001" min="-180" max="180" class="ui-input mt-1.5" :value="selected.longitude"></label>
+                                    <label class="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200 md:col-span-2">
+                                        <input type="hidden" name="is_near_dssc" value="0">
+                                        <input id="edit-near-dssc" type="checkbox" name="is_near_dssc" value="1" :checked="selected.is_near_dssc" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
+                                        Near DSSC Main Campus
+                                    </label>
+                                </div>
+                            </div>
+                        </section>
                     </div>
-                    <p x-show="(!selected.images || selected.images.every(image => image.removed)) && !editPhotos.length" class="mt-4 rounded-xl border border-dashed border-amber-300 bg-amber-50 px-4 py-4 text-center text-xs font-semibold text-amber-800">This listing will use the “No Photo Available” placeholder. Upload a real photo to improve visibility.</p>
-                    @error('photos')<p class="mt-2 text-xs font-semibold text-rose-600">{{ $message }}</p>@enderror
-                    @error('photos.*')<p class="mt-2 text-xs font-semibold text-rose-600">{{ $message }}</p>@enderror
-                </section>
                 </div>
-                <div class="bm-modal__footer"><button type="button" @click="editOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button><button class="bm-modal__button bm-modal__button--primary">Save Changes</button></div>
+                @if ($isMineView)
+                <div class="bm-modal__footer items-center justify-between gap-4">
+                    <p class="hidden text-xs text-slate-500 dark:text-slate-400 sm:block">Saving updates the property information shown to tenants.</p>
+                    <button class="bm-modal__button bm-modal__button--primary sm:min-w-36">Save changes</button>
+                </div>
+                @else
+                <div class="bm-modal__footer"><button type="button" @click="editOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button><button class="bm-modal__button bm-modal__button--primary">Save changes</button></div>
+                @endif
             </form>
         </div>
         </template>
@@ -1279,7 +1398,6 @@
 
             const reverseGeocode = async (mode, lat, lng) => {
                 const fields = pickerFields(mode);
-                if (fields.address.value.trim()) return;
 
                 try {
                     const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`, {
@@ -1354,11 +1472,18 @@
                 }
 
                 placePickerMarker(mode, startLat, startLng, false, false);
+                pickerMaps[mode].map.setView([startLat, startLng], pickerMaps[mode].map.getZoom() || 15);
                 window.setTimeout(() => pickerMaps[mode].map.invalidateSize(), 100);
             };
 
-            document.querySelectorAll('[data-location-picker]').forEach((button) => {
-                button.addEventListener('click', () => openLocationPicker(button.dataset.locationPicker));
+            document.addEventListener('click', (event) => {
+                const button = event.target.closest?.('[data-location-picker]');
+                if (!button) return;
+                openLocationPicker(button.dataset.locationPicker);
+            });
+
+            window.addEventListener('boarding-house-map:edit', () => {
+                window.setTimeout(() => openLocationPicker('edit'), 120);
             });
 
             ['create', 'edit'].forEach((mode) => {

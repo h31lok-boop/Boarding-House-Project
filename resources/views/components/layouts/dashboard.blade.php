@@ -6,6 +6,20 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ config('app.name', 'Boarding House Match Making System') }}</title>
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+    <script>
+        (function () {
+            try {
+                const stored = localStorage.getItem('theme');
+                const theme = stored === 'dark' || stored === 'light'
+                    ? stored
+                    : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+
+                document.documentElement.setAttribute('data-theme', theme);
+            } catch (error) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
     <style id="dashboard-critical-styles">
         :where(.admin-shell svg, .user-shell svg) {
             height: 1.25rem;
@@ -14,11 +28,7 @@
     </style>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body
-    x-data="{ dark: localStorage.getItem('dark') === 'true' }"
-    x-init="$watch('dark', val => localStorage.setItem('dark', val))"
-    :class="{ 'dark': dark }"
-    class="min-h-screen bg-slate-50 dark:bg-slate-900 overflow-x-hidden transition-colors">
+<body class="min-h-screen bg-slate-50 dark:bg-slate-900 overflow-x-hidden transition-colors">
     {{ $slot }}
 </body>
 </html>

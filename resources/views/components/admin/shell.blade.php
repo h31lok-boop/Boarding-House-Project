@@ -57,10 +57,10 @@
     if (\Illuminate\Support\Facades\Schema::hasTable('notifications') && $currentUser) {
         $notificationQuery = \Illuminate\Support\Facades\DB::table('notifications')->where('user_id', $currentUser->id);
 
-        if (\Illuminate\Support\Facades\Schema::hasColumn('notifications', 'is_read')) {
-            $notificationQuery->where('is_read', false);
-        } elseif (\Illuminate\Support\Facades\Schema::hasColumn('notifications', 'read_at')) {
+        if (\Illuminate\Support\Facades\Schema::hasColumn('notifications', 'read_at')) {
             $notificationQuery->whereNull('read_at');
+        } elseif (\Illuminate\Support\Facades\Schema::hasColumn('notifications', 'is_read')) {
+            $notificationQuery->where('is_read', false);
         }
 
         $notificationsCount = (int) $notificationQuery->count();
@@ -204,7 +204,7 @@
 <div
     x-data="{ adminProfileOpen: false, adminProfileMenuReady: false }"
     @keydown.escape.window="adminProfileOpen = false; adminProfileMenuReady = false"
-    class="admin-shell relative w-full overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.08),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(37,99,235,0.08),_transparent_24%),#f4f7fb]"
+    class="admin-shell relative w-full overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.08),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(37,99,235,0.08),_transparent_24%),#f4f7fb] dark:bg-[#020617]"
 >
     <div class="sidebar-overlay" data-sidebar-overlay aria-hidden="true"></div>
 
@@ -244,9 +244,25 @@
         <p class="sidebar-footer mt-3 border-t border-white/10 pt-2 text-center text-[10px] leading-4 text-slate-500">&copy; {{ date('Y') }} BoardMatch<br>All rights reserved.</p>
     </aside>
 
+    <button
+        type="button"
+        class="sidebar-reopen-button"
+        data-sidebar-toggle
+        data-sidebar-reopen
+        aria-controls="adminSidebar"
+        aria-expanded="false"
+        aria-label="Open sidebar"
+        title="Open sidebar"
+    >
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+        <span class="sr-only">Open sidebar</span>
+    </button>
+
     <main class="admin-dashboard-main min-w-0 bg-transparent">
         <div class="relative mx-auto flex max-w-[1640px] flex-col gap-2.5 px-2.5 py-2.5 sm:px-3 sm:py-3 xl:px-4">
-            <div class="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.7),_transparent_62%)]"></div>
+            <div class="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.7),_transparent_62%)] dark:bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.08),_transparent_62%)]"></div>
 
             <div class="relative md:hidden">
                 <button
@@ -265,7 +281,7 @@
             </div>
 
             @if ($showHeader)
-                <header class="relative z-[60] overflow-visible rounded-[1.1rem] border border-white/80 bg-white/88 px-3 py-2.5 shadow-[0_14px_30px_rgba(15,23,42,0.06)] backdrop-blur xl:px-3.5">
+                <header class="sticky top-2.5 z-[60] overflow-visible rounded-[1.1rem] border border-white/80 bg-white/95 px-3 py-2.5 shadow-[0_14px_30px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800/90 dark:bg-slate-950/95 xl:px-3.5">
                     <div class="absolute inset-y-0 right-0 hidden w-32 bg-[radial-gradient(circle_at_center,_rgba(16,185,129,0.12),_transparent_68%)] lg:block"></div>
                     <div class="relative flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
                         <div class="min-w-0">
@@ -306,20 +322,14 @@
                                         <span class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{{ $messageCount > 99 ? '99+' : $messageCount }}</span>
                                     @endif
                                 </a>
-                                <a href="{{ $r('admin.notifications.index') }}" class="relative inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" aria-label="Notifications">
-                                    <svg class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M15 17H9m0 0-3-9a6 6 0 1 1 12 0l-3 9m-6 0v1a3 3 0 0 0 6 0v-1"/>
-                                    </svg>
-                                    @if ($notificationsCount > 0)
-                                        <span class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{{ $notificationsCount > 99 ? '99+' : $notificationsCount }}</span>
-                                    @endif
-                                </a>
+                                <x-header-notification-link :href="$r($workspaceRoute('notifications.index'))" :count="$notificationsCount" />
+                                <x-theme-icon-toggle />
 
                                 <div class="relative z-[70] min-w-0 flex-1 sm:flex-none">
                                     <button
                                         type="button"
                                         @click.stop="adminProfileOpen = ! adminProfileOpen; adminProfileMenuReady = false; if (adminProfileOpen) setTimeout(() => adminProfileMenuReady = true, 120)"
-                                        class="flex h-11 w-full min-w-0 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-2.5 shadow-sm transition hover:border-blue-200 hover:bg-blue-50/60 focus:outline-none focus:ring-4 focus:ring-blue-100 sm:w-auto sm:min-w-[12rem] sm:max-w-[15rem]"
+                                        class="flex h-11 w-full min-w-0 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-2.5 shadow-sm transition hover:border-blue-200 hover:bg-blue-50/60 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600 dark:hover:bg-slate-800 sm:w-auto sm:min-w-[12rem] sm:max-w-[15rem]"
                                         aria-haspopup="menu"
                                         :aria-expanded="adminProfileOpen"
                                     >
@@ -370,16 +380,19 @@
             @endif
 
             @if (! $showHeader && $isOwnerWorkspace)
-                <div class="relative z-[60] mb-4 overflow-visible rounded-[1.1rem] border border-white/80 bg-white/88 px-3 py-2.5 shadow-[0_14px_30px_rgba(15,23,42,0.06)] backdrop-blur xl:px-3.5">
+                <div class="sticky top-2.5 z-[60] mb-4 overflow-visible rounded-[1.1rem] border border-white/80 bg-white/95 px-3 py-2.5 shadow-[0_14px_30px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800/90 dark:bg-slate-950/95 xl:px-3.5">
                     <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                         <div class="min-w-0">
                             <p class="text-sm font-semibold text-slate-500">Owner Workspace</p>
                         </div>
-                        <div class="relative z-[70]" x-data="{ adminProfileOpenFallback: false, adminProfileReadyFallback: false }">
+                        <div class="flex items-center gap-2">
+                            <x-header-notification-link :href="$r($workspaceRoute('notifications.index'))" :count="$notificationsCount" size="lg" />
+                            <x-theme-icon-toggle size="lg" />
+                            <div class="relative z-[70]" x-data="{ adminProfileOpenFallback: false, adminProfileReadyFallback: false }">
                             <button
                                 type="button"
                                 @click.stop="adminProfileOpenFallback = ! adminProfileOpenFallback; adminProfileReadyFallback = false; if (adminProfileOpenFallback) setTimeout(() => adminProfileReadyFallback = true, 120)"
-                                class="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                                class="inline-flex h-11 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3.5 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600 dark:hover:bg-slate-800"
                                 aria-haspopup="menu"
                                 :aria-expanded="adminProfileOpenFallback"
                             >
@@ -421,6 +434,7 @@
                                     </form>
                                 </div>
                             </div>
+                        </div>
                         </div>
                     </div>
                 </div>

@@ -21,11 +21,23 @@ const focusableSelector = [
 ].join(',');
 
 const applyTheme = (theme) => {
-    const resolved = theme || localStorage.getItem('theme') || 'light';
+    const stored = getStorageItem('theme');
+    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    const candidate = theme || stored || systemTheme;
+    const resolved = candidate === 'dark' ? 'dark' : 'light';
+
     document.documentElement.setAttribute('data-theme', resolved);
-    localStorage.setItem('theme', resolved);
+    setStorageItem('theme', resolved);
     document.querySelectorAll('[data-theme-label]').forEach((el) => {
         el.textContent = resolved === 'dark' ? 'Dark' : 'Light';
+    });
+    document.querySelectorAll('[data-theme-toggle]').forEach((button) => {
+        const darkModeEnabled = resolved === 'dark';
+        const nextMode = darkModeEnabled ? 'light' : 'dark';
+
+        button.setAttribute('aria-pressed', String(darkModeEnabled));
+        button.setAttribute('aria-label', `Switch to ${nextMode} mode`);
+        button.setAttribute('title', `Switch to ${nextMode} mode`);
     });
 };
 
@@ -288,8 +300,7 @@ const setupModalIsolation = () => {
     const modalSelector = [
         '[data-modal-root]',
         '[role="dialog"]',
-        '.fixed.inset-0',
-        '.fixed.inset-x-0.inset-y-0',
+        '.bm-modal-overlay',
     ].join(',');
     const modalNamePattern = /(modal|dialog|overlay|confirm)/i;
     const modalContentSelector = [
@@ -348,6 +359,10 @@ const setupModalIsolation = () => {
         }
 
         if (el.matches('[data-modal-root], [role="dialog"]')) {
+            return true;
+        }
+
+        if (el.classList.contains('bm-modal-overlay')) {
             return true;
         }
 

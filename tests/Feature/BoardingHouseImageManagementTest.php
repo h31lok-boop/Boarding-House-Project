@@ -34,8 +34,8 @@ test('admin can upload multiple boarding house photos and select a cover', funct
         'approval_status' => 'approved',
         'is_active' => '1',
         'photos' => [
-            UploadedFile::fake()->image('front.jpg', 1200, 800),
-            UploadedFile::fake()->image('room.png', 1200, 800),
+            testImageUpload('front.png'),
+            testImageUpload('room.png'),
         ],
         'cover_selection' => 'new:1',
     ]);
@@ -85,7 +85,7 @@ test('admin can remove reorder and replace boarding house photos', function () {
         'is_active' => '1',
         'remove_image_ids' => [$oldCover->id],
         'image_order' => [$keep->id],
-        'photos' => [UploadedFile::fake()->image('replacement.png', 1200, 800)],
+        'photos' => [testImageUpload('replacement.png')],
         'cover_selection' => 'new:0',
     ]);
 
@@ -127,7 +127,7 @@ test('admin edit form can upload a new cover without landlord info validation er
         'contact_phone' => '',
         'approval_status' => 'approved',
         'is_active' => '1',
-        'photos' => [UploadedFile::fake()->image('new-cover.jpg', 1200, 800)],
+        'photos' => [testImageUpload('new-cover.png')],
         'cover_selection' => 'new:0',
     ]);
 
@@ -176,7 +176,8 @@ test('tenant details gallery uses uploaded photos and listings use the placehold
         ->assertOk()
         ->assertSee('galleryMainImage')
         ->assertSee('boarding-houses/gallery.jpg')
-        ->assertSee('gallery-thumbnail');
+        ->assertSee('data-renter-photo-carousel', false)
+        ->assertDontSee('gallery-thumbnail');
 
     $this->actingAs($tenant)
         ->get(route('user.boarding-houses.index', ['tab' => 'all']))

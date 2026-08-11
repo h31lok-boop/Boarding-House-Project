@@ -89,9 +89,8 @@ test('recommended tab ranks approved available boarding houses using saved prefe
         ->assertSee('Poblacion Student Bedspace')
         ->assertSee('Unrelated Premium Studio')
         ->assertSee('% Match')
-        ->assertDontSee('bm-map-marker', false)
-        ->assertDontSee('Map View')
-        ->assertDontSee('Open DSSC Area Map');
+        ->assertSee('data-boardmatch-browse-map', false)
+        ->assertSee('DSSC Area Map');
 
     expect(strpos($response->getContent(), 'Poblacion Student Bedspace'))
         ->toBeLessThan(strpos($response->getContent(), 'Unrelated Premium Studio'));

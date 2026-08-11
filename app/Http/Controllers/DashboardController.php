@@ -326,7 +326,21 @@ class DashboardController extends Controller
         }
 
         return $events
-            ->sortByDesc('at')
+            ->map(function (array $event): ?array {
+                try {
+                    $event['at'] = $event['at'] instanceof Carbon
+                        ? $event['at']
+                        : ($event['at'] instanceof \DateTimeInterface
+                            ? Carbon::instance($event['at'])
+                            : Carbon::parse((string) $event['at']));
+                } catch (\Throwable) {
+                    return null;
+                }
+
+                return $event;
+            })
+            ->filter()
+            ->sortByDesc(fn (array $event) => $event['at']->getTimestamp())
             ->take(4)
             ->map(fn (array $event) => [
                 'title' => $event['title'],

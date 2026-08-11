@@ -17,7 +17,7 @@
         $occupancyPct = $totalCount > 0 ? round(($occupiedCount / $totalCount) * 100) : 0;
         $tenantCount = $house->tenants->count();
         $fullLocation = collect([$house->display_barangay, $house->city?->city_name, $house->province?->province_name])->filter()->implode(', ') ?: ($house->full_address ?: ($house->address ?: 'Location not set'));
-        $coverImage = $house->cover_image_url ?: $house->images->firstWhere('is_primary', true)?->url ?: $house->images->first()?->url ?: asset('images/boarding-house-placeholder.svg');
+        $coverImage = $house->cover_image_url ?: $house->images->first()?->url ?: asset('images/boarding-house-placeholder.svg');
         $sharedParams = ['owner' => 'mine'];
         $propParams = array_merge($sharedParams, ['boarding_house_id' => $bhId]);
         $destroyUrl = route('owner.listings.destroy', ['boarding_house' => $house, 'return_to_my_boarding_house' => 1]);
@@ -62,6 +62,14 @@
             addRoomOpen: false,
             editOpen: false,
             deleteOpen: false,
+            uploadPreviews: [],
+            previewUploads(event) {
+                this.uploadPreviews.forEach(photo => URL.revokeObjectURL(photo.url));
+                this.uploadPreviews = Array.from(event.target.files || []).slice(0, 10).map(file => ({
+                    name: file.name,
+                    url: URL.createObjectURL(file),
+                }));
+            },
             selected: {!! $selectedJson !!},
             selectedAmenities: {{ json_encode($houseAmenityIds) }}
         }"
@@ -76,6 +84,13 @@
         @if (session('error'))
             <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800">
                 {{ session('error') }}
+            </div>
+        @endif
+
+        @if ($errors->any())
+            <div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200">
+                <p class="font-bold">The property could not be updated.</p>
+                <ul class="mt-1 list-disc space-y-0.5 pl-5">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
             </div>
         @endif
 
@@ -138,6 +153,63 @@
                 @endif
             </div>
         </div>
+
+        {{-- Property photo manager --}}
+        <section class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <div class="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+                <div>
+                    <h2 class="text-sm font-bold text-slate-950 dark:text-white">Property Photos</h2>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Photos appear in this order for tenants. The first photo is used as the listing background image.</p>
+                </div>
+                <span class="inline-flex self-start rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700 dark:bg-blue-400/10 dark:text-blue-300">{{ $house->images->count() }}/10 photos</span>
+            </div>
+
+            <div class="space-y-4 p-4 sm:p-5">
+                @if ($house->images->isNotEmpty())
+                    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        @foreach ($house->images as $image)
+                            <article class="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
+                                <div class="relative aspect-[4/3] overflow-hidden bg-slate-100 dark:bg-slate-950">
+                                    <img src="{{ $image->url }}" alt="Property photo" class="h-full w-full object-cover" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}'">
+                                </div>
+                                <div class="flex flex-wrap items-center gap-2 p-3">
+                                    <form method="POST" action="{{ route('owner.listings.photos.destroy', [$house, $image]) }}" onsubmit="return confirm('Remove this property photo?')">
+                                        @csrf @method('DELETE')
+                                        <button class="rounded-lg bg-rose-50 px-2.5 py-1.5 text-[11px] font-bold text-rose-600 transition hover:bg-rose-100 dark:bg-rose-400/10 dark:text-rose-300">Remove</button>
+                                    </form>
+                                </div>
+                            </article>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="rounded-xl border border-dashed border-amber-300 bg-amber-50 px-4 py-7 text-center dark:border-amber-400/30 dark:bg-amber-400/10">
+                        <p class="text-sm font-bold text-amber-900 dark:text-amber-200">No property photos uploaded yet</p>
+                        <p class="mt-1 text-xs text-amber-700 dark:text-amber-300">Upload clear exterior, room, bathroom, and kitchen photos so tenants can see the actual property.</p>
+                    </div>
+                @endif
+
+                @if ($house->images->count() < 10)
+                    <form method="POST" action="{{ route('owner.listings.photos.store', $house) }}" enctype="multipart/form-data" class="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/70">
+                        @csrf
+                        <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                            <label class="min-w-0 flex-1 text-xs font-bold text-slate-700 dark:text-slate-200">
+                                Add JPG, PNG, or WEBP photos (maximum 5 MB each)
+                                <input type="file" name="photos[]" multiple required accept="image/jpeg,image/png,image/webp" @change="previewUploads($event)" class="mt-2 block w-full min-w-0 rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-600 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:font-bold file:text-blue-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:file:bg-blue-400/10 dark:file:text-blue-300">
+                            </label>
+                            <button class="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700">Upload photos</button>
+                        </div>
+                        <div x-show="uploadPreviews.length" x-cloak class="mt-3 grid gap-2 grid-cols-2 sm:grid-cols-4 lg:grid-cols-6">
+                            <template x-for="photo in uploadPreviews" :key="photo.url">
+                                <div class="min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+                                    <img :src="photo.url" :alt="photo.name" class="aspect-[4/3] w-full object-cover">
+                                    <p class="truncate px-2 py-1.5 text-[10px] font-semibold text-slate-500" x-text="photo.name"></p>
+                                </div>
+                            </template>
+                        </div>
+                    </form>
+                @endif
+            </div>
+        </section>
 
         {{-- Stat Cards --}}
         <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -329,14 +401,14 @@
     </div>
 
     {{-- Add Room Modal --}}
-    <div x-show="addRoomOpen" x-cloak @keydown.escape.window="addRoomOpen = false" class="bm-modal-overlay">
+    <div data-modal-root role="dialog" aria-modal="true" aria-labelledby="add-room-title" x-show="addRoomOpen" x-cloak @keydown.escape.window="addRoomOpen = false" class="bm-modal-overlay">
         <form method="POST" action="{{ route('owner.rooms.store') }}" class="bm-modal">
             @csrf
             <input type="hidden" name="boarding_house_id" value="{{ $bhId }}">
             <div class="bm-modal__header">
                 <div>
                     <p class="bm-modal__eyebrow">Create</p>
-                    <h2 class="bm-modal__title">Add Room</h2>
+                    <h2 id="add-room-title" class="bm-modal__title">Add Room</h2>
                     <p class="bm-modal__subtitle">Add a new room to {{ $house->name }}.</p>
                 </div>
                 <button type="button" @click="addRoomOpen = false" class="bm-modal__close" aria-label="Close">
@@ -371,14 +443,14 @@
     </div>
 
     {{-- Edit Property Modal --}}
-    <div x-show="editOpen" x-cloak x-transition.opacity @keydown.escape.window="editOpen = false" class="bm-modal-overlay" style="display: none;">
+    <div data-modal-root role="dialog" aria-modal="true" aria-labelledby="edit-property-title" x-show="editOpen" x-cloak x-transition.opacity @keydown.escape.window="editOpen = false" class="bm-modal-overlay" style="display: none;">
         <form action="{{ $updateUrl }}" method="POST" enctype="multipart/form-data" class="bm-modal bm-modal--xl">
             @csrf
             @method('PUT')
             <div class="bm-modal__header">
                 <div>
                     <p class="bm-modal__eyebrow">Edit</p>
-                    <h2 class="bm-modal__title">Edit Property</h2>
+                    <h2 id="edit-property-title" class="bm-modal__title">Edit Property</h2>
                     <p class="bm-modal__subtitle">Update {{ $house->name }}'s details.</p>
                 </div>
                 <button type="button" @click="editOpen = false" class="bm-modal__close" aria-label="Close">x</button>
@@ -449,10 +521,10 @@
     </div>
 
     {{-- Delete confirmation modal --}}
-    <div x-show="deleteOpen" x-cloak x-transition.opacity @keydown.escape.window="deleteOpen = false" class="bm-modal-overlay" style="display: none;">
+    <div data-modal-root role="dialog" aria-modal="true" aria-labelledby="delete-property-title" x-show="deleteOpen" x-cloak x-transition.opacity @keydown.escape.window="deleteOpen = false" class="bm-modal-overlay" style="display: none;">
         <div class="bm-modal bm-modal--sm">
             <div class="bm-modal__header">
-                <h2 class="bm-modal__title">Delete this property?</h2>
+                <h2 id="delete-property-title" class="bm-modal__title">Delete this property?</h2>
             </div>
             <div class="bm-modal__body">
 

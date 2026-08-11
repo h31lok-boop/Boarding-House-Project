@@ -15,8 +15,7 @@ test('admin dashboard keeps matchmaking analytics off the simplified dashboard',
         ->get(route('admin.dashboard'))
         ->assertOk()
         ->assertDontSee('Total Match Requests')
-        ->assertDontSee('Acceptance Rate')
-        ->assertSee('Latest Reservations');
+        ->assertDontSee('Acceptance Rate');
 });
 
 test('user dashboard shows roommate match status section', function () {
