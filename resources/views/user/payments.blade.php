@@ -31,7 +31,7 @@
             : 'You are currently up to date. New billing items will appear here once available.');
 @endphp
 
-<div x-data="{ detailOpen: false, selected: {} }" class="space-y-4">
+<div x-data="{ detailOpen: false, receiptOpen: false, checkoutSubmitting: false, selected: {} }" class="space-y-4">
     <x-user.page-header
         eyebrow="Payment Center"
         title="Payments"
@@ -150,16 +150,14 @@
                         </div>
 
                         @if ($confirmPayment['available'] ?? false)
-                            <form method="POST" action="{{ route('user.paymongo.checkout') }}" class="flex flex-wrap items-center gap-2">
-                                @csrf
-                                <input type="hidden" name="payment_id" value="{{ $confirmPayment['payment_id'] }}">
+                            <div class="flex flex-wrap items-center gap-2">
                                 <span class="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-inset ring-slate-200/70 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700">
                                     {{ $confirmPayment['method_label'] }}
                                 </span>
-                                <button type="submit" class="inline-flex h-9 items-center justify-center rounded-xl bg-[#2563eb] px-3.5 text-xs font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-[#1d4ed8] hover:shadow-md hover:shadow-blue-600/25 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200">
-                                    Pay {{ $money($confirmPayment['amount']) }} securely
+                                <button type="button" @click="receiptOpen = true" class="inline-flex h-9 items-center justify-center rounded-xl bg-[#2563eb] px-3.5 text-xs font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-[#1d4ed8] hover:shadow-md hover:shadow-blue-600/25 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200">
+                                    Review receipt &amp; pay {{ $money($confirmPayment['amount']) }}
                                 </button>
-                            </form>
+                            </div>
                         @elseif ($paymentSchedule->isNotEmpty())
                             <span class="inline-flex rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200/70 dark:bg-amber-400/10 dark:text-amber-300 dark:ring-amber-400/20">
                                 PayMongo unavailable
@@ -270,6 +268,109 @@
             </section>
         </aside>
     </div>
+
+    @if ($confirmPayment['available'] ?? false)
+        <template x-teleport="body">
+            <div
+                data-modal-root
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="prepayment-receipt-title"
+                x-show="receiptOpen"
+                x-cloak
+                x-transition.opacity.duration.150ms
+                @keydown.escape.window="if (!checkoutSubmitting) receiptOpen = false"
+                class="fixed inset-0 z-[130] flex items-center justify-center overflow-y-auto bg-slate-950/70 p-4 backdrop-blur-sm sm:p-6"
+            >
+                <section
+                    x-show="receiptOpen"
+                    x-transition:enter="transition ease-out duration-200"
+                    x-transition:enter-start="translate-y-3 scale-95 opacity-0"
+                    x-transition:enter-end="translate-y-0 scale-100 opacity-100"
+                    @click.outside="if (!checkoutSubmitting) receiptOpen = false"
+                    class="my-auto w-full max-w-2xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+                >
+                    <header class="flex items-start justify-between gap-4 border-b border-slate-200 bg-slate-50/80 px-5 py-4 dark:border-slate-800 dark:bg-slate-950/50 sm:px-7 sm:py-5">
+                        <div class="flex min-w-0 items-center gap-3">
+                            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-sm font-black text-white shadow-sm shadow-blue-600/25">BM</span>
+                            <div class="min-w-0">
+                                <p class="text-[10px] font-bold uppercase tracking-[0.22em] text-blue-600 dark:text-blue-300">BoardMatch Payment Center</p>
+                                <h2 id="prepayment-receipt-title" class="mt-1 text-xl font-black tracking-tight text-slate-950 dark:text-white">Pre-payment Receipt</h2>
+                            </div>
+                        </div>
+                        <button type="button" @click="receiptOpen = false" :disabled="checkoutSubmitting" class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white" aria-label="Close pre-payment receipt">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" d="m6 6 12 12M18 6 6 18" /></svg>
+                        </button>
+                    </header>
+
+                    <div class="max-h-[calc(100vh-13rem)] overflow-y-auto px-5 py-5 sm:px-7 sm:py-6">
+                        <div class="flex flex-col gap-4 border-b border-dashed border-slate-200 pb-5 dark:border-slate-700 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Billed to</p>
+                                <p class="mt-1 text-sm font-bold text-slate-950 dark:text-white">{{ request()->user()?->name }}</p>
+                                <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{{ request()->user()?->email }}</p>
+                            </div>
+                            <dl class="grid gap-1.5 text-xs sm:text-right">
+                                <div><dt class="inline font-semibold text-slate-400">Bill reference:</dt> <dd class="inline font-mono font-bold text-slate-700 dark:text-slate-200">{{ $confirmPayment['reference'] ?: 'BILL-'.str_pad((string) $confirmPayment['payment_id'], 6, '0', STR_PAD_LEFT) }}</dd></div>
+                                <div><dt class="inline font-semibold text-slate-400">Prepared:</dt> <dd class="inline font-semibold text-slate-700 dark:text-slate-200">{{ now()->format('M d, Y h:i A') }}</dd></div>
+                                <div><dt class="inline font-semibold text-slate-400">Status:</dt> <dd class="inline rounded-full bg-amber-100 px-2 py-0.5 font-bold text-amber-700 dark:bg-amber-400/10 dark:text-amber-300">Unpaid</dd></div>
+                            </dl>
+                        </div>
+
+                        <div class="grid gap-4 border-b border-dashed border-slate-200 py-5 dark:border-slate-700 sm:grid-cols-2">
+                            <div>
+                                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Property</p>
+                                <p class="mt-1 text-sm font-bold text-slate-950 dark:text-white">{{ $confirmPayment['property_name'] }}</p>
+                                <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ $confirmPayment['property_location'] }}</p>
+                            </div>
+                            <div class="sm:text-right">
+                                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Payment due</p>
+                                <p class="mt-1 text-sm font-bold text-slate-950 dark:text-white">{{ $confirmPayment['due_date'] ?: 'Not scheduled' }}</p>
+                                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Payment method: PayMongo Hosted Checkout</p>
+                            </div>
+                        </div>
+
+                        <div class="py-5">
+                            <div class="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700">
+                                <table class="w-full text-left text-sm">
+                                    <thead class="bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:bg-slate-800/70 dark:text-slate-300">
+                                        <tr><th class="px-4 py-3">Billing item</th><th class="px-4 py-3 text-center">Qty</th><th class="px-4 py-3 text-right">Amount</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr class="text-slate-700 dark:text-slate-200">
+                                            <td class="px-4 py-4"><p class="font-bold">{{ $confirmPayment['billing_type'] }}</p><p class="mt-0.5 text-xs text-slate-400">{{ $confirmPayment['property_name'] }}</p></td>
+                                            <td class="px-4 py-4 text-center font-semibold">1</td>
+                                            <td class="px-4 py-4 text-right font-bold tabular-nums">{{ $money($confirmPayment['amount']) }}</td>
+                                        </tr>
+                                    </tbody>
+                                    <tfoot class="border-t border-slate-200 bg-blue-50/60 dark:border-slate-700 dark:bg-blue-500/10">
+                                        <tr><th colspan="2" class="px-4 py-4 text-right text-sm font-bold text-slate-700 dark:text-slate-200">Total due</th><td class="px-4 py-4 text-right text-xl font-black tabular-nums text-blue-700 dark:text-blue-300">{{ $money($confirmPayment['amount']) }}</td></tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800 dark:border-amber-400/20 dark:bg-amber-400/10 dark:text-amber-200">
+                            <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 8v5m0 3h.01"/></svg>
+                            <p>This pre-payment receipt is a billing summary, not proof of payment. Your official receipt is generated only after PayMongo verifies the transaction.</p>
+                        </div>
+                    </div>
+
+                    <footer class="flex flex-col-reverse gap-3 border-t border-slate-200 bg-slate-50/80 px-5 py-4 dark:border-slate-800 dark:bg-slate-950/50 sm:flex-row sm:items-center sm:justify-end sm:px-7">
+                        <button type="button" @click="receiptOpen = false" :disabled="checkoutSubmitting" class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">Back</button>
+                        <form method="POST" action="{{ route('user.paymongo.checkout') }}" @submit="checkoutSubmitting = true">
+                            @csrf
+                            <input type="hidden" name="payment_id" value="{{ $confirmPayment['payment_id'] }}">
+                            <button type="submit" :disabled="checkoutSubmitting" class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 text-sm font-bold text-white shadow-sm shadow-blue-600/25 transition hover:bg-blue-700 disabled:cursor-wait disabled:opacity-70 sm:w-auto">
+                                <svg x-show="checkoutSubmitting" class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3"/><path class="opacity-75" fill="currentColor" d="M12 3a9 9 0 0 1 9 9h-3a6 6 0 0 0-6-6V3Z"/></svg>
+                                <span x-text="checkoutSubmitting ? 'Opening PayMongo…' : 'Proceed to PayMongo'"></span>
+                            </button>
+                        </form>
+                    </footer>
+                </section>
+            </div>
+        </template>
+    @endif
 
     <template x-teleport="body">
         <div data-modal-root role="dialog" aria-modal="true" x-show="detailOpen" x-cloak @keydown.escape.window="detailOpen = false" class="bm-modal-overlay">

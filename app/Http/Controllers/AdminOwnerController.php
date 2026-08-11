@@ -586,7 +586,7 @@ class AdminOwnerController extends Controller
             ['label' => 'Unverified Payments', 'count' => $this->countWhereStatus('payments', ['pending', 'unpaid']), 'href' => $this->wsRoute('transactions.index'), 'icon' => 'transactions'],
             ['label' => 'New Inquiries', 'count' => $pendingInquiries, 'href' => $this->wsRoute('inquiries'), 'icon' => 'inquiries'],
             ['label' => 'Pending Approvals', 'count' => $this->pendingApprovalCount(), 'href' => $this->wsRoute('boarding-houses'), 'icon' => 'boarding-house'],
-            ['label' => 'Unread Messages', 'count' => $this->unreadMessagesCount(), 'href' => $this->wsRoute('messages'), 'icon' => 'messages'],
+            ['label' => 'Messages Awaiting Reply', 'count' => $this->unreadMessagesCount($request->user()), 'href' => $this->wsRoute('messages'), 'icon' => 'messages'],
         ];
 
         $revenueSummary = [
@@ -615,7 +615,7 @@ class AdminOwnerController extends Controller
             'matchRequests' => $matchRequests,
             'unreadNotificationsCount' => $unreadNotificationsCount,
             'pendingReceiptReviews' => $pendingReceiptReviews,
-            'messageCount' => $this->unreadMessagesCount(),
+            'messageCount' => $this->unreadMessagesCount($request->user()),
             'kpiCards' => $kpiCards,
             'reservationChartData' => $reservationChartData,
             'reservationsChartData' => $reservationChartData,
@@ -1388,7 +1388,32 @@ class AdminOwnerController extends Controller
         ])->save();
 
         if ($reply) {
-            $this->notifyUser($inquiry->user_id, 'Inquiry reply', $reply, 'inquiry', 'inquiry:'.$inquiry->id);
+            $sender = $request->user();
+            $senderRole = $sender?->isStrictOwner() ? 'Property Owner' : 'BoardMatch Admin';
+
+            $this->notifyUser(
+                $inquiry->user_id,
+                $senderRole.' replied',
+                $reply,
+                'inquiry',
+                'inquiry:'.$inquiry->id,
+                [
+                    'sender_name' => $sender?->name ?: $senderRole,
+                    'sender_role' => $senderRole,
+                ]
+            );
+
+            if (Schema::hasTable('notifications')) {
+                DB::table('notifications')
+                    ->where('user_id', $sender?->id)
+                    ->where('type', 'inquiry')
+                    ->where('reference_id', 'inquiry:'.$inquiry->id.':owner')
+                    ->update([
+                        'is_read' => true,
+                        'read_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+            }
         }
 
         return back()->with('success', 'Inquiry updated.');
@@ -1491,12 +1516,18 @@ class AdminOwnerController extends Controller
             ->pluck('id')
             ->map(fn ($id) => 'inquiry:'.$id)
             ->values();
+        $threadTenantIds = $threads->getCollection()
+            ->pluck('user_id')
+            ->filter()
+            ->unique()
+            ->values();
 
         $replyNotifications = Schema::hasTable('notifications') && $referenceIds->isNotEmpty()
             ? DB::table('notifications')
                 ->whereIn('reference_id', $referenceIds)
+                ->whereIn('user_id', $threadTenantIds)
                 ->where('type', 'inquiry')
-                ->get(['reference_id', 'message', 'updated_at'])
+                ->get(['reference_id', 'title', 'message', 'data', 'updated_at'])
                 ->keyBy('reference_id')
             : collect();
 
@@ -1513,9 +1544,7 @@ class AdminOwnerController extends Controller
             ->when($isOwner, $ownerScope)
             ->whereIn(DB::raw('LOWER(status)'), $resolvedStatuses)
             ->count();
-        $unreadMessages = $isOwner
-            ? $awaitingReply
-            : ($this->unreadMessagesCount() ?: $awaitingReply);
+        $unreadMessages = $this->unreadMessagesCount($request->user());
 
         $activeConversationCount = $insightThreads->filter(function ($thread) use ($resolvedStatuses) {
             $status = strtolower((string) ($thread->status ?? ''));
@@ -3511,8 +3540,29 @@ class AdminOwnerController extends Controller
         return (int) $query->count();
     }
 
-    private function unreadMessagesCount(): int
+    private function unreadMessagesCount(?User $user = null): int
     {
+        $user ??= auth()->user();
+
+        if (Schema::hasTable('inquiries')) {
+            $query = Inquiry::query()
+                ->where(function ($statusQuery) {
+                    $statusQuery->whereIn(DB::raw('LOWER(status)'), ['new', 'pending', 'open'])
+                        ->orWhereNull('status')
+                        ->orWhere('status', '');
+                });
+
+            if ($user?->isStrictOwner()) {
+                $houseIds = BoardingHouse::query()
+                    ->where('owner_id', $user->id)
+                    ->pluck('id');
+
+                $query->whereIn('boarding_house_id', $houseIds);
+            }
+
+            return (int) $query->count();
+        }
+
         if (! Schema::hasTable('messages')) {
             return 0;
         }
@@ -4161,15 +4211,21 @@ class AdminOwnerController extends Controller
         return min($score, 100);
     }
 
-    private function notifyUser(?int $userId, string $title, string $message, string $type, ?string $referenceId = null): void
-    {
+    private function notifyUser(
+        ?int $userId,
+        string $title,
+        string $message,
+        string $type,
+        ?string $referenceId = null,
+        array $metadata = []
+    ): void {
         if (! $userId || ! Schema::hasTable('notifications')) {
             return;
         }
 
         $now = now();
         $referenceId ??= hash('sha256', $type.'|'.$title.'|'.$message);
-        $data = ['reference_id' => $referenceId];
+        $data = ['reference_id' => $referenceId] + $metadata;
 
         $match = [
             'user_id' => $userId,

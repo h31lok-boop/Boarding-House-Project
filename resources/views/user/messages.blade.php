@@ -14,6 +14,7 @@
                 category: 'all',
                 search: '',
                 openId: null,
+                composeOpen: Boolean(config.openCompose),
                 get unreadTotal() {
                     return this.conversations.reduce((total, conversation) => total + Number(conversation.unread || 0), 0);
                 },
@@ -23,6 +24,7 @@
                     return this.conversations.filter((conversation) => {
                         const matchesCategory = this.category === 'all'
                             || (this.category === 'unread' && Number(conversation.unread || 0) > 0)
+                            || (this.category === 'archived' && Boolean(conversation.archived))
                             || conversation.category === this.category;
 
                         const haystack = [
@@ -38,6 +40,7 @@
                 countFor(category) {
                     if (category === 'all') return this.conversations.length;
                     if (category === 'unread') return this.conversations.filter((c) => Number(c.unread || 0) > 0).length;
+                    if (category === 'archived') return this.conversations.filter((c) => Boolean(c.archived)).length;
                     return this.conversations.filter((c) => c.category === category).length;
                 },
                 toggle(conversation) {
@@ -67,7 +70,8 @@
 <div
     x-data="messageCenter({
         conversations: {{ \Illuminate\Support\Js::from($threads->all()) }},
-        csrf: {{ \Illuminate\Support\Js::from(csrf_token()) }}
+        csrf: {{ \Illuminate\Support\Js::from(csrf_token()) }},
+        openCompose: {{ \Illuminate\Support\Js::from($errors->any()) }}
     })"
     class="mx-auto w-full max-w-3xl space-y-5"
 >
@@ -82,6 +86,16 @@
                 <span x-text="unreadTotal"></span>
                 <span class="ml-1">unread</span>
             </span>
+            <button
+                type="button"
+                @click="composeOpen = true"
+                class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#2563eb] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1d4ed8] focus:outline-none focus:ring-4 focus:ring-blue-200 dark:focus:ring-blue-900"
+            >
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" />
+                </svg>
+                New message
+            </button>
         </x-slot:actions>
     </x-user.page-header>
 
@@ -281,6 +295,68 @@
             @endif
         </div>
     </section>
+
+    <template x-teleport="body">
+        <div
+            x-show="composeOpen"
+            x-cloak
+            x-transition.opacity.duration.150ms
+            @keydown.escape.window="composeOpen = false"
+            class="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="tenant-compose-title"
+        >
+            <section
+                x-show="composeOpen"
+                x-transition:enter="transition ease-out duration-200"
+                x-transition:enter-start="translate-y-3 scale-95 opacity-0"
+                x-transition:enter-end="translate-y-0 scale-100 opacity-100"
+                @click.outside="composeOpen = false"
+                class="w-full max-w-xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+            >
+                <header class="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5 dark:border-slate-800">
+                    <div>
+                        <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-600 dark:text-blue-300">Tenant message</p>
+                        <h2 id="tenant-compose-title" class="mt-1 text-xl font-bold text-slate-950 dark:text-white">Contact a property owner</h2>
+                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Your message is delivered only to the owner of the selected boarding house.</p>
+                    </div>
+                    <button type="button" @click="composeOpen = false" class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-white" aria-label="Close new message">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" d="m6 6 12 12M18 6 6 18" /></svg>
+                    </button>
+                </header>
+
+                <form method="POST" action="{{ route('user.messages.store') }}" class="space-y-5 px-6 py-6">
+                    @csrf
+                    @if ($errors->any())
+                        <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
+                            {{ $errors->first() }}
+                        </div>
+                    @endif
+
+                    <label class="block">
+                        <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Boarding house</span>
+                        <select name="boarding_house_id" required class="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-900">
+                            <option value="">Select a property</option>
+                            @foreach ($houses as $house)
+                                <option value="{{ $house->id }}" @selected((string) old('boarding_house_id') === (string) $house->id)>{{ $house->name }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+
+                    <label class="block">
+                        <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Message</span>
+                        <textarea name="message" rows="6" required maxlength="1200" class="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-900" placeholder="Ask about availability, rates, amenities, or viewing schedules.">{{ old('message') }}</textarea>
+                    </label>
+
+                    <div class="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 dark:border-slate-800 sm:flex-row sm:justify-end">
+                        <button type="button" @click="composeOpen = false" class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">Cancel</button>
+                        <button class="inline-flex h-11 items-center justify-center rounded-xl bg-[#2563eb] px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1d4ed8] focus:outline-none focus:ring-4 focus:ring-blue-200 dark:focus:ring-blue-900">Send message</button>
+                    </div>
+                </form>
+            </section>
+        </div>
+    </template>
 </div>
 
 </x-user.shell>

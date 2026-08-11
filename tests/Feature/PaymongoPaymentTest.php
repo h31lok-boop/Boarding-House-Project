@@ -117,6 +117,22 @@ it('creates a PayMongo hosted checkout using the server-side bill amount', funct
     });
 });
 
+it('shows a pre-payment receipt modal before opening PayMongo checkout', function () {
+    $fixture = paymongoFixture();
+
+    $this->actingAs($fixture['tenantUser'])
+        ->get(route('user.payments.index'))
+        ->assertOk()
+        ->assertSee('Pre-payment Receipt')
+        ->assertSee('Proceed to PayMongo')
+        ->assertSee('BILL-TEST-001')
+        ->assertSee('2,750.50')
+        ->assertSee('not proof of payment');
+
+    Http::assertNothingSent();
+    expect(\App\Models\PaymentReceipt::where('payment_id', $fixture['payment']->id)->exists())->toBeFalse();
+});
+
 it('confirms a returned PayMongo payment when a webhook is not configured', function () {
     $fixture = paymongoFixture();
     $fixture['profile']->update(['paymongo_webhook_secret' => null]);

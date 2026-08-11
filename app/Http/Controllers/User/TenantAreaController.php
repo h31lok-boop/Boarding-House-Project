@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
-use App\Models\Booking;
 use App\Models\BoardingHouse;
+use App\Models\Booking;
 use App\Models\Inquiry;
 use App\Models\Payment;
 use App\Models\PaymentReceipt;
@@ -12,12 +12,14 @@ use App\Models\Reservation;
 use App\Models\Review;
 use App\Models\TenantPaymentMethod;
 use App\Models\UserNotification;
-use Carbon\Carbon;
 use App\Services\ReservationLifecycleService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class TenantAreaController extends Controller
 {
@@ -49,7 +51,7 @@ class TenantAreaController extends Controller
 
         $currentReservation = (clone $baseReservationQuery)
             ->whereNotIn(DB::raw('LOWER(status)'), ['cancelled', 'canceled', 'rejected', 'expired'])
-            ->orderByRaw("CASE WHEN check_in_date IS NULL THEN 1 ELSE 0 END")
+            ->orderByRaw('CASE WHEN check_in_date IS NULL THEN 1 ELSE 0 END')
             ->orderBy('check_in_date')
             ->latest('id')
             ->first()
@@ -129,14 +131,14 @@ class TenantAreaController extends Controller
         ];
 
         if (in_array($type, ['visa', 'mastercard', 'bank'])) {
-            $rules['last_four']      = ['required', 'digits:4'];
-            $rules['expiry']         = ['nullable', 'string', 'max:7'];
-            $rules['cardholder_name']= ['nullable', 'string', 'max:100'];
+            $rules['last_four'] = ['required', 'digits:4'];
+            $rules['expiry'] = ['nullable', 'string', 'max:7'];
+            $rules['cardholder_name'] = ['nullable', 'string', 'max:100'];
         }
 
         if ($type === 'gcash') {
             $rules['account_number'] = ['required', 'string', 'max:20'];
-            $rules['account_name']   = ['nullable', 'string', 'max:100'];
+            $rules['account_name'] = ['nullable', 'string', 'max:100'];
         }
 
         $data = $request->validate($rules);
@@ -192,7 +194,7 @@ class TenantAreaController extends Controller
 
         $validated = $request->validate([
             'payment_method_id' => ['required', 'integer'],
-            'payment_amount'    => ['nullable', 'numeric', 'min:0'],
+            'payment_amount' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $payMethod = TenantPaymentMethod::where('id', $validated['payment_method_id'])
@@ -200,11 +202,11 @@ class TenantAreaController extends Controller
             ->firstOrFail();
         abort_unless($payMethod->type === 'gcash', 422, 'Tenants may only pay online using GCash.');
 
-        $hasTenantCol   = Schema::hasTable('tenants') && Schema::hasColumn('payments', 'tenant_id');
-        $hasUserCol     = Schema::hasColumn('payments', 'user_id');
-        $hasTenancyCol  = Schema::hasColumn('payments', 'tenancy_id');
+        $hasTenantCol = Schema::hasTable('tenants') && Schema::hasColumn('payments', 'tenant_id');
+        $hasUserCol = Schema::hasColumn('payments', 'user_id');
+        $hasTenancyCol = Schema::hasColumn('payments', 'tenancy_id');
         $hasConfirmedAt = Schema::hasColumn('payments', 'confirmed_at');
-        $hasIsLate      = Schema::hasColumn('payments', 'is_late');
+        $hasIsLate = Schema::hasColumn('payments', 'is_late');
 
         $tenantRecord = $hasTenantCol
             ? \App\Models\Tenant::where('user_id', $tenant->id)->first()
@@ -223,17 +225,17 @@ class TenantAreaController extends Controller
             : null;
 
         // Build sequential reference number: PAY-HAZEL-004, 005 …
-        $nameSlug  = strtoupper(substr(preg_replace('/[^A-Za-z]/', '', $tenant->name), 0, 5)) ?: 'PAY';
-        $refPrefix = 'PAY-' . $nameSlug . '-';
-        $lastRef   = Payment::when($tenantRecord, fn ($q) => $q->where('tenant_id', $tenantRecord->id))
-            ->where('reference_no', 'like', $refPrefix . '%')
+        $nameSlug = strtoupper(substr(preg_replace('/[^A-Za-z]/', '', $tenant->name), 0, 5)) ?: 'PAY';
+        $refPrefix = 'PAY-'.$nameSlug.'-';
+        $lastRef = Payment::when($tenantRecord, fn ($q) => $q->where('tenant_id', $tenantRecord->id))
+            ->where('reference_no', 'like', $refPrefix.'%')
             ->orderByDesc('id')
             ->value('reference_no');
         $nextSeq = 1;
         if ($lastRef && preg_match('/(\d+)$/', $lastRef, $m)) {
             $nextSeq = (int) $m[1] + 1;
         }
-        $refNo = $refPrefix . str_pad($nextSeq, 3, '0', STR_PAD_LEFT);
+        $refNo = $refPrefix.str_pad($nextSeq, 3, '0', STR_PAD_LEFT);
 
         // Capture exact payment datetime once so every column gets the identical timestamp
         $paidAt = now();
@@ -253,14 +255,14 @@ class TenantAreaController extends Controller
                     $q->orWhere('user_id', $tenant->id);
                 }
             })
-            ->whereIn('status', ['pending', 'unpaid', 'overdue'])
-            ->orderBy('due_date')
-            ->lockForUpdate()
-            ->first();
+                ->whereIn('status', ['pending', 'unpaid', 'overdue'])
+                ->orderBy('due_date')
+                ->lockForUpdate()
+                ->first();
 
-            $usedRefNo   = false;
-            $usedRef     = null;
-            $paidAmount  = 0.0;
+            $usedRefNo = false;
+            $usedRef = null;
+            $paidAmount = 0.0;
             $lastDueDate = null;
             $paymentType = 'rent';
 
@@ -269,19 +271,23 @@ class TenantAreaController extends Controller
                 $isLate = $hasIsLate && $pendingPayment->due_date && $paidAt->gt($pendingPayment->due_date);
 
                 $updateAttrs = [
-                    'status'           => 'paid',
-                    'paid_at'          => $paidAt,
-                    'payment_method'   => $payMethod->type,
-                    'reference_no'     => $pendingPayment->reference_no     ?: $refNo,
+                    'status' => 'paid',
+                    'paid_at' => $paidAt,
+                    'payment_method' => $payMethod->type,
+                    'reference_no' => $pendingPayment->reference_no ?: $refNo,
                     'reference_number' => $pendingPayment->reference_number ?: ($pendingPayment->reference_no ?: $refNo),
                 ];
-                if ($hasConfirmedAt) $updateAttrs['confirmed_at'] = $paidAt;
-                if ($hasIsLate)      $updateAttrs['is_late']      = $isLate ? 1 : 0;
+                if ($hasConfirmedAt) {
+                    $updateAttrs['confirmed_at'] = $paidAt;
+                }
+                if ($hasIsLate) {
+                    $updateAttrs['is_late'] = $isLate ? 1 : 0;
+                }
 
                 $pendingPayment->forceFill($updateAttrs)->save();
 
-                $usedRef     = $pendingPayment->reference_no;
-                $paidAmount  = (float) $pendingPayment->amount;
+                $usedRef = $pendingPayment->reference_no;
+                $paidAmount = (float) $pendingPayment->amount;
                 $lastDueDate = $pendingPayment->due_date;
                 $paymentType = $pendingPayment->payment_type ?? 'rent';
 
@@ -304,33 +310,43 @@ class TenantAreaController extends Controller
                 }
 
                 $attrs = [
-                    'status'           => 'paid',
-                    'paid_at'          => $paidAt,
-                    'due_date'         => $paidAt->toDateString(),
-                    'payment_date'     => $paidAt->toDateString(),
-                    'payment_method'   => $payMethod->type,
-                    'payment_type'     => 'rent',
-                    'reference_no'     => $refNo,
+                    'status' => 'paid',
+                    'paid_at' => $paidAt,
+                    'due_date' => $paidAt->toDateString(),
+                    'payment_date' => $paidAt->toDateString(),
+                    'payment_method' => $payMethod->type,
+                    'payment_type' => 'rent',
+                    'reference_no' => $refNo,
                     'reference_number' => $refNo,
-                    'amount'           => $confirmedAmount,
+                    'amount' => $confirmedAmount,
                 ];
-                if ($boardingHouseId)             $attrs['boarding_house_id'] = $boardingHouseId;
-                if ($tenantRecord)                $attrs['tenant_id']         = $tenantRecord->id;
-                if ($hasUserCol)                  $attrs['user_id']           = $tenant->id;
-                if ($hasTenancyCol && $tenancyId) $attrs['tenancy_id']        = $tenancyId;
-                if ($hasConfirmedAt)              $attrs['confirmed_at']      = $paidAt;
+                if ($boardingHouseId) {
+                    $attrs['boarding_house_id'] = $boardingHouseId;
+                }
+                if ($tenantRecord) {
+                    $attrs['tenant_id'] = $tenantRecord->id;
+                }
+                if ($hasUserCol) {
+                    $attrs['user_id'] = $tenant->id;
+                }
+                if ($hasTenancyCol && $tenancyId) {
+                    $attrs['tenancy_id'] = $tenancyId;
+                }
+                if ($hasConfirmedAt) {
+                    $attrs['confirmed_at'] = $paidAt;
+                }
 
                 (new Payment)->forceFill($attrs)->save();
-                $usedRef     = $refNo;
-                $usedRefNo   = true;
-                $paidAmount  = $confirmedAmount;
+                $usedRef = $refNo;
+                $usedRefNo = true;
+                $paidAmount = $confirmedAmount;
                 $lastDueDate = $paidAt;
                 $paymentType = 'rent';
             }
 
             // ── Auto-generate next month's pending payment ──
             if ($tenantRecord && $boardingHouseId && $paidAmount > 0) {
-                $parsedDue   = $lastDueDate instanceof \Carbon\Carbon
+                $parsedDue = $lastDueDate instanceof \Carbon\Carbon
                     ? $lastDueDate
                     : \Carbon\Carbon::parse($lastDueDate);
                 $nextDueDate = $parsedDue->copy()->addMonth();
@@ -341,21 +357,27 @@ class TenantAreaController extends Controller
                     ->exists();
 
                 if (! $alreadyExists) {
-                    $autoSeq   = $usedRefNo ? $nextSeq + 1 : $nextSeq;
-                    $nextRefNo = $refPrefix . str_pad($autoSeq, 3, '0', STR_PAD_LEFT);
+                    $autoSeq = $usedRefNo ? $nextSeq + 1 : $nextSeq;
+                    $nextRefNo = $refPrefix.str_pad($autoSeq, 3, '0', STR_PAD_LEFT);
 
                     $nextAttrs = [
-                        'amount'           => $paidAmount,
-                        'due_date'         => $nextDueDate->toDateString(),
-                        'payment_date'     => $nextDueDate->toDateString(),
-                        'status'           => 'pending',
-                        'payment_type'     => $paymentType,
-                        'reference_no'     => $nextRefNo,
+                        'amount' => $paidAmount,
+                        'due_date' => $nextDueDate->toDateString(),
+                        'payment_date' => $nextDueDate->toDateString(),
+                        'status' => 'pending',
+                        'payment_type' => $paymentType,
+                        'reference_no' => $nextRefNo,
                         'reference_number' => $nextRefNo,
                     ];
-                    if ($boardingHouseId)             $nextAttrs['boarding_house_id'] = $boardingHouseId;
-                    if ($tenantRecord)                $nextAttrs['tenant_id']         = $tenantRecord->id;
-                    if ($hasTenancyCol && $tenancyId) $nextAttrs['tenancy_id']        = $tenancyId;
+                    if ($boardingHouseId) {
+                        $nextAttrs['boarding_house_id'] = $boardingHouseId;
+                    }
+                    if ($tenantRecord) {
+                        $nextAttrs['tenant_id'] = $tenantRecord->id;
+                    }
+                    if ($hasTenancyCol && $tenancyId) {
+                        $nextAttrs['tenancy_id'] = $tenancyId;
+                    }
 
                     (new Payment)->forceFill($nextAttrs)->save();
                 }
@@ -379,8 +401,8 @@ class TenantAreaController extends Controller
         $this->issueTenantConfirmedReceipt($tenant->id, $result, $tenantRecord, $relevantReservation);
 
         $methodLabel = ucfirst($payMethod->type)
-            . ($payMethod->last_four     ? ' ••••' . $payMethod->last_four    : '')
-            . ($payMethod->account_number ? ' ' . $payMethod->account_number  : '');
+            .($payMethod->last_four ? ' ••••'.$payMethod->last_four : '')
+            .($payMethod->account_number ? ' '.$payMethod->account_number : '');
 
         return redirect()->route('user.payments.index')
             ->with('payment_confirmed', true)
@@ -445,9 +467,9 @@ class TenantAreaController extends Controller
         $tenant = $this->tenant($request);
 
         $messages = Inquiry::with([
-                'boardingHouse.images',
-                'boardingHouse.owner',
-            ])
+            'boardingHouse.images',
+            'boardingHouse.owner',
+        ])
             ->where('user_id', $tenant->id)
             ->when($request->filled('q'), function ($query) use ($request) {
                 $term = '%'.$request->query('q').'%';
@@ -476,12 +498,61 @@ class TenantAreaController extends Controller
             'message' => ['required', 'string', 'max:1200'],
         ]);
 
+        $house = BoardingHouse::query()
+            ->with(['owner.ownerProfile', 'ownerProfile'])
+            ->whereKey($data['boarding_house_id'])
+            ->when(
+                Schema::hasColumn('boarding_houses', 'approval_status') || Schema::hasColumn('boarding_houses', 'status'),
+                function ($query) {
+                    $query->where(function ($statusQuery) {
+                        if (Schema::hasColumn('boarding_houses', 'approval_status')) {
+                            $statusQuery->where('approval_status', 'approved');
+                        }
+
+                        if (Schema::hasColumn('boarding_houses', 'status')) {
+                            $method = Schema::hasColumn('boarding_houses', 'approval_status') ? 'orWhere' : 'where';
+                            $statusQuery->{$method}('status', 'approved');
+                        }
+                    });
+                }
+            )
+            ->when(Schema::hasColumn('boarding_houses', 'is_active'), fn ($query) => $query->where('is_active', true))
+            ->first();
+
+        if (! $house) {
+            throw ValidationException::withMessages([
+                'boarding_house_id' => 'This boarding house is not currently available for messages.',
+            ]);
+        }
+
+        $recipient = $house->owner;
+        if (! $recipient || ! $recipient->isManager()) {
+            throw ValidationException::withMessages([
+                'boarding_house_id' => 'This boarding house does not have an available property contact.',
+            ]);
+        }
+
+        $body = trim(strip_tags($data['message']));
+        if ($body === '') {
+            throw ValidationException::withMessages([
+                'message' => 'Please enter a message.',
+            ]);
+        }
+
         $message = [
-            'user_id'           => $tenant->id,
-            'boarding_house_id' => $data['boarding_house_id'],
-            'message'           => $data['message'],
-            'status'            => 'pending',
+            'user_id' => $tenant->id,
+            'boarding_house_id' => $house->id,
+            'message' => $body,
+            'status' => 'pending',
         ];
+
+        if (Schema::hasColumn('inquiries', 'inquiry_number')) {
+            do {
+                $inquiryNumber = 'INQ-'.now()->format('Ymd').'-'.strtoupper(Str::random(8));
+            } while (Inquiry::where('inquiry_number', $inquiryNumber)->exists());
+
+            $message['inquiry_number'] = $inquiryNumber;
+        }
 
         if (Schema::hasColumn('inquiries', 'priority')) {
             $message['priority'] = 'normal';
@@ -494,10 +565,32 @@ class TenantAreaController extends Controller
         }
 
         if (Schema::hasColumn('inquiries', 'owner_profile_id')) {
-            $message['owner_profile_id'] = null;
+            $message['owner_profile_id'] = $house->owner_profile_id ?: $recipient->ownerProfile?->id;
         }
 
-        Inquiry::create($message);
+        $inquiry = Inquiry::create($message);
+
+        if (Schema::hasTable('notifications')) {
+            UserNotification::updateOrCreate(
+                [
+                    'user_id' => $recipient->id,
+                    'type' => 'inquiry',
+                    'reference_id' => 'inquiry:'.$inquiry->id.':owner',
+                ],
+                [
+                    'title' => 'New message from '.$tenant->name,
+                    'message' => Str::limit($body, 180),
+                    'data' => [
+                        'inquiry_id' => $inquiry->id,
+                        'boarding_house_id' => $house->id,
+                        'sender_id' => $tenant->id,
+                        'sender_role' => 'Tenant',
+                    ],
+                    'is_read' => false,
+                    'read_at' => null,
+                ]
+            );
+        }
 
         return back()->with('success', 'Message sent to the owner.');
     }
@@ -542,7 +635,7 @@ class TenantAreaController extends Controller
             $review['status'] = 'pending';
         }
 
-        $newReview = new Review();
+        $newReview = new Review;
         $newReview->forceFill($review)->save();
 
         return back()->with('success', 'Review submitted.');
@@ -727,6 +820,7 @@ class TenantAreaController extends Controller
             'summaryItems' => $summaryItems,
             'summaryTotal' => $nextDue ? (float) $nextDue['amount'] : $pendingAmount,
             'statusGuide' => [
+                ['label' => 'Review receipt', 'description' => 'Confirm the property, bill, due date, and exact amount.'],
                 ['label' => 'Secure checkout', 'description' => 'Pay on the PayMongo hosted payment page.'],
                 ['label' => 'Gateway verification', 'description' => 'PayMongo signs and confirms the completed transaction.'],
                 ['label' => 'Receipt issued', 'description' => 'BoardMatch records the payment and creates your receipt.'],
@@ -737,6 +831,10 @@ class TenantAreaController extends Controller
                 'payment_id' => $nextDue['id'] ?? null,
                 'method_label' => 'PayMongo',
                 'due_date' => $nextDue['due_date_label'] ?? null,
+                'billing_type' => $nextDue['type'] ?? 'Rent',
+                'reference' => $nextDue['reference'] ?? null,
+                'property_name' => $nextDue['boarding_house_name'] ?? 'Boarding house',
+                'property_location' => $nextDue['boarding_house_location'] ?? 'Location not provided',
             ],
             'paymentStatsMeta' => [
                 'approved_receipts' => $approvedReceipts->count(),
@@ -836,6 +934,9 @@ class TenantAreaController extends Controller
                     'paid_date' => $paidDate,
                     'reference' => $payment->reference_no ?: ($hasReferenceNumber ? $payment->reference_number : null),
                     'boarding_house_name' => $payment->boardingHouse?->name,
+                    'boarding_house_location' => $payment->boardingHouse
+                        ? ($payment->boardingHouse->full_address ?: ($payment->boardingHouse->address ?: 'Location not provided'))
+                        : 'Location not provided',
                     'paymongo_configured' => app(\App\Services\PaymongoService::class)->isConfigured(
                         $payment->boardingHouse?->ownerProfile ?: $payment->boardingHouse?->owner?->ownerProfile
                     ),
@@ -852,6 +953,9 @@ class TenantAreaController extends Controller
             $house = $message->boardingHouse;
             $ownerName = trim((string) ($house?->owner?->name ?? 'Property Owner'));
             $reply = $replyNotifications->get('inquiry:'.$message->id);
+            $replyData = (array) ($reply?->data ?? []);
+            $replySenderName = trim((string) ($replyData['sender_name'] ?? $ownerName));
+            $replySenderRole = trim((string) ($replyData['sender_role'] ?? ($house?->owner ? 'Property Owner' : 'BoardMatch Support')));
             $statusKey = strtolower(trim((string) ($message->status ?? 'pending')));
             $messageCreatedAt = $message->created_at ? Carbon::parse($message->created_at) : null;
             $replyCreatedAt = $reply?->updated_at ? Carbon::parse($reply->updated_at) : null;
@@ -867,7 +971,7 @@ class TenantAreaController extends Controller
             if ($reply) {
                 $timeline->push([
                     'sender' => 'owner',
-                    'label' => $ownerName,
+                    'label' => $replySenderName.' · '.$replySenderRole,
                     'body' => $reply->message,
                     'time' => $replyCreatedAt?->format('M d, Y h:i A') ?? 'Recently',
                 ]);
@@ -895,6 +999,7 @@ class TenantAreaController extends Controller
                     ? 'PHP '.number_format((float) $house->effective_price, 2).' / month'
                     : 'Rate shared on inquiry',
                 'booking_status' => str($statusKey !== '' ? $statusKey : 'pending')->replace(['_', '-'], ' ')->title()->toString(),
+                'archived' => in_array($statusKey, ['closed', 'declined'], true),
                 'message' => trim((string) ($reply?->message ?: $message->message)),
                 'time' => $replyCreatedAt?->diffForHumans() ?? ($messageCreatedAt?->diffForHumans() ?? 'Recently'),
                 'time_full' => ($replyCreatedAt ?? $messageCreatedAt)?->format('M d, Y h:i A') ?? 'Recently',
@@ -903,15 +1008,15 @@ class TenantAreaController extends Controller
                 'unread' => $unread,
                 'mark_read_url' => $reply ? route('user.notifications.read', ['id' => $reply->id]) : null,
                 'online' => false,
-                'response_time' => $reply ? 'Latest owner response saved' : 'Awaiting reply',
+                'response_time' => $reply ? 'Latest '.$replySenderRole.' response saved' : 'Awaiting reply',
                 'details_url' => $house ? route('user.boarding-houses.show', $house) : route('user.messages.index'),
                 'reservation_url' => route('user.reservations.index'),
                 'payments_url' => route('user.payments.index'),
                 'profile_url' => $house ? route('user.boarding-houses.show', $house) : route('user.messages.index'),
                 'system' => [
-                    'title' => $reply ? 'Latest owner reply' : 'Inquiry submitted',
+                    'title' => $reply ? 'Latest '.$replySenderRole.' reply' : 'Inquiry submitted',
                     'body' => $reply
-                        ? 'A property owner has replied to your inquiry.'
+                        ? $replySenderRole.' has replied to your inquiry.'
                         : 'Your message has been submitted and is waiting for a response.',
                     'meta' => $house
                         ? 'Conversation linked to '.$house->name

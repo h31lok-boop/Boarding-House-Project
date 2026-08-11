@@ -294,7 +294,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/payment-receipts/{receipt}', [PaymentReceiptController::class, 'destroy'])->name('payment-receipts.destroy');
         Route::get('/messages', [TenantAreaController::class, 'messages'])->name('messages');
         Route::get('/messages/inbox', [TenantAreaController::class, 'messages'])->name('messages.index');
-        Route::post('/messages', [TenantAreaController::class, 'storeMessage'])->name('messages.store');
+        Route::post('/messages', [TenantAreaController::class, 'storeMessage'])->middleware('throttle:10,1')->name('messages.store');
         Route::get('/help-center', [HelpCenterController::class, 'index'])->name('help');
         Route::get('/help-center', [HelpCenterController::class, 'index'])->name('help-center.index');
         Route::post('/help-center/support-request', [HelpCenterController::class, 'store'])->name('help.store');

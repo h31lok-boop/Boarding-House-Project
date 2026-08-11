@@ -2,6 +2,10 @@
 <x-admin.shell :show-header="false">
 @php
     $workspace = request()->routeIs('owner.*') ? 'owner' : 'admin';
+    $isOwnerWorkspace = $workspace === 'owner';
+    $workspaceActorName = request()->user()?->name ?: ($isOwnerWorkspace ? 'Property Owner' : 'BoardMatch Admin');
+    $workspaceActorRole = $isOwnerWorkspace ? 'Property Owner' : 'BoardMatch Admin';
+    $workspaceTitle = $isOwnerWorkspace ? 'Owner Messages Dashboard' : 'Admin Messages Dashboard';
     $route = fn (string $name, $params = []) => route($workspace.'.'.$name, $params);
     $openStatuses = $openStatuses ?? ['new', 'pending', 'open', null, ''];
     $resolvedStatuses = $resolvedStatuses ?? ['closed', 'declined'];
@@ -44,15 +48,18 @@
         'bg-rose-100 text-rose-700',
     ];
 
-    $threadPayloadFor = function ($thread) use ($route, $replyNotifications, $openStatuses, $resolvedStatuses, $initialsFor, $shortDateFor, $dateTimeFor, $locationFor, $avatarTones) {
+    $threadPayloadFor = function ($thread) use ($route, $replyNotifications, $openStatuses, $resolvedStatuses, $initialsFor, $shortDateFor, $dateTimeFor, $locationFor, $avatarTones, $workspaceActorName, $workspaceActorRole) {
         $tenant = $thread->user;
         $house = $thread->boardingHouse;
         $status = strtolower((string) ($thread->status ?? 'pending'));
         $isResolved = in_array($status, $resolvedStatuses, true);
         $isAwaiting = in_array($status, array_filter($openStatuses, fn ($item) => $item !== null && $item !== ''), true)
             || $status === '';
-        $isOnline = ((int) $thread->id % 3) !== 0;
         $replyNotification = $replyNotifications->get('inquiry:'.$thread->id);
+        $replyData = $replyNotification?->data;
+        $replyData = is_string($replyData) ? (json_decode($replyData, true) ?: []) : (array) $replyData;
+        $replySenderName = trim((string) ($replyData['sender_name'] ?? $workspaceActorName));
+        $replySenderRole = trim((string) ($replyData['sender_role'] ?? $workspaceActorRole));
         $replyDate = $replyNotification?->updated_at
             ? \Illuminate\Support\Carbon::parse($replyNotification->updated_at)
             : $thread->replied_at;
@@ -68,8 +75,9 @@
 
         if ($replyNotification?->message) {
             $messages[] = [
-                'sender' => 'admin',
-                'initials' => 'A',
+                'sender' => 'staff',
+                'initials' => $initialsFor($replySenderName),
+                'label' => $replySenderName.' · '.$replySenderRole,
                 'body' => $replyNotification->message,
                 'stamp' => $dateTimeFor($replyDate),
             ];
@@ -86,9 +94,7 @@
             'preview' => \Illuminate\Support\Str::limit($replyNotification?->message ?: ($thread->message ?: 'No message provided.'), 96),
             'time' => $shortDateFor($lastTouch),
             'full_time' => $dateTimeFor($lastTouch),
-            'online' => $isOnline,
-            'online_label' => $isOnline ? 'Online now' : 'Away',
-            'online_dot' => $isOnline ? 'bg-emerald-500' : 'bg-slate-300',
+            'role_label' => 'Tenant',
             'status' => $isResolved ? 'Archived' : 'Active',
             'status_key' => $status ?: 'new',
             'status_badge' => $isResolved ? 'bg-slate-100 text-slate-600' : ($isAwaiting ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700'),
@@ -138,12 +144,12 @@
     }"
     class="space-y-3 text-slate-950"
 >
-    <header class="relative z-[60] overflow-visible rounded-xl border border-slate-200 bg-white/95 p-3.5 shadow-sm shadow-slate-200/60 backdrop-blur">
+    <header class="relative z-10 overflow-visible rounded-xl border border-slate-200 bg-white/95 p-3.5 shadow-sm shadow-slate-200/60 backdrop-blur">
         <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div class="min-w-0">
                 <p class="text-[11px] font-bold uppercase tracking-[0.22em] text-blue-600">Communication Center</p>
-                <h1 class="mt-1 text-xl font-bold tracking-tight text-slate-950">Owner Messages Dashboard</h1>
-                <p class="mt-0.5 text-xs text-slate-500">A modern two-column inbox for active tenant conversations, quick replies, and archived message history.</p>
+                <h1 class="mt-1 text-xl font-bold tracking-tight text-slate-950">{{ $workspaceTitle }}</h1>
+                <p class="mt-0.5 text-xs text-slate-500">Role-scoped tenant conversations, replies, and archived message history.</p>
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
@@ -264,13 +270,12 @@
                         <span class="flex items-start gap-3">
                             <span class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold {{ $payload['avatar_tone'] }}">
                                 {{ $payload['initials'] }}
-                                <span class="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white {{ $payload['online_dot'] }}"></span>
                             </span>
                             <span class="min-w-0 flex-1">
                                 <span class="flex items-start justify-between gap-3">
                                     <span class="min-w-0">
                                         <span class="block truncate text-[13px] font-bold text-slate-950">{{ $payload['tenant'] }}</span>
-                                        <span class="mt-0.5 block truncate text-[11px] font-medium text-slate-500">{{ $payload['online_label'] }}</span>
+                                        <span class="mt-0.5 block truncate text-[11px] font-medium text-slate-500">{{ $payload['role_label'] }}</span>
                                     </span>
                                     <span class="shrink-0 text-[11px] font-semibold text-slate-400">{{ $payload['time'] }}</span>
                                 </span>
@@ -371,16 +376,11 @@
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 18-6-6 6-6"/>
                                         </svg>
                                     </button>
-                                    <span class="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold" :class="selected.avatar_tone" x-text="selected.initials">
-                                        <span class="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white" :class="selected.online_dot"></span>
-                                    </span>
+                                    <span class="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold" :class="selected.avatar_tone" x-text="selected.initials"></span>
                                     <div class="min-w-0">
                                         <div class="flex flex-wrap items-center gap-2">
                                             <h2 class="truncate text-base font-bold text-slate-950" x-text="selected.tenant"></h2>
-                                            <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
-                                                <span class="h-2 w-2 rounded-full" :class="selected.online_dot"></span>
-                                                <span x-text="selected.online_label"></span>
-                                            </span>
+                                            <span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600" x-text="selected.role_label"></span>
                                         </div>
                                         <p class="truncate text-[12px] font-semibold text-slate-600" x-text="selected.house"></p>
                                         <p class="mt-0.5 flex items-center gap-1 truncate text-[12px] text-slate-500">
@@ -481,21 +481,22 @@
                         </div>
 
                         <template x-for="(message, index) in selected.messages" :key="index">
-                            <div class="flex gap-3" :class="message.sender === 'admin' ? 'justify-end' : 'justify-start'">
-                                <template x-if="message.sender !== 'admin'">
+                            <div class="flex gap-3" :class="message.sender !== 'tenant' ? 'justify-end' : 'justify-start'">
+                                <template x-if="message.sender === 'tenant'">
                                     <span class="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold" :class="selected.avatar_tone" x-text="message.initials"></span>
                                 </template>
 
-                                <div class="max-w-[min(560px,82%)]" :class="message.sender === 'admin' ? 'text-right' : 'text-left'">
+                                <div class="max-w-[min(560px,82%)]" :class="message.sender !== 'tenant' ? 'text-right' : 'text-left'">
                                     <div
                                         class="rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm"
-                                        :class="message.sender === 'admin' ? 'rounded-br-md border border-blue-200 bg-blue-100 text-slate-950' : 'rounded-tl-md bg-white text-slate-700 ring-1 ring-slate-100'"
+                                        :class="message.sender !== 'tenant' ? 'rounded-br-md border border-blue-200 bg-blue-100 text-slate-950' : 'rounded-tl-md bg-white text-slate-700 ring-1 ring-slate-100'"
                                     >
                                         <p class="whitespace-pre-line" x-text="message.body"></p>
                                     </div>
                                     <p class="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-slate-500">
+                                        <template x-if="message.label"><span x-text="message.label + ' · '"></span></template>
                                         <span x-text="message.stamp"></span>
-                                        <template x-if="message.sender === 'admin'">
+                                        <template x-if="message.sender !== 'tenant'">
                                             <svg class="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 13 4 4L19 7"/>
                                             </svg>
@@ -533,22 +534,7 @@
                                 class="h-24 w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                                 placeholder="Type your reply..."
                             ></textarea>
-                            <div class="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <div class="flex items-center gap-2">
-                                    <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50" aria-label="Attach file">
-                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m21 11-8.5 8.5a5 5 0 0 1-7.1-7.1L14 3.8a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.6 1.6 0 0 1-2.3-2.3L16 6.6"/>
-                                        </svg>
-                                    </button>
-                                    <button type="button" class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50" aria-label="Add emoji">
-                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <circle cx="12" cy="12" r="8.5" stroke-width="1.8"/>
-                                            <path stroke-linecap="round" stroke-width="1.8" d="M9 10h.01M15 10h.01"/>
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M8.5 14a4.2 4.2 0 0 0 7 0"/>
-                                        </svg>
-                                    </button>
-                                    <span class="hidden text-[11px] font-medium text-slate-400 sm:inline">Attachments and emoji actions stay available.</span>
-                                </div>
+                            <div class="mt-3 flex justify-end">
                                 <button
                                     class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm shadow-blue-600/25 transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100"
                                     :disabled="!replyBody.trim()"

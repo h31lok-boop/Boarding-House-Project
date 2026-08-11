@@ -41,6 +41,29 @@ test('admin header has persistent theme and role-scoped notification controls', 
         ->assertSee('sticky top-2.5', false);
 });
 
+test('admin workspace header is identical and present once across admin pages', function (string $routeName) {
+    $admin = User::factory()->create([
+        'role' => 'admin',
+        'is_active' => true,
+        'email_verified_at' => now(),
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->get(route($routeName))
+        ->assertOk()
+        ->assertSee('data-admin-workspace-header', false)
+        ->assertSee('data-workspace="admin"', false)
+        ->assertSee('BoardMatch Admin')
+        ->assertSee('Manage platform operations, users, properties, payments, and activity in one place.');
+
+    expect(substr_count($response->getContent(), 'data-admin-workspace-header'))->toBe(1);
+})->with([
+    'dashboard' => ['admin.dashboard'],
+    'messages' => ['admin.messages'],
+    'payments' => ['admin.payments'],
+    'settings' => ['admin.settings'],
+]);
+
 test('owner header has persistent theme and owner notification controls beside the profile', function () {
     $owner = User::factory()->create(['role' => 'owner', 'is_active' => true]);
     $otherOwner = User::factory()->create(['role' => 'owner', 'is_active' => true]);
