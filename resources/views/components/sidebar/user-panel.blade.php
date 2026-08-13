@@ -6,6 +6,7 @@
     $isSectionRoute = fn($route, $section) => request()->routeIs($route) && request('section') === $section;
     $isUserPath = fn(string $path) => request()->is($path) || request()->is($path.'/*');
     $notificationBadge = null;
+    $messageBadge = null;
 
     if (auth()->check()
         && \Illuminate\Support\Facades\Schema::hasTable('notifications')
@@ -23,6 +24,40 @@
         $notificationBadge = $notificationCount > 0
             ? ($notificationCount > 99 ? '99+' : (string) $notificationCount)
             : null;
+    }
+
+    if (auth()->check()
+        && \Illuminate\Support\Facades\Schema::hasTable('inquiries')
+        && \Illuminate\Support\Facades\Schema::hasColumn('inquiries', 'user_id')
+        && \Illuminate\Support\Facades\Schema::hasTable('notifications')
+        && \Illuminate\Support\Facades\Schema::hasColumn('notifications', 'user_id')
+        && \Illuminate\Support\Facades\Schema::hasColumn('notifications', 'type')
+        && \Illuminate\Support\Facades\Schema::hasColumn('notifications', 'reference_id')) {
+        $inquiryReferences = \Illuminate\Support\Facades\DB::table('inquiries')
+            ->where('user_id', auth()->id())
+            ->pluck('id')
+            ->map(fn ($id) => 'inquiry:'.$id)
+            ->values();
+
+        if ($inquiryReferences->isNotEmpty()) {
+            $unreadMessageQuery = \Illuminate\Support\Facades\DB::table('notifications')
+                ->where('user_id', auth()->id())
+                ->where('type', 'inquiry')
+                ->whereIn('reference_id', $inquiryReferences);
+
+            if (\Illuminate\Support\Facades\Schema::hasColumn('notifications', 'read_at')) {
+                $unreadMessageQuery->whereNull('read_at');
+            } elseif (\Illuminate\Support\Facades\Schema::hasColumn('notifications', 'is_read')) {
+                $unreadMessageQuery->where('is_read', false);
+            } else {
+                $unreadMessageQuery->whereRaw('1 = 0');
+            }
+
+            $unreadMessageCount = (int) $unreadMessageQuery->count();
+            $messageBadge = $unreadMessageCount > 0
+                ? ($unreadMessageCount > 99 ? '99+' : (string) $unreadMessageCount)
+                : null;
+        }
     }
 
     $sections = [
@@ -85,7 +120,7 @@
                     'href' => $r('user.messages.index'),
                     'icon' => 'messages',
                     'active' => $isUserPath('user/messages') || request()->routeIs('user.messages*'),
-                    'badge' => '2',
+                    'badge' => $messageBadge,
                     'badgeColor' => 'blue',
                 ],
             ],
@@ -93,12 +128,6 @@
         [
             'label' => 'ACCOUNT',
             'items' => [
-                [
-                    'label' => 'ML Insights',
-                    'href' => $r('user.insights.index'),
-                    'icon' => 'analytics',
-                    'active' => $isUserPath('user/predictive-insights') || request()->routeIs('user.insights*'),
-                ],
                 [
                     'label' => 'Notifications',
                     'href' => $r('user.notifications.index'),
