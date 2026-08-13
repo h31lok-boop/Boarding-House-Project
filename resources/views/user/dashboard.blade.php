@@ -531,8 +531,7 @@
                                 <p class="truncate text-xs text-slate-500 dark:text-slate-400">{{ $tenant?->email ?? 'tenant@boardmatch.local' }}</p>
                             </div>
                             <div class="mt-2 space-y-1 text-sm">
-                                <a href="{{ $r('user.preferences.index') }}" class="block rounded-xl px-4 py-2.5 text-slate-700 transition hover:bg-blue-50 hover:text-blue-600 dark:text-slate-200 dark:hover:bg-slate-800">My Profile</a>
-                                <a href="{{ $r('user.settings.index') }}" class="block rounded-xl px-4 py-2.5 text-slate-700 transition hover:bg-blue-50 hover:text-blue-600 dark:text-slate-200 dark:hover:bg-slate-800">Account Settings</a>
+                                <a href="{{ $r('user.settings.index') }}" class="block rounded-xl px-4 py-2.5 text-slate-700 transition hover:bg-blue-50 hover:text-blue-600 dark:text-slate-200 dark:hover:bg-slate-800">Profile</a>
                                 <form method="POST" action="{{ route('logout') }}">
                                     @csrf
                                     <button type="submit" class="block w-full rounded-xl px-4 py-2.5 text-left text-rose-600 transition hover:bg-rose-50 dark:hover:bg-rose-400/10">Logout</button>
