@@ -30,11 +30,7 @@ test('admin and owner workspaces are strictly separated', function () {
         'is_active' => true,
         'email_verified_at' => now(),
     ]);
-    $owner = User::factory()->create([
-        'role' => 'owner',
-        'is_active' => true,
-        'email_verified_at' => now(),
-    ]);
+    $owner = User::factory()->verifiedOwner()->create();
     $tenant = User::factory()->create([
         'role' => 'tenant',
         'is_active' => true,
@@ -49,11 +45,7 @@ test('admin and owner workspaces are strictly separated', function () {
 });
 
 test('login account type must match the actual account role', function () {
-    $owner = User::factory()->create([
-        'role' => 'owner',
-        'status' => 'active',
-        'email_verified_at' => now(),
-    ]);
+    $owner = User::factory()->verifiedOwner()->create();
 
     $this->post(route('login'), [
         'email' => $owner->email,
@@ -95,11 +87,7 @@ test('user dashboard is restricted to user accounts', function () {
 });
 
 test('owner operational pages stay inside the owner workspace', function (string $routeName) {
-    $owner = User::factory()->create([
-        'role' => 'owner',
-        'is_active' => true,
-        'email_verified_at' => now(),
-    ]);
+    $owner = User::factory()->verifiedOwner()->create();
 
     $this->actingAs($owner)
         ->get(route($routeName))
