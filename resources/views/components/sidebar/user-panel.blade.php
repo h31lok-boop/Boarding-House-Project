@@ -94,6 +94,12 @@
             'label' => 'ACCOUNT',
             'items' => [
                 [
+                    'label' => 'ML Insights',
+                    'href' => $r('user.insights.index'),
+                    'icon' => 'analytics',
+                    'active' => $isUserPath('user/predictive-insights') || request()->routeIs('user.insights*'),
+                ],
+                [
                     'label' => 'Notifications',
                     'href' => $r('user.notifications.index'),
                     'icon' => 'notifications',
