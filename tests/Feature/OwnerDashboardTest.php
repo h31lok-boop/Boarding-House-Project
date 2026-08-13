@@ -9,8 +9,8 @@ use App\Models\User;
 use App\Models\UserNotification;
 
 it('renders the redesigned owner dashboard with real scoped data', function () {
-    $owner = User::factory()->create(['role' => 'owner', 'email_verified_at' => now()]);
-    $other = User::factory()->create(['role' => 'owner', 'email_verified_at' => now()]);
+    $owner = User::factory()->verifiedOwner()->create();
+    $other = User::factory()->verifiedOwner()->create();
 
     $house = BoardingHouse::create(['owner_id' => $owner->id, 'name' => 'Sunrise Residences', 'is_active' => true, 'approval_status' => 'approved']);
     $foreign = BoardingHouse::create(['owner_id' => $other->id, 'name' => 'Rival Lodge', 'is_active' => true]);
@@ -65,7 +65,7 @@ it('renders the redesigned owner dashboard with real scoped data', function () {
 });
 
 it('shows an empty state when the owner has no property', function () {
-    $owner = User::factory()->create(['role' => 'owner', 'email_verified_at' => now()]);
+    $owner = User::factory()->verifiedOwner()->create();
 
     $this->actingAs($owner)->get(route('owner.dashboard'))
         ->assertOk()
@@ -74,14 +74,14 @@ it('shows an empty state when the owner has no property', function () {
 });
 
 it('sends owners from /dashboard to the owner dashboard', function () {
-    $owner = User::factory()->create(['role' => 'owner', 'email_verified_at' => now()]);
+    $owner = User::factory()->verifiedOwner()->create();
 
     $this->actingAs($owner)->get('/dashboard')->assertRedirect(route('owner.dashboard'));
 });
 
 it('filters by an owned property and refuses foreign property scopes', function () {
-    $owner = User::factory()->create(['role' => 'owner', 'email_verified_at' => now()]);
-    $otherOwner = User::factory()->create(['role' => 'owner', 'email_verified_at' => now()]);
+    $owner = User::factory()->verifiedOwner()->create();
+    $otherOwner = User::factory()->verifiedOwner()->create();
 
     $first = BoardingHouse::create(['owner_id' => $owner->id, 'name' => 'First Owner House', 'is_active' => true]);
     $second = BoardingHouse::create(['owner_id' => $owner->id, 'name' => 'Second Owner House', 'is_active' => true]);
@@ -113,8 +113,8 @@ it('filters by an owned property and refuses foreign property scopes', function 
 it('uses the selected month for revenue and scopes notification counts to the owner', function () {
     $this->travelTo('2026-07-10 12:00:00');
 
-    $owner = User::factory()->create(['role' => 'owner', 'email_verified_at' => now()]);
-    $otherOwner = User::factory()->create(['role' => 'owner', 'email_verified_at' => now()]);
+    $owner = User::factory()->verifiedOwner()->create();
+    $otherOwner = User::factory()->verifiedOwner()->create();
     $house = BoardingHouse::create(['owner_id' => $owner->id, 'name' => 'Monthly House', 'is_active' => true]);
     $room = Room::create(['boarding_house_id' => $house->id, 'room_no' => 'M1', 'status' => 'occupied', 'price' => 4200]);
     $tenantUser = User::factory()->create(['role' => 'user']);
