@@ -83,6 +83,20 @@
             </a>
         </section>
 
+        <x-dashboard-chart-pair
+            id-prefix="tenant-dashboard"
+            pie-title="Payment Overview"
+            pie-description="Your paid amount this month compared with the outstanding balance."
+            :pie-labels="['Paid This Month', 'Outstanding']"
+            :pie-data="[(float) ($billing['paid_this_month'] ?? 0), $outstanding]"
+            line-title="Payment History"
+            line-description="Your recorded payments over the last six months."
+            :line-labels="$paymentChart['labels'] ?? []"
+            :line-data="$paymentChart['payments_made'] ?? []"
+            line-dataset-label="Payments"
+            :currency="true"
+        />
+
         <section class="grid gap-5 lg:grid-cols-2">
             <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <header class="border-b border-slate-100 px-5 py-4 dark:border-slate-700">
