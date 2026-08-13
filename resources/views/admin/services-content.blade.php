@@ -125,7 +125,7 @@
                     </div>
                 </div>
                 <div class="bm-modal__footer">
-                    <button type="submit" form="service-delete-form" class="bm-modal__button border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">Delete</button>
+                    <button type="submit" form="service-delete-form" class="bm-modal__button bm-modal__button--danger">Delete</button>
                     <button type="submit" class="bm-modal__button bm-modal__button--primary">Save Changes</button>
                     <button type="button" @click="detailOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
                 </div>
