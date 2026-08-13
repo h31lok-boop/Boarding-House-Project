@@ -10,8 +10,24 @@ use RuntimeException;
 
 class PaymongoService
 {
+    public function usesSharedCredentials(): bool
+    {
+        return filled(config('services.paymongo.public_key'))
+            && filled(config('services.paymongo.secret_key'));
+    }
+
     public function credentials(?OwnerProfile $profile): array
     {
+        if ($this->usesSharedCredentials()) {
+            return [
+                'enabled' => true,
+                'public_key' => config('services.paymongo.public_key'),
+                'secret_key' => config('services.paymongo.secret_key'),
+                'webhook_secret' => config('services.paymongo.webhook_secret'),
+                'source' => 'environment',
+            ];
+        }
+
         return [
             'enabled' => $profile
                 ? (bool) $profile->paymongo_enabled
@@ -19,6 +35,7 @@ class PaymongoService
             'public_key' => $profile?->paymongo_public_key ?: config('services.paymongo.public_key'),
             'secret_key' => $profile?->paymongo_secret_key ?: config('services.paymongo.secret_key'),
             'webhook_secret' => $profile?->paymongo_webhook_secret ?: config('services.paymongo.webhook_secret'),
+            'source' => $profile ? 'owner' : 'environment',
         ];
     }
 
