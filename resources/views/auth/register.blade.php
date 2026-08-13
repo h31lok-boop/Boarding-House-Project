@@ -1,33 +1,35 @@
 {{-- resources/views/auth/register.blade.php --}}
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="light" data-theme-mode="light-only">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create Account — BoardMatch</title>
-    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+    <link rel="icon" type="image/png" href="{{ asset('images/boardmatch-final-logo.png') }}">
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link rel="stylesheet" href="https://fonts.bunny.net/css?family=manrope:400,500,600,700,800&display=swap">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <script>
-        (function () {
-            var t = localStorage.getItem('theme');
-            if (t) document.documentElement.setAttribute('data-theme', t);
-        })();
-    </script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { color-scheme: light; --surface: #fff; --surface-2: #f8fafc; --bg: #f4f7fb; --border: #dbe4ef; --text: #172033; --muted: #64748b; --brand-500: #2563eb; --brand-600: #1d4ed8; }
 
         body {
             font-family: 'Manrope', 'Segoe UI', sans-serif;
-            background: radial-gradient(ellipse at top left, var(--surface) 0%, var(--bg) 55%, var(--surface-2) 100%);
-            color: var(--text);
+            background: #f4f7fb;
+            color: #172033;
             min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: flex-start;
-            padding: 32px 16px 48px;
+        }
+
+        .auth-page { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 56px; }
+        .auth-topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+        .auth-brand { display: inline-flex; align-items: center; gap: 10px; color: #172033; text-decoration: none; font-weight: 800; }
+        .auth-brand img { width: 42px; height: 42px; border-radius: 12px; box-shadow: 0 8px 20px rgba(37,99,235,.2); }
+        .auth-actions { display: flex; align-items: center; gap: 10px; }
+        .auth-action { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; border: 1px solid #dbe4ef; border-radius: 11px; background: #fff; padding: 0 14px; color: #475569; text-decoration: none; font-size: 12px; font-weight: 800; transition: .2s; }
+        .auth-action:hover { border-color: #93b4e8; color: #1d4ed8; }
+
+        .reg-card {
+            margin: 0 auto;
         }
 
         .reg-card {
@@ -35,7 +37,7 @@
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 24px;
-            box-shadow: 0 20px 50px rgba(26,18,15,.10);
+            box-shadow: 0 24px 65px rgba(15,23,42,.09);
             overflow: hidden;
         }
 
@@ -195,6 +197,10 @@
         .btn-google-reg:hover { background:var(--surface-2); border-color:#9ca3af; box-shadow:0 2px 8px rgba(0,0,0,.06); }
         .or-row-reg { display:flex; align-items:center; gap:10px; margin:14px 0; font-size:11px; font-weight:700; color:#9ca3af; text-transform:uppercase; }
         .or-row-reg::before, .or-row-reg::after { content:''; flex:1; height:1px; background:var(--border); }
+        .registration-methods { margin-top:4px; border:1px solid #dbe4ef; border-radius:16px; background:#f8fafc; padding:14px; }
+        .registration-methods-title { margin:0 0 11px; color:#334155; font-size:12px; font-weight:800; text-align:center; }
+        .registration-methods-copy { margin:10px 0 0; color:#64748b; font-size:11px; line-height:1.5; text-align:center; }
+        .password-method-note { margin:-3px 0 12px; border:1px solid #dbeafe; border-radius:10px; background:#eff6ff; padding:8px 10px; color:#475569; font-size:11px; line-height:1.45; }
 
         .security-note {
             display:flex; gap:7px; align-items:flex-start;
@@ -221,6 +227,10 @@
         [x-cloak] { display:none !important; }
 
         @media (max-width:480px) {
+            .auth-page { width: min(100% - 20px, 1180px); padding-top: 18px; }
+            .auth-topbar { align-items: flex-start; }
+            .auth-actions { flex-direction: column; align-items: stretch; gap: 6px; }
+            .auth-action { min-height: 34px; padding: 0 10px; font-size: 11px; }
             .pwd-criteria { grid-template-columns:1fr; }
             .range-row { grid-template-columns:1fr; }
             .range-sep { display:none; }
@@ -229,22 +239,23 @@
 </head>
 <body>
 
+<main class="auth-page">
+    <nav class="auth-topbar" aria-label="Registration navigation">
+        <a class="auth-brand" href="{{ url('/') }}"><img src="{{ asset('images/boardmatch-final-logo.png') }}" alt=""><span>BoardMatch</span></a>
+        <div class="auth-actions">
+            <a class="auth-action" href="{{ route('login') }}">Sign in</a>
+            <a class="auth-action" href="{{ route('register.owner') }}">Register as owner</a>
+        </div>
+    </nav>
+
 <div class="reg-card"
      x-data="regApp()"
      x-init="init()">
 <div class="reg-inner">
 
-    {{-- Logo --}}
-    <div class="reg-logo">
-        <div class="reg-logo-icon">
-            <img src="{{ asset('images/boardmatch-mark.svg') }}" alt="BoardMatch">
-        </div>
-        <span class="reg-logo-name">BoardMatch</span>
-    </div>
-
     <div class="reg-head">
-        <h1>Create your account</h1>
-        <p>Join the BoardMatch community — find or list boarding houses with ease.</p>
+        <h1>Create your student account</h1>
+        <p>For DSSC students looking for a compatible boarding house near campus.</p>
     </div>
 
     @if ($errors->any())
@@ -260,71 +271,22 @@
 
     @php
         $googleConfigured = filled(config('services.google.client_id'));
-        $selectedRole = match (old('role', '')) {
-            'user', 'student', 'tenant' => 'tenant',
-            'admin', 'owner' => 'owner',
-            default => '',
-        };
+        $selectedRole = 'tenant';
     @endphp
-    @if ($googleConfigured)
-        <a href="{{ route('auth.google') }}" class="btn-google-reg">
-            <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-            </svg>
-            Continue with Google
-        </a>
-    @else
-        <button type="button" class="btn-google-reg" style="opacity:.55;cursor:not-allowed" onclick="alert('Google sign-in is not configured yet. Please contact the administrator.')">
-            <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-            </svg>
-            Continue with Google
-        </button>
-    @endif
-    <div class="or-row-reg">or register with email</div>
+    <div style="margin-bottom:14px;border:1px solid #dbeafe;border-radius:11px;background:#eff6ff;padding:10px 12px;color:#475569;font-size:11.5px;line-height:1.5;">
+        Complete every required student detail below. At the bottom, choose whether to create a password or securely link the completed profile with Google.
+    </div>
 
     <form id="regForm" method="POST" action="{{ route('register.store') }}" enctype="multipart/form-data" novalidate>
         @csrf
 
-        {{-- ── Role Dropdown ────────────────────────────────────── --}}
-        <div class="field">
-            <label class="field-label" for="role">
-                I am a…<span class="req">*</span>
-            </label>
-            <div class="role-wrap">
-                <select id="role" name="role" class="role-select"
-                        x-model="role"
-                        @change="onRoleChange()">
-                    <option value="" disabled>Select your role…</option>
-                    <option value="tenant" {{ $selectedRole === 'tenant' ? 'selected' : '' }}>Tenant / Student</option>
-                    <option value="owner" {{ $selectedRole === 'owner' ? 'selected' : '' }}>Owner / Admin</option>
-                </select>
-                <span class="role-caret">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-                </span>
-            </div>
-            @error('role')<p class="field-error" style="margin-top:5px">
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                <span>{{ $message }}</span>
-            </p>@enderror
-        </div>
+        <input id="role" name="role" type="hidden" value="tenant" x-model="role">
 
         {{-- Role-context badge --}}
         <div x-show="role === 'tenant'" x-cloak
              style="background:rgba(99,102,241,.07);border:1px solid rgba(99,102,241,.22);border-radius:10px;padding:9px 12px;font-size:12px;color:#4338ca;margin-bottom:4px;display:flex;gap:8px;align-items:center;">
             <svg style="width:14px;height:14px;flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
             <span>Registering as a <strong>Tenant / Student</strong> — find your perfect boarding house match.</span>
-        </div>
-        <div x-show="role === 'owner'" x-cloak
-             style="background:rgba(37,99,235,.07);border:1px solid rgba(37,99,235,.24);border-radius:10px;padding:9px 12px;font-size:12px;color:#1d4ed8;margin-bottom:4px;display:flex;gap:8px;align-items:center;">
-            <svg style="width:14px;height:14px;flex-shrink:0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-            <span>Registering as an <strong>Owner / Admin</strong> — list and manage your boarding house.</span>
         </div>
 
         <div x-show="role" x-cloak>
@@ -374,6 +336,7 @@
             </div>
 
             {{-- Password --}}
+            <div class="password-method-note"><strong>Password option:</strong> Complete these two password fields only when using “Create account with email.” They are not required when using “Register with Google.”</div>
             <div class="field">
                 <label class="field-label" for="password">Password<span class="req">*</span></label>
                 <div class="input-box{{ $errors->has('password') ? ' is-error' : '' }}" id="box-password">
@@ -732,20 +695,43 @@
                 <span>{{ $errors->first('terms') ?: 'You must accept the Terms and Conditions.' }}</span>
             </p>
 
-            <button type="submit" class="btn-primary-reg" id="submitBtn">
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                Create Account
-            </button>
+            <div class="registration-methods">
+                <p class="registration-methods-title">Choose how to create your account</p>
+                <button type="submit" class="btn-primary-reg" id="submitBtn" name="registration_method" value="password">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                    Create account with email
+                </button>
+
+                <div class="or-row-reg">or securely link this completed profile</div>
+
+                @if ($googleConfigured)
+                    <button type="submit" class="btn-google-reg" id="googleSubmitBtn" name="registration_method" value="google" data-google-registration="true" formaction="{{ route('register.google') }}">
+                        <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                        </svg>
+                        Register with Google
+                    </button>
+                @else
+                    <button type="button" class="btn-google-reg" disabled style="opacity:.55;cursor:not-allowed">Google registration is unavailable</button>
+                @endif
+
+                <p class="registration-methods-copy">Google must return the same email entered above. Your completed student details will be saved before dashboard access is granted.</p>
+            </div>
 
         </div>{{-- /role-conditional wrapper --}}
     </form>
 
     <div class="signin-link">
         Already have an account? <a href="{{ route('login') }}">Sign in</a>
+        <br>Own a boarding house? <a href="{{ route('register.owner') }}">Register as an owner</a>
     </div>
 
 </div>
 </div>{{-- /reg-card --}}
+</main>
 
 <script>
 var PASSWORD_EYE_OPEN = '<path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/>';
@@ -979,15 +965,21 @@ function initFormLogic() {
     var submitBtn = document.getElementById('submitBtn');
     if (form) {
         form.addEventListener('submit', function(e){
+            var activeSubmit = e.submitter || submitBtn;
+            var googleRegistration = activeSubmit && activeSubmit.getAttribute('data-google-registration') === 'true';
             var roleVal = (document.getElementById('role')||{}).value||'';
             if (!roleVal) { e.preventDefault(); alert('Please select your role to continue.'); return; }
 
-            var ok = (vName()&vEmail()&vPhone()&vPwd()) === 1;
+            var ok = (vName()&vEmail()&vPhone()) === 1;
 
-            // Confirm password
-            var pwd=(pwdInput||{}).value||'', conf=(confirmInput||{}).value||'';
-            if (!conf) { if(errConfirm){errConfirm.style.display='flex';var sp=errConfirm.querySelector('span');if(sp)sp.textContent='Please confirm your password.';} if(boxConfirm){boxConfirm.classList.add('is-error');boxConfirm.classList.remove('is-valid');} ok=false; }
-            else if (conf!==pwd) { if(errConfirm){errConfirm.style.display='flex';var sp2=errConfirm.querySelector('span');if(sp2)sp2.textContent='Passwords do not match.';} if(boxConfirm){boxConfirm.classList.add('is-error');boxConfirm.classList.remove('is-valid');} ok=false; }
+            if (!googleRegistration) {
+                ok = (ok & vPwd()) === 1;
+
+                // Confirm password for email registration only.
+                var pwd=(pwdInput||{}).value||'', conf=(confirmInput||{}).value||'';
+                if (!conf) { if(errConfirm){errConfirm.style.display='flex';var sp=errConfirm.querySelector('span');if(sp)sp.textContent='Please confirm your password.';} if(boxConfirm){boxConfirm.classList.add('is-error');boxConfirm.classList.remove('is-valid');} ok=false; }
+                else if (conf!==pwd) { if(errConfirm){errConfirm.style.display='flex';var sp2=errConfirm.querySelector('span');if(sp2)sp2.textContent='Passwords do not match.';} if(boxConfirm){boxConfirm.classList.add('is-error');boxConfirm.classList.remove('is-valid');} ok=false; }
+            }
 
             // Owner-specific
             if (roleVal === 'owner') {
@@ -1003,7 +995,10 @@ function initFormLogic() {
             else if(errTerms) errTerms.style.display='none';
 
             if (!ok) { e.preventDefault(); return; }
-            if (submitBtn) { submitBtn.disabled=true; submitBtn.textContent='Creating account…'; }
+            if (activeSubmit) {
+                activeSubmit.setAttribute('aria-disabled', 'true');
+                activeSubmit.textContent = googleRegistration ? 'Connecting to Google…' : 'Creating account…';
+            }
         });
     }
 }
