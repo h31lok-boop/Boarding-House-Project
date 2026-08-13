@@ -565,7 +565,7 @@
                 <form method="POST" :action="selected.delete_url" onsubmit="return confirm('Delete this notification?');">
                     @csrf
                     @method('DELETE')
-                    <button class="bm-modal__button border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">Delete</button>
+                    <button class="bm-modal__button bm-modal__button--danger">Delete</button>
                 </form>
                 <button type="button" @click="detailOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
             </div>
