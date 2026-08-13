@@ -94,7 +94,7 @@
                         <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-sm font-black text-white">PM</div>
                         <div>
                             <h2 class="text-sm font-bold text-slate-950 dark:text-white">PayMongo secure checkout</h2>
-                            <p class="mt-1 max-w-2xl text-xs leading-5 text-slate-600 dark:text-slate-300">Card, GCash, and QR Ph payments are handled on PayMongo's hosted page. BoardMatch records payment only after gateway verification.</p>
+                            <p class="mt-1 max-w-2xl text-xs leading-5 text-slate-600 dark:text-slate-300">Credit or debit card, GCash, Maya, and QR Ph payments are handled on PayMongo's hosted page. BoardMatch records payment only after gateway verification.</p>
                         </div>
                     </div>
                     <span class="inline-flex self-start rounded-full px-2.5 py-1 text-[11px] font-bold {{ ($paymongoConfigured ?? false) ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300' }}">
