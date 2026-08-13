@@ -2,7 +2,7 @@
 
 use App\Models\User;
 
-test('admin inquiries page renders the owner inquiries header', function () {
+test('admin inquiries page omits the owner inquiry toolbar', function () {
     $admin = User::factory()->create([
         'role' => 'admin',
         'is_active' => true,
@@ -12,10 +12,12 @@ test('admin inquiries page renders the owner inquiries header', function () {
     $this->actingAs($admin)
         ->get(route('admin.inquiries'))
         ->assertOk()
-        ->assertSee('Property Inquiries')
-        ->assertSee('Manage tenant questions and requests.')
+        ->assertDontSee('data-inquiries-toolbar', false)
+        ->assertDontSee('Property Inquiries')
+        ->assertDontSee('Manage tenant questions and requests.')
         ->assertSee('Total Inquiries')
         ->assertSee('Pending Follow-up')
-        ->assertSee('All statuses')
+        ->assertDontSee('All statuses')
+        ->assertDontSee('Search by tenant, property, or message...')
         ->assertSee('Message Preview');
 });
