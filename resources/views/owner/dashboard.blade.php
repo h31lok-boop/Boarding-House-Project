@@ -103,7 +103,7 @@
                     </header>
                     <div class="divide-y divide-slate-100 dark:divide-slate-700">
                         @forelse ($propertyRows->take(4) as $row)
-                            <a href="{{ route('owner.dashboard', ['property' => $row['id'], 'month' => $selectedMonth ?? now()->format('Y-m')]) }}" class="flex items-center gap-3 px-5 py-3.5 transition hover:bg-slate-50 dark:hover:bg-slate-800/70">
+                            <a href="{{ route('owner.dashboard', ['property' => $row['id'], 'month' => $selectedMonth ?? now()->format('Y-m')]) }}" data-property-row="{{ $row['id'] }}" class="flex items-center gap-3 px-5 py-3.5 transition hover:bg-slate-50 dark:hover:bg-slate-800/70">
                                 <img src="{{ $row['image'] }}" alt="" class="h-12 w-14 shrink-0 rounded-xl object-cover ring-1 ring-slate-200 dark:ring-slate-700" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}'">
                                 <span class="min-w-0 flex-1">
                                     <span class="block truncate text-sm font-bold text-slate-900 dark:text-white">{{ $row['name'] }}</span>

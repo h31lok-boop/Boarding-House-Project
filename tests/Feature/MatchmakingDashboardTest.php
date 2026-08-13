@@ -18,7 +18,7 @@ test('admin dashboard keeps matchmaking analytics off the simplified dashboard',
         ->assertDontSee('Acceptance Rate');
 });
 
-test('user dashboard shows roommate match status section', function () {
+test('user dashboard stays simple while retaining real roommate request counts', function () {
     $user = User::factory()->create([
         'role' => 'user',
         'is_active' => true,
@@ -49,9 +49,14 @@ test('user dashboard shows roommate match status section', function () {
         'status' => 'pending',
     ]);
 
-    $this->actingAs($user)
+    $response = $this->actingAs($user)
         ->get(route('user.dashboard'))
         ->assertOk()
-        ->assertSee('Roommate Match Status')
-        ->assertSee('Incoming Pending');
+        ->assertSee('Student dashboard')
+        ->assertSee('Your reservation, payment, and best match in one place.')
+        ->assertDontSee('Roommate Match Status')
+        ->assertDontSee('Incoming Pending');
+
+    expect($response->viewData('incomingPendingCount'))->toBe(1)
+        ->and($response->viewData('outgoingPendingCount'))->toBe(0);
 });

@@ -13,14 +13,14 @@ test('admin dashboard renders the modern dashboard sections', function () {
         ->get(route('admin.dashboard'))
         ->assertOk()
         ->assertSee('BoardMatch Admin')
-        ->assertSee('Properties')
+        ->assertSee('Boarding Houses')
         ->assertSee('Occupancy')
-        ->assertSee('Tenants')
-        ->assertSee('Revenue')
-        ->assertSee('Property Performance')
-        ->assertSee('Revenue Analytics')
-        ->assertSee('Property Performance')
-        ->assertSee('Revenue Analytics');
+        ->assertSee('Active Tenants')
+        ->assertSee('Collected Revenue')
+        ->assertSee('Room Occupancy')
+        ->assertSee('Weekly Revenue')
+        ->assertSee('Needs attention')
+        ->assertSee('Recent activity');
 });
 
 test('admin dashboard action routes are reachable', function (string $routeName, array $params = []) {

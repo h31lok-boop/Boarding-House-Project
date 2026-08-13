@@ -2,7 +2,7 @@
 
 use App\Models\User;
 
-test('dashboard search header appears on the user dashboard', function () {
+test('tenant workspace controls appear on the user dashboard without a duplicate search bar', function () {
     $user = User::factory()->create([
         'role' => 'user',
         'is_active' => true,
@@ -12,7 +12,11 @@ test('dashboard search header appears on the user dashboard', function () {
     $this->actingAs($user)
         ->get(route('user.dashboard'))
         ->assertOk()
-        ->assertSee('Search boarding houses, locations, reservations...');
+        ->assertSee('data-tenant-workspace-header', false)
+        ->assertSee('data-tenant-message-link', false)
+        ->assertSee('data-theme-toggle', false)
+        ->assertSee('Tenant assistant · your records only')
+        ->assertDontSee('Search boarding houses, locations, reservations...');
 });
 
 test('dashboard search header is hidden on other user pages', function (string $routeName) {

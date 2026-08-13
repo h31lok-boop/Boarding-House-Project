@@ -85,7 +85,7 @@ test('dashboard shows expired reservation state instead of a confirmed booking',
         ->assertOk()
         ->assertSee('Casa Esperanza Dormitory')
         ->assertSee('Expired')
-        ->assertSee('Find Housing');
+        ->assertSee('Find a boarding house');
 });
 
 test('dashboard reports real roommate request counts and drops placeholder content', function () {
@@ -106,7 +106,8 @@ test('dashboard reports real roommate request counts and drops placeholder conte
     $response = $this->actingAs($tenant)
         ->get(route('user.dashboard'))
         ->assertOk()
-        ->assertSee('Incoming Pending')
+        ->assertSee('Student dashboard')
+        ->assertDontSee('Incoming Pending')
         ->assertDontSee('Maria Santos')
         ->assertDontSee('Sunrise Boarding House')
         ->assertDontSee('Maplewood Residences');

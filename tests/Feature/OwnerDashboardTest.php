@@ -41,24 +41,22 @@ it('renders the redesigned owner dashboard with real scoped data', function () {
 
     $response->assertOk()
         ->assertSee('dashboard-critical-styles', false)
-        ->assertSee('All My Properties')
-        ->assertSee('Monthly revenue')
-        ->assertSee('Occupancy rate')
-        ->assertSee('Active tenants')
-        ->assertSee('Available rooms')
-        ->assertSee('Pending reservations')
-        ->assertSee('Unpaid payments')
-        ->assertSee('Occupancy overview')
-        ->assertSee('Six-month revenue')
-        ->assertSee('Needs Attention')
-        ->assertSee('My Properties')
-        ->assertSee('Recent Activity')
+        ->assertSee('All properties')
+        ->assertSee('Monthly Revenue')
+        ->assertSee('Occupancy')
+        ->assertSee('Active Tenants')
+        ->assertSee('Pending Reservations')
+        ->assertSee('Room Occupancy')
+        ->assertSee('Revenue Trend')
+        ->assertSee('Needs attention')
+        ->assertSee('My properties')
+        ->assertSee('Recent activity')
         ->assertSee('Sunrise Residences')
         ->assertSee('50%')
-        ->assertSee('2 of 4 rooms occupied')
+        ->assertSee('1 available of 4')
         ->assertSee('Maria Santos')
         ->assertSee('Tenant requests need a decision')
-        ->assertSee('₱1,200 still needs collection')
+        ->assertSeeText('₱1,200 still needs collection')
         ->assertDontSee('Rival Lodge')
         ->assertDontSee('8,888')
         ->assertDontSee('9,999');
@@ -69,8 +67,8 @@ it('shows an empty state when the owner has no property', function () {
 
     $this->actingAs($owner)->get(route('owner.dashboard'))
         ->assertOk()
-        ->assertSee('No property yet')
-        ->assertSee('Add your property');
+        ->assertSee('Add your first property')
+        ->assertSee('Add property');
 });
 
 it('sends owners from /dashboard to the owner dashboard', function () {
@@ -141,8 +139,8 @@ it('uses the selected month for revenue and scopes notification counts to the ow
     $this->actingAs($owner)
         ->get(route('owner.dashboard', ['month' => '2026-06']))
         ->assertOk()
-        ->assertSee('₱4,200')
-        ->assertDontSee('₱6,800')
+        ->assertSee('PHP 4,200')
+        ->assertDontSee('PHP 6,800')
         ->assertSee('Open notifications, 1 unread', false)
         ->assertDontSee('Foreign alert');
 });
