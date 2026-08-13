@@ -20,12 +20,14 @@ use App\Models\User;
 use App\Rules\BoardMatchStrongPassword;
 use App\Services\BoardingHouseRecommendationService;
 use App\Services\CompatibilityService;
+use App\Services\PaymongoService;
 use App\Services\ReservationLifecycleService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
@@ -659,7 +661,8 @@ class AdminOwnerController extends Controller
         $this->authorizeAdmin($request);
 
         $users = User::query()
-            ->whereIn('role', ['admin', 'user'])
+            ->with('ownerProfile')
+            ->whereIn('role', ['admin', 'owner', 'user', 'tenant', 'student'])
             ->when($request->filled('q'), function ($query) use ($request) {
                 $term = '%'.$request->query('q').'%';
                 $query->where(fn ($q) => $q->where('name', 'like', $term)->orWhere('email', 'like', $term));
@@ -674,8 +677,11 @@ class AdminOwnerController extends Controller
                 }
                 if ($status === 'inactive') {
                     $query->where(function ($q) {
-                        $q->where('is_active', false)->orWhereIn('status', ['inactive', 'suspended']);
+                        $q->where('is_active', false)->orWhereIn('status', ['inactive', 'suspended', 'rejected']);
                     });
+                }
+                if ($status === 'pending') {
+                    $query->whereRaw('LOWER(status) = ?', ['pending']);
                 }
             })
             ->latest()
@@ -684,8 +690,80 @@ class AdminOwnerController extends Controller
 
         return view('admin.users', [
             'users' => $users,
-            'roleCounts' => User::query()->whereIn('role', ['admin', 'user'])->selectRaw('role, count(*) as total')->groupBy('role')->pluck('total', 'role'),
+            'roleCounts' => User::query()->whereIn('role', ['admin', 'owner', 'user', 'tenant', 'student'])->selectRaw('role, count(*) as total')->groupBy('role')->pluck('total', 'role'),
         ]);
+    }
+
+    public function verifyOwner(Request $request, User $user)
+    {
+        $this->authorizeAdmin($request);
+        abort_unless($user->isStrictOwner(), 404);
+
+        $user->loadMissing('ownerProfile');
+        $profile = $user->ownerProfile;
+        $permitPath = $profile?->proof_of_ownership ?: $profile?->valid_id_file;
+
+        if (! $profile || ! filled($permitPath) || ! Storage::disk('public')->exists($permitPath)) {
+            return back()->with('error', 'Owner verification failed because a valid uploaded business permit could not be found.');
+        }
+
+        DB::transaction(function () use ($request, $user, $profile) {
+            $user->forceFill([
+                'status' => 'active',
+                'account_status' => 'Active',
+                'is_active' => true,
+            ])->save();
+
+            $profile->forceFill([
+                'verification_status' => 'verified',
+                'verified_by' => $request->user()->id,
+                'verified_at' => now(),
+            ])->save();
+
+            $listingUpdates = [
+                'approval_status' => 'approved',
+                'status' => 'approved',
+                'is_active' => true,
+                'updated_at' => now(),
+            ];
+
+            if (Schema::hasColumn('boarding_houses', 'approved_by')) {
+                $listingUpdates['approved_by'] = $request->user()->id;
+            }
+
+            DB::table('boarding_houses')->where('owner_id', $user->id)->update($listingUpdates);
+        });
+
+        return back()->with('success', 'Owner account and business permit verified. The owner can now sign in.');
+    }
+
+    public function rejectOwner(Request $request, User $user)
+    {
+        $this->authorizeAdmin($request);
+        abort_unless($user->isStrictOwner(), 404);
+
+        DB::transaction(function () use ($request, $user) {
+            $user->forceFill([
+                'status' => 'rejected',
+                'account_status' => 'Rejected',
+                'is_active' => false,
+            ])->save();
+
+            $user->ownerProfile?->forceFill([
+                'verification_status' => 'rejected',
+                'verified_by' => $request->user()->id,
+                'verified_at' => now(),
+            ])->save();
+
+            DB::table('boarding_houses')->where('owner_id', $user->id)->update([
+                'approval_status' => 'rejected',
+                'status' => 'rejected',
+                'is_active' => false,
+                'updated_at' => now(),
+            ]);
+        });
+
+        return back()->with('success', 'Owner registration rejected. The account remains unavailable.');
     }
 
     public function storeUser(Request $request)
@@ -695,7 +773,7 @@ class AdminOwnerController extends Controller
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'role' => ['required', Rule::in(['admin', 'owner', 'user'])],
+            'role' => ['required', Rule::in(['admin', 'user'])],
             'phone' => ['nullable', 'string', 'max:50'],
             'password' => ['required', 'string', Password::min(8)->letters()->mixedCase()->numbers()->symbols(), new BoardMatchStrongPassword],
             'password_confirmation' => ['nullable', 'string'],
@@ -744,6 +822,20 @@ class AdminOwnerController extends Controller
             'password' => ['nullable', 'string', Password::min(8)->letters()->mixedCase()->numbers()->symbols(), new BoardMatchStrongPassword],
             'is_active' => ['nullable', 'boolean'],
         ]);
+
+        if ($data['role'] === 'owner' && $request->boolean('is_active')) {
+            $user->loadMissing('ownerProfile');
+            $permitPath = $user->ownerProfile?->proof_of_ownership ?: $user->ownerProfile?->valid_id_file;
+            $hasVerifiedPermit = strtolower((string) $user->ownerProfile?->verification_status) === 'verified'
+                && filled($permitPath)
+                && Storage::disk('public')->exists($permitPath);
+
+            if (! $hasVerifiedPermit) {
+                throw ValidationException::withMessages([
+                    'is_active' => 'An owner account cannot be activated until its uploaded business permit is verified.',
+                ]);
+            }
+        }
 
         $fill = [
             'name' => $data['name'],
@@ -2451,25 +2543,32 @@ class AdminOwnerController extends Controller
         return view($view, compact('payments', 'tenants', 'houses', 'tab', 'financeWorkbench'));
     }
 
-    public function paymentSettings(Request $request)
+    public function paymentSettings(Request $request, PaymongoService $paymongo)
     {
         $this->authorizeAdmin($request);
         abort_unless(Schema::hasTable('owner_profiles'), 404);
 
         $owners = User::query()
-            ->whereIn('role', ['owner', 'admin'])
+            ->where('role', 'owner')
             ->when($request->user()?->isStrictOwner(), fn ($query) => $query->whereKey($request->user()->id))
             ->with('ownerProfile')
             ->orderBy('name')
             ->get();
 
-        return view('admin.payment-settings', compact('owners'));
+        $sharedCredentials = $paymongo->credentials(null);
+        $usesSharedPaymongo = $paymongo->usesSharedCredentials();
+
+        return view('admin.payment-settings', compact('owners', 'paymongo', 'sharedCredentials', 'usesSharedPaymongo'));
     }
 
-    public function updatePaymentSettings(Request $request)
+    public function updatePaymentSettings(Request $request, PaymongoService $paymongo)
     {
         $this->authorizeAdmin($request);
         abort_unless(Schema::hasTable('owner_profiles'), 404);
+
+        if ($paymongo->usesSharedCredentials()) {
+            return back()->with('success', 'All owners already use the shared PayMongo credentials configured in .env.');
+        }
 
         $data = $request->validate([
             'owner_id' => ['nullable', 'integer', 'exists:users,id'],
@@ -2602,17 +2701,28 @@ class AdminOwnerController extends Controller
 
         $ratingExpression = $this->reviewRatingExpression();
 
-        $reviews = Review::with(['user', 'boardingHouse'])
+        $scopeReviews = function ($query) use ($request) {
+            if ($request->user()?->isStrictOwner()) {
+                $query->whereIn('boarding_house_id', $this->ownerHouseIds($request));
+            }
+
+            return $query;
+        };
+
+        $reviews = $scopeReviews(Review::with(['user', 'boardingHouse']))
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->query('status')))
             ->latest()
             ->paginate(12)
             ->withQueryString();
 
+        $averageRatingQuery = $scopeReviews(Review::query());
+        $ratingCountsQuery = $scopeReviews(Review::query());
+
         return view('admin.reviews', [
             'reviews' => $reviews,
-            'averageRating' => $ratingExpression ? Review::query()->avg(DB::raw($ratingExpression)) : 0,
+            'averageRating' => $ratingExpression ? $averageRatingQuery->avg(DB::raw($ratingExpression)) : 0,
             'ratingCounts' => $ratingExpression
-                ? Review::query()
+                ? $ratingCountsQuery
                     ->selectRaw($ratingExpression.' as rating_value, count(*) as total')
                     ->groupBy('rating_value')
                     ->pluck('total', 'rating_value')
@@ -2623,6 +2733,13 @@ class AdminOwnerController extends Controller
     public function updateReview(Request $request, Review $review)
     {
         $this->authorizeAdmin($request);
+
+        if ($request->user()?->isStrictOwner()) {
+            abort_unless(
+                $this->ownerHouseIds($request)->contains((int) $review->boarding_house_id),
+                403
+            );
+        }
 
         $data = $request->validate([
             'status' => ['required', Rule::in(['pending', 'published', 'hidden'])],
@@ -2651,6 +2768,8 @@ class AdminOwnerController extends Controller
             'Bookings',
             'Occupancy Rate',
             'Tenants',
+            'Reviews',
+            'Average Rating',
         ]];
 
         foreach ($data['reportRows'] as $row) {
@@ -2660,6 +2779,8 @@ class AdminOwnerController extends Controller
                 (int) $row['bookings'],
                 $row['occupancy_rate'].'%',
                 (int) $row['tenants'],
+                (int) $row['reviews'],
+                number_format((float) $row['average_rating'], 1, '.', ''),
             ];
         }
 
@@ -2842,11 +2963,34 @@ class AdminOwnerController extends Controller
             $tenantsByHouse = collect();
         }
 
+        $reviewsByHouse = collect();
+        $ratingsByHouse = collect();
+        $ratingExpression = $this->reviewRatingExpression();
+        if (Schema::hasTable('reviews')) {
+            $reviewQuery = DB::table('reviews')
+                ->select('boarding_house_id', DB::raw('COUNT(*) as reviews'))
+                ->whereNotNull('boarding_house_id');
+            $reviewQuery = $applyCreatedRange($reviewQuery);
+            $reviewsByHouse = $reviewQuery
+                ->groupBy('boarding_house_id')
+                ->pluck('reviews', 'boarding_house_id');
+
+            if ($ratingExpression) {
+                $ratingQuery = DB::table('reviews')
+                    ->select('boarding_house_id', DB::raw('AVG('.$ratingExpression.') as average_rating'))
+                    ->whereNotNull('boarding_house_id');
+                $ratingQuery = $applyCreatedRange($ratingQuery);
+                $ratingsByHouse = $ratingQuery
+                    ->groupBy('boarding_house_id')
+                    ->pluck('average_rating', 'boarding_house_id');
+            }
+        }
+
         $houses = Schema::hasTable('boarding_houses')
             ? BoardingHouse::with(['city', 'images', 'photos'])->orderBy('name')->get(['id', 'name', 'city_id', 'address', 'full_address'])
             : collect();
 
-        $reportRows = $houses->map(function ($house) use ($revenueByHouse, $bookingsByHouse, $roomsByHouse, $occupiedByHouse, $tenantsByHouse) {
+        $reportRows = $houses->map(function ($house) use ($revenueByHouse, $bookingsByHouse, $roomsByHouse, $occupiedByHouse, $tenantsByHouse, $reviewsByHouse, $ratingsByHouse) {
             $roomCount = (int) ($roomsByHouse[$house->id] ?? 0);
             $occupiedCount = (int) ($occupiedByHouse[$house->id] ?? 0);
 
@@ -2862,6 +3006,8 @@ class AdminOwnerController extends Controller
                 'rooms' => $roomCount,
                 'occupied_rooms' => $occupiedCount,
                 'tenants' => (int) ($tenantsByHouse[$house->id] ?? 0),
+                'reviews' => (int) ($reviewsByHouse[$house->id] ?? 0),
+                'average_rating' => round((float) ($ratingsByHouse[$house->id] ?? 0), 1),
             ];
         })->values();
 
@@ -2869,6 +3015,10 @@ class AdminOwnerController extends Controller
         $totalProperties = $reportRows->count();
         $averageRevenuePerHouse = $totalProperties > 0 ? round((float) $reportRows->avg('revenue'), 2) : 0.0;
         $averageBookingsPerHouse = $totalProperties > 0 ? round((float) $reportRows->avg('bookings'), 1) : 0.0;
+        $totalReviews = (int) $reportRows->sum('reviews');
+        $averageRating = $totalReviews > 0
+            ? round((float) $reportRows->sum(fn (array $row) => $row['average_rating'] * $row['reviews']) / $totalReviews, 1)
+            : 0.0;
         $topPerformingHouses = $reportRows
             ->sortByDesc(fn (array $row) => ($row['revenue'] * 1.0) + ($row['occupancy_rate'] * 1000) + ($row['bookings'] * 500) + ($row['tenants'] * 100))
             ->take(5)
@@ -2951,10 +3101,10 @@ class AdminOwnerController extends Controller
                 'all_time' => 'All Time',
             ],
             'kpiCards' => [
-                ['label' => 'Total Revenue', 'value' => 'PHP '.number_format($totalRevenue, 2), 'trend' => '+15.6% vs previous period', 'tone' => 'bg-emerald-50 text-emerald-600', 'icon' => 'revenue'],
-                ['label' => 'Total Bookings', 'value' => number_format($totalBookings), 'trend' => '+12.4% vs previous period', 'tone' => 'bg-blue-50 text-blue-600', 'icon' => 'bookings'],
-                ['label' => 'Active Tenants', 'value' => number_format($activeTenants), 'trend' => '+10.3% vs previous period', 'tone' => 'bg-violet-50 text-violet-600', 'icon' => 'tenants'],
-                ['label' => 'Occupancy Rate', 'value' => $occupancyRate.'%', 'trend' => '+8.7% vs previous period', 'tone' => 'bg-amber-50 text-amber-600', 'icon' => 'occupancy'],
+                ['label' => 'Total Revenue', 'value' => 'PHP '.number_format($totalRevenue, 2), 'trend' => $rangeLabel, 'tone' => 'bg-emerald-50 text-emerald-600', 'icon' => 'revenue'],
+                ['label' => 'Total Bookings', 'value' => number_format($totalBookings), 'trend' => $rangeLabel, 'tone' => 'bg-blue-50 text-blue-600', 'icon' => 'bookings'],
+                ['label' => 'Active Tenants', 'value' => number_format($activeTenants), 'trend' => 'Current active records', 'tone' => 'bg-violet-50 text-violet-600', 'icon' => 'tenants'],
+                ['label' => 'Occupancy Rate', 'value' => $occupancyRate.'%', 'trend' => number_format($occupiedRooms).' of '.number_format($totalRooms).' rooms', 'tone' => 'bg-amber-50 text-amber-600', 'icon' => 'occupancy'],
             ],
             'revenueTrendChart' => [
                 'labels' => $revenueLabels,
@@ -2973,6 +3123,8 @@ class AdminOwnerController extends Controller
                 'vacantRooms' => $vacantRooms,
                 'averageRevenuePerHouse' => $averageRevenuePerHouse,
                 'averageBookingsPerHouse' => $averageBookingsPerHouse,
+                'totalReviews' => $totalReviews,
+                'averageRating' => $averageRating,
             ],
             'topPerformingHouses' => $topPerformingHouses,
             'recentActivities' => $recentActivities,
