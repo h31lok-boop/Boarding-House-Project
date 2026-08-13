@@ -12,10 +12,16 @@ class TenantSampleDataSeeder extends Seeder
 {
     public function run(): void
     {
+        $tenantEmails = array_values(array_unique(array_filter([
+            (string) env('SEED_EMAIL_TENANT', 'tenant@example.com'),
+            (string) env('SEED_EMAIL_HAZEL', 'hazel@example.com'),
+        ])));
+
         $hazel = User::query()
-            ->where('email', (string) env('SEED_EMAIL_HAZEL', 'hazel@example.com'))
-            ->orWhere(function ($query) {
-                $query->where('name', 'Hazel')->where('role', 'user');
+            ->whereIn('role', ['user', 'tenant', 'student'])
+            ->where(function ($query) use ($tenantEmails) {
+                $query->whereIn('email', $tenantEmails)
+                    ->orWhereIn('name', ['Hazel', 'Hazel Reyes']);
             })
             ->first();
 
@@ -23,10 +29,16 @@ class TenantSampleDataSeeder extends Seeder
             return;
         }
 
+        $ownerEmails = array_values(array_unique(array_filter([
+            (string) env('SEED_EMAIL_OWNER', 'owner@example.com'),
+            (string) env('SEED_EMAIL_JANI', 'jani@example.com'),
+        ])));
+
         $jani = User::query()
-            ->where('email', (string) env('SEED_EMAIL_JANI', 'jani@example.com'))
-            ->orWhere(function ($query) {
-                $query->where('name', 'Jani')->where('role', 'admin');
+            ->where('role', 'owner')
+            ->where(function ($query) use ($ownerEmails) {
+                $query->whereIn('email', $ownerEmails)
+                    ->orWhereIn('name', ['Jani', 'Jani Dela Cruz']);
             })
             ->first();
 
@@ -315,54 +327,54 @@ class TenantSampleDataSeeder extends Seeder
         }
 
         // Determine overdue flag based on today's date vs the 5th of each month
-        $currentMonthDue  = $this->dateWithDay(now(), 5);
-        $prevMonthDue     = $this->dateWithDay(now()->subMonthNoOverflow(), 5);
-        $nextMonthDue     = $this->dateWithDay(now()->addMonthNoOverflow(), 5);
-        $prevIsOverdue    = $prevMonthDue->isPast();
+        $currentMonthDue = $this->dateWithDay(now(), 5);
+        $prevMonthDue = $this->dateWithDay(now()->subMonthNoOverflow(), 5);
+        $nextMonthDue = $this->dateWithDay(now()->addMonthNoOverflow(), 5);
+        $prevIsOverdue = $prevMonthDue->isPast();
         $currentIsOverdue = $currentMonthDue->isPast();
 
         $payments = [
             [
-                'reference_no'    => 'PAY-HAZEL-001',
+                'reference_no' => 'PAY-HAZEL-001',
                 'reference_number' => 'PAY-HAZEL-001',
-                'amount'          => 3500,
-                'due_date'        => $prevMonthDue->toDateString(),
-                'payment_date'    => $prevMonthDue->toDateString(),
-                'paid_at'         => null,
-                'status'          => $prevIsOverdue ? 'overdue' : 'pending',
-                'payment_type'    => 'rent',
-                'payment_method'  => 'gcash',
-                'is_late'         => $prevIsOverdue,
-                'penalty_amount'  => $prevIsOverdue ? 150 : 0,
-                'notes'           => 'Sample overdue monthly rent.',
+                'amount' => 3500,
+                'due_date' => $prevMonthDue->toDateString(),
+                'payment_date' => $prevMonthDue->toDateString(),
+                'paid_at' => null,
+                'status' => $prevIsOverdue ? 'overdue' : 'pending',
+                'payment_type' => 'rent',
+                'payment_method' => 'gcash',
+                'is_late' => $prevIsOverdue,
+                'penalty_amount' => $prevIsOverdue ? 150 : 0,
+                'notes' => 'Sample overdue monthly rent.',
             ],
             [
-                'reference_no'    => 'PAY-HAZEL-002',
+                'reference_no' => 'PAY-HAZEL-002',
                 'reference_number' => 'PAY-HAZEL-002',
-                'amount'          => 3500,
-                'due_date'        => $currentMonthDue->toDateString(),
-                'payment_date'    => $currentMonthDue->toDateString(),
-                'paid_at'         => null,
-                'status'          => $currentIsOverdue ? 'overdue' : 'pending',
-                'payment_type'    => 'rent',
-                'payment_method'  => 'gcash',
-                'is_late'         => $currentIsOverdue,
-                'penalty_amount'  => $currentIsOverdue ? 150 : 0,
-                'notes'           => 'Sample current billing record.',
+                'amount' => 3500,
+                'due_date' => $currentMonthDue->toDateString(),
+                'payment_date' => $currentMonthDue->toDateString(),
+                'paid_at' => null,
+                'status' => $currentIsOverdue ? 'overdue' : 'pending',
+                'payment_type' => 'rent',
+                'payment_method' => 'gcash',
+                'is_late' => $currentIsOverdue,
+                'penalty_amount' => $currentIsOverdue ? 150 : 0,
+                'notes' => 'Sample current billing record.',
             ],
             [
-                'reference_no'    => 'PAY-HAZEL-003',
+                'reference_no' => 'PAY-HAZEL-003',
                 'reference_number' => 'PAY-HAZEL-003',
-                'amount'          => 3500,
-                'due_date'        => $nextMonthDue->toDateString(),
-                'payment_date'    => $nextMonthDue->toDateString(),
-                'paid_at'         => null,
-                'status'          => 'pending',
-                'payment_type'    => 'rent',
-                'payment_method'  => 'cash',
-                'is_late'         => false,
-                'penalty_amount'  => 0,
-                'notes'           => 'Sample upcoming payment reminder.',
+                'amount' => 3500,
+                'due_date' => $nextMonthDue->toDateString(),
+                'payment_date' => $nextMonthDue->toDateString(),
+                'paid_at' => null,
+                'status' => 'pending',
+                'payment_type' => 'rent',
+                'payment_method' => 'cash',
+                'is_late' => false,
+                'penalty_amount' => 0,
+                'notes' => 'Sample upcoming payment reminder.',
             ],
         ];
 
