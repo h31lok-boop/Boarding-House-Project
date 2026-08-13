@@ -7,11 +7,7 @@ use App\Models\Tenant;
 use App\Models\User;
 
 it('allows an owner to record a paid walk-in with a room, payment, receipt, and services', function () {
-    $owner = User::factory()->create([
-        'role' => 'owner',
-        'is_active' => true,
-        'email_verified_at' => now(),
-    ]);
+    $owner = User::factory()->verifiedOwner()->create();
     $tenantUser = User::factory()->create([
         'role' => 'user',
         'is_active' => true,
@@ -159,7 +155,7 @@ it('allows an admin to record an unpaid walk-in without creating a payment recei
 });
 
 it('returns a visible walk-in form error when the tenant belongs to another property', function () {
-    $owner = User::factory()->create(['role' => 'owner', 'is_active' => true, 'email_verified_at' => now()]);
+    $owner = User::factory()->verifiedOwner()->create();
     $tenantUser = User::factory()->create(['role' => 'user', 'is_active' => true, 'email_verified_at' => now()]);
     $ownedHouse = BoardingHouse::factory()->create(['owner_id' => $owner->id]);
     $otherHouse = BoardingHouse::factory()->create();
@@ -190,7 +186,7 @@ it('returns a visible walk-in form error when the tenant belongs to another prop
 });
 
 it('renders a property-aware walk-in form and reopens it with validation errors', function () {
-    $owner = User::factory()->create(['role' => 'owner', 'is_active' => true, 'email_verified_at' => now()]);
+    $owner = User::factory()->verifiedOwner()->create();
     $house = BoardingHouse::factory()->create(['owner_id' => $owner->id, 'name' => 'Walk-in House']);
     $tenantUser = User::factory()->create(['role' => 'user', 'name' => 'Walk-in Tenant']);
     Tenant::query()->create([
