@@ -26,15 +26,7 @@
     $phoneFor = fn ($tenant) => $tenant->phone_number ?: ($tenant->phone ?: ($tenant->contact_number ?: 'Not set'));
 
     $imageFor = function ($tenant): ?string {
-        $path = $tenant->profile_photo ?: $tenant->profile_image;
-
-        if (! $path) {
-            return null;
-        }
-
-        return \Illuminate\Support\Str::startsWith($path, ['http://', 'https://', '/'])
-            ? $path
-            : \Illuminate\Support\Facades\Storage::url($path);
+        return $tenant->photo_url;
     };
 
     $isActiveTenant = fn ($tenant): bool => (bool) ($tenant->is_active ?? false)
@@ -782,10 +774,13 @@
             @csrf
             @method('PATCH')
             <div class="bm-modal__header">
-                <div>
+                <div class="flex min-w-0 items-center gap-3">
+                    <span class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 text-sm font-bold text-blue-700"><template x-if="selected.photo_url"><img :src="selected.photo_url" :alt="selected.name" class="h-full w-full object-cover"></template><span x-show="!selected.photo_url" x-text="selected.initials || 'T'"></span></span>
+                    <div class="min-w-0">
                     <p class="bm-modal__eyebrow">Edit</p>
                     <h2 class="bm-modal__title" x-text="selected.name"></h2>
                     <p class="bm-modal__subtitle">Update tenant profile and compliance details.</p>
+                    </div>
                 </div>
                 <button type="button" @click="editOpen = false" class="bm-modal__close" aria-label="Close edit tenant modal">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
@@ -803,6 +798,7 @@
                         <label>Student ID<input name="student_id" :value="selected.student_id"></label>
                         <label>School / Company<input name="school_company" :value="selected.school_company"></label>
                         <label class="sm:col-span-2">Course / Position<input name="course_or_position" :value="selected.course_or_position"></label>
+                        <label class="sm:col-span-2">Replace Profile Photo<input name="profile_image" type="file" accept="image/jpeg,image/png,image/webp"><span class="mt-1 block text-[11px] font-medium ui-muted">Leave empty to keep the current photo.</span></label>
                         <label>Valid ID Type<input name="valid_id_type" :value="selected.valid_id_type"></label>
                         <label>Valid ID Number<input name="valid_id_number" :value="selected.valid_id_number"></label>
                         <label>Emergency Contact<input name="emergency_contact_name" :value="selected.emergency_contact_name"></label>

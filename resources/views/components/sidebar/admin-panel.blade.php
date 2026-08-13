@@ -61,11 +61,15 @@
                     'active' => $isPath($workspacePath.'/reservations*'),
                 ],
                 [
-                    'key' => 'tenants',
-                    'label' => 'Tenants',
-                    'href' => $r('admin.tenants.index', [], 'admin.tenant-profiles'),
+                    'key' => $isSuperAdmin ? 'user-management' : 'tenants',
+                    'label' => $isSuperAdmin ? 'User Management' : 'Tenants',
+                    'href' => $isSuperAdmin
+                        ? $r('admin.user-management', [], 'admin.users')
+                        : $r('owner.tenants.index', [], 'owner.tenant-profiles'),
                     'icon' => 'tenants',
-                    'active' => $isPath($workspacePath.'/tenants*', $workspacePath.'/tenant-profiles*'),
+                    'active' => $isSuperAdmin
+                        ? $isPath('admin/user-management*', 'admin/users*', 'admin/tenants*', 'admin/tenant-profiles*')
+                        : $isPath($workspacePath.'/tenants*', $workspacePath.'/tenant-profiles*'),
                 ],
                 [
                     'key' => 'inquiries',
@@ -143,6 +147,14 @@
                     'active' => $isPath($workspacePath.'/settings*'),
                 ],
                 [
+                    'key' => 'api-settings',
+                    'label' => 'API Settings',
+                    'href' => $isSuperAdmin ? $r('admin.api-settings.index') : url()->current(),
+                    'icon' => 'settings',
+                    'active' => $isPath('admin/api-settings*'),
+                    'admin_only' => true,
+                ],
+                [
                     'key' => 'payment-settings',
                     'label' => 'PayMongo Settings',
                     'href' => $r($workspace.'.payment-settings'),
@@ -166,6 +178,20 @@
                 return $section;
             })
             ->filter(fn ($section) => count($section['items']) > 0)
+            ->values()
+            ->all();
+    }
+
+    if (! $isSuperAdmin) {
+        $sections = collect($sections)
+            ->map(function ($section) {
+                $section['items'] = array_values(array_filter(
+                    $section['items'],
+                    fn ($item) => ! ($item['admin_only'] ?? false)
+                ));
+
+                return $section;
+            })
             ->values()
             ->all();
     }

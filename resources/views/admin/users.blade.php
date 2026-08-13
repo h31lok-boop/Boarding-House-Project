@@ -1,64 +1,116 @@
 <x-layouts.dashboard>
 <x-admin.shell>
     @php
-        $badge = fn ($active) => $active ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 'bg-rose-100 text-rose-700 border-rose-200';
+        $accountType = $accountType ?? 'tenant';
+        $typeLabels = [
+            'tenant' => 'Tenants',
+            'owner' => 'Owner Applications',
+            'admin' => 'Administrators',
+        ];
+        $activeTypeLabel = $typeLabels[$accountType] ?? 'Tenants';
+        $tabs = [
+            ['key' => 'tenant', 'label' => 'Tenants', 'count' => $tenantCount ?? 0],
+            ['key' => 'owner', 'label' => 'Owners', 'count' => $ownerCount ?? 0, 'pending' => $pendingOwnerCount ?? 0],
+            ['key' => 'admin', 'label' => 'Administrators', 'count' => $adminCount ?? 0],
+        ];
+        $badge = fn (bool $active) => $active
+            ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
+            : 'border-rose-200 bg-rose-100 text-rose-700';
     @endphp
 
-    <div x-data="{ addOpen: false, viewOpen: false, editOpen: false, selected: {}, viewTab: 'overview', openView(u) { this.selected = u; this.viewTab = 'overview'; this.viewOpen = true; } }" class="space-y-6">
-        <div class="ui-card p-6">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <div
+        x-data="{
+            addOpen: false,
+            viewOpen: false,
+            editOpen: false,
+            selected: {},
+            viewTab: 'overview',
+            openView(user) {
+                this.selected = user;
+                this.viewTab = user.role === 'owner' ? 'application' : 'overview';
+                this.viewOpen = true;
+            }
+        }"
+        @keydown.escape.window="viewOpen = false; editOpen = false; addOpen = false"
+        class="space-y-4"
+    >
+        <section class="ui-card overflow-hidden">
+            <div class="flex flex-col gap-4 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
                 <div>
-                    <p class="text-sm font-semibold uppercase tracking-[0.18em] text-[color:var(--brand-600)]">Management</p>
-                    <h1 class="mt-2 text-2xl font-bold">Users</h1>
-                    <p class="mt-2 text-sm ui-muted">Manage administrators and students, then review owner business permits before enabling owner access.</p>
+                    <p class="text-xs font-bold uppercase tracking-[0.18em] text-blue-600">Account Administration</p>
+                    <h1 class="mt-1 text-xl font-bold">User Management</h1>
+                    <p class="mt-1 text-sm ui-muted">Tenants and property owners are managed separately. Owner access stays locked until their permit and boarding house application pass review.</p>
                 </div>
-                <button type="button" @click="addOpen = true" class="btn-primary">Add User</button>
+                <button type="button" @click="addOpen = true" class="btn-primary shrink-0">Add User</button>
             </div>
-        </div>
 
-        <form method="GET" class="ui-card p-4 grid gap-3 md:grid-cols-[1fr_160px_160px_auto]">
-            <input name="q" value="{{ request('q') }}" class="ui-input text-sm" placeholder="Search name or email">
-            <select name="role" class="ui-input text-sm">
-                <option value="">All roles</option>
-                <option value="admin" @selected(request('role') === 'admin')>Administrator</option>
-                <option value="owner" @selected(request('role') === 'owner')>Property Owner</option>
-                <option value="user" @selected(request('role') === 'user')>Student / Tenant</option>
-            </select>
-            <select name="status" class="ui-input text-sm">
-                <option value="">All statuses</option>
-                <option value="active" @selected(request('status') === 'active')>Active</option>
-                <option value="pending" @selected(request('status') === 'pending')>Pending verification</option>
-                <option value="inactive" @selected(request('status') === 'inactive')>Inactive</option>
-            </select>
-            <button class="btn-secondary">Filter</button>
-        </form>
+            <nav class="flex flex-wrap gap-2 border-t ui-border px-5 py-3" aria-label="User account types">
+                @foreach ($tabs as $tab)
+                    <a
+                        href="{{ route('admin.user-management', ['account_type' => $tab['key']]) }}"
+                        class="inline-flex min-h-10 items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-semibold transition {{ $accountType === $tab['key'] ? 'border-blue-600 bg-blue-600 text-white shadow-sm' : 'ui-border bg-[color:var(--surface-1)] ui-muted hover:border-blue-300 hover:text-blue-600' }}"
+                        @if ($accountType === $tab['key']) aria-current="page" @endif
+                    >
+                        <span>{{ $tab['label'] }}</span>
+                        <span class="rounded-full px-2 py-0.5 text-[11px] {{ $accountType === $tab['key'] ? 'bg-white/20 text-white' : 'bg-[color:var(--surface-2)]' }}">{{ number_format($tab['count']) }}</span>
+                        @if (($tab['pending'] ?? 0) > 0)
+                            <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">{{ number_format($tab['pending']) }} pending</span>
+                        @endif
+                    </a>
+                @endforeach
+            </nav>
+        </section>
 
-        <div class="grid gap-4 sm:grid-cols-3">
-            <div class="ui-card p-5">
-                <p class="text-sm ui-muted">Administrators</p>
-                <p class="mt-2 text-2xl font-bold">{{ $roleCounts['admin'] ?? 0 }}</p>
-            </div>
-            <div class="ui-card p-5">
-                <p class="text-sm ui-muted">Property Owners</p>
-                <p class="mt-2 text-2xl font-bold">{{ $roleCounts['owner'] ?? 0 }}</p>
-            </div>
-            <div class="ui-card p-5">
-                <p class="text-sm ui-muted">Student / Tenant</p>
-                <p class="mt-2 text-2xl font-bold">{{ ($roleCounts['user'] ?? 0) + ($roleCounts['tenant'] ?? 0) + ($roleCounts['student'] ?? 0) }}</p>
-            </div>
-        </div>
+        @if ($accountType === 'owner')
+            <section class="grid gap-3 sm:grid-cols-3">
+                <div class="ui-card p-4"><p class="text-xs font-semibold ui-muted">Owner Applications</p><p class="mt-1 text-xl font-bold">{{ number_format($ownerCount ?? 0) }}</p></div>
+                <div class="ui-card border-amber-200 p-4"><p class="text-xs font-semibold text-amber-600">Awaiting Review</p><p class="mt-1 text-xl font-bold text-amber-600">{{ number_format($pendingOwnerCount ?? 0) }}</p></div>
+                <div class="ui-card border-emerald-200 p-4"><p class="text-xs font-semibold text-emerald-600">Verified Owners</p><p class="mt-1 text-xl font-bold text-emerald-600">{{ number_format($verifiedOwnerCount ?? 0) }}</p></div>
+            </section>
+        @endif
 
-        <div class="ui-card overflow-hidden">
+        <section class="ui-card overflow-hidden">
+            <div class="flex flex-col gap-3 border-b ui-border px-5 py-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                    <h2 class="font-bold">{{ $activeTypeLabel }}</h2>
+                    <p class="text-xs ui-muted">
+                        @if ($accountType === 'owner')
+                            Open an application to inspect its business permit and submitted boarding house before deciding.
+                        @elseif ($accountType === 'admin')
+                            System administrator accounts with platform-wide access.
+                        @else
+                            Student and tenant accounts are listed independently from owners.
+                        @endif
+                    </p>
+                </div>
+                <form method="GET" action="{{ route('admin.user-management') }}" class="flex w-full flex-col gap-2 sm:flex-row md:w-auto">
+                    <input type="hidden" name="account_type" value="{{ $accountType }}">
+                    <input name="q" value="{{ request('q') }}" class="ui-input h-10 min-w-0 text-sm sm:w-56" placeholder="Search name or email">
+                    <select name="status" class="ui-input h-10 text-sm sm:w-44">
+                        <option value="">All statuses</option>
+                        <option value="active" @selected(request('status') === 'active')>Active</option>
+                        @if ($accountType === 'owner')<option value="pending" @selected(request('status') === 'pending')>Pending review</option>@endif
+                        <option value="inactive" @selected(request('status') === 'inactive')>Inactive / rejected</option>
+                    </select>
+                    <button class="btn-secondary h-10">Filter</button>
+                </form>
+            </div>
+
             <div class="overflow-x-auto">
                 <table class="min-w-full text-sm">
-                    <thead class="bg-[color:var(--surface-2)] text-xs uppercase ui-muted">
+                    <thead class="bg-[color:var(--surface-2)] text-[11px] font-bold uppercase tracking-wide ui-muted">
                         <tr>
-                            <th class="px-5 py-3 text-left">User</th>
-                            <th class="px-5 py-3 text-left">Role</th>
-                            <th class="px-5 py-3 text-left">Status</th>
-                            <th class="px-5 py-3 text-left">Permit</th>
-                            <th class="px-5 py-3 text-left">Contact</th>
-                            <th class="px-5 py-3 text-right">Review</th>
+                            <th class="px-5 py-3 text-left">Account</th>
+                            @if ($accountType === 'owner')
+                                <th class="px-5 py-3 text-left">Boarding House</th>
+                                <th class="px-5 py-3 text-left">Submitted Files</th>
+                                <th class="px-5 py-3 text-left">Review Status</th>
+                            @else
+                                <th class="px-5 py-3 text-left">Role</th>
+                                <th class="px-5 py-3 text-left">Contact</th>
+                                <th class="px-5 py-3 text-left">Account Status</th>
+                            @endif
+                            <th class="px-5 py-3 text-right">Details</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y ui-border">
@@ -70,16 +122,32 @@
                                 $isOwner = $user->role === 'owner';
                                 $roleLabel = $isAdmin ? 'Administrator' : ($isOwner ? 'Property Owner' : 'Student / Tenant');
                                 $ownerProfile = $user->ownerProfile;
+                                $house = $user->ownedBoardingHouses->first();
                                 $permitPath = $ownerProfile?->proof_of_ownership ?: $ownerProfile?->valid_id_file;
-                                $permitUrl = $permitPath ? \Illuminate\Support\Facades\Storage::disk('public')->url($permitPath) : null;
+                                $permitExists = filled($permitPath) && Illuminate\Support\Facades\Storage::disk('public')->exists($permitPath);
+                                $permitUrl = $permitExists ? Illuminate\Support\Facades\Storage::disk('public')->url($permitPath) : null;
+                                $permitType = strtolower((string) pathinfo((string) $permitPath, PATHINFO_EXTENSION)) === 'pdf' ? 'pdf' : 'image';
                                 $verificationStatus = strtolower((string) ($ownerProfile?->verification_status ?: ($isOwner ? 'pending' : 'not applicable')));
+                                $isSeededDemo = (bool) ($ownerProfile?->is_seeded_demo ?? false);
+                                $ownerApproved = $isOwner && $user->hasApprovedOwnerAccess();
+                                $approvalRecordInvalid = in_array($verificationStatus, ['verified', 'approved', 'rejected'], true);
+                                $approvalState = $ownerApproved ? 'approved' : ($approvalRecordInvalid ? 'not_approved' : 'pending');
+                                $approvalLabel = $ownerApproved ? 'Approved' : ($approvalRecordInvalid ? 'Not approved' : 'Pending approval');
+                                $photoPaths = collect($house?->images ?? [])->pluck('image_path')
+                                    ->merge(collect($house?->photos ?? [])->pluck('photo_path'))
+                                    ->merge(collect([$house?->featured_image, $house?->exterior_image, $house?->room_image, $house?->cr_image, $house?->kitchen_image]))
+                                    ->filter()->unique()->values();
+                                $photoUrls = $photoPaths->map(fn ($path) => \Illuminate\Support\Facades\Storage::disk('public')->url($path))->values()->all();
                                 $permissions = $isAdmin
-                                    ? ['Manage boarding houses', 'Manage reservations', 'Verify payments', 'Manage tenants', 'View reports', 'Manage user accounts']
+                                    ? ['Manage platform accounts', 'Review owner applications', 'Approve listings', 'Monitor payments and reports']
                                     : ($isOwner
-                                        ? ['Manage owned boarding houses', 'Manage rooms', 'Manage reservations', 'View owner payments']
-                                        : ['Browse listings', 'Create reservations', 'Pay through PayMongo', 'Message owners']);
+                                        ? ($ownerApproved
+                                            ? ['Approved owner account', 'Manage approved boarding houses', 'Manage rooms and reservations', 'Receive verified payments']
+                                            : ['Access remains locked before approval', 'Submitted permit requires administrator review', 'Boarding house remains unpublished', 'Login is disabled'])
+                                        : ['Browse approved listings', 'Reserve rooms', 'Pay through PayMongo', 'Message property owners']);
                                 $initials = collect(preg_split('/\s+/', trim((string) $user->name)))
-                                    ->filter()->map(fn ($w) => strtoupper(substr($w, 0, 1)))->take(2)->implode('') ?: 'U';
+                                    ->filter()->map(fn ($word) => strtoupper(substr($word, 0, 1)))->take(2)->implode('') ?: 'U';
+                                $userPhotoUrl = $user->photo_url;
                                 $payload = [
                                     'name' => $user->name,
                                     'email' => $user->email,
@@ -88,21 +156,36 @@
                                     'phone' => $user->phone ?? $user->contact_number,
                                     'active' => $active,
                                     'initials' => $initials,
+                                    'photo_url' => $userPhotoUrl,
                                     'permissions' => $permissions,
                                     'created' => optional($user->created_at)->format('M d, Y') ?? 'Unknown',
                                     'last_login' => optional($user->updated_at)->diffForHumans() ?? 'Unknown',
                                     'verified' => (bool) $user->email_verified_at,
                                     'account_status' => $accountStatus,
                                     'verification_status' => $verificationStatus,
+                                    'approval_state' => $approvalState,
+                                    'approval_label' => $approvalLabel,
+                                    'owner_approved' => $ownerApproved,
+                                    'seeded_demo' => $isSeededDemo,
                                     'permit_url' => $permitUrl,
-                                    'verify_url' => $isOwner && $verificationStatus !== 'verified' ? route('admin.owners.verify', $user) : null,
-                                    'reject_url' => $isOwner && $verificationStatus !== 'rejected' ? route('admin.owners.reject', $user) : null,
+                                    'permit_type' => $permitType,
+                                    'permit_number' => $ownerProfile?->business_permit_number ?: $ownerProfile?->valid_id_number,
+                                    'house_name' => $house?->name ?: $ownerProfile?->boarding_house_name,
+                                    'house_address' => $house?->address ?: $ownerProfile?->boarding_house_address,
+                                    'house_status' => strtolower((string) ($house?->approval_status ?: $house?->status ?: 'pending')),
+                                    'house_description' => $house?->description,
+                                    'house_rules' => $house?->house_rules ?: $ownerProfile?->house_rules,
+                                    'monthly_rent' => $ownerProfile?->monthly_rent_range ?: ($house?->monthly_payment ? 'PHP '.number_format((float) $house->monthly_payment) : null),
+                                    'photos' => $photoUrls,
+                                    'review_ready' => (bool) (($isSeededDemo || $permitUrl) && $house),
+                                    'verify_url' => $isOwner && ! $ownerApproved && ! in_array($verificationStatus, ['verified', 'approved'], true) ? route('admin.owners.verify', $user) : null,
+                                    'reject_url' => $isOwner && ! $ownerApproved && $verificationStatus !== 'rejected' ? route('admin.owners.reject', $user) : null,
                                     'update_url' => route('admin.users.update', $user),
                                     'delete_url' => auth()->id() === $user->id ? null : route('admin.users.destroy', $user),
                                 ];
                             @endphp
                             <tr
-                                class="cursor-pointer transition hover:bg-slate-50/80 focus-within:bg-blue-50/40"
+                                class="cursor-pointer transition hover:bg-slate-50/80 focus-within:bg-blue-50/40 dark:hover:bg-slate-800/60"
                                 role="button"
                                 tabindex="0"
                                 @click="openView({{ \Illuminate\Support\Js::from($payload) }})"
@@ -110,238 +193,113 @@
                                 @keydown.space.prevent="openView({{ \Illuminate\Support\Js::from($payload) }})"
                             >
                                 <td class="px-5 py-4">
-                                    <p class="font-semibold">{{ $user->name }}</p>
-                                    <p class="text-xs ui-muted">{{ $user->email }}</p>
-                                </td>
-                                <td class="px-5 py-4">{{ $roleLabel }}</td>
-                                <td class="px-5 py-4">
-                                    <span class="badge border {{ $accountStatus === 'pending' ? 'border-amber-200 bg-amber-100 text-amber-700' : $badge($active) }}">{{ $accountStatus === 'pending' ? 'Pending' : ucfirst($accountStatus) }}</span>
-                                </td>
-                                <td class="px-5 py-4">
-                                    @if ($isOwner && $permitUrl)
-                                        <a href="{{ $permitUrl }}" target="_blank" rel="noopener" class="font-semibold text-blue-600 hover:underline" @click.stop>View permit</a>
-                                    @elseif ($isOwner)
-                                        <span class="font-semibold text-rose-600">Missing</span>
-                                    @else
-                                        <span class="ui-muted">—</span>
-                                    @endif
-                                </td>
-                                <td class="px-5 py-4 ui-muted">{{ $user->phone ?? $user->contact_number ?? 'Not set' }}</td>
-                                <td class="px-5 py-4 text-right" @click.stop>
-                                    @if ($isOwner && $verificationStatus !== 'verified')
-                                        <div class="inline-flex gap-2">
-                                            <form method="POST" action="{{ route('admin.owners.verify', $user) }}">
-                                                @csrf @method('PATCH')
-                                                <button class="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700">Verify</button>
-                                            </form>
-                                            <form method="POST" action="{{ route('admin.owners.reject', $user) }}" onsubmit="return confirm('Reject this owner registration?')">
-                                                @csrf @method('PATCH')
-                                                <button class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100">Reject</button>
-                                            </form>
-                                        </div>
-                                    @elseif ($isOwner)
-                                        <span class="text-xs font-bold text-emerald-600">Verified</span>
-                                    @endif
-                                </td>
-                                <td class="hidden">
-                                    <div class="hidden">
-                                        <button type="button" class="btn-secondary px-3 py-1.5 text-xs" @click="openView({{ \Illuminate\Support\Js::from($payload) }})">View</button>
-                                        <button type="button" class="btn-secondary px-3 py-1.5 text-xs" @click="selected = {{ \Illuminate\Support\Js::from($payload) }}; editOpen = true">Edit</button>
-                                        @unless (auth()->id() === $user->id)
-                                            <form method="POST" action="{{ route('admin.users.destroy', $user) }}" onsubmit="return confirm('Delete this user account?')">
-                                                @csrf @method('DELETE')
-                                                <button class="btn-danger px-3 py-1.5 text-xs">Delete</button>
-                                            </form>
-                                        @endunless
+                                    <div class="flex items-center gap-3">
+                                        <span class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 text-xs font-bold text-blue-700">
+                                            @if ($userPhotoUrl)<img src="{{ $userPhotoUrl }}" alt="{{ $user->name }}" class="h-full w-full object-cover" loading="lazy">@else{{ $initials }}@endif
+                                        </span>
+                                        <div class="min-w-0"><p class="truncate font-semibold">{{ $user->name }}</p><p class="truncate text-xs ui-muted">{{ $user->email }}</p></div>
                                     </div>
                                 </td>
+                                @if ($accountType === 'owner')
+                                    <td class="px-5 py-4"><p class="font-semibold">{{ $house?->name ?: $ownerProfile?->boarding_house_name ?: 'No application found' }}</p><p class="mt-0.5 max-w-xs truncate text-xs ui-muted">{{ $house?->address ?: $ownerProfile?->boarding_house_address }}</p></td>
+                                    <td class="px-5 py-4">
+                                        <span class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold {{ $isSeededDemo || $permitUrl ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700' }}">
+                                            <span aria-hidden="true">{{ $isSeededDemo || $permitUrl ? '✓' : '✕' }}</span>
+                                            {{ $isSeededDemo ? 'Seeded demo exemption' : ($permitUrl ? 'Permit submitted' : 'Permit missing') }}
+                                        </span>
+                                        <p class="mt-1 text-[11px] ui-muted">{{ count($photoUrls) }} property photo{{ count($photoUrls) === 1 ? '' : 's' }}</p>
+                                    </td>
+                                    <td class="px-5 py-4">
+                                        <span class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-bold {{ $ownerApproved ? 'border-emerald-200 bg-emerald-100 text-emerald-700' : ($verificationStatus === 'rejected' ? 'border-rose-200 bg-rose-100 text-rose-700' : 'border-amber-200 bg-amber-100 text-amber-700') }}">
+                                            <span aria-hidden="true">{{ $ownerApproved ? '✓' : ($verificationStatus === 'rejected' ? '✕' : '●') }}</span>
+                                            {{ $approvalLabel }}
+                                        </span>
+                                        <p class="mt-1 text-[11px] ui-muted">{{ $ownerApproved ? ($isSeededDemo ? 'Demo account enabled' : 'Verified account enabled') : 'Login blocked' }}</p>
+                                    </td>
+                                @else
+                                    <td class="px-5 py-4 font-medium">{{ $roleLabel }}</td>
+                                    <td class="px-5 py-4 ui-muted">{{ $user->phone ?? $user->contact_number ?? 'Not set' }}</td>
+                                    <td class="px-5 py-4"><span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-bold {{ $badge($active) }}">{{ $active ? 'Active' : ucfirst($accountStatus) }}</span></td>
+                                @endif
+                                <td class="px-5 py-4 text-right"><span class="text-xs font-bold text-blue-600">{{ $isOwner ? 'Review application' : 'Open account' }}</span></td>
                             </tr>
                         @empty
-                            <tr><td colspan="6" class="px-5 py-8 text-center ui-muted">No users found.</td></tr>
+                            <tr><td colspan="5" class="px-5 py-12 text-center"><p class="font-semibold">No {{ strtolower($activeTypeLabel) }} found</p><p class="mt-1 text-xs ui-muted">Try changing the filters or search term.</p></td></tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
-            <div class="border-t ui-border px-5 py-4">{{ $users->links() }}</div>
-        </div>
+            @if ($users->hasPages())<div class="border-t ui-border px-5 py-4">{{ $users->links() }}</div>@endif
+        </section>
 
-        {{-- Add User Modal --}}
-        <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak @keydown.escape.window="addOpen = false" class="bm-modal-overlay">
-            <form method="POST" action="{{ route('admin.users.store') }}" class="bm-modal bm-modal--lg">
+        <div data-modal-root role="dialog" aria-modal="true" aria-labelledby="add-user-title" x-show="addOpen" x-cloak @click.self="addOpen = false" class="bm-modal-overlay">
+            <form method="POST" action="{{ route('admin.users.store') }}" enctype="multipart/form-data" class="bm-modal bm-modal--notification-detail" @click.stop>
                 @csrf
-                <div class="bm-modal__header">
-                    <div>
-                        <p class="bm-modal__eyebrow">Create</p>
-                        <h2 class="bm-modal__title">Add User</h2>
-                            <p class="bm-modal__subtitle">Create an administrator or student account. Owners must use the permit-based public application.</p>
-                    </div>
-                    <button type="button" @click="addOpen = false" class="bm-modal__close" aria-label="Close add user modal">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                </div>
-                <div class="bm-modal__body">
-                    <section class="bm-modal__section">
-                        <div>
-                            <h3 class="bm-modal__section-title">Account Details</h3>
-                            <p class="bm-modal__section-copy">Use clear account information so the user can sign in immediately.</p>
-                        </div>
-                        <div class="bm-modal__grid bm-modal__grid--two-col mt-4">
-                            <label>Name<input name="name" required></label>
-                            <label>Email<input name="email" type="email" required></label>
-                            <label>Role
-                                <select name="role" required>
-                                    <option value="user">Student / Tenant</option>
-                                    <option value="admin">Administrator</option>
-                                </select>
-                            </label>
-                            <label>Phone<input name="phone"></label>
-                            <label class="sm:col-span-2">Password<input name="password" type="password" required minlength="8"></label>
-                            <label class="sm:col-span-2 bm-modal__checkbox">
-                                <input type="checkbox" name="is_active" value="1" checked class="rounded">
-                                <span>Active account</span>
-                            </label>
-                        </div>
-                    </section>
-                </div>
-                <div class="bm-modal__footer">
-                    <button type="button" @click="addOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button>
-                    <button class="bm-modal__button bm-modal__button--primary">Save User</button>
-                </div>
+                <div class="bm-modal__header"><div><p class="bm-modal__eyebrow">Create</p><h2 id="add-user-title" class="bm-modal__title">Add User</h2><p class="bm-modal__subtitle">Create a tenant or administrator. Owners must submit the public permit-based application.</p></div><button type="button" @click="addOpen = false" class="bm-modal__close" aria-label="Close add user modal">&times;</button></div>
+                <div class="bm-modal__body bm-modal__body--compact"><div class="bm-modal__grid bm-modal__grid--two-col"><label>Name<input name="name" required></label><label>Email<input name="email" type="email" required></label><label>Role<select name="role" required><option value="user">Student / Tenant</option><option value="admin">Administrator</option></select></label><label>Phone<input name="phone"></label><label class="sm:col-span-2">Profile Photo<input name="profile_photo" type="file" accept="image/jpeg,image/png,image/webp"><span class="mt-1 block text-[11px] font-medium ui-muted">JPG, PNG, or WEBP. Maximum 2 MB.</span></label><label class="sm:col-span-2">Password<input name="password" type="password" required minlength="8"></label><label class="sm:col-span-2 bm-modal__checkbox"><input type="checkbox" name="is_active" value="1" checked><span>Active account</span></label></div></div>
+                <div class="bm-modal__footer"><button type="button" @click="addOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button><button class="bm-modal__button bm-modal__button--primary">Save User</button></div>
             </form>
         </div>
 
-        {{-- View User Modal --}}
-        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak @keydown.escape.window="viewOpen = false" class="bm-modal-overlay">
-            <div class="bm-modal bm-modal--lg">
+        <div data-modal-root role="dialog" aria-modal="true" aria-labelledby="user-details-title" x-show="viewOpen" x-cloak @click.self="viewOpen = false" class="bm-modal-overlay">
+            <section class="bm-modal bm-modal--lg" @click.stop>
                 <div class="bm-modal__header">
-                    <div class="flex items-center gap-4">
-                        <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-blue-50 text-lg font-bold text-blue-700" x-text="selected.initials || 'U'"></div>
-                        <div>
-                            <h2 class="bm-modal__title" x-text="selected.name"></h2>
-                            <p class="bm-modal__subtitle" x-text="selected.email"></p>
-                            <div class="mt-1.5 flex flex-wrap items-center gap-2">
-                                <span class="inline-flex rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700" x-text="selected.role_label"></span>
-                                <span class="inline-flex rounded-full px-2 py-0.5 text-[11px] font-bold"
-                                      :class="selected.active ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'"
-                                      x-text="selected.active ? 'Active' : 'Inactive'"></span>
-                            </div>
-                        </div>
-                    </div>
-                    <button type="button" @click="viewOpen = false" class="bm-modal__close" aria-label="Close user details modal">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
+                    <div class="flex min-w-0 flex-1 items-center gap-3"><span class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 text-sm font-bold text-blue-700"><template x-if="selected.photo_url"><img :src="selected.photo_url" :alt="selected.name" class="h-full w-full object-cover"></template><span x-show="!selected.photo_url" x-text="selected.initials || 'U'"></span></span><div class="min-w-0"><p class="bm-modal__eyebrow" x-text="selected.role === 'owner' ? 'Owner Application Review' : 'Account Details'"></p><h2 id="user-details-title" class="bm-modal__title truncate" x-text="selected.name"></h2><p class="bm-modal__subtitle truncate" x-text="selected.email"></p></div><span x-show="selected.role === 'owner'" class="ml-auto hidden shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-bold sm:inline-flex" :class="selected.owner_approved ? 'border-emerald-200 bg-emerald-100 text-emerald-700' : (selected.approval_state === 'not_approved' ? 'border-rose-200 bg-rose-100 text-rose-700' : 'border-amber-200 bg-amber-100 text-amber-700')"><span aria-hidden="true" x-text="selected.owner_approved ? '\u2713' : (selected.approval_state === 'not_approved' ? '\u2715' : '\u25cf')"></span><span x-text="selected.approval_label"></span></span></div>
+                    <button type="button" @click="viewOpen = false" class="bm-modal__close" aria-label="Close user details modal">&times;</button>
                 </div>
 
-                <div class="flex gap-1 border-b border-slate-200 px-6">
-                    <template x-for="tab in [['overview','Overview'],['activity','Activity'],['permissions','Permissions']]" :key="tab[0]">
-                        <button type="button" @click="viewTab = tab[0]"
-                                class="relative -mb-px border-b-2 px-4 py-2.5 text-[13px] font-semibold transition"
-                                :class="viewTab === tab[0] ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-500 hover:text-slate-700'"
-                                x-text="tab[1]"></button>
-                    </template>
+                <div class="flex flex-wrap gap-1 border-b ui-border px-5">
+                    <button type="button" @click="viewTab = selected.role === 'owner' ? 'application' : 'overview'" class="border-b-2 px-3 py-2.5 text-xs font-bold" :class="['application','overview'].includes(viewTab) ? 'border-blue-600 text-blue-600' : 'border-transparent ui-muted'" x-text="selected.role === 'owner' ? 'Application' : 'Overview'"></button>
+                    <button type="button" x-show="selected.role === 'owner'" @click="viewTab = 'permit'" class="border-b-2 px-3 py-2.5 text-xs font-bold" :class="viewTab === 'permit' ? 'border-blue-600 text-blue-600' : 'border-transparent ui-muted'">Business Permit</button>
+                    <button type="button" x-show="selected.role === 'owner'" @click="viewTab = 'photos'" class="border-b-2 px-3 py-2.5 text-xs font-bold" :class="viewTab === 'photos' ? 'border-blue-600 text-blue-600' : 'border-transparent ui-muted'">Property Photos</button>
+                    <button type="button" @click="viewTab = 'permissions'" class="border-b-2 px-3 py-2.5 text-xs font-bold" :class="viewTab === 'permissions' ? 'border-blue-600 text-blue-600' : 'border-transparent ui-muted'">Access</button>
                 </div>
 
                 <div class="bm-modal__body bm-modal__body--compact">
                     <div x-show="viewTab === 'overview'">
-                        <dl class="bm-modal__details bm-modal__details--two-col">
-                            <div class="bm-modal__detail"><dt>Account Role</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.role_label"></dd></div>
-                            <div class="bm-modal__detail"><dt>Email</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.email"></dd></div>
-                            <div class="bm-modal__detail"><dt>Phone</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.phone || 'Not set'"></dd></div>
-                            <div class="bm-modal__detail"><dt>Status</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.active ? 'Active' : 'Inactive'"></dd></div>
-                            <div class="bm-modal__detail" x-show="selected.role === 'owner'"><dt>Owner Verification</dt><dd class="mt-1 font-bold capitalize text-slate-900" x-text="selected.verification_status"></dd></div>
-                            <div class="bm-modal__detail" x-show="selected.role === 'owner'"><dt>Business Permit</dt><dd class="mt-1"><a x-show="selected.permit_url" :href="selected.permit_url" target="_blank" rel="noopener" class="font-bold text-blue-600 hover:underline">Open uploaded permit</a><span x-show="!selected.permit_url" class="font-bold text-rose-600">Missing permit</span></dd></div>
-                            <div class="bm-modal__detail"><dt>Email Verified</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.verified ? 'Verified' : 'Not verified'"></dd></div>
-                            <div class="bm-modal__detail"><dt>Account Created</dt><dd class="mt-1 font-bold text-slate-900" x-text="selected.created"></dd></div>
-                        </dl>
+                        <dl class="bm-modal__details bm-modal__details--two-col"><div class="bm-modal__detail"><dt>Role</dt><dd x-text="selected.role_label"></dd></div><div class="bm-modal__detail"><dt>Account Status</dt><dd class="capitalize" x-text="selected.account_status"></dd></div><div class="bm-modal__detail"><dt>Phone</dt><dd x-text="selected.phone || 'Not set'"></dd></div><div class="bm-modal__detail"><dt>Registered</dt><dd x-text="selected.created"></dd></div></dl>
                     </div>
 
-                    <div x-show="viewTab === 'activity'" class="space-y-3">
-                        <div class="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
-                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Last Login</p>
-                            <p class="mt-1 font-bold text-slate-900" x-text="selected.last_login"></p>
-                        </div>
-                        <div class="rounded-xl border border-slate-200 bg-white p-4">
-                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Recent Activity</p>
-                            <ul class="mt-2 space-y-2 text-sm text-slate-700">
-                                <li class="flex items-center gap-2"><span class="h-1.5 w-1.5 rounded-full bg-blue-500"></span><span x-text="'Last active ' + selected.last_login"></span></li>
-                                <li class="flex items-center gap-2"><span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span><span x-text="'Account created ' + selected.created"></span></li>
-                            </ul>
-                        </div>
+                    <div x-show="viewTab === 'application' && selected.role === 'owner'" class="space-y-4">
+                        <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800" x-show="selected.owner_approved"><strong>&#10003; Approved:</strong> <span x-text="selected.seeded_demo ? 'this seeded demonstration owner is enabled under the demo-only permit exemption.' : 'the permit and boarding house application were verified, and owner access is enabled.'"></span></div>
+                        <div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800" x-show="selected.approval_state === 'pending'"><strong>Access locked:</strong> this owner cannot sign in or commercialize the property until an administrator approves the submitted permit and application.</div>
+                        <div class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800" x-show="selected.approval_state === 'not_approved'"><strong>&#10005; Not approved:</strong> account login and listing publication remain disabled.</div>
+                        <dl class="bm-modal__details bm-modal__details--two-col"><div class="bm-modal__detail"><dt>Boarding House</dt><dd x-text="selected.house_name || 'Not submitted'"></dd></div><div class="bm-modal__detail"><dt>Owner Approval</dt><dd class="font-bold" :class="selected.owner_approved ? 'text-emerald-700' : (selected.approval_state === 'not_approved' ? 'text-rose-700' : 'text-amber-700')" x-text="selected.approval_label"></dd></div><div class="bm-modal__detail sm:col-span-2"><dt>Address</dt><dd x-text="selected.house_address || 'Not submitted'"></dd></div><div class="bm-modal__detail"><dt>Rent Range</dt><dd x-text="selected.monthly_rent || 'Not set'"></dd></div><div class="bm-modal__detail"><dt>Permit Number</dt><dd x-text="selected.seeded_demo ? 'Demo exemption (seeded record)' : (selected.permit_number || 'Not provided')"></dd></div></dl>
+                        <section class="bm-modal__section"><h3 class="bm-modal__section-title">Review checklist</h3><div class="mt-3 grid gap-2 sm:grid-cols-3"><span class="rounded-lg border px-3 py-2 text-xs font-bold" :class="selected.seeded_demo || selected.permit_url ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'" x-text="selected.seeded_demo ? '\u2713 Seeded permit exemption' : (selected.permit_url ? '\u2713 Permit uploaded' : '\u2715 Permit missing')"></span><span class="rounded-lg border px-3 py-2 text-xs font-bold" :class="selected.house_name ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'" x-text="selected.house_name ? '\u2713 Property submitted' : '\u2715 Property missing'"></span><span class="rounded-lg border px-3 py-2 text-xs font-bold" :class="selected.photos?.length ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'" x-text="selected.photos?.length ? '\u2713 ' + selected.photos.length + ' photo(s)' : 'No property photos'"></span></div></section>
+                        <label x-show="selected.reject_url" class="block text-sm font-bold">Reason if rejected<textarea name="rejection_reason" form="reject-owner-form" rows="3" class="ui-input mt-2 w-full" placeholder="Explain which permit or property detail must be corrected."></textarea></label>
                     </div>
 
-                    <div x-show="viewTab === 'permissions'" class="space-y-2">
-                        <template x-for="(perm, i) in (selected.permissions || [])" :key="i">
-                            <div class="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5">
-                                <svg class="h-4 w-4 shrink-0 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                <span class="text-sm font-medium text-slate-800" x-text="perm"></span>
-                            </div>
-                        </template>
+                    <div x-show="viewTab === 'permit' && selected.role === 'owner'">
+                        <div x-show="selected.seeded_demo" class="rounded-xl border border-emerald-200 bg-emerald-50 p-5 text-center text-sm font-semibold text-emerald-700">&#10003; Seeded demonstration record. The permit exemption applies only to seeded owners; public registrations never receive it.</div>
+                        <div x-show="!selected.seeded_demo && !selected.permit_url" class="rounded-xl border border-rose-200 bg-rose-50 p-5 text-center text-sm font-semibold text-rose-700">No readable business permit was submitted. This real owner account cannot be approved or used.</div>
+                        <template x-if="selected.permit_url && selected.permit_type === 'pdf'"><iframe :src="selected.permit_url" title="Submitted business permit" class="h-[52vh] w-full rounded-xl border ui-border bg-white"></iframe></template>
+                        <template x-if="selected.permit_url && selected.permit_type !== 'pdf'"><img :src="selected.permit_url" alt="Submitted business permit" class="mx-auto max-h-[52vh] w-auto rounded-xl border ui-border object-contain"></template>
                     </div>
+
+                    <div x-show="viewTab === 'photos' && selected.role === 'owner'">
+                        <div x-show="!selected.photos?.length" class="rounded-xl border ui-border p-5 text-center text-sm ui-muted">No property photos were submitted.</div>
+                        <div x-show="selected.photos?.length" class="grid gap-3 sm:grid-cols-2"><template x-for="(photo, index) in (selected.photos || [])" :key="photo"><figure class="overflow-hidden rounded-xl border ui-border bg-[color:var(--surface-2)]"><img :src="photo" :alt="'Submitted boarding house photo ' + (index + 1)" class="h-52 w-full object-cover"><figcaption class="px-3 py-2 text-xs font-semibold ui-muted" x-text="'Photo ' + (index + 1)"></figcaption></figure></template></div>
+                    </div>
+
+                    <div x-show="viewTab === 'permissions'" class="space-y-2"><template x-for="permission in (selected.permissions || [])" :key="permission"><div class="flex items-center gap-3 rounded-xl border ui-border bg-[color:var(--surface-2)] px-4 py-3"><span class="text-emerald-600">&#10003;</span><span class="text-sm font-medium" x-text="permission"></span></div></template></div>
                 </div>
-                <div class="bm-modal__footer">
-                    <template x-if="selected.verify_url">
-                        <form method="POST" :action="selected.verify_url">@csrf @method('PATCH')<button class="bm-modal__button bg-emerald-600 text-white hover:bg-emerald-700">Verify Owner</button></form>
-                    </template>
-                    <template x-if="selected.reject_url">
-                        <form method="POST" :action="selected.reject_url" onsubmit="return confirm('Reject this owner registration?')">@csrf @method('PATCH')<button class="bm-modal__button border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">Reject</button></form>
-                    </template>
-                    <button type="button" @click="editOpen = true; viewOpen = false" class="bm-modal__button bm-modal__button--primary">Edit</button>
-                    <template x-if="selected.delete_url">
-                        <form method="POST" :action="selected.delete_url" onsubmit="return confirm('Delete this user account?')">
-                            @csrf @method('DELETE')
-                            <button class="bm-modal__button bm-modal__button--danger">Delete</button>
-                        </form>
-                    </template>
+
+                <div class="bm-modal__footer items-center justify-between">
+                    <p x-show="selected.role === 'owner'" class="mr-auto max-w-sm text-xs ui-muted" x-text="selected.owner_approved ? (selected.seeded_demo ? 'Approved seeded demo account. Its permit exemption is never applied to public registrations.' : 'Approved owner account with verified access.') : 'Approval activates the owner account and publishes only the reviewed boarding house application.'"></p>
+                    <template x-if="selected.reject_url"><form id="reject-owner-form" method="POST" :action="selected.reject_url" onsubmit="return confirm('Reject this owner application and keep its account locked?')">@csrf @method('PATCH')<button class="bm-modal__button bm-modal__button--danger">Reject</button></form></template>
+                    <template x-if="selected.verify_url"><form method="POST" :action="selected.verify_url" onsubmit="return confirm('Approve the submitted permit and boarding house, then enable owner access?')">@csrf @method('PATCH')<button class="bm-modal__button bg-emerald-600 text-white hover:bg-emerald-700" :disabled="!selected.review_ready" :class="!selected.review_ready ? 'cursor-not-allowed opacity-50' : ''">Approve Owner</button></form></template>
+                    <button type="button" x-show="selected.role !== 'owner' || selected.owner_approved" @click="editOpen = true; viewOpen = false" class="bm-modal__button bm-modal__button--primary">Edit</button>
                     <button type="button" @click="viewOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
                 </div>
-            </div>
+            </section>
         </div>
 
-        {{-- Edit User Modal --}}
-        <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak @keydown.escape.window="editOpen = false" class="bm-modal-overlay">
-            <form method="POST" :action="selected.update_url" class="bm-modal bm-modal--lg">
+        <div data-modal-root role="dialog" aria-modal="true" aria-labelledby="edit-user-title" x-show="editOpen" x-cloak @click.self="editOpen = false" class="bm-modal-overlay">
+            <form method="POST" :action="selected.update_url" enctype="multipart/form-data" class="bm-modal bm-modal--notification-detail" @click.stop>
                 @csrf @method('PATCH')
-                <div class="bm-modal__header">
-                    <div>
-                        <p class="bm-modal__eyebrow">Edit</p>
-                        <h2 class="bm-modal__title">Edit User</h2>
-                        <p class="bm-modal__subtitle">Update the account profile while keeping existing permissions and logic intact.</p>
-                    </div>
-                    <button type="button" @click="editOpen = false" class="bm-modal__close" aria-label="Close edit user modal">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                </div>
-                <div class="bm-modal__body">
-                    <section class="bm-modal__section">
-                        <div>
-                            <h3 class="bm-modal__section-title">Profile Settings</h3>
-                            <p class="bm-modal__section-copy">Only change the password if the account needs a reset.</p>
-                        </div>
-                        <div class="bm-modal__grid bm-modal__grid--two-col mt-4">
-                            <label>Name<input name="name" required :value="selected.name"></label>
-                            <label>Email<input name="email" type="email" required :value="selected.email"></label>
-                            <label>Role
-                                <select name="role" required class="ui-input mt-1">
-                                    <option value="user" :selected="selected.role === 'user'">Student / Tenant</option>
-                                    <option value="owner" :selected="selected.role === 'owner'">Property Owner</option>
-                                    <option value="admin" :selected="selected.role === 'admin'">Administrator</option>
-                                </select>
-                            </label>
-                            <label>Phone<input name="phone" :value="selected.phone"></label>
-                            <label class="sm:col-span-2">New Password
-                                <input name="password" type="password" minlength="8" placeholder="Leave blank to keep current">
-                            </label>
-                            <label class="sm:col-span-2 bm-modal__checkbox">
-                                <input type="checkbox" name="is_active" value="1" :checked="selected.active" class="rounded">
-                                <span>Active account</span>
-                            </label>
-                        </div>
-                    </section>
-                </div>
-                <div class="bm-modal__footer">
-                    <button type="button" @click="editOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button>
-                    <button class="bm-modal__button bm-modal__button--primary">Save Changes</button>
-                </div>
+                <div class="bm-modal__header"><div class="flex min-w-0 items-center gap-3"><span class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 text-sm font-bold text-blue-700"><template x-if="selected.photo_url"><img :src="selected.photo_url" :alt="selected.name" class="h-full w-full object-cover"></template><span x-show="!selected.photo_url" x-text="selected.initials || 'U'"></span></span><div class="min-w-0"><p class="bm-modal__eyebrow">Edit</p><h2 id="edit-user-title" class="bm-modal__title truncate" x-text="selected.name || 'Edit User'"></h2><p class="bm-modal__subtitle">An unverified owner cannot be activated from this form.</p></div></div><button type="button" @click="editOpen = false" class="bm-modal__close" aria-label="Close edit user modal">&times;</button></div>
+                <div class="bm-modal__body bm-modal__body--compact"><div class="bm-modal__grid bm-modal__grid--two-col"><label>Name<input name="name" required :value="selected.name"></label><label>Email<input name="email" type="email" required :value="selected.email"></label><label>Role<select name="role" required><option value="user" :selected="['user','tenant','student'].includes(selected.role)">Student / Tenant</option><option value="owner" :selected="selected.role === 'owner'">Property Owner</option><option value="admin" :selected="selected.role === 'admin'">Administrator</option></select></label><label>Phone<input name="phone" :value="selected.phone"></label><label class="sm:col-span-2">Replace Profile Photo<input name="profile_photo" type="file" accept="image/jpeg,image/png,image/webp"><span class="mt-1 block text-[11px] font-medium ui-muted">Leave empty to keep the current photo.</span></label><label class="sm:col-span-2">New Password<input name="password" type="password" minlength="8" placeholder="Leave blank to keep current"></label><label class="sm:col-span-2 bm-modal__checkbox"><input type="checkbox" name="is_active" value="1" :checked="selected.active"><span>Active account</span></label></div></div>
+                <div class="bm-modal__footer"><button type="button" @click="editOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button><button class="bm-modal__button bm-modal__button--primary">Save Changes</button></div>
             </form>
         </div>
     </div>

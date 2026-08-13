@@ -154,6 +154,7 @@
             return [
                 'reservation_no' => $reservationNoFor($reservation),
                 'tenant' => $reservation->user->name ?? 'Tenant',
+                'tenant_photo_url' => $reservation->user?->photo_url,
                 'house' => $reservation->boardingHouse->name ?? 'Boarding house',
                 'location' => $reservation->boardingHouse->address
                     ?? $reservation->boardingHouse->full_address
@@ -572,10 +573,25 @@
         </header>
         @endif
 
+        <div
+            data-walk-in-workspace
+            x-data="walkInReservation({
+                walkInOpen: @js($errors->walkIn->any()),
+                walkInTenants: @js($walkInTenantOptions),
+                walkInHouses: @js($walkInHouseOptions),
+                walkIn: @js([
+                    'tenant_id' => (string) old('tenant_id', ''),
+                    'boarding_house_id' => (string) old('boarding_house_id', ''),
+                    'room_id' => (string) old('room_id', ''),
+                    'total_amount' => old('total_amount', ''),
+                    'service_ids' => $oldWalkInServiceIds,
+                ])
+            })"
+        >
         <section class="rounded-2xl border border-blue-100 bg-blue-50/50 p-5 shadow-sm">
             <div class="flex flex-wrap items-center justify-between gap-3">
                 <div><h2 class="text-sm font-bold text-slate-950">Front desk walk-in booking</h2><p class="mt-1 text-xs text-slate-500">Paid walk-ins are automatically prioritized and get a printable receipt.</p></div>
-                <button type="button" @click="openWalkIn()" class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-[13px] font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700">
+                <button type="button" data-walk-in-trigger data-no-loading-overlay @click.prevent="openWalkIn()" class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-[13px] font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 5v14m7-7H5"/></svg>
                     Create Walk-in
                 </button>
@@ -583,16 +599,16 @@
         </section>
 
         <template x-teleport="body">
-            <div data-modal-root role="dialog" aria-modal="true" x-show="walkInOpen" x-cloak @click.self="walkInOpen = false" @keydown.escape.window="walkInOpen = false" class="bm-modal-overlay">
+            <div data-modal-root data-walk-in-modal role="dialog" aria-modal="true" aria-labelledby="walk-in-modal-title" x-show="walkInOpen" x-cloak @click.self="closeWalkIn()" @keydown.escape.window="closeWalkIn()" class="bm-modal-overlay">
                 <form method="POST" action="{{ $route('reservations.walk-in.store') }}" @submit="walkInSaving = true" class="bm-modal bm-modal--lg">
                     @csrf
                     <div class="bm-modal__header">
                         <div>
                             <p class="bm-modal__eyebrow">Front Desk</p>
-                            <h2 class="bm-modal__title">Create Walk-in Reservation</h2>
+                            <h2 id="walk-in-modal-title" class="bm-modal__title">Create Walk-in Reservation</h2>
                             <p class="bm-modal__subtitle">Record a same-day booking, payment status, and optional services.</p>
                         </div>
-                        <button type="button" @click="walkInOpen = false" class="bm-modal__close" aria-label="Close walk-in reservation modal">&times;</button>
+                        <button type="button" @click="closeWalkIn()" class="bm-modal__close" aria-label="Close walk-in reservation modal">&times;</button>
                     </div>
                     <div class="bm-modal__body">
                         @if ($errors->walkIn->any())
@@ -607,7 +623,7 @@
                         @endif
                         <div class="bm-modal__grid bm-modal__grid--two-col">
                             <label>Boarding House
-                                <select name="boarding_house_id" x-model="walkIn.boarding_house_id" @change="onWalkInHouseChange()" required>
+                                <select x-ref="walkInHouse" name="boarding_house_id" x-model="walkIn.boarding_house_id" @change="onWalkInHouseChange()" required>
                                     <option value="">Select boarding house</option>
                                     <template x-for="house in walkInHouses" :key="house.id">
                                         <option :value="String(house.id)" x-text="house.name"></option>
@@ -674,7 +690,7 @@
                         </section>
                     </div>
                     <div class="bm-modal__footer">
-                        <button type="button" @click="walkInOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button>
+                        <button type="button" @click="closeWalkIn()" class="bm-modal__button bm-modal__button--secondary">Cancel</button>
                         <button :disabled="walkInSaving" class="bm-modal__button bm-modal__button--primary disabled:cursor-not-allowed disabled:opacity-60">
                             <span x-text="walkInSaving ? 'Saving Walk-in...' : 'Save Walk-in Reservation'"></span>
                         </button>
@@ -682,6 +698,7 @@
                 </form>
             </div>
         </template>
+        </div>
 
         {{-- Stat Cards --}}
         @php
@@ -755,6 +772,7 @@
                                             ->take(2)
                                             ->map(fn ($part) => strtoupper(substr($part, 0, 1)))
                                             ->join('') ?: 'T';
+                                        $tenantPhotoUrl = $reservation->user?->photo_url;
                                         $reservationNo = $reservationNoFor($reservation);
                                         $houseName = $reservation->boardingHouse->name ?? 'Boarding House';
                                         $houseLocation = $reservation->boardingHouse->address
@@ -768,6 +786,8 @@
                                             'reservation_id'       => $reservation->id,
                                             'reservation_no'       => $reservationNo,
                                             'tenant'               => $tenantName,
+                                            'tenant_initials'      => $tenantInitials,
+                                            'tenant_photo_url'     => $tenantPhotoUrl,
                                             'tenant_email'         => $reservation->user->email ?? '',
                                             'house'                => $houseName,
                                             'boarding_house_id'    => $reservation->boarding_house_id,
@@ -851,7 +871,7 @@
                                         <td class="whitespace-nowrap px-5 py-4 text-xs font-black text-slate-800">{{ $reservationNo }}</td>
                                         <td class="px-5 py-4">
                                             <div class="flex items-center gap-2.5">
-                                                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[11px] font-black text-blue-700">{{ $tenantInitials }}</div>
+                                                <div class="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-[11px] font-black text-blue-700">@if ($tenantPhotoUrl)<img src="{{ $tenantPhotoUrl }}" alt="{{ $tenantName }}" class="h-full w-full object-cover" loading="lazy">@else{{ $tenantInitials }}@endif</div>
                                                 <div class="min-w-0">
                                                     <p class="truncate text-[13px] font-semibold text-slate-900">{{ $tenantName }}</p>
                                                     <p class="truncate text-[11px] text-slate-500">{{ $reservation->user->email ?? 'No email' }}</p>
@@ -1067,9 +1087,12 @@
             <div class="flex w-full max-w-3xl max-h-[92vh] flex-col overflow-x-hidden overflow-y-auto rounded-2xl bg-white shadow-2xl shadow-slate-900/25">
                 {{-- Header --}}
                 <div class="flex shrink-0 items-start justify-between border-b border-slate-100 px-7 py-5">
-                    <div>
-                        <h2 class="text-[19px] font-bold tracking-[-0.02em] text-slate-950">Edit Reservation</h2>
-                        <p class="mt-0.5 text-[13px] font-bold tracking-wide text-blue-600" x-text="selected.reservation_no"></p>
+                    <div class="flex min-w-0 items-center gap-3">
+                        <span class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-sm font-black text-blue-700"><template x-if="selected.tenant_photo_url"><img :src="selected.tenant_photo_url" :alt="selected.tenant" class="h-full w-full object-cover"></template><span x-show="!selected.tenant_photo_url" x-text="selected.tenant_initials || 'T'"></span></span>
+                        <div class="min-w-0">
+                            <h2 class="text-[19px] font-bold tracking-[-0.02em] text-slate-950">Edit Reservation</h2>
+                            <p class="mt-0.5 truncate text-[13px] font-bold tracking-wide text-blue-600"><span x-text="selected.reservation_no"></span> · <span x-text="selected.tenant"></span></p>
+                        </div>
                     </div>
                     <button type="button" @click="editOpen = false" :disabled="editSaving" class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>

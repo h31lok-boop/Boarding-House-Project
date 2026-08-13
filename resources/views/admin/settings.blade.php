@@ -5,12 +5,7 @@
     $isOwnerAccount = $workspace === 'owner';
     $route = fn (string $name, $params = []) => route($workspace.'.'.$name, $params);
     $admin = auth()->user();
-    $photoPath = $admin?->profile_photo ?: $admin?->profile_image;
-    $photoUrl = $photoPath
-        ? (\Illuminate\Support\Str::startsWith($photoPath, ['http://', 'https://', '/'])
-            ? $photoPath
-            : \Illuminate\Support\Facades\Storage::url($photoPath))
-        : null;
+    $photoUrl = $admin?->photo_url;
     $adminName = trim((string) ($admin?->name ?: 'Owner Admin'));
     $adminRole = match (strtolower((string) $admin?->role)) {
         'admin' => 'System Administrator',

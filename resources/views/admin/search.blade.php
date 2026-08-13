@@ -31,8 +31,7 @@
                 <x-admin.search-section title="Tenants" :items="$tenants" empty="No tenants matched.">
                     @foreach ($tenants as $tenant)
                         <a href="{{ route('admin.tenants.index', ['q' => $tenant->name]) }}" class="block rounded-xl border border-slate-100 bg-slate-50 p-3 transition hover:border-blue-200 hover:bg-blue-50">
-                            <p class="font-bold text-slate-900">{{ $tenant->name }}</p>
-                            <p class="mt-1 text-xs text-slate-500">{{ $tenant->email }}</p>
+                            <span class="flex items-center gap-3"><span class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-xs font-black text-blue-700">@if ($tenant->photo_url)<img src="{{ $tenant->photo_url }}" alt="{{ $tenant->name }}" class="h-full w-full object-cover">@else{{ strtoupper(substr($tenant->name ?: 'T', 0, 2)) }}@endif</span><span class="min-w-0"><span class="block truncate font-bold text-slate-900">{{ $tenant->name }}</span><span class="mt-1 block truncate text-xs text-slate-500">{{ $tenant->email }}</span></span></span>
                         </a>
                     @endforeach
                 </x-admin.search-section>
@@ -40,8 +39,7 @@
                 <x-admin.search-section title="Reservations" :items="$reservations" empty="No reservations matched.">
                     @foreach ($reservations as $reservation)
                         <a href="{{ route('admin.reservations', ['q' => $reservation->user->name ?? null]) }}" class="block rounded-xl border border-slate-100 bg-slate-50 p-3 transition hover:border-blue-200 hover:bg-blue-50">
-                            <p class="font-bold text-slate-900">{{ $reservation->user->name ?? 'Tenant' }}</p>
-                            <p class="mt-1 text-xs text-slate-500">{{ $reservation->boardingHouse->name ?? 'Boarding house' }} · {{ ucfirst($reservation->status ?? 'pending') }}</p>
+                            <span class="flex items-center gap-3"><span class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-xs font-black text-blue-700">@if ($reservation->user?->photo_url)<img src="{{ $reservation->user->photo_url }}" alt="{{ $reservation->user->name }}" class="h-full w-full object-cover">@else{{ strtoupper(substr($reservation->user->name ?? 'T', 0, 2)) }}@endif</span><span class="min-w-0"><span class="block truncate font-bold text-slate-900">{{ $reservation->user->name ?? 'Tenant' }}</span><span class="mt-1 block truncate text-xs text-slate-500">{{ $reservation->boardingHouse->name ?? 'Boarding house' }} · {{ ucfirst($reservation->status ?? 'pending') }}</span></span></span>
                         </a>
                     @endforeach
                 </x-admin.search-section>
@@ -49,8 +47,8 @@
                 <x-admin.search-section title="Payments" :items="$payments" empty="No payments matched.">
                     @foreach ($payments as $payment)
                         <a href="{{ route('admin.transactions.index', ['status' => $payment->status]) }}" class="block rounded-xl border border-slate-100 bg-slate-50 p-3 transition hover:border-blue-200 hover:bg-blue-50">
-                            <p class="font-bold text-slate-900">PHP {{ number_format((float) $payment->amount, 2) }}</p>
-                            <p class="mt-1 text-xs text-slate-500">{{ $payment->tenant->user->name ?? 'Tenant' }} · {{ ucfirst($payment->status ?? 'pending') }}</p>
+                            @php($paymentUser = $payment->tenant?->user)
+                            <span class="flex items-center gap-3"><span class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-xs font-black text-blue-700">@if ($paymentUser?->photo_url)<img src="{{ $paymentUser->photo_url }}" alt="{{ $paymentUser->name }}" class="h-full w-full object-cover">@else{{ strtoupper(substr($paymentUser?->name ?? 'T', 0, 2)) }}@endif</span><span class="min-w-0"><span class="block font-bold text-slate-900">PHP {{ number_format((float) $payment->amount, 2) }}</span><span class="mt-1 block truncate text-xs text-slate-500">{{ $paymentUser?->name ?? 'Tenant' }} · {{ ucfirst($payment->status ?? 'pending') }}</span></span></span>
                         </a>
                     @endforeach
                 </x-admin.search-section>
@@ -58,8 +56,7 @@
                 <x-admin.search-section title="Inquiries" :items="$inquiries" empty="No inquiries matched.">
                     @foreach ($inquiries as $inquiry)
                         <a href="{{ route('admin.inquiries', ['q' => $inquiry->user->name ?? null]) }}" class="block rounded-xl border border-slate-100 bg-slate-50 p-3 transition hover:border-blue-200 hover:bg-blue-50">
-                            <p class="font-bold text-slate-900">{{ $inquiry->user->name ?? 'Tenant' }}</p>
-                            <p class="mt-1 line-clamp-2 text-xs text-slate-500">{{ $inquiry->message }}</p>
+                            <span class="flex items-center gap-3"><span class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-xs font-black text-blue-700">@if ($inquiry->user?->photo_url)<img src="{{ $inquiry->user->photo_url }}" alt="{{ $inquiry->user->name }}" class="h-full w-full object-cover">@else{{ strtoupper(substr($inquiry->user->name ?? 'T', 0, 2)) }}@endif</span><span class="min-w-0"><span class="block truncate font-bold text-slate-900">{{ $inquiry->user->name ?? 'Tenant' }}</span><span class="mt-1 line-clamp-2 text-xs text-slate-500">{{ $inquiry->message }}</span></span></span>
                         </a>
                     @endforeach
                 </x-admin.search-section>

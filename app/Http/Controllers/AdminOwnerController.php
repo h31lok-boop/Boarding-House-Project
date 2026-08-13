@@ -21,6 +21,7 @@ use App\Rules\BoardMatchStrongPassword;
 use App\Services\BoardingHouseRecommendationService;
 use App\Services\CompatibilityService;
 use App\Services\PaymongoService;
+use App\Services\PaymentWordDocumentService;
 use App\Services\ReservationLifecycleService;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -664,14 +665,24 @@ class AdminOwnerController extends Controller
     {
         $this->authorizeAdmin($request);
 
+        $accountType = strtolower((string) ($request->query('account_type') ?: $request->route('account_type') ?: 'tenant'));
+        if (! in_array($accountType, ['tenant', 'owner', 'admin'], true)) {
+            $accountType = 'tenant';
+        }
+
+        $roles = match ($accountType) {
+            'owner' => ['owner'],
+            'admin' => ['admin'],
+            default => ['user', 'tenant', 'student'],
+        };
+
         $users = User::query()
-            ->with('ownerProfile')
-            ->whereIn('role', ['admin', 'owner', 'user', 'tenant', 'student'])
+            ->with(['ownerProfile', 'ownedBoardingHouses.photos', 'ownedBoardingHouses.images'])
+            ->whereIn('role', $roles)
             ->when($request->filled('q'), function ($query) use ($request) {
                 $term = '%'.$request->query('q').'%';
                 $query->where(fn ($q) => $q->where('name', 'like', $term)->orWhere('email', 'like', $term));
             })
-            ->when($request->filled('role'), fn ($query) => $query->where('role', $request->query('role')))
             ->when($request->filled('status'), function ($query) use ($request) {
                 $status = $request->query('status');
                 if ($status === 'active') {
@@ -685,16 +696,38 @@ class AdminOwnerController extends Controller
                     });
                 }
                 if ($status === 'pending') {
-                    $query->whereRaw('LOWER(status) = ?', ['pending']);
+                    $query->where(function ($pendingQuery) {
+                        $pendingQuery->whereRaw('LOWER(status) = ?', ['pending'])
+                            ->orWhereHas('ownerProfile', fn ($profile) => $profile->whereRaw('LOWER(verification_status) = ?', ['pending']));
+                    });
                 }
             })
             ->latest()
             ->paginate(12)
             ->withQueryString();
 
+        $tenantRoles = ['user', 'tenant', 'student'];
+        $pendingOwners = User::query()
+            ->where('role', 'owner')
+            ->where(function ($query) {
+                $query->whereRaw('LOWER(status) = ?', ['pending'])
+                    ->orWhereHas('ownerProfile', fn ($profile) => $profile->whereRaw('LOWER(verification_status) = ?', ['pending']));
+            })
+            ->count();
+
         return view('admin.users', [
             'users' => $users,
-            'roleCounts' => User::query()->whereIn('role', ['admin', 'owner', 'user', 'tenant', 'student'])->selectRaw('role, count(*) as total')->groupBy('role')->pluck('total', 'role'),
+            'accountType' => $accountType,
+            'tenantCount' => User::query()->whereIn('role', $tenantRoles)->count(),
+            'ownerCount' => User::query()->where('role', 'owner')->count(),
+            'pendingOwnerCount' => $pendingOwners,
+            'verifiedOwnerCount' => User::query()
+                ->where('role', 'owner')
+                ->with('ownerProfile')
+                ->get()
+                ->filter(fn (User $owner) => $owner->hasApprovedOwnerAccess())
+                ->count(),
+            'adminCount' => User::query()->where('role', 'admin')->count(),
         ]);
     }
 
@@ -707,11 +740,25 @@ class AdminOwnerController extends Controller
         $profile = $user->ownerProfile;
         $permitPath = $profile?->proof_of_ownership ?: $profile?->valid_id_file;
 
+        $listingQuery = BoardingHouse::query()->where(function ($query) use ($user) {
+            if (Schema::hasColumn('boarding_houses', 'owner_id')) {
+                $query->where('owner_id', $user->id);
+            }
+            if (Schema::hasColumn('boarding_houses', 'user_id')) {
+                $method = Schema::hasColumn('boarding_houses', 'owner_id') ? 'orWhere' : 'where';
+                $query->{$method}('user_id', $user->id);
+            }
+        });
+
         if (! $profile || ! filled($permitPath) || ! Storage::disk('public')->exists($permitPath)) {
             return back()->with('error', 'Owner verification failed because a valid uploaded business permit could not be found.');
         }
 
-        DB::transaction(function () use ($request, $user, $profile) {
+        if (! (clone $listingQuery)->exists()) {
+            return back()->with('error', 'Owner verification failed because the submitted boarding house application could not be found.');
+        }
+
+        DB::transaction(function () use ($request, $user, $profile, $listingQuery) {
             $user->forceFill([
                 'status' => 'active',
                 'account_status' => 'Active',
@@ -735,10 +782,18 @@ class AdminOwnerController extends Controller
                 $listingUpdates['approved_by'] = $request->user()->id;
             }
 
-            DB::table('boarding_houses')->where('owner_id', $user->id)->update($listingUpdates);
+            if (Schema::hasColumn('boarding_houses', 'approval_date')) {
+                $listingUpdates['approval_date'] = now();
+            }
+
+            if (Schema::hasColumn('boarding_houses', 'rejection_reason')) {
+                $listingUpdates['rejection_reason'] = null;
+            }
+
+            $listingQuery->update($listingUpdates);
         });
 
-        return back()->with('success', 'Owner account and business permit verified. The owner can now sign in.');
+        return back()->with('success', 'Owner application, business permit, and boarding house verified. The owner can now sign in and publish the approved listing.');
     }
 
     public function rejectOwner(Request $request, User $user)
@@ -746,7 +801,13 @@ class AdminOwnerController extends Controller
         $this->authorizeAdmin($request);
         abort_unless($user->isStrictOwner(), 404);
 
-        DB::transaction(function () use ($request, $user) {
+        $data = $request->validate([
+            'rejection_reason' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $reason = trim((string) ($data['rejection_reason'] ?? '')) ?: 'The submitted owner application or business permit did not pass administrator verification.';
+
+        DB::transaction(function () use ($request, $user, $reason) {
             $user->forceFill([
                 'status' => 'rejected',
                 'account_status' => 'Rejected',
@@ -759,12 +820,27 @@ class AdminOwnerController extends Controller
                 'verified_at' => now(),
             ])->save();
 
-            DB::table('boarding_houses')->where('owner_id', $user->id)->update([
+            $listingUpdates = [
                 'approval_status' => 'rejected',
                 'status' => 'rejected',
                 'is_active' => false,
                 'updated_at' => now(),
-            ]);
+            ];
+            if (Schema::hasColumn('boarding_houses', 'rejection_reason')) {
+                $listingUpdates['rejection_reason'] = $reason;
+            }
+
+            DB::table('boarding_houses')
+                ->where(function ($query) use ($user) {
+                    if (Schema::hasColumn('boarding_houses', 'owner_id')) {
+                        $query->where('owner_id', $user->id);
+                    }
+                    if (Schema::hasColumn('boarding_houses', 'user_id')) {
+                        $method = Schema::hasColumn('boarding_houses', 'owner_id') ? 'orWhere' : 'where';
+                        $query->{$method}('user_id', $user->id);
+                    }
+                })
+                ->update($listingUpdates);
         });
 
         return back()->with('success', 'Owner registration rejected. The account remains unavailable.');
@@ -779,6 +855,7 @@ class AdminOwnerController extends Controller
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'role' => ['required', Rule::in(['admin', 'user'])],
             'phone' => ['nullable', 'string', 'max:50'],
+            'profile_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'password' => ['required', 'string', Password::min(8)->letters()->mixedCase()->numbers()->symbols(), new BoardMatchStrongPassword],
             'password_confirmation' => ['nullable', 'string'],
             'is_active' => ['nullable', 'boolean'],
@@ -808,6 +885,13 @@ class AdminOwnerController extends Controller
             $fill['password_hash'] = $hashed;
         }
 
+        if ($request->hasFile('profile_photo')) {
+            $photoPath = $request->file('profile_photo')->store('profile-photos', 'public');
+            $fill['photo_path'] = $photoPath;
+            $fill['profile_photo'] = $photoPath;
+            $fill['profile_image'] = $photoPath;
+        }
+
         $user->forceFill($fill)->save();
         $user->syncRoles([$data['role']]);
 
@@ -823,16 +907,14 @@ class AdminOwnerController extends Controller
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'role' => ['required', Rule::in(['admin', 'owner', 'user'])],
             'phone' => ['nullable', 'string', 'max:50'],
+            'profile_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'password' => ['nullable', 'string', Password::min(8)->letters()->mixedCase()->numbers()->symbols(), new BoardMatchStrongPassword],
             'is_active' => ['nullable', 'boolean'],
         ]);
 
         if ($data['role'] === 'owner' && $request->boolean('is_active')) {
             $user->loadMissing('ownerProfile');
-            $permitPath = $user->ownerProfile?->proof_of_ownership ?: $user->ownerProfile?->valid_id_file;
-            $hasVerifiedPermit = strtolower((string) $user->ownerProfile?->verification_status) === 'verified'
-                && filled($permitPath)
-                && Storage::disk('public')->exists($permitPath);
+            $hasVerifiedPermit = (bool) $user->ownerProfile?->isApprovedForAccess(requireStoredPermit: true);
 
             if (! $hasVerifiedPermit) {
                 throw ValidationException::withMessages([
@@ -859,6 +941,14 @@ class AdminOwnerController extends Controller
             }
         }
 
+        if ($request->hasFile('profile_photo')) {
+            $this->deleteUserPhotoFiles($user);
+            $photoPath = $request->file('profile_photo')->store('profile-photos', 'public');
+            $fill['photo_path'] = $photoPath;
+            $fill['profile_photo'] = $photoPath;
+            $fill['profile_image'] = $photoPath;
+        }
+
         $user->forceFill($fill)->save();
         $user->syncRoles([$data['role']]);
 
@@ -873,6 +963,7 @@ class AdminOwnerController extends Controller
             return back()->with('error', 'You cannot delete the account currently signed in.');
         }
 
+        $this->deleteUserPhotoFiles($user);
         $user->delete();
 
         return back()->with('success', 'User account deleted.');
@@ -1207,10 +1298,11 @@ class AdminOwnerController extends Controller
             $userFill['contact_number'] = $data['phone'];
         }
         if ($request->hasFile('profile_image')) {
-            if ($user->profile_image) {
-                Storage::disk('public')->delete($user->profile_image);
-            }
-            $userFill['profile_image'] = $request->file('profile_image')->store('profile-images', 'public');
+            $this->deleteUserPhotoFiles($user);
+            $photoPath = $request->file('profile_image')->store('profile-images', 'public');
+            $userFill['photo_path'] = $photoPath;
+            $userFill['profile_photo'] = $photoPath;
+            $userFill['profile_image'] = $photoPath;
         }
         if (! empty($userFill)) {
             $user->forceFill($userFill)->save();
@@ -2491,7 +2583,7 @@ class AdminOwnerController extends Controller
         $search = trim((string) $request->query('q', ''));
         $dateColumn = Schema::hasColumn('payments', 'due_date') ? 'due_date' : 'created_at';
 
-        $payments = Payment::with(['tenant.user', 'boardingHouse'])
+        $payments = Payment::with(['tenant.user', 'boardingHouse', 'receipts'])
             ->when($request->user()?->isStrictOwner(), function ($query) use ($request) {
                 $query->whereIn('boarding_house_id', $this->ownerHouseIds($request));
             })
@@ -2545,6 +2637,46 @@ class AdminOwnerController extends Controller
         $view = $tab === 'transactions' ? 'admin.transactions' : 'admin.payments';
 
         return view($view, compact('payments', 'tenants', 'houses', 'tab', 'financeWorkbench'));
+    }
+
+    /**
+     * Render a clean, printer-friendly document for every payment record.
+     * Paid records are receipts; outstanding records are payment statements.
+     */
+    public function paymentDocument(Request $request, Payment $payment)
+    {
+        $this->authorizeAdmin($request);
+        $this->authorize('update', $payment);
+
+        $payment->loadMissing(['tenant.user', 'boardingHouse', 'receipts']);
+
+        return view('admin.payment-document', [
+            'payment' => $payment,
+            'autoPrint' => $request->boolean('print'),
+            'embedded' => $request->boolean('embedded'),
+            'wordDownloadUrl' => $this->wsRoute('payments.document.word', $payment),
+        ]);
+    }
+
+    /**
+     * Download the authorized payment record as a real Microsoft Word file.
+     */
+    public function paymentWordDocument(
+        Request $request,
+        Payment $payment,
+        PaymentWordDocumentService $documents,
+    ) {
+        $this->authorizeAdmin($request);
+        $this->authorize('update', $payment);
+
+        $payment->loadMissing(['tenant.user', 'boardingHouse', 'receipts']);
+        $document = $documents->create($payment);
+
+        return response()->download(
+            $document['path'],
+            $document['filename'],
+            ['Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+        )->deleteFileAfterSend(true);
     }
 
     public function paymentSettings(Request $request, PaymongoService $paymongo)
@@ -3398,15 +3530,11 @@ class AdminOwnerController extends Controller
             ];
 
             if ($request->hasFile('profile_photo')) {
-                $existingPhoto = $user->profile_photo ?: $user->profile_image;
-
-                if ($existingPhoto && ! Str::startsWith($existingPhoto, ['http://', 'https://'])) {
-                    Storage::disk('public')->delete($existingPhoto);
-                }
-
+                $this->deleteUserPhotoFiles($user);
                 $photoPath = $request->file('profile_photo')->store('profile-photos', 'public');
                 $fill['profile_photo'] = $photoPath;
                 $fill['profile_image'] = $photoPath;
+                $fill['photo_path'] = $photoPath;
             }
 
             $user->forceFill($fill)->save();
@@ -4324,6 +4452,15 @@ class AdminOwnerController extends Controller
     private function tableCount(string $table): int
     {
         return Schema::hasTable($table) ? (int) DB::table($table)->count() : 0;
+    }
+
+    private function deleteUserPhotoFiles(User $user): void
+    {
+        collect([$user->photo_path, $user->profile_photo, $user->profile_image])
+            ->filter()
+            ->unique()
+            ->reject(fn ($path) => Str::startsWith((string) $path, ['http://', 'https://', '/']))
+            ->each(fn ($path) => Storage::disk('public')->delete((string) $path));
     }
 
     private function statusCounts(string $modelClass, string $table): Collection

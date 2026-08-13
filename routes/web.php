@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AdminHelpCenterController;
+use App\Http\Controllers\Admin\ApiSettingsController;
 use App\Http\Controllers\Admin\PaymentReceiptVerificationController;
 use App\Http\Controllers\AdminListingController;
 use App\Http\Controllers\AdminOwnerController;
@@ -75,6 +76,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/search', [AdminOwnerController::class, 'search'])->name('search');
 
         // User management
+        Route::get('/user-management', [AdminOwnerController::class, 'users'])->name('user-management');
         Route::get('/users', [AdminOwnerController::class, 'users'])->name('users');
         Route::post('/users', [AdminOwnerController::class, 'storeUser'])->name('users.store');
         Route::patch('/users/{user}', [AdminOwnerController::class, 'updateUser'])->name('users.update');
@@ -119,6 +121,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/payment-settings', [AdminOwnerController::class, 'updatePaymentSettings'])->name('payment-settings.update');
         Route::get('/transactions', [AdminOwnerController::class, 'payments'])->name('transactions.index');
         Route::post('/payments', [AdminOwnerController::class, 'storePayment'])->name('payments.store');
+        Route::get('/payments/{payment}/document', [AdminOwnerController::class, 'paymentDocument'])->name('payments.document');
+        Route::get('/payments/{payment}/document/word', [AdminOwnerController::class, 'paymentWordDocument'])->name('payments.document.word');
         Route::patch('/payments/{payment}', [AdminOwnerController::class, 'updatePayment'])->name('payments.update');
 
         // Matchmaking system controls
@@ -143,9 +147,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/payment-verification/{receipt}/reject', [PaymentReceiptVerificationController::class, 'reject'])->name('payment-receipts.reject');
 
         // Tenant profiles
-        Route::get('/tenants', [AdminOwnerController::class, 'tenantProfiles'])->name('tenants.index');
-        Route::get('/tenants/create', [AdminOwnerController::class, 'tenantProfiles'])->name('tenants.create');
-        Route::get('/tenant-profiles', [AdminOwnerController::class, 'tenantProfiles'])->name('tenant-profiles');
+        Route::get('/tenants', [AdminOwnerController::class, 'users'])->defaults('account_type', 'tenant')->name('tenants.index');
+        Route::get('/tenants/create', [AdminOwnerController::class, 'users'])->defaults('account_type', 'tenant')->name('tenants.create');
+        Route::get('/tenant-profiles', [AdminOwnerController::class, 'users'])->defaults('account_type', 'tenant')->name('tenant-profiles');
         Route::patch('/tenant-profiles/{user}', [AdminOwnerController::class, 'updateTenantProfile'])->name('tenant-profiles.update');
 
         // Inquiries & messages
@@ -175,6 +179,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/settings/two-factor', [AdminOwnerController::class, 'updateSettingsTwoFactor'])->name('settings.two-factor.update');
         Route::post('/settings/action', [AdminOwnerController::class, 'settingsAction'])->name('settings.action');
         Route::post('/settings/logout-other-devices', [AdminOwnerController::class, 'logoutOtherDevices'])->name('settings.logout-other-devices');
+
+        // System-wide integrations (encrypted database overrides with .env fallback)
+        Route::get('/api-settings', [ApiSettingsController::class, 'index'])->name('api-settings.index');
+        Route::put('/api-settings', [ApiSettingsController::class, 'update'])->name('api-settings.update');
     });
 
     /*
@@ -226,6 +234,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/payment-settings', [OwnerController::class, 'updatePaymentSettings'])->name('payment-settings.update');
         Route::get('/transactions', [OwnerController::class, 'payments'])->name('transactions.index');
         Route::post('/payments', [OwnerController::class, 'storePayment'])->name('payments.store');
+        Route::get('/payments/{payment}/document', [OwnerController::class, 'paymentDocument'])->name('payments.document');
+        Route::get('/payments/{payment}/document/word', [OwnerController::class, 'paymentWordDocument'])->name('payments.document.word');
         Route::patch('/payments/{payment}', [OwnerController::class, 'updatePayment'])->name('payments.update');
 
         // Tenants

@@ -408,7 +408,7 @@
             </div>
 
             <div class="space-y-4 px-5 py-5 sm:px-6">
-                <form method="GET" class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/50">
+                <form method="GET" autocomplete="off" data-form-type="other" data-lpignore="true" data-1p-ignore data-bwignore class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/50">
                     @if (filled(request('owner')))
                         <input type="hidden" name="owner" value="{{ request('owner') }}">
                     @endif
@@ -419,7 +419,7 @@
                             <svg class="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                             </svg>
-                            <input name="q" value="{{ request('q') }}" class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-4 text-sm text-slate-700 shadow-none focus:border-slate-400 focus:bg-white focus:ring-0" placeholder="Search boarding houses or locations">
+                            <input name="q" value="{{ request('q') }}" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50/70 pl-10 pr-4 text-sm text-slate-700 shadow-none focus:border-slate-400 focus:bg-white focus:ring-0" placeholder="Search boarding houses or locations">
                         </label>
 
                         <label class="block xl:w-44">
@@ -884,7 +884,7 @@
 
         <template x-teleport="body">
         <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak x-transition.opacity @keydown.escape.window="addOpen = false" class="bm-modal-overlay" style="display: none;">
-            <form method="POST" action="{{ $route('listings.store') }}" enctype="multipart/form-data" class="bm-modal bm-modal--xl">
+            <form method="POST" action="{{ $route('listings.store') }}" enctype="multipart/form-data" autocomplete="off" data-form-type="other" data-lpignore="true" data-1p-ignore data-bwignore class="bm-modal bm-modal--xl">
                 @csrf
                 @if ($isMineView)
                     <input type="hidden" name="return_to_my_boarding_house" value="1">
@@ -899,7 +899,7 @@
                 </div>
                 <div class="bm-modal__body">
                 <div class="grid gap-4 md:grid-cols-2">
-                    <label class="text-sm">Name<input name="name" required class="ui-input mt-1"></label>
+                    <label class="text-sm">Name<input name="name" required autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore class="ui-input mt-1"></label>
                     <label class="text-sm">Owner Account
                         <select name="owner_id" class="ui-input mt-1">
                             <option value="">Use current admin</option>
@@ -912,9 +912,9 @@
                     <label class="text-sm">Capacity<input name="capacity" type="number" min="1" class="ui-input mt-1"></label>
                     <label class="text-sm">Available Rooms<input name="available_rooms" type="number" min="0" class="ui-input mt-1"></label>
                     <label class="text-sm">Approval<select name="approval_status" class="ui-input mt-1"><option value="approved">Approved</option><option value="pending">Pending</option><option value="rejected">Rejected</option></select></label>
-                    <label class="text-sm">Owner / Landlord<input name="landlord_info" class="ui-input mt-1"></label>
-                    <label class="text-sm">Contact Person<input name="contact_name" class="ui-input mt-1"></label>
-                    <label class="text-sm">Contact Number<input name="contact_phone" class="ui-input mt-1"></label>
+                    <label class="text-sm">Owner / Landlord<input name="landlord_info" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore class="ui-input mt-1"></label>
+                    <label class="text-sm">Contact Person<input name="contact_name" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore class="ui-input mt-1"></label>
+                    <label class="text-sm">Contact Number<input name="contact_phone" inputmode="tel" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore class="ui-input mt-1"></label>
                     <label class="text-sm md:col-span-2">Description<textarea name="description" rows="3" class="ui-input mt-1"></textarea></label>
                     <label class="text-sm md:col-span-2">House Rules<textarea name="house_rules" rows="3" class="ui-input mt-1"></textarea></label>
                     <label class="md:col-span-2 flex items-center gap-2 text-sm"><input type="hidden" name="is_active" value="0"><input type="checkbox" name="is_active" value="1" checked> Active listing</label>
@@ -1110,7 +1110,7 @@
 
         <template x-teleport="body">
         <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak x-transition.opacity @keydown.escape.window="editOpen = false" @click.self="editOpen = false" class="bm-modal-overlay" style="display: none;">
-            <form method="POST" :action="selected.update_url" enctype="multipart/form-data" class="bm-modal bm-modal--property-editor" @if ($isMineView) data-owner-direct-editor @endif>
+            <form method="POST" :action="selected.update_url" enctype="multipart/form-data" autocomplete="off" data-form-type="other" data-lpignore="true" data-1p-ignore data-bwignore class="bm-modal bm-modal--property-editor" @if ($isMineView) data-owner-direct-editor @endif>
                 @csrf @method('PUT')
                 @if ($isMineView)
                     <input type="hidden" name="return_to_my_boarding_house" value="1">
@@ -1205,7 +1205,7 @@
                                     <h3 class="mt-1 text-base font-bold text-slate-950 dark:text-white">Property information</h3>
                                 </div>
                                 <div class="mt-4 grid gap-4 md:grid-cols-2">
-                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200 md:col-span-2">Property name<input name="name" required class="ui-input mt-1.5" :value="selected.name"></label>
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200 md:col-span-2">Property name<input name="name" required autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore class="ui-input mt-1.5" :value="selected.name"></label>
                                     @unless ($isMineView)
                                     <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Owner account
                                         <select name="owner_id" class="ui-input mt-1.5" :value="selected.owner_id">
@@ -1222,9 +1222,9 @@
                                     <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Monthly fee<input name="monthly_payment" type="number" min="0" step="0.01" class="ui-input mt-1.5" :value="selected.monthly_payment"></label>
                                     <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Capacity<input name="capacity" type="number" min="1" class="ui-input mt-1.5" :value="selected.capacity"></label>
                                     <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Available rooms<input name="available_rooms" type="number" min="0" class="ui-input mt-1.5" :value="selected.available_rooms"></label>
-                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Owner / landlord<input name="landlord_info" class="ui-input mt-1.5" :value="selected.landlord_info || ''"></label>
-                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Contact person<input name="contact_name" class="ui-input mt-1.5" :value="selected.contact_name || ''"></label>
-                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Contact number<input name="contact_phone" class="ui-input mt-1.5" :value="selected.contact_phone || ''"></label>
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Owner / landlord<input name="landlord_info" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore class="ui-input mt-1.5" :value="selected.landlord_info || ''"></label>
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Contact person<input name="contact_name" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore class="ui-input mt-1.5" :value="selected.contact_name || ''"></label>
+                                    <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Contact number<input name="contact_phone" inputmode="tel" autocomplete="off" data-lpignore="true" data-1p-ignore data-bwignore class="ui-input mt-1.5" :value="selected.contact_phone || ''"></label>
                                     <label class="text-sm font-semibold text-slate-700 dark:text-slate-200 md:col-span-2">Description<textarea name="description" rows="4" class="ui-input mt-1.5" x-model="selected.description"></textarea></label>
                                     <label class="text-sm font-semibold text-slate-700 dark:text-slate-200 md:col-span-2">House rules<textarea name="house_rules" rows="4" class="ui-input mt-1.5" x-model="selected.house_rules"></textarea></label>
                                     <label class="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 md:col-span-2">

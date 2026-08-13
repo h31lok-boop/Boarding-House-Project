@@ -39,8 +39,13 @@
             @forelse ($reviews as $review)
                 @php
                     $rating = $review->rating ?? $review->overall_rating ?? 0;
+                    $tenantPhotoUrl = $review->user?->photo_url;
+                    $tenantName = $review->user?->name ?? 'Tenant';
+                    $tenantInitials = collect(explode(' ', trim($tenantName)))->filter()->take(2)->map(fn ($part) => strtoupper(substr($part, 0, 1)))->join('') ?: 'T';
                     $payload = [
-                        'tenant' => $review->user->name ?? 'Tenant',
+                        'tenant' => $tenantName,
+                        'tenant_initials' => $tenantInitials,
+                        'photo_url' => $tenantPhotoUrl,
                         'house' => $review->boardingHouse->name ?? 'Boarding house',
                         'rating' => $rating,
                         'comment' => $review->comment,
@@ -58,9 +63,12 @@
                     @keydown.space.prevent="selected = {{ \Illuminate\Support\Js::from($payload) }}; detailOpen = true"
                 >
                     <div class="flex items-start justify-between gap-3">
-                        <div>
+                        <div class="flex min-w-0 items-center gap-3">
+                            <span class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-xs font-black text-blue-700">@if ($tenantPhotoUrl)<img src="{{ $tenantPhotoUrl }}" alt="{{ $tenantName }}" class="h-full w-full object-cover" loading="lazy">@else{{ $tenantInitials }}@endif</span>
+                            <div class="min-w-0">
                             <h2 class="font-semibold">{{ $review->title ?: $review->boardingHouse->name ?? 'Review' }}</h2>
-                            <p class="text-sm ui-muted">{{ $review->user->name ?? 'Tenant' }} · {{ $review->created_at?->format('M d, Y') }}</p>
+                            <p class="truncate text-sm ui-muted">{{ $tenantName }} · {{ $review->created_at?->format('M d, Y') }}</p>
+                            </div>
                         </div>
                         <span class="badge border {{ $badge($review->status) }}">{{ ucfirst($review->status ?? 'pending') }}</span>
                     </div>
@@ -82,13 +90,15 @@
 
         <div data-modal-root role="dialog" aria-modal="true" x-show="detailOpen" x-cloak @keydown.escape.window="detailOpen = false" class="bm-modal-overlay">
             <div class="bm-modal bm-modal--lg">
-                <div class="flex items-center justify-between mb-5"><h2 class="text-lg font-semibold">Review Details</h2><button type="button" @click="detailOpen = false" class="h-8 w-8 rounded-lg border border-gray-200 flex items-center justify-center hover:bg-gray-50 text-gray-400"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div>
-                <p class="mt-5 text-3xl font-bold text-[color:var(--brand-600)]" x-text="`${selected.rating || 0} / 5`"></p>
-                <dl class="mt-5 grid gap-3 text-sm">
-                    <div><dt class="ui-muted">Tenant</dt><dd x-text="selected.tenant"></dd></div>
-                    <div><dt class="ui-muted">Boarding House</dt><dd x-text="selected.house"></dd></div>
-                    <div><dt class="ui-muted">Comment</dt><dd x-text="selected.comment || 'No comment provided.'"></dd></div>
-                </dl>
+                <div class="bm-modal__header"><div class="flex min-w-0 items-center gap-3"><span class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-sm font-black text-blue-700"><template x-if="selected.photo_url"><img :src="selected.photo_url" :alt="selected.tenant" class="h-full w-full object-cover"></template><span x-show="!selected.photo_url" x-text="selected.tenant_initials || 'T'"></span></span><div class="min-w-0"><h2 class="bm-modal__title">Review Details</h2><p class="bm-modal__subtitle truncate" x-text="selected.tenant"></p></div></div><button type="button" @click="detailOpen = false" class="bm-modal__close" aria-label="Close review details"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div>
+                <div class="bm-modal__body">
+                    <p class="text-3xl font-bold text-[color:var(--brand-600)]" x-text="`${selected.rating || 0} / 5`"></p>
+                    <dl class="mt-5 grid gap-3 text-sm">
+                        <div><dt class="ui-muted">Tenant</dt><dd x-text="selected.tenant"></dd></div>
+                        <div><dt class="ui-muted">Boarding House</dt><dd x-text="selected.house"></dd></div>
+                        <div><dt class="ui-muted">Comment</dt><dd x-text="selected.comment || 'No comment provided.'"></dd></div>
+                    </dl>
+                </div>
                 <div class="bm-modal__footer">
                     <form method="POST" :action="selected.update_url">
                         @csrf @method('PATCH')
