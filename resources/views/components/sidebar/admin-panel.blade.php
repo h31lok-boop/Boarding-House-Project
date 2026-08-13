@@ -155,7 +155,7 @@
 
     // Owners manage a single property — hide system-wide admin-only sections.
     if ($sidebarUserIsOwner) {
-        $ownerHidden = ['transactions', 'reports'];
+        $ownerHidden = ['transactions', 'insights', 'reports'];
         $sections = collect($sections)
             ->map(function ($section) use ($ownerHidden) {
                 $section['items'] = array_values(array_filter(
