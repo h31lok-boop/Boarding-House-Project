@@ -1,32 +1,37 @@
 {{-- resources/views/auth/login.blade.php --}}
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="light" data-theme-mode="light-only">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign In | BoardMatch</title>
-    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+    <link rel="icon" type="image/png" href="{{ asset('images/boardmatch-final-logo.png') }}">
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link rel="stylesheet" href="https://fonts.bunny.net/css?family=manrope:400,500,600,700,800&display=swap">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <script>
-        (function () {
-            const t = localStorage.getItem('theme');
-            if (t) document.documentElement.setAttribute('data-theme', t);
-        })();
-    </script>
     <style>
+        html { color-scheme: light; --surface: #fff; --surface-2: #f8fafc; --bg: #f4f7fb; --border: #dbe4ef; --text: #172033; --muted: #64748b; --brand-500: #2563eb; --brand-600: #1d4ed8; }
+        *, *::before, *::after { box-sizing: border-box; }
         body {
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1.5rem;
-            background: radial-gradient(circle at top, var(--surface) 0%, var(--bg) 60%, var(--surface-2) 100%);
+            margin: 0;
+            background: #f4f7fb;
+            color: #172033;
             font-family: 'Manrope', 'Segoe UI', sans-serif;
         }
 
+        .auth-page { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 56px; }
+        .auth-topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+        .auth-brand { display: inline-flex; align-items: center; gap: 10px; color: #172033; text-decoration: none; font-weight: 800; }
+        .auth-brand img { width: 42px; height: 42px; border-radius: 12px; box-shadow: 0 8px 20px rgba(37,99,235,.2); }
+        .auth-actions { display: flex; align-items: center; gap: 10px; }
+        .auth-action { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; border: 1px solid #dbe4ef; border-radius: 11px; background: #fff; padding: 0 14px; color: #475569; text-decoration: none; font-size: 12px; font-weight: 800; transition: .2s; }
+        .auth-action:hover { border-color: #93b4e8; color: #1d4ed8; }
+
         .login-wrap {
             width: 100%;
-            max-width: 400px;
+            max-width: 440px;
+            margin: 46px auto 0;
         }
 
         /* ── Brand mark ── */
@@ -47,11 +52,11 @@
 
         /* ── Card ── */
         .login-card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 20px;
+            background: #fff;
+            border: 1px solid #dbe4ef;
+            border-radius: 24px;
             padding: 2rem 2rem 1.75rem;
-            box-shadow: 0 10px 40px rgba(26, 18, 15, 0.08);
+            box-shadow: 0 24px 65px rgba(15,23,42,.09);
         }
 
         /* ── Labels ── */
@@ -208,19 +213,33 @@
         a.brand-link:hover { text-decoration: underline; }
         a.muted-link { color: #9ca3af; text-decoration: none; font-size: 0.8125rem; }
         a.muted-link:hover { color: var(--text); }
+        @media (max-width: 620px) {
+            .auth-page { width: min(100% - 20px, 1180px); padding-top: 18px; }
+            .auth-topbar { align-items: flex-start; }
+            .auth-actions { flex-direction: column; align-items: stretch; gap: 6px; }
+            .auth-action { min-height: 34px; padding: 0 10px; font-size: 11px; }
+            .login-wrap { margin-top: 28px; }
+            .login-card { padding: 24px 18px 22px; }
+        }
     </style>
 </head>
 <body>
+
+<main class="auth-page">
+    <nav class="auth-topbar" aria-label="Authentication navigation">
+        <a class="auth-brand" href="{{ url('/') }}"><img src="{{ asset('images/boardmatch-final-logo.png') }}" alt=""><span>BoardMatch</span></a>
+        <div class="auth-actions">
+            <a class="auth-action" href="{{ route('register') }}">Student registration</a>
+            <a class="auth-action" href="{{ route('register.owner') }}">Owner registration</a>
+        </div>
+    </nav>
 
     <div class="login-wrap">
 
         {{-- ── Brand ── --}}
         <div style="text-align:center; margin-bottom:1.75rem">
-            <div class="brand-mark">
-                <img src="{{ asset('images/boardmatch-mark.svg') }}" alt="BoardMatch">
-            </div>
-            <h1 style="font-size:1.5rem; font-weight:800; color:var(--text); margin:0 0 .25rem">BoardMatch</h1>
-            <p style="font-size:0.875rem; color:var(--muted); margin:0">Sign in to your account</p>
+            <h1 style="font-size:1.75rem; font-weight:800; color:var(--text); margin:0 0 .35rem">Welcome back</h1>
+            <p style="font-size:0.875rem; color:var(--muted); margin:0">Sign in to your BoardMatch account</p>
         </div>
 
         {{-- ── Card ── --}}
@@ -374,6 +393,7 @@
         </p>
 
     </div>
+</main>
 
     <script>
         // Password show/hide toggle
