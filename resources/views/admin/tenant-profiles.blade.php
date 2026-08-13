@@ -271,6 +271,21 @@
     }"
     class="space-y-5 text-slate-950"
 >
+    @unless ($isOwnerWorkspace)
+        <div class="flex justify-end">
+            <a
+                href="{{ route('admin.tenants.create') }}"
+                class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-[13px] font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700"
+            >
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m7-7H5"/>
+                </svg>
+                Add Tenant
+            </a>
+        </div>
+    @endunless
+
+    @if ($isOwnerWorkspace)
     <header class="overflow-hidden rounded-[1.4rem] border border-slate-200/80 bg-white shadow-[0_14px_32px_rgba(15,23,42,0.05)]">
         <div class="px-5 py-4 sm:px-6">
             <div class="space-y-4">
@@ -287,17 +302,6 @@
                         <a href="{{ $route('reservations') }}" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-[13px] font-semibold text-slate-700 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700">
                             Reservations
                         </a>
-                        @unless ($isOwnerWorkspace)
-                        <a
-                            href="{{ route('admin.tenants.create') }}"
-                            class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-[13px] font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700"
-                        >
-                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m7-7H5"/>
-                            </svg>
-                            Add Tenant
-                        </a>
-                        @endunless
                     </div>
                 </div>
 
@@ -372,6 +376,7 @@
             </div>
         </div>
     </header>
+    @endif
 
     <div>
         <main class="space-y-4">
