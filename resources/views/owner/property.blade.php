@@ -551,7 +551,7 @@
                     @csrf
                     @method('DELETE')
                     <button type="submit"
-                        class="inline-flex h-9 items-center justify-center rounded-xl bg-rose-600 px-4 text-sm font-bold text-white shadow-sm shadow-rose-600/20 transition hover:bg-rose-700"
+                        class="bm-modal__button bm-modal__button--danger disabled:cursor-not-allowed disabled:opacity-50"
                         {{ $hasActiveTenants || $hasPendingReservations ? 'disabled' : '' }}>
                         @if ($hasActiveTenants || $hasPendingReservations) Cannot Delete @else Delete @endif
                     </button>
