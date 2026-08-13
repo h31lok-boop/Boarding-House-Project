@@ -28,6 +28,7 @@ class AdminListingController extends Controller
 
         if (! $house) {
             $request->query->set('owner', 'mine');
+
             return app(AdminOwnerController::class)->boardingHouses($request);
         }
 

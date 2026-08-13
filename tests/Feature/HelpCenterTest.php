@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\SupportRequest;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -52,7 +53,7 @@ test('user can submit a support request with a screenshot', function () {
         'status' => 'Pending',
     ]);
 
-    $path = \App\Models\SupportRequest::query()->value('screenshot');
+    $path = SupportRequest::query()->value('screenshot');
 
     expect($path)->not->toBeNull();
     Storage::disk('public')->assertExists($path);

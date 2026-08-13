@@ -147,117 +147,117 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function boardingHouse()
     {
-        return $this->belongsTo(\App\Models\BoardingHouse::class);
+        return $this->belongsTo(BoardingHouse::class);
     }
 
     public function tenantProfile()
     {
-        return $this->hasOne(\App\Models\TenantProfile::class);
+        return $this->hasOne(TenantProfile::class);
     }
 
     public function ownerProfile()
     {
-        return $this->hasOne(\App\Models\OwnerProfile::class);
+        return $this->hasOne(OwnerProfile::class);
     }
 
     public function tenantMatchProfile()
     {
-        return $this->hasOne(\App\Models\TenantMatchProfile::class);
+        return $this->hasOne(TenantMatchProfile::class);
     }
 
     public function tenantPreference()
     {
-        return $this->hasOne(\App\Models\TenantPreference::class);
+        return $this->hasOne(TenantPreference::class);
     }
 
     public function userPreference()
     {
-        return $this->hasOne(\App\Models\UserPreference::class);
+        return $this->hasOne(UserPreference::class);
     }
 
     public function preference()
     {
-        return $this->hasOne(\App\Models\UserPreference::class);
+        return $this->hasOne(UserPreference::class);
     }
 
     public function ownedBoardingHouses()
     {
-        return $this->hasMany(\App\Models\BoardingHouse::class, 'owner_id');
+        return $this->hasMany(BoardingHouse::class, 'owner_id');
     }
 
     public function boardingHouses()
     {
-        return $this->hasMany(\App\Models\BoardingHouse::class);
+        return $this->hasMany(BoardingHouse::class);
     }
 
     public function boardingHouseApplications()
     {
-        return $this->hasMany(\App\Models\BoardingHouseApplication::class);
+        return $this->hasMany(BoardingHouseApplication::class);
     }
 
     public function favorites()
     {
-        return $this->hasMany(\App\Models\Favorite::class);
+        return $this->hasMany(Favorite::class);
     }
 
     public function boardingHouseMatches()
     {
-        return $this->hasMany(\App\Models\BoardingHouseMatch::class);
+        return $this->hasMany(BoardingHouseMatch::class);
     }
 
     public function inquiries()
     {
-        return $this->hasMany(\App\Models\Inquiry::class);
+        return $this->hasMany(Inquiry::class);
     }
 
     public function reservations()
     {
-        return $this->hasMany(\App\Models\Reservation::class);
+        return $this->hasMany(Reservation::class);
     }
 
     public function reviews()
     {
-        return $this->hasMany(\App\Models\Review::class);
+        return $this->hasMany(Review::class);
     }
 
     public function tenantRecords()
     {
-        return $this->hasMany(\App\Models\Tenant::class);
+        return $this->hasMany(Tenant::class);
     }
 
     public function sentRoommateMatchRequests()
     {
-        return $this->hasMany(\App\Models\RoommateMatchRequest::class, 'sender_id');
+        return $this->hasMany(RoommateMatchRequest::class, 'sender_id');
     }
 
     public function receivedRoommateMatchRequests()
     {
-        return $this->hasMany(\App\Models\RoommateMatchRequest::class, 'recipient_id');
+        return $this->hasMany(RoommateMatchRequest::class, 'recipient_id');
     }
 
     public function validationTasks()
     {
-        return $this->hasMany(\App\Models\ValidationTask::class, 'validator_id');
+        return $this->hasMany(ValidationTask::class, 'validator_id');
     }
 
     public function supportRequests()
     {
-        return $this->hasMany(\App\Models\SupportRequest::class);
+        return $this->hasMany(SupportRequest::class);
     }
 
     public function notificationPreference()
     {
-        return $this->hasOne(\App\Models\UserNotificationPreference::class);
+        return $this->hasOne(UserNotificationPreference::class);
     }
 
     public function userNotifications()
     {
-        return $this->hasMany(\App\Models\UserNotification::class);
+        return $this->hasMany(UserNotification::class);
     }
 
     public function paymentReceipts()
     {
-        return $this->hasMany(\App\Models\PaymentReceipt::class);
+        return $this->hasMany(PaymentReceipt::class);
     }
 
     /**

@@ -3,6 +3,7 @@
 use App\Models\BoardingHouse;
 use App\Models\OwnerProfile;
 use App\Models\Payment;
+use App\Models\PaymentReceipt;
 use App\Models\PaymongoCheckout;
 use App\Models\Tenant;
 use App\Models\User;
@@ -137,7 +138,7 @@ it('shows a pre-payment receipt modal before opening PayMongo checkout', functio
         ->assertSee('not proof of payment');
 
     Http::assertNothingSent();
-    expect(\App\Models\PaymentReceipt::where('payment_id', $fixture['payment']->id)->exists())->toBeFalse();
+    expect(PaymentReceipt::where('payment_id', $fixture['payment']->id)->exists())->toBeFalse();
 });
 
 it('confirms a returned PayMongo payment when a webhook is not configured', function () {
@@ -284,5 +285,5 @@ it('rejects invalid webhook signatures and settles valid paid webhooks idempoten
         'title' => 'Tenant payment received',
         'reference_id' => 'paymongo:'.$checkout->id.':owner',
     ]);
-    expect(\App\Models\PaymentReceipt::where('payment_id', $fixture['payment']->id)->count())->toBe(1);
+    expect(PaymentReceipt::where('payment_id', $fixture['payment']->id)->count())->toBe(1);
 });

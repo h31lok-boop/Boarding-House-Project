@@ -3,7 +3,6 @@
 use App\Models\BoardingHouse;
 use App\Models\BoardingHouseImage;
 use App\Models\User;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
 function imageAdmin(): User

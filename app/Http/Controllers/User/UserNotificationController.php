@@ -174,6 +174,7 @@ class UserNotificationController extends Controller
     {
         if ($filter === 'unread') {
             $query->unread();
+
             return;
         }
 

@@ -45,37 +45,38 @@ class AttachBoardingHouseImagesSeeder extends Seeder
 
         if ($houses->isEmpty()) {
             $this->command->info('All boarding houses already have images — nothing to seed.');
+
             return;
         }
 
-        $photos     = self::PHOTOS;
-        $total      = count($photos);
-        $rows       = [];
-        $now        = now()->toDateTimeString();
+        $photos = self::PHOTOS;
+        $total = count($photos);
+        $rows = [];
+        $now = now()->toDateTimeString();
 
         foreach ($houses as $offset => $houseId) {
             // Assign two different photos per house, cycling through the pool
-            $primary   = $photos[$offset % $total];
+            $primary = $photos[$offset % $total];
             $secondary = $photos[($offset + 3) % $total]; // offset by 3 for visual variety
 
             $rows[] = [
                 'boarding_house_id' => $houseId,
-                'image_path'        => $primary,
-                'image_label'       => 'Main Photo',
-                'is_primary'        => true,
-                'sort_order'        => 1,
-                'created_at'        => $now,
-                'updated_at'        => $now,
+                'image_path' => $primary,
+                'image_label' => 'Main Photo',
+                'is_primary' => true,
+                'sort_order' => 1,
+                'created_at' => $now,
+                'updated_at' => $now,
             ];
 
             $rows[] = [
                 'boarding_house_id' => $houseId,
-                'image_path'        => $secondary,
-                'image_label'       => 'Room Photo',
-                'is_primary'        => false,
-                'sort_order'        => 2,
-                'created_at'        => $now,
-                'updated_at'        => $now,
+                'image_path' => $secondary,
+                'image_label' => 'Room Photo',
+                'is_primary' => false,
+                'sort_order' => 2,
+                'created_at' => $now,
+                'updated_at' => $now,
             ];
         }
 
@@ -84,7 +85,7 @@ class AttachBoardingHouseImagesSeeder extends Seeder
             DB::table('boarding_house_images')->insert($chunk);
         }
 
-        $count  = $houses->count();
+        $count = $houses->count();
         $rows_n = $count * 2;
         $this->command->info("Attached photos to {$count} boarding houses ({$rows_n} rows inserted).");
     }

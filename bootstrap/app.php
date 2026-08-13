@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Middleware\AdminMiddleware;
+use App\Http\Middleware\ForceUtf8ResponseHeaders;
+use App\Http\Middleware\OwnerMiddleware;
+use App\Http\Middleware\UserMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -11,16 +15,16 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->append(\App\Http\Middleware\ForceUtf8ResponseHeaders::class);
+        $middleware->append(ForceUtf8ResponseHeaders::class);
 
         $middleware->validateCsrfTokens(except: [
             'webhooks/paymongo',
         ]);
 
         $middleware->alias([
-            'admin' => \App\Http\Middleware\AdminMiddleware::class,
-            'owner' => \App\Http\Middleware\OwnerMiddleware::class,
-            'user' => \App\Http\Middleware\UserMiddleware::class,
+            'admin' => AdminMiddleware::class,
+            'owner' => OwnerMiddleware::class,
+            'user' => UserMiddleware::class,
         ]);
 
         $middleware->trustHosts(at: ['^(.*)\.ngrok-free\.dev$', '^localhost$', '^final-project\.test$']);

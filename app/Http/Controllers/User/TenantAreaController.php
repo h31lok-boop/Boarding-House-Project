@@ -10,8 +10,10 @@ use App\Models\Payment;
 use App\Models\PaymentReceipt;
 use App\Models\Reservation;
 use App\Models\Review;
+use App\Models\Tenant;
 use App\Models\TenantPaymentMethod;
 use App\Models\UserNotification;
+use App\Services\PaymongoService;
 use App\Services\ReservationLifecycleService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -209,7 +211,7 @@ class TenantAreaController extends Controller
         $hasIsLate = Schema::hasColumn('payments', 'is_late');
 
         $tenantRecord = $hasTenantCol
-            ? \App\Models\Tenant::where('user_id', $tenant->id)->first()
+            ? Tenant::where('user_id', $tenant->id)->first()
             : null;
 
         // Prefer the tenant record for boarding_house_id — most reliable
@@ -346,9 +348,9 @@ class TenantAreaController extends Controller
 
             // ── Auto-generate next month's pending payment ──
             if ($tenantRecord && $boardingHouseId && $paidAmount > 0) {
-                $parsedDue = $lastDueDate instanceof \Carbon\Carbon
+                $parsedDue = $lastDueDate instanceof Carbon
                     ? $lastDueDate
-                    : \Carbon\Carbon::parse($lastDueDate);
+                    : Carbon::parse($lastDueDate);
                 $nextDueDate = $parsedDue->copy()->addMonth();
 
                 // Guard: don't insert if ANY payment (any status) already covers that due date
@@ -965,7 +967,7 @@ class TenantAreaController extends Controller
                     'boarding_house_location' => $payment->boardingHouse
                         ? ($payment->boardingHouse->full_address ?: ($payment->boardingHouse->address ?: 'Location not provided'))
                         : 'Location not provided',
-                    'paymongo_configured' => app(\App\Services\PaymongoService::class)->isConfigured(
+                    'paymongo_configured' => app(PaymongoService::class)->isConfigured(
                         $payment->boardingHouse?->ownerProfile ?: $payment->boardingHouse?->owner?->ownerProfile
                     ),
                 ];

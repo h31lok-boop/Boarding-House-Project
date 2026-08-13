@@ -817,6 +817,7 @@ class BoardMatchSampleRecordsSeeder extends Seeder
 
         if ($this->hasTable('inquiry_messages')) {
             $this->seedInquiryMessagesTable($messages, $inquiryIds, $tenantUserIds, $ownerUserIds, $houseMap);
+
             return;
         }
 

@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Throwable;
@@ -37,7 +38,7 @@ class PaymongoCheckoutController extends Controller
         ]);
 
         $tenant = Tenant::where('user_id', $user->id)->latest('id')->first();
-        $paymentsHaveUserId = \Illuminate\Support\Facades\Schema::hasColumn('payments', 'user_id');
+        $paymentsHaveUserId = Schema::hasColumn('payments', 'user_id');
         abort_if(! $tenant && ! $paymentsHaveUserId, 404);
         $payment = Payment::query()
             ->with(['boardingHouse.owner.ownerProfile', 'boardingHouse.ownerProfile'])

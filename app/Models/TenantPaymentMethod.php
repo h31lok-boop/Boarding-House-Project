@@ -35,12 +35,12 @@ class TenantPaymentMethod extends Model
         }
 
         return match (strtolower($this->type)) {
-            'visa'       => 'Visa •••• '.($this->last_four ?? '----'),
+            'visa' => 'Visa •••• '.($this->last_four ?? '----'),
             'mastercard' => 'Mastercard •••• '.($this->last_four ?? '----'),
-            'gcash'      => 'GCash '.($this->account_number ?? ''),
-            'bank'       => 'Bank •••• '.($this->last_four ?? ($this->account_number ? substr($this->account_number, -4) : '----')),
-            'cash'       => 'Cash Payment',
-            default      => ucfirst($this->type).' •••• '.($this->last_four ?? ''),
+            'gcash' => 'GCash '.($this->account_number ?? ''),
+            'bank' => 'Bank •••• '.($this->last_four ?? ($this->account_number ? substr($this->account_number, -4) : '----')),
+            'cash' => 'Cash Payment',
+            default => ucfirst($this->type).' •••• '.($this->last_four ?? ''),
         };
     }
 }

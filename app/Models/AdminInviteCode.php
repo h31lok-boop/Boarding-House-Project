@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AdminInviteCode extends Model
 {
@@ -17,7 +18,7 @@ class AdminInviteCode extends Model
 
     protected $casts = [
         'expires_at' => 'datetime',
-        'used_at'    => 'datetime',
+        'used_at' => 'datetime',
     ];
 
     /** True when the code has not been used and has not expired. */
@@ -43,7 +44,7 @@ class AdminInviteCode extends Model
         ]);
     }
 
-    public function usedBy(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function usedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'used_by');
     }

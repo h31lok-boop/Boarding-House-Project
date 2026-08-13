@@ -35,9 +35,9 @@ class AdminInviteCodeSeeder extends Seeder
             $plain = strtoupper(Str::random(4).'-'.Str::random(4).'-'.Str::random(4));
 
             AdminInviteCode::create([
-                'code'       => $plain,
-                'label'      => $meta['label'],
-                'email'      => $meta['email'],
+                'code' => $plain,
+                'label' => $meta['label'],
+                'email' => $meta['email'],
                 'expires_at' => now()->addDays(30),
             ]);
 

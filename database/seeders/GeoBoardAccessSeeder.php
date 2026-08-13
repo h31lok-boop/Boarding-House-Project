@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 class GeoBoardAccessSeeder extends Seeder
 {
@@ -15,7 +16,7 @@ class GeoBoardAccessSeeder extends Seeder
     {
         $this->ensureSafeSeedPasswordUsage();
 
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         foreach (['admin', 'owner', 'user'] as $roleName) {
             Role::firstOrCreate([

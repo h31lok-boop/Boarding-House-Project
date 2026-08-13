@@ -2,8 +2,9 @@
 
 use App\Models\OwnerProfile;
 use App\Services\PaymongoService;
+use Tests\TestCase;
 
-uses(Tests\TestCase::class);
+uses(TestCase::class);
 
 it('uses shared environment credentials for every owner when configured', function () {
     config()->set('services.paymongo.public_key', 'pk_test_shared123');

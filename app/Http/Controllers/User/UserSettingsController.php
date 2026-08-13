@@ -124,7 +124,7 @@ class UserSettingsController extends Controller
                 'regex:/[a-z]/',
                 'regex:/[0-9]/',
                 'regex:/[^A-Za-z0-9]/',
-                new BoardMatchStrongPassword(),
+                new BoardMatchStrongPassword,
             ],
         ], [
             'password.regex' => 'The new password must include uppercase, lowercase, number, and special characters.',

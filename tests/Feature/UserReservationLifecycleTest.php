@@ -5,6 +5,7 @@ use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\TenantPaymentMethod;
 use App\Models\User;
+use App\Models\UserNotification;
 use App\Services\ReservationLifecycleService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -145,11 +146,11 @@ test('expiration command expires stale reservations, releases rooms, and blocks 
         ->assertSessionHas('error');
 
     if (Schema::hasTable('notifications')) {
-        $tenantNotified = \App\Models\UserNotification::query()
+        $tenantNotified = UserNotification::query()
             ->where('user_id', $tenant->id)
             ->where('reference_id', 'reservation:'.$reservation->id.':expired:user')
             ->exists();
-        $ownerNotified = \App\Models\UserNotification::query()
+        $ownerNotified = UserNotification::query()
             ->where('user_id', $owner->id)
             ->where('reference_id', 'reservation:'.$reservation->id.':expired:owner')
             ->exists();

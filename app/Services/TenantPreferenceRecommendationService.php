@@ -7,13 +7,14 @@ use App\Models\TenantMatchProfile;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 class TenantPreferenceRecommendationService
 {
     private const WEIGHTS = [
-        'budget'       => 0.40,
-        'location'     => 0.35,
-        'lifestyle'    => 0.15,
+        'budget' => 0.40,
+        'location' => 0.35,
+        'lifestyle' => 0.15,
         'availability' => 0.10,
     ];
 
@@ -44,9 +45,9 @@ class TenantPreferenceRecommendationService
                 }
 
                 $scores = [
-                    'budget'       => $this->scoreBudget($price, $budgetMin, $budgetMax),
-                    'location'     => $this->scoreLocation($preferredLocation, $house),
-                    'lifestyle'    => $this->scoreLifestyle($lifestyleText, $house),
+                    'budget' => $this->scoreBudget($price, $budgetMin, $budgetMax),
+                    'location' => $this->scoreLocation($preferredLocation, $house),
+                    'lifestyle' => $this->scoreLifestyle($lifestyleText, $house),
                     'availability' => $this->scoreAvailability($house),
                 ];
 
@@ -58,16 +59,16 @@ class TenantPreferenceRecommendationService
                 $percent = (int) round($overall * 100);
 
                 return [
-                    'house'          => $house,
-                    'image_url'      => $this->imageUrl($house),
+                    'house' => $house,
+                    'image_url' => $this->imageUrl($house),
                     'recommendation' => [
-                        'overall_score'          => round($overall, 4),
+                        'overall_score' => round($overall, 4),
                         'recommendation_percent' => $percent,
-                        'match_label'            => $this->matchLabel($percent),
-                        'ai_reason'              => $this->buildAiReason($scores, $preferredLocation, $budgetMin, $budgetMax, $price),
-                        'reasons'                => $this->buildReasons($scores),
-                        'scores'                 => $scores,
-                        'price'                  => $price,
+                        'match_label' => $this->matchLabel($percent),
+                        'ai_reason' => $this->buildAiReason($scores, $preferredLocation, $budgetMin, $budgetMax, $price),
+                        'reasons' => $this->buildReasons($scores),
+                        'scores' => $scores,
+                        'price' => $price,
                     ],
                 ];
             })
@@ -108,9 +109,9 @@ class TenantPreferenceRecommendationService
 
     private function parseProfile(?TenantMatchProfile $profile): array
     {
-        $notes           = (string) ($profile?->additional_notes ?? '');
-        $preferredLoc    = $this->extractPreferredLocation($notes);
-        $lifestyleText   = $this->extractLifestyleText($notes);
+        $notes = (string) ($profile?->additional_notes ?? '');
+        $preferredLoc = $this->extractPreferredLocation($notes);
+        $lifestyleText = $this->extractLifestyleText($notes);
 
         return [
             $this->toFloat($profile?->budget_min),
@@ -224,40 +225,40 @@ class TenantPreferenceRecommendationService
         $keywordGroups = [
             [
                 'tenant' => ['quiet', 'peaceful', 'silent', 'no noise', 'no loud'],
-                'house'  => ['quiet', 'peaceful', 'study', 'no noise', 'no loud', 'silent'],
+                'house' => ['quiet', 'peaceful', 'study', 'no noise', 'no loud', 'silent'],
             ],
             [
                 'tenant' => ['clean', 'tidy', 'hygienic', 'cleanliness'],
-                'house'  => ['clean', 'tidy', 'hygienic', 'sanitary', 'cleanliness'],
+                'house' => ['clean', 'tidy', 'hygienic', 'sanitary', 'cleanliness'],
             ],
             [
                 'tenant' => ['safe', 'security', 'cctv', 'gated'],
-                'house'  => ['safe', 'security', 'cctv', 'guard', 'gated'],
+                'house' => ['safe', 'security', 'cctv', 'guard', 'gated'],
             ],
             [
                 'tenant' => ['wifi', 'internet', 'broadband'],
-                'house'  => ['wifi', 'internet', 'broadband', 'wi-fi'],
+                'house' => ['wifi', 'internet', 'broadband', 'wi-fi'],
             ],
             [
                 'tenant' => ['non-smoker', 'no smoking', 'smoke-free', 'nonsmoker', 'non smoker'],
-                'house'  => ['no smoking', 'non-smoking', 'smoke-free', 'smoking prohibited'],
+                'house' => ['no smoking', 'non-smoking', 'smoke-free', 'smoking prohibited'],
             ],
             [
                 'tenant' => ['furnished', 'aircon', 'air conditioning', 'air con'],
-                'house'  => ['furnished', 'aircon', 'air conditioning', 'ac', 'air-conditioned'],
+                'house' => ['furnished', 'aircon', 'air conditioning', 'ac', 'air-conditioned'],
             ],
             [
                 'tenant' => ['female', 'women', 'girls', 'ladies'],
-                'house'  => ['female', 'women', 'girls', 'ladies only', 'female only'],
+                'house' => ['female', 'women', 'girls', 'ladies only', 'female only'],
             ],
             [
                 'tenant' => ['male', 'men', 'boys', 'gents'],
-                'house'  => ['male', 'men', 'boys', 'gents only', 'male only'],
+                'house' => ['male', 'men', 'boys', 'gents only', 'male only'],
             ],
         ];
 
-        $lifeLower     = strtolower($lifestyleText);
-        $totalGroups   = 0;
+        $lifeLower = strtolower($lifestyleText);
+        $totalGroups = 0;
         $matchedGroups = 0;
 
         foreach ($keywordGroups as $group) {
@@ -380,14 +381,14 @@ class TenantPreferenceRecommendationService
         // Budget
         if ($scores['budget'] >= 0.9) {
             $budgetRange = $this->formatBudgetRange($budgetMin, $budgetMax);
-            $parts[] = "fits your budget" . ($budgetRange ? " ({$budgetRange})" : '');
+            $parts[] = 'fits your budget'.($budgetRange ? " ({$budgetRange})" : '');
         } elseif ($scores['budget'] >= 0.6) {
             $parts[] = 'is reasonably priced for your budget';
         }
 
         // Location
         if ($scores['location'] >= 0.8) {
-            $parts[] = "is in your preferred area" . ($preferredLocation ? " ({$preferredLocation})" : '');
+            $parts[] = 'is in your preferred area'.($preferredLocation ? " ({$preferredLocation})" : '');
         } elseif ($scores['location'] >= 0.5) {
             $parts[] = 'is near your preferred location';
         }
@@ -414,7 +415,7 @@ class TenantPreferenceRecommendationService
             return "This boarding house {$first}.";
         }
 
-        $last   = array_pop($parts);
+        $last = array_pop($parts);
         $middle = implode(', ', $parts);
 
         return $middle
@@ -450,15 +451,15 @@ class TenantPreferenceRecommendationService
     private function formatBudgetRange(?float $min, ?float $max): string
     {
         if ($min !== null && $max !== null) {
-            return '₱' . number_format($min) . '–₱' . number_format($max);
+            return '₱'.number_format($min).'–₱'.number_format($max);
         }
 
         if ($max !== null) {
-            return 'up to ₱' . number_format($max);
+            return 'up to ₱'.number_format($max);
         }
 
         if ($min !== null) {
-            return 'from ₱' . number_format($min);
+            return 'from ₱'.number_format($min);
         }
 
         return '';
@@ -471,7 +472,7 @@ class TenantPreferenceRecommendationService
         $path = null;
 
         if ($house->relationLoaded('images') && $house->images->isNotEmpty()) {
-            $img  = $house->images->firstWhere('is_primary', true)
+            $img = $house->images->firstWhere('is_primary', true)
                  ?? $house->images->sortBy('sort_order')->first()
                  ?? $house->images->first();
             $path = $img?->image_path ?: null;
@@ -494,7 +495,7 @@ class TenantPreferenceRecommendationService
             return $path;
         }
 
-        return \Illuminate\Support\Facades\Storage::url($path);
+        return Storage::url($path);
     }
 
     /** Check whether the tenant has enough preferences to run matching. */

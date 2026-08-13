@@ -12,7 +12,9 @@ class PaymentReceipt extends Model
     use HasFactory;
 
     public const STATUS_PENDING_REVIEW = 'pending_review';
+
     public const STATUS_APPROVED = 'approved';
+
     public const STATUS_REJECTED = 'rejected';
 
     protected $fillable = [

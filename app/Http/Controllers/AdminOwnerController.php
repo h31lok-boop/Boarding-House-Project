@@ -23,11 +23,15 @@ use App\Services\CompatibilityService;
 use App\Services\PaymongoService;
 use App\Services\ReservationLifecycleService;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
@@ -55,7 +59,7 @@ class AdminOwnerController extends Controller
         $candidates = [$this->workspace.'.'.$name, 'admin.'.$name, 'owner.'.$name];
 
         foreach ($candidates as $candidate) {
-            if (\Illuminate\Support\Facades\Route::has($candidate)) {
+            if (Route::has($candidate)) {
                 return route($candidate, $params);
             }
         }
@@ -212,7 +216,7 @@ class AdminOwnerController extends Controller
     /**
      * IDs of the boarding houses owned by the current user.
      */
-    protected function ownerHouseIds(Request $request): \Illuminate\Support\Collection
+    protected function ownerHouseIds(Request $request): Collection
     {
         if (! Schema::hasTable('boarding_houses')) {
             return collect();
@@ -1204,7 +1208,7 @@ class AdminOwnerController extends Controller
         }
         if ($request->hasFile('profile_image')) {
             if ($user->profile_image) {
-                \Illuminate\Support\Facades\Storage::disk('public')->delete($user->profile_image);
+                Storage::disk('public')->delete($user->profile_image);
             }
             $userFill['profile_image'] = $request->file('profile_image')->store('profile-images', 'public');
         }
@@ -1385,7 +1389,7 @@ class AdminOwnerController extends Controller
         ];
 
         if (! Schema::hasTable('inquiries')) {
-            $inquiries = new \Illuminate\Pagination\LengthAwarePaginator(
+            $inquiries = new LengthAwarePaginator(
                 collect(),
                 0,
                 8,
@@ -1525,7 +1529,7 @@ class AdminOwnerController extends Controller
         };
 
         if (! Schema::hasTable('inquiries')) {
-            $threads = new \Illuminate\Pagination\LengthAwarePaginator(
+            $threads = new LengthAwarePaginator(
                 collect(),
                 0,
                 8,
@@ -1651,7 +1655,7 @@ class AdminOwnerController extends Controller
                 $status = strtolower((string) ($thread->status ?? 'pending'));
                 $replyNotification = $replyNotifications->get('inquiry:'.$thread->id);
                 $activityDate = $replyNotification?->updated_at
-                    ? \Illuminate\Support\Carbon::parse($replyNotification->updated_at)
+                    ? Carbon::parse($replyNotification->updated_at)
                     : ($thread->updated_at ?: $thread->created_at);
 
                 return [
@@ -2314,7 +2318,7 @@ class AdminOwnerController extends Controller
                             && (int) $freshRoom->available_slots > 0;
 
                         if (! $isVacant) {
-                            throw \Illuminate\Validation\ValidationException::withMessages([
+                            throw ValidationException::withMessages([
                                 'room_id' => ['That room was just taken. Please choose another available room.'],
                             ]);
                         }
@@ -2821,7 +2825,7 @@ class AdminOwnerController extends Controller
             return $query;
         };
 
-        $applyPaymentRange = function ($query, ?\Illuminate\Support\Carbon $from = null, ?\Illuminate\Support\Carbon $to = null) use ($startDate, $endDate) {
+        $applyPaymentRange = function ($query, ?Carbon $from = null, ?Carbon $to = null) use ($startDate, $endDate) {
             $from ??= $startDate;
             $to ??= $endDate;
 
@@ -2841,7 +2845,7 @@ class AdminOwnerController extends Controller
             return $query->whereBetween('created_at', [$from, $to]);
         };
 
-        $sumPaidRevenue = function (?\Illuminate\Support\Carbon $from = null, ?\Illuminate\Support\Carbon $to = null) use ($applyPaymentRange): float {
+        $sumPaidRevenue = function (?Carbon $from = null, ?Carbon $to = null) use ($applyPaymentRange): float {
             if (! Schema::hasTable('payments')) {
                 return 0.0;
             }
@@ -3082,7 +3086,7 @@ class AdminOwnerController extends Controller
         $page = max((int) $request->query('page', 1), 1);
         $paginatedRows = $forExport
             ? $reportRows
-            : new \Illuminate\Pagination\LengthAwarePaginator(
+            : new LengthAwarePaginator(
                 $reportRows->forPage($page, $perPage)->values(),
                 $reportRows->count(),
                 $perPage,
@@ -3149,7 +3153,7 @@ class AdminOwnerController extends Controller
             'unread' => 0,
             'announcement' => 0,
         ];
-        $notifications = new \Illuminate\Pagination\LengthAwarePaginator(
+        $notifications = new LengthAwarePaginator(
             collect(),
             0,
             8,
@@ -3396,8 +3400,8 @@ class AdminOwnerController extends Controller
             if ($request->hasFile('profile_photo')) {
                 $existingPhoto = $user->profile_photo ?: $user->profile_image;
 
-                if ($existingPhoto && ! \Illuminate\Support\Str::startsWith($existingPhoto, ['http://', 'https://'])) {
-                    \Illuminate\Support\Facades\Storage::disk('public')->delete($existingPhoto);
+                if ($existingPhoto && ! Str::startsWith($existingPhoto, ['http://', 'https://'])) {
+                    Storage::disk('public')->delete($existingPhoto);
                 }
 
                 $photoPath = $request->file('profile_photo')->store('profile-photos', 'public');
@@ -4116,7 +4120,7 @@ class AdminOwnerController extends Controller
         ];
     }
 
-    private function recentActivities(): \Illuminate\Support\Collection
+    private function recentActivities(): Collection
     {
         $activities = collect();
 
@@ -4199,7 +4203,7 @@ class AdminOwnerController extends Controller
             ->values();
     }
 
-    private function dashboardUpcomingReminders(): \Illuminate\Support\Collection
+    private function dashboardUpcomingReminders(): Collection
     {
         $today = now()->startOfDay();
         $items = collect();
@@ -4291,7 +4295,7 @@ class AdminOwnerController extends Controller
         abort_unless($request->user()?->isManager(), 403);
     }
 
-    private function ownerTenantUserIds(Request $request): \Illuminate\Support\Collection
+    private function ownerTenantUserIds(Request $request): Collection
     {
         if (! $request->user()?->isStrictOwner()) {
             return collect();
@@ -4322,7 +4326,7 @@ class AdminOwnerController extends Controller
         return Schema::hasTable($table) ? (int) DB::table($table)->count() : 0;
     }
 
-    private function statusCounts(string $modelClass, string $table): \Illuminate\Support\Collection
+    private function statusCounts(string $modelClass, string $table): Collection
     {
         if (! Schema::hasTable($table) || ! Schema::hasColumn($table, 'status')) {
             return collect();
