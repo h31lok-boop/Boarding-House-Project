@@ -29,32 +29,147 @@ class GeoBoardAccessSeeder extends Seeder
             ->delete();
 
         $admin = $this->upsertUser(
-            'Jani',
-            $this->seedEmailFor('owner', '  ', ['owner', 'jani']),
-            $this->seedPasswordFor('admin', 'admin123', ['owner', 'jani']),
-            'owner',
-            '09170000002',
+            'BoardMatch Administrator',
+            $this->seedEmailFor('admin', 'admin@boardmatch.com'),
+            $this->seedPasswordFor('admin', 'admin123'),
+            'admin',
+            '09170000001',
             $this->seedUsernameFor('admin', 'admin')
         );
 
-        $user = $this->upsertUser(
-            'Hazel',
-            $this->seedEmailFor('tenant', 'tenant@example.com', ['student', 'user', 'hazel']),
-            $this->seedPasswordFor('tenant', 'tenant123', ['student', 'user', 'hazel']),
-            'user',
-            '09170000006',
-            $this->seedUsernameFor('tenant', 'tenant')
-        );
+        $owners = collect($this->ownerAccounts())
+            ->map(fn (array $account, int $index) => $this->upsertUser(
+                $account['name'],
+                $index === 0
+                    ? $this->seedEmailFor('owner', $account['email'], ['jani'])
+                    : $account['email'],
+                $this->seedPasswordFor('owner', 'owner123', ['jani']),
+                'owner',
+                $account['phone'],
+                $index === 0
+                    ? $this->seedUsernameFor('owner', $account['username'])
+                    : $account['username'],
+            ));
 
-        foreach ([$admin, $user] as $account) {
+        $tenants = collect($this->tenantAccounts())
+            ->map(fn (array $account, int $index) => $this->upsertUser(
+                $account['name'],
+                $index === 0
+                    ? $this->seedEmailFor('tenant', $account['email'], ['student', 'user', 'hazel'])
+                    : $account['email'],
+                $this->seedPasswordFor('tenant', 'tenant123', ['student', 'user', 'hazel']),
+                'user',
+                $account['phone'],
+                $index === 0
+                    ? $this->seedUsernameFor('tenant', $account['username'])
+                    : $account['username'],
+            ));
+
+        $accounts = collect([$admin])->concat($owners)->concat($tenants)->values();
+
+        foreach ($accounts as $account) {
             $account->syncRoles([$account->role]);
         }
 
-        $this->ensureOwnerProfile($admin->id, $admin->id, 'Jani Boarding House Office');
+        foreach ($owners as $index => $owner) {
+            $this->ensureOwnerProfile(
+                $owner->id,
+                $admin->id,
+                $this->ownerAccounts()[$index]['company']
+            );
+        }
 
-        $this->ensureTenantProfile($user->id, $admin->id, 'Student Tenant');
+        foreach ($tenants as $tenant) {
+            $this->ensureTenantProfile($tenant->id, $admin->id, 'Davao del Sur State College');
+        }
 
-        $this->removeOtherAccounts($admin, $user);
+        $this->removeOtherAccounts($accounts->all(), $admin, $owners->first());
+        $this->assertAccountRoster();
+
+        $this->command?->info('Seeded exactly 1 administrator, 5 owners, and 5 tenants.');
+    }
+
+    /**
+     * @return array<int, array{name: string, email: string, username: string, phone: string, company: string}>
+     */
+    private function ownerAccounts(): array
+    {
+        return [
+            [
+                'name' => 'Jani Dela Cruz',
+                'email' => 'owner@example.com',
+                'username' => 'owner',
+                'phone' => '09170000002',
+                'company' => 'Jani Boarding House Office',
+            ],
+            [
+                'name' => 'Maria Santos',
+                'email' => 'owner2@boardmatch.test',
+                'username' => 'owner2',
+                'phone' => '09170000003',
+                'company' => 'Santos Student Homes',
+            ],
+            [
+                'name' => 'Roberto Cruz',
+                'email' => 'owner3@boardmatch.test',
+                'username' => 'owner3',
+                'phone' => '09170000004',
+                'company' => 'Cruz Boarding Services',
+            ],
+            [
+                'name' => 'Elena Villanueva',
+                'email' => 'owner4@boardmatch.test',
+                'username' => 'owner4',
+                'phone' => '09170000005',
+                'company' => 'Villanueva Residences',
+            ],
+            [
+                'name' => 'Daniel Reyes',
+                'email' => 'owner5@boardmatch.test',
+                'username' => 'owner5',
+                'phone' => '09170000006',
+                'company' => 'Reyes Dormitory Management',
+            ],
+        ];
+    }
+
+    /**
+     * @return array<int, array{name: string, email: string, username: string, phone: string}>
+     */
+    private function tenantAccounts(): array
+    {
+        return [
+            [
+                'name' => 'Hazel Reyes',
+                'email' => 'tenant@example.com',
+                'username' => 'tenant',
+                'phone' => '09171000001',
+            ],
+            [
+                'name' => 'Carlo Mendoza',
+                'email' => 'tenant2@boardmatch.test',
+                'username' => 'tenant2',
+                'phone' => '09171000002',
+            ],
+            [
+                'name' => 'Mae Dela Peña',
+                'email' => 'tenant3@boardmatch.test',
+                'username' => 'tenant3',
+                'phone' => '09171000003',
+            ],
+            [
+                'name' => 'John Bautista',
+                'email' => 'tenant4@boardmatch.test',
+                'username' => 'tenant4',
+                'phone' => '09171000004',
+            ],
+            [
+                'name' => 'Angela Ramos',
+                'email' => 'tenant5@boardmatch.test',
+                'username' => 'tenant5',
+                'phone' => '09171000005',
+            ],
+        ];
     }
 
     private function upsertUser(
@@ -64,8 +179,7 @@ class GeoBoardAccessSeeder extends Seeder
         string $role,
         string $contactNumber,
         ?string $username = null
-    ): User
-    {
+    ): User {
         $hashed = Hash::make($password);
 
         $user = User::firstOrNew(['email' => $email]);
@@ -108,6 +222,8 @@ class GeoBoardAccessSeeder extends Seeder
                 'verification_status' => 'verified',
                 'verified_by' => $verifiedBy,
                 'verified_at' => now(),
+                'paymongo_enabled' => filled(config('services.paymongo.public_key'))
+                    && filled(config('services.paymongo.secret_key')),
                 'created_at' => now(),
                 'updated_at' => now(),
             ]
@@ -137,9 +253,12 @@ class GeoBoardAccessSeeder extends Seeder
         );
     }
 
-    private function removeOtherAccounts(User $admin, User $user): void
+    /**
+     * @param  array<int, User>  $accounts
+     */
+    private function removeOtherAccounts(array $accounts, User $admin, User $fallbackOwner): void
     {
-        $keepIds = [$admin->id, $user->id];
+        $keepIds = collect($accounts)->pluck('id')->map(fn ($id) => (int) $id)->all();
         $oldIds = User::query()->whereNotIn('id', $keepIds)->pluck('id')->all();
 
         if ($oldIds === []) {
@@ -147,15 +266,15 @@ class GeoBoardAccessSeeder extends Seeder
         }
 
         $ownerProfileId = Schema::hasTable('owner_profiles')
-            ? (int) DB::table('owner_profiles')->where('user_id', $admin->id)->value('id')
+            ? (int) DB::table('owner_profiles')->where('user_id', $fallbackOwner->id)->value('id')
             : null;
 
         if (Schema::hasTable('boarding_houses')) {
             $updates = [
-                'owner_id' => $admin->id,
-                'contact_name' => $admin->name,
-                'contact_number' => $admin->contact_number ?: $admin->phone,
-                'contact_phone' => $admin->contact_number ?: $admin->phone,
+                'owner_id' => $fallbackOwner->id,
+                'contact_name' => $fallbackOwner->name,
+                'contact_number' => $fallbackOwner->contact_number ?: $fallbackOwner->phone,
+                'contact_phone' => $fallbackOwner->contact_number ?: $fallbackOwner->phone,
                 'updated_at' => now(),
             ];
 
@@ -167,7 +286,7 @@ class GeoBoardAccessSeeder extends Seeder
                 $updates['approved_by'] = $admin->id;
             }
 
-            DB::table('boarding_houses')->update($updates);
+            DB::table('boarding_houses')->whereIn('owner_id', $oldIds)->update($updates);
         }
 
         $oldTenantIds = Schema::hasTable('tenants')
@@ -181,10 +300,15 @@ class GeoBoardAccessSeeder extends Seeder
                 ['boarding_house_applications', 'user_id'],
                 ['favorites', 'user_id'],
                 ['inquiries', 'user_id'],
+                ['notifications', 'user_id'],
+                ['payment_receipts', 'user_id'],
                 ['reservations', 'user_id'],
                 ['reviews', 'user_id'],
+                ['support_requests', 'user_id'],
+                ['tenant_payment_methods', 'user_id'],
                 ['tenant_match_profiles', 'user_id'],
                 ['tenant_profiles', 'user_id'],
+                ['user_preferences', 'user_id'],
                 ['owner_profiles', 'user_id'],
                 ['roommate_match_requests', 'sender_id'],
                 ['roommate_match_requests', 'recipient_id'],
@@ -205,6 +329,27 @@ class GeoBoardAccessSeeder extends Seeder
 
             User::query()->whereIn('id', $oldIds)->delete();
         });
+    }
+
+    private function assertAccountRoster(): void
+    {
+        $counts = User::query()
+            ->selectRaw('LOWER(role) as role_name, COUNT(*) as total')
+            ->groupBy('role_name')
+            ->pluck('total', 'role_name');
+
+        $actual = [
+            'admin' => (int) ($counts['admin'] ?? 0),
+            'owner' => (int) ($counts['owner'] ?? 0),
+            'tenant' => (int) collect(['user', 'tenant', 'student'])->sum(
+                fn (string $role) => (int) ($counts[$role] ?? 0)
+            ),
+            'total' => User::query()->count(),
+        ];
+
+        if ($actual !== ['admin' => 1, 'owner' => 5, 'tenant' => 5, 'total' => 11]) {
+            throw new \RuntimeException('Unexpected seeded account roster: '.json_encode($actual));
+        }
     }
 
     private function deleteWhereIn(string $table, string $column, array $ids): void
