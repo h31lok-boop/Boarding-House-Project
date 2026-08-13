@@ -15,7 +15,7 @@ function tinyPropertyPng(string $name): UploadedFile
 
 it('lets an owner upload property photos that are displayed to tenants', function () {
     Storage::fake('public');
-    $owner = User::factory()->create(['role' => 'owner', 'is_active' => true, 'email_verified_at' => now()]);
+    $owner = User::factory()->verifiedOwner()->create();
     $tenant = User::factory()->create(['role' => 'user', 'is_active' => true, 'email_verified_at' => now()]);
     $house = BoardingHouse::factory()->create([
         'owner_id' => $owner->id,
@@ -89,7 +89,7 @@ it('lets an owner upload property photos that are displayed to tenants', functio
 
 it('uses the first ordered photo as the listing background and safely promotes the next photo after removal', function () {
     Storage::fake('public');
-    $owner = User::factory()->create(['role' => 'owner', 'is_active' => true, 'email_verified_at' => now()]);
+    $owner = User::factory()->verifiedOwner()->create();
     $house = BoardingHouse::factory()->create(['owner_id' => $owner->id]);
     $first = BoardingHouseImage::create([
         'boarding_house_id' => $house->id,
@@ -132,8 +132,8 @@ it('uses the first ordered photo as the listing background and safely promotes t
 
 it('prevents an owner from changing another owners property photos', function () {
     Storage::fake('public');
-    $owner = User::factory()->create(['role' => 'owner', 'is_active' => true, 'email_verified_at' => now()]);
-    $otherOwner = User::factory()->create(['role' => 'owner', 'is_active' => true, 'email_verified_at' => now()]);
+    $owner = User::factory()->verifiedOwner()->create();
+    $otherOwner = User::factory()->verifiedOwner()->create();
     $house = BoardingHouse::factory()->create(['owner_id' => $owner->id]);
 
     $this->actingAs($otherOwner)
