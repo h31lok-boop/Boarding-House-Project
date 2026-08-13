@@ -11,6 +11,7 @@ use App\Policies\BoardingHousePolicy;
 use App\Policies\PaymentPolicy;
 use App\Policies\ReservationPolicy;
 use App\Policies\RoomPolicy;
+use App\Services\IntegrationSettingsService;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -29,6 +30,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Apply encrypted administrator overrides before any integration is
+        // resolved. When no override exists, config/services.php and .env
+        // remain the source of truth.
+        app(IntegrationSettingsService::class)->applyToRuntimeConfig();
+
         // Ownership policies enforce strict per-record separation between owners.
         Gate::policy(BoardingHouse::class, BoardingHousePolicy::class);
         Gate::policy(Room::class, RoomPolicy::class);
