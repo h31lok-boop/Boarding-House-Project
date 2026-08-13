@@ -304,7 +304,7 @@
             <div class="grid gap-4 px-4 py-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] xl:px-5 xl:py-5">
                 <div class="min-w-0">
                     <div class="inline-flex items-center gap-3 rounded-2xl border border-blue-100 bg-white/90 px-3 py-2 shadow-sm shadow-blue-100/40">
-                        <img src="{{ asset('images/boardmatch-mark.svg') }}" alt="" class="h-8 w-8 rounded-xl bg-blue-600 p-1.5">
+                        <img src="{{ asset('images/boardmatch-final-logo.png') }}" alt="" class="h-8 w-8 rounded-xl object-cover shadow-sm">
                         <div class="leading-tight">
                             <p class="text-[11px] font-black uppercase tracking-[0.18em] text-blue-600">BoardMatch Owner Portal</p>
                             <p class="text-[13px] font-semibold text-slate-700">Professional property management support</p>
