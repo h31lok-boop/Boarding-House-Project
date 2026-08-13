@@ -1,17 +1,20 @@
 <?php
 
-test('admin dashboard statistics use one dark surface with accent colors', function () {
+test('admin dashboard uses four focused summary cards with dark mode support', function () {
     $projectRoot = dirname(__DIR__, 2);
     $dashboard = file_get_contents($projectRoot.'/resources/views/admin/dashboard.blade.php');
 
-    expect(substr_count($dashboard, 'data-admin-stat-card'))->toBe(7)
-        ->and(substr_count($dashboard, 'dark:bg-slate-900'))->toBeGreaterThanOrEqual(7)
+    expect($dashboard)
+        ->toContain("'Boarding Houses'")
+        ->toContain("'Occupancy'")
+        ->toContain("'Active Tenants'")
+        ->toContain("'Collected Revenue'")
+        ->toContain('xl:grid-cols-4')
+        ->and(substr_count($dashboard, 'dark:bg-slate-900'))->toBeGreaterThanOrEqual(4)
         ->and($dashboard)
-        ->toContain('dark:border-amber-400/35')
-        ->toContain('dark:border-rose-400/35')
-        ->toContain('dark:border-blue-400/35')
         ->toContain('dark:text-amber-300')
-        ->toContain('dark:text-rose-300')
+        ->toContain('dark:text-emerald-300')
+        ->toContain('dark:text-violet-300')
         ->toContain('dark:text-blue-300');
 });
 
@@ -22,10 +25,9 @@ test('admin dashboard and workspace header have deliberate mobile layouts', func
     $css = file_get_contents($projectRoot.'/resources/css/app.css');
 
     expect($dashboard)
-        ->toContain('data-admin-stats-grid')
-        ->toContain('grid-cols-1')
-        ->toContain('min-[420px]:grid-cols-2')
-        ->toContain('min-[420px]:col-span-2')
+        ->toContain('sm:grid-cols-2')
+        ->toContain('xl:grid-cols-4')
+        ->toContain('flex flex-col')
         ->and($shell)
         ->toContain('admin-workspace-header')
         ->toContain('admin-header-actions')
