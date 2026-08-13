@@ -467,12 +467,28 @@ class TenantAreaController extends Controller
     public function messages(Request $request)
     {
         $tenant = $this->tenant($request);
+        $activeFilter = strtolower(trim((string) $request->query('filter', '')));
+        $activeFilter = in_array($activeFilter, ['unread', 'active', 'archived'], true) ? $activeFilter : '';
+
+        $tenantInquiryIds = Inquiry::query()
+            ->where('user_id', $tenant->id)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id);
+        $unreadInquiryIds = $this->unreadInquiryIds($tenant->id, $tenantInquiryIds);
 
         $messages = Inquiry::with([
             'boardingHouse.images',
             'boardingHouse.owner',
         ])
             ->where('user_id', $tenant->id)
+            ->when($activeFilter === 'unread', fn ($query) => $query->whereIn('id', $unreadInquiryIds))
+            ->when($activeFilter === 'archived', fn ($query) => $query->whereIn(DB::raw('LOWER(status)'), ['closed', 'declined']))
+            ->when($activeFilter === 'active', function ($query) {
+                $query->where(function ($statusQuery) {
+                    $statusQuery->whereNull('status')
+                        ->orWhereNotIn(DB::raw('LOWER(status)'), ['closed', 'declined']);
+                });
+            })
             ->when($request->filled('q'), function ($query) use ($request) {
                 $term = '%'.$request->query('q').'%';
                 $query->where(function ($search) use ($term) {
@@ -484,6 +500,9 @@ class TenantAreaController extends Controller
             ->paginate(12)
             ->withQueryString();
 
+        // Keep every name rendered in the inbox tied to this tenant's own
+        // conversation history. New property conversations start from the
+        // approved listing page, where the tenant deliberately picks a house.
         $contactedHouseIds = Inquiry::query()
             ->where('user_id', $tenant->id)
             ->whereNotNull('boarding_house_id')
@@ -496,7 +515,24 @@ class TenantAreaController extends Controller
         $threads = $this->buildInquiryThreads($tenant->id, $messages->getCollection());
         $messages->setCollection($threads);
 
-        return view('user.messages', compact('messages', 'houses'));
+        $totalConversations = $tenantInquiryIds->count();
+        $archivedConversations = Inquiry::query()
+            ->where('user_id', $tenant->id)
+            ->whereIn(DB::raw('LOWER(status)'), ['closed', 'declined'])
+            ->count();
+        $conversationTabs = collect([
+            ['key' => '', 'label' => 'All', 'count' => $totalConversations],
+            ['key' => 'unread', 'label' => 'Unread', 'count' => $unreadInquiryIds->count()],
+            ['key' => 'active', 'label' => 'Active', 'count' => max($totalConversations - $archivedConversations, 0)],
+            ['key' => 'archived', 'label' => 'Archived', 'count' => $archivedConversations],
+        ]);
+
+        return view('user.messages', compact(
+            'messages',
+            'houses',
+            'conversationTabs',
+            'activeFilter'
+        ));
     }
 
     public function storeMessage(Request $request)
@@ -1020,6 +1056,8 @@ class TenantAreaController extends Controller
                 'house_id' => $house?->id,
                 'owner_name' => $ownerName,
                 'owner_role' => $house?->owner ? 'Property Owner' : 'BoardMatch Support',
+                'owner_email' => $house?->owner?->email,
+                'owner_phone' => $house?->owner?->contact_number ?: $house?->owner?->phone,
                 'property' => $house?->name ?? 'General Inquiry',
                 'location' => trim((string) ($house?->full_address ?? $house?->address ?? 'BoardMatch Support Desk')),
                 'room_type' => $message->boardingHouse?->property_type
@@ -1033,7 +1071,7 @@ class TenantAreaController extends Controller
                 'message' => trim((string) ($reply?->message ?: $message->message)),
                 'time' => $replyCreatedAt?->diffForHumans() ?? ($messageCreatedAt?->diffForHumans() ?? 'Recently'),
                 'time_full' => ($replyCreatedAt ?? $messageCreatedAt)?->format('M d, Y h:i A') ?? 'Recently',
-                'avatar' => 'https://ui-avatars.com/api/?name='.urlencode($ownerName).'&background=2563eb&color=fff&size=96&bold=true',
+                'avatar' => $house?->owner?->photo_url ?: asset('images/avatar-placeholder.svg'),
                 'house_image' => $house?->cover_image_url ?? asset('images/boarding-house-placeholder.svg'),
                 'unread' => $unread,
                 'mark_read_url' => $reply ? route('user.notifications.read', ['id' => $reply->id]) : null,
@@ -1083,5 +1121,25 @@ class TenantAreaController extends Controller
             ->whereIn('reference_id', $referenceIds)
             ->get()
             ->keyBy('reference_id');
+    }
+
+    private function unreadInquiryIds(int $tenantId, Collection $inquiryIds): Collection
+    {
+        if (! Schema::hasTable('notifications') || $inquiryIds->isEmpty()) {
+            return collect();
+        }
+
+        $references = $inquiryIds->map(fn ($id) => 'inquiry:'.$id);
+
+        return UserNotification::query()
+            ->where('user_id', $tenantId)
+            ->where('type', 'inquiry')
+            ->whereIn('reference_id', $references)
+            ->whereNull('read_at')
+            ->pluck('reference_id')
+            ->map(fn ($reference) => (int) str($reference)->after('inquiry:')->before(':')->toString())
+            ->filter()
+            ->unique()
+            ->values();
     }
 }

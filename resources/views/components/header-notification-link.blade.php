@@ -64,8 +64,8 @@
             aria-labelledby="{{ $modalTitleId }}"
             class="bm-modal-overlay"
         >
-            <section class="bm-modal w-full max-w-lg" @click.stop>
-            <header class="flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-4 dark:border-slate-700">
+            <section class="bm-modal bm-modal--notification-detail w-full max-w-lg" @click.stop>
+            <header class="bm-modal__header items-center dark:border-slate-700 dark:bg-slate-950">
                 <div class="min-w-0">
                     <div class="flex items-center gap-2.5">
                         <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
@@ -86,7 +86,7 @@
                 </button>
             </header>
 
-            <div class="max-h-[60vh] overflow-y-auto p-3">
+            <div class="bm-modal__body p-3">
                 @forelse ($notificationItems as $notification)
                     @php
                         $isUnread = property_exists($notification, 'read_at')
@@ -126,7 +126,7 @@
                 @endforelse
             </div>
 
-            <footer class="flex items-center justify-between gap-3 border-t border-slate-100 px-5 py-4 dark:border-slate-700">
+            <footer class="bm-modal__footer items-center justify-between border-slate-100 px-5 py-4 dark:border-slate-700 dark:bg-slate-950">
                 <p class="text-xs text-slate-500 dark:text-slate-400">Showing the latest {{ $notificationItems->count() }}</p>
                 <a href="{{ $href }}" class="inline-flex h-9 items-center justify-center rounded-xl bg-blue-600 px-4 text-xs font-bold text-white transition hover:bg-blue-700">
                     View all notifications

@@ -158,7 +158,7 @@
     </nav>
 
     {{-- Notification list --}}
-    <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
+    <section data-notification-list class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
         @if ($groupedNotifications->isEmpty())
             <div class="px-6 py-16 text-center">
                 <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
@@ -323,7 +323,7 @@
     >
         <div class="bm-modal" @click.stop>
             {{-- Header --}}
-            <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+            <div class="bm-modal__header">
                 <div class="flex min-w-0 items-start gap-3.5">
                     <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl" :class="selected.iconWrap || 'bg-slate-100 text-slate-500'" x-html="selected.icon || ''"></span>
                     <div class="min-w-0">
@@ -351,7 +351,7 @@
             </div>
 
             {{-- Body --}}
-            <div class="shrink-0 px-6 py-5">
+            <div class="bm-modal__body px-6 py-5">
                 <p class="whitespace-pre-line text-sm leading-7 text-slate-600" x-text="selected.message"></p>
 
                 <dl class="mt-5 divide-y divide-slate-100 rounded-2xl border border-slate-100 bg-slate-50/60">
@@ -394,7 +394,7 @@
             </div>
 
             {{-- Footer --}}
-            <div class="flex flex-wrap justify-end gap-2 border-t border-slate-100 px-6 py-4">
+            <div class="bm-modal__footer border-slate-100 px-6 py-4">
                 <template x-if="selected.status === 'Unread'">
                     <form method="POST" :action="selected.read_url">
                         @csrf

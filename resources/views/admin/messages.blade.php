@@ -67,6 +67,7 @@
             [
                 'sender' => 'tenant',
                 'initials' => $initialsFor($tenant?->name ?: 'Tenant'),
+                'photo_url' => $tenant?->photo_url,
                 'body' => $thread->message ?: 'No message provided.',
                 'stamp' => $dateTimeFor($thread->created_at),
             ],
@@ -87,6 +88,7 @@
             'tenant' => $tenant?->name ?: 'Tenant',
             'email' => $tenant?->email ?: 'No email provided',
             'initials' => $initialsFor($tenant?->name ?: 'Tenant'),
+            'photo_url' => $tenant?->photo_url,
             'avatar_tone' => $avatarTones[((int) $thread->id) % count($avatarTones)],
             'house' => $house?->name ?: 'Boarding house',
             'location' => $locationFor($house),
@@ -198,8 +200,8 @@
                     @php($payload = $threadPayloadFor($thread))
                     <button type="button" @click="openThread({{ \Illuminate\Support\Js::from($payload) }})" class="group mb-1 block w-full rounded-xl px-3 py-3 text-left transition" :class="selected.id === {{ $thread->id }} ? 'bg-blue-50 dark:bg-blue-500/15' : 'hover:bg-slate-100 dark:hover:bg-slate-800/80'">
                         <span class="flex items-center gap-3">
-                            <span class="relative flex h-[3.25rem] w-[3.25rem] shrink-0 items-center justify-center rounded-full text-sm font-black {{ $payload['avatar_tone'] }}">
-                                {{ $payload['initials'] }}
+                            <span class="relative flex h-[3.25rem] w-[3.25rem] shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-black {{ $payload['avatar_tone'] }}">
+                                @if ($payload['photo_url'])<img src="{{ $payload['photo_url'] }}" alt="{{ $payload['tenant'] }}" class="h-full w-full object-cover" loading="lazy">@else{{ $payload['initials'] }}@endif
                                 <span class="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white {{ $payload['is_resolved'] ? 'bg-slate-400' : 'bg-emerald-500' }} dark:border-slate-900"></span>
                             </span>
                             <span class="min-w-0 flex-1">
@@ -261,8 +263,8 @@
                             <button type="button" @click="closeThread()" class="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 xl:hidden" aria-label="Back to chats">
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-width="2" d="m15 18-6-6 6-6"/></svg>
                             </button>
-                            <span class="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-black" :class="selected.avatar_tone">
-                                <span x-text="selected.initials"></span>
+                            <span class="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-black" :class="selected.avatar_tone">
+                                <template x-if="selected.photo_url"><img :src="selected.photo_url" :alt="selected.tenant" class="h-full w-full object-cover"></template><span x-show="!selected.photo_url" x-text="selected.initials"></span>
                                 <span class="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white dark:border-slate-900" :class="selected.is_resolved ? 'bg-slate-400' : 'bg-emerald-500'"></span>
                             </span>
                             <div class="min-w-0">
@@ -307,7 +309,7 @@
                             <template x-for="(message, index) in selected.messages" :key="index">
                                 <div class="mb-3 flex items-end gap-2" :class="message.sender !== 'tenant' ? 'justify-end' : 'justify-start'">
                                     <template x-if="message.sender === 'tenant'">
-                                        <span class="mb-5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-black" :class="selected.avatar_tone" x-text="message.initials"></span>
+                                        <span class="mb-5 flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full text-[10px] font-black" :class="selected.avatar_tone"><template x-if="message.photo_url"><img :src="message.photo_url" :alt="message.label || selected.tenant" class="h-full w-full object-cover"></template><span x-show="!message.photo_url" x-text="message.initials"></span></span>
                                     </template>
                                     <div class="max-w-[82%] sm:max-w-[68%]" :class="message.sender !== 'tenant' ? 'text-right' : 'text-left'">
                                         <div class="inline-block rounded-[1.35rem] px-4 py-2.5 text-left text-sm leading-5 shadow-sm" :class="message.sender !== 'tenant' ? 'rounded-br-md bg-gradient-to-r from-blue-600 to-violet-600 text-white' : 'rounded-bl-md bg-white text-slate-800 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-700'">

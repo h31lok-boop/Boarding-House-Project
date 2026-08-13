@@ -2,357 +2,299 @@
 <x-user.shell>
 @php
     $threads = $messages->getCollection()->values();
-    $unreadTotal = (int) $threads->sum('unread');
+    $initialThread = $threads->first();
+    $searchTerm = trim((string) request('q', ''));
+    $activeFilter = $activeFilter ?? trim((string) request('filter', ''));
+    $conversationTabs = $conversationTabs ?? collect([
+        ['key' => '', 'label' => 'All', 'count' => $messages->total()],
+        ['key' => 'unread', 'label' => 'Unread', 'count' => $threads->sum('unread')],
+        ['key' => 'active', 'label' => 'Active', 'count' => $threads->where('archived', false)->count()],
+        ['key' => 'archived', 'label' => 'Archived', 'count' => $threads->where('archived', true)->count()],
+    ]);
 @endphp
 
-@once
-    <script>
-        window.messageCenter = window.messageCenter || function (config) {
-            return {
-                conversations: config.conversations || [],
-                csrf: config.csrf || '',
-                category: 'all',
-                search: '',
-                openId: null,
-                composeOpen: Boolean(config.openCompose),
-                get unreadTotal() {
-                    return this.conversations.reduce((total, conversation) => total + Number(conversation.unread || 0), 0);
-                },
-                get filteredConversations() {
-                    const term = this.search.trim().toLowerCase();
-
-                    return this.conversations.filter((conversation) => {
-                        const matchesCategory = this.category === 'all'
-                            || (this.category === 'unread' && Number(conversation.unread || 0) > 0)
-                            || (this.category === 'archived' && Boolean(conversation.archived))
-                            || conversation.category === this.category;
-
-                        const haystack = [
-                            conversation.owner_name,
-                            conversation.property,
-                            conversation.message,
-                            conversation.location,
-                        ].join(' ').toLowerCase();
-
-                        return matchesCategory && (!term || haystack.includes(term));
-                    });
-                },
-                countFor(category) {
-                    if (category === 'all') return this.conversations.length;
-                    if (category === 'unread') return this.conversations.filter((c) => Number(c.unread || 0) > 0).length;
-                    if (category === 'archived') return this.conversations.filter((c) => Boolean(c.archived)).length;
-                    return this.conversations.filter((c) => c.category === category).length;
-                },
-                toggle(conversation) {
-                    this.openId = this.openId === conversation.id ? null : conversation.id;
-                    if (this.openId === conversation.id) {
-                        this.markRead(conversation);
-                    }
-                },
-                markRead(conversation) {
-                    if (Number(conversation.unread || 0) === 0 || !conversation.mark_read_url) {
-                        return;
-                    }
-                    conversation.unread = 0;
-                    fetch(conversation.mark_read_url, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': this.csrf,
-                            'Accept': 'application/json',
-                        },
-                    }).catch(() => {});
-                },
-            };
-        };
-    </script>
-@endonce
-
 <div
-    x-data="messageCenter({
-        conversations: {{ \Illuminate\Support\Js::from($threads->all()) }},
-        csrf: {{ \Illuminate\Support\Js::from(csrf_token()) }},
-        openCompose: {{ \Illuminate\Support\Js::from($errors->any()) }}
-    })"
-    class="mx-auto w-full max-w-3xl space-y-5"
+    x-data="{
+        selected: {{ $initialThread ? \Illuminate\Support\Js::from($initialThread) : '{}' }},
+        mobileThreadOpen: false,
+        composeOpen: @js($errors->any()),
+        moreOpen: false,
+        messageBody: '',
+        csrf: @js(csrf_token()),
+        openThread(thread) {
+            this.selected = thread;
+            this.mobileThreadOpen = true;
+            this.moreOpen = false;
+            this.messageBody = '';
+            this.markRead(thread);
+            this.$nextTick(() => {
+                const panel = this.$refs.messageHistory;
+                if (panel) panel.scrollTop = panel.scrollHeight;
+            });
+        },
+        closeThread() {
+            this.mobileThreadOpen = false;
+            this.moreOpen = false;
+        },
+        markRead(thread) {
+            if (!thread.mark_read_url || Number(thread.unread || 0) === 0) return;
+            thread.unread = 0;
+            fetch(thread.mark_read_url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': this.csrf,
+                    'Accept': 'application/json'
+                }
+            }).catch(() => {});
+        }
+    }"
+    x-init="$nextTick(() => { if ($refs.messageHistory) $refs.messageHistory.scrollTop = $refs.messageHistory.scrollHeight })"
+    data-messaging-interaction
+    data-tenant-message-center
+    class="h-[calc(100dvh-7.25rem)] min-h-[620px] overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white text-slate-950 shadow-[0_20px_55px_rgba(15,23,42,0.12)] dark:border-slate-700 dark:bg-slate-900 dark:text-white"
 >
-    {{-- Header --}}
-    <x-user.page-header
-        eyebrow="Inbox"
-        title="Messages"
-        subtitle="Communicate with boarding house owners, managers, and support."
-    >
-        <x-slot:actions>
-            <span class="inline-flex items-center rounded-full bg-[#2563eb]/10 px-2.5 py-1 text-xs font-semibold text-[#2563eb] dark:bg-blue-400/10 dark:text-blue-300">
-                <span x-text="unreadTotal"></span>
-                <span class="ml-1">unread</span>
-            </span>
-            <button
-                type="button"
-                @click="composeOpen = true"
-                class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#2563eb] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1d4ed8] focus:outline-none focus:ring-4 focus:ring-blue-200 dark:focus:ring-blue-900"
-            >
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14" />
-                </svg>
-                New message
-            </button>
-        </x-slot:actions>
-    </x-user.page-header>
+    <div class="grid h-full min-h-0 xl:grid-cols-[350px_minmax(0,1fr)]">
+        <aside
+            class="min-h-0 flex-col border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+            :class="mobileThreadOpen && selected.id ? 'hidden xl:flex' : 'flex'"
+        >
+            <div class="shrink-0 px-4 pb-3 pt-4">
+                <div class="flex items-center justify-between gap-3">
+                    <div>
+                        <h1 class="text-2xl font-black tracking-tight text-slate-950 dark:text-white">Chats</h1>
+                        <p class="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">Property conversations</p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button type="button" @click="composeOpen = true" class="grid h-10 w-10 place-items-center rounded-full bg-blue-600 text-white shadow-sm transition hover:bg-blue-700" aria-label="Start a new message" title="New message">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 5v14M5 12h14"/></svg>
+                        </button>
+                        <a href="{{ route('user.notifications.index') }}" class="grid h-10 w-10 place-items-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-blue-100 hover:text-blue-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-blue-500/15 dark:hover:text-blue-300" aria-label="Notifications" title="Notifications">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+                        </a>
+                    </div>
+                </div>
 
-    {{-- Search bar: types filter instantly, Enter searches all pages --}}
-    <form method="GET" action="{{ route('user.messages.index') }}">
-        <label class="relative block">
-            <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15Z" />
-                </svg>
-            </span>
-            <input
-                name="q"
-                value="{{ request('q') }}"
-                x-model="search"
-                type="search"
-                placeholder="Search owner, boarding house, or message…"
-                class="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-700 shadow-sm shadow-slate-200/50 outline-none transition placeholder:text-slate-400 focus:border-[#2563eb] focus:ring-4 focus:ring-[#2563eb]/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:shadow-none"
-            >
-        </label>
-    </form>
+                <form method="GET" action="{{ route('user.messages.index') }}" class="mt-4">
+                    @if ($activeFilter !== '')
+                        <input type="hidden" name="filter" value="{{ $activeFilter }}">
+                    @endif
+                    <label class="relative block">
+                        <span class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                            <svg class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="10.5" cy="10.5" r="6.5" stroke-width="1.8"/><path stroke-linecap="round" stroke-width="1.8" d="m16 16 4 4"/></svg>
+                        </span>
+                        <input name="q" value="{{ $searchTerm }}" class="h-10 w-full rounded-full border-0 bg-slate-100 pl-10 pr-10 text-sm text-slate-900 outline-none ring-1 ring-transparent transition placeholder:text-slate-500 focus:bg-white focus:ring-blue-500 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-400 dark:focus:bg-slate-800" placeholder="Search messages">
+                        @if ($searchTerm !== '')
+                            <a href="{{ route('user.messages.index', array_filter(['filter' => $activeFilter])) }}" class="absolute right-2.5 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-white" aria-label="Clear search">×</a>
+                        @endif
+                    </label>
+                </form>
 
-    {{-- Filter tabs --}}
-    <div class="flex flex-wrap items-center gap-2" role="tablist" aria-label="Conversation filters">
-        <template x-for="item in [
-            { key: 'all', label: 'All' },
-            { key: 'unread', label: 'Unread' },
-            { key: 'bookings', label: 'Bookings' },
-            { key: 'payments', label: 'Payments' },
-            { key: 'support', label: 'Support' },
-            { key: 'archived', label: 'Archived' }
-        ]" :key="item.key">
-            <button
-                type="button"
-                @click="category = item.key"
-                class="inline-flex h-9 items-center gap-2 rounded-full px-4 text-[13px] font-semibold transition"
-                :class="category === item.key
-                    ? 'bg-[#2563eb] text-white shadow-sm'
-                    : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 hover:text-slate-900 hover:ring-slate-300 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700 dark:hover:bg-slate-800 dark:hover:text-white'"
-            >
-                <span x-text="item.label"></span>
-                <span
-                    class="rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none"
-                    :class="category === item.key ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'"
-                    x-text="countFor(item.key)"
-                ></span>
-            </button>
-        </template>
-    </div>
+                <nav class="mt-3 flex gap-1 overflow-x-auto" aria-label="Conversation filters">
+                    @foreach ($conversationTabs as $tab)
+                        @php
+                            $params = request()->except('page', 'filter');
+                            if ($tab['key'] !== '') $params['filter'] = $tab['key'];
+                            $isActiveTab = (string) $activeFilter === (string) $tab['key'];
+                        @endphp
+                        <a href="{{ route('user.messages.index', $params) }}" class="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-bold transition {{ $isActiveTab ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800' }}">
+                            {{ $tab['label'] }}
+                            <span class="text-[10px] opacity-70">{{ number_format((int) $tab['count']) }}</span>
+                        </a>
+                    @endforeach
+                </nav>
+            </div>
 
-    {{-- Conversation list --}}
-    <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
-        <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-            <h2 class="text-sm font-bold text-slate-900 dark:text-white">Conversations</h2>
-            <span class="text-xs font-medium text-slate-400">
-                <span x-text="filteredConversations.length"></span> of <span x-text="conversations.length"></span>
-            </span>
-        </div>
-
-        <div class="divide-y divide-slate-100 dark:divide-slate-800">
-            <template x-for="conversation in filteredConversations" :key="conversation.id">
-                <div>
-                    {{-- Row: click to open and mark as read --}}
-                    <button
-                        type="button"
-                        @click="toggle(conversation)"
-                        class="group block w-full px-6 py-4 text-left transition duration-150 hover:bg-slate-50/80 dark:hover:bg-slate-800/60"
-                        :class="openId === conversation.id ? 'bg-blue-50/60 dark:bg-blue-400/5' : ''"
-                    >
-                        <div class="flex items-start gap-4">
-                            <div class="relative shrink-0">
-                                <img :src="conversation.avatar" :alt="conversation.owner_name" class="h-11 w-11 rounded-full border border-slate-200 object-cover dark:border-slate-700" loading="lazy">
-                                <span x-show="conversation.online" class="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500 dark:border-slate-900"></span>
-                            </div>
-
-                            <div class="min-w-0 flex-1">
-                                <div class="flex items-baseline justify-between gap-3">
-                                    <p class="truncate text-[14px] font-semibold text-slate-900 transition group-hover:text-[#2563eb] dark:text-white dark:group-hover:text-blue-300" x-text="conversation.owner_name"></p>
-                                    <time class="shrink-0 text-[11px] font-medium text-slate-400" :title="conversation.time_full" x-text="conversation.time"></time>
-                                </div>
-
-                                <p class="mt-0.5 truncate text-[12px] font-medium text-slate-500 dark:text-slate-400">
-                                    <span x-text="conversation.property"></span> · <span x-text="conversation.location"></span>
-                                </p>
-
-                                <p
-                                    class="mt-1.5 truncate text-[13px] leading-5"
-                                    :class="conversation.unread > 0 ? 'font-semibold text-slate-800 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400'"
-                                    x-text="conversation.message"
-                                ></p>
-
-                                <div class="mt-2.5 flex flex-wrap items-center gap-2">
-                                    <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-bold capitalize text-slate-500 dark:bg-slate-800 dark:text-slate-400" x-text="conversation.category"></span>
-                                    <span class="rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold text-amber-700 ring-1 ring-amber-200 dark:bg-amber-400/10 dark:text-amber-300 dark:ring-amber-400/20" x-text="conversation.booking_status"></span>
-                                    <span x-show="conversation.online" class="text-[10px] font-semibold text-emerald-600 dark:text-emerald-300">Online</span>
-                                    <span
-                                        x-show="conversation.unread > 0"
-                                        class="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#2563eb] px-1.5 text-[10px] font-bold text-white"
-                                        x-text="conversation.unread"
-                                    ></span>
-                                </div>
-                            </div>
-
-                            <span
-                                class="mt-3 hidden shrink-0 text-slate-300 transition dark:text-slate-600 sm:block"
-                                :class="openId === conversation.id ? 'rotate-90 text-slate-400' : 'group-hover:translate-x-0.5 group-hover:text-slate-400'"
-                            >
-                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6" />
-                                </svg>
+            <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+                @forelse ($threads as $thread)
+                    <button type="button" @click="openThread({{ \Illuminate\Support\Js::from($thread) }})" class="group mb-1 block w-full rounded-xl px-3 py-3 text-left transition" :class="selected.id === {{ $thread['id'] }} ? 'bg-blue-50 dark:bg-blue-500/15' : 'hover:bg-slate-100 dark:hover:bg-slate-800/80'">
+                        <span class="flex items-center gap-3">
+                            <span class="relative flex h-[3.25rem] w-[3.25rem] shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-sm font-black text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
+                                <img src="{{ $thread['avatar'] }}" alt="{{ $thread['owner_name'] }}" class="h-full w-full object-cover" loading="lazy">
+                                <span class="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white {{ $thread['archived'] ? 'bg-slate-400' : 'bg-emerald-500' }} dark:border-slate-900"></span>
                             </span>
-                        </div>
+                            <span class="min-w-0 flex-1">
+                                <span class="flex items-center justify-between gap-2">
+                                    <span class="truncate text-sm font-bold text-slate-950 dark:text-white">{{ $thread['owner_name'] }}</span>
+                                    <span class="shrink-0 text-[10px] font-medium text-slate-400">{{ $thread['time'] }}</span>
+                                </span>
+                                <span class="mt-0.5 block truncate text-xs font-semibold text-slate-600 dark:text-slate-300">{{ $thread['property'] }}</span>
+                                <span class="mt-1 flex items-center gap-2">
+                                    <span class="min-w-0 flex-1 truncate text-xs {{ $thread['unread'] ? 'font-bold text-slate-800 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400' }}">{{ $thread['message'] }}</span>
+                                    @if ((int) $thread['unread'] > 0)
+                                        <span class="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-blue-600 px-1.5 text-[10px] font-bold text-white">{{ $thread['unread'] }}</span>
+                                    @endif
+                                </span>
+                            </span>
+                        </span>
                     </button>
+                @empty
+                    <div class="grid h-full min-h-60 place-items-center px-6 text-center">
+                        <div>
+                            <div class="mx-auto grid h-16 w-16 place-items-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300">@include('components.sidebar.partials.admin-icon', ['name' => 'messages'])</div>
+                            <p class="mt-4 font-bold text-slate-950 dark:text-white">No conversations found</p>
+                            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Start a chat with an approved property owner.</p>
+                            <button type="button" @click="composeOpen = true" class="mt-4 inline-flex h-9 items-center justify-center rounded-full bg-blue-600 px-4 text-xs font-bold text-white hover:bg-blue-700">New message</button>
+                        </div>
+                    </div>
+                @endforelse
+            </div>
 
-                    {{-- Opened conversation --}}
-                    <div x-show="openId === conversation.id" x-transition.opacity.duration.150ms x-cloak class="border-t border-slate-100 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-950/30">
-                        <div class="space-y-3 px-6 py-5">
-                            <template x-for="(entry, index) in conversation.timeline" :key="index">
-                                <div class="flex" :class="entry.sender === 'tenant' ? 'justify-end' : 'justify-start'">
-                                    <div class="max-w-[85%] sm:max-w-[75%]">
-                                        <div
-                                            class="rounded-2xl px-4 py-2.5 text-[13px] leading-6 shadow-sm"
-                                            :class="entry.sender === 'tenant'
-                                                ? 'rounded-br-md bg-[#2563eb] text-white'
-                                                : 'rounded-bl-md bg-white text-slate-700 ring-1 ring-slate-200 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-800'"
-                                        >
-                                            <p class="whitespace-pre-line" x-text="entry.body"></p>
+            @if ($messages->hasPages())
+                <div class="flex shrink-0 items-center justify-between border-t border-slate-200 px-4 py-2.5 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                    <span>{{ $messages->firstItem() ?? 0 }}–{{ $messages->lastItem() ?? 0 }} of {{ $messages->total() }}</span>
+                    <div class="flex gap-1">
+                        @if (! $messages->onFirstPage())
+                            <a href="{{ $messages->previousPageUrl() }}" class="grid h-8 w-8 place-items-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Previous conversations">‹</a>
+                        @endif
+                        @if ($messages->hasMorePages())
+                            <a href="{{ $messages->nextPageUrl() }}" class="grid h-8 w-8 place-items-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Next conversations">›</a>
+                        @endif
+                    </div>
+                </div>
+            @endif
+        </aside>
+
+        <main class="min-h-0 bg-white dark:bg-slate-900" :class="selected.id ? (mobileThreadOpen ? 'flex flex-col' : 'hidden xl:flex xl:flex-col') : 'hidden xl:flex xl:flex-col'">
+            <template x-if="!selected.id">
+                <div class="grid h-full place-items-center p-8 text-center">
+                    <div class="max-w-sm">
+                        <div class="mx-auto grid h-20 w-20 place-items-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300">@include('components.sidebar.partials.admin-icon', ['name' => 'messages'])</div>
+                        <h2 class="mt-5 text-xl font-black text-slate-950 dark:text-white">Your messages</h2>
+                        <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">Select a property conversation to see its complete message history.</p>
+                    </div>
+                </div>
+            </template>
+
+            <template x-if="selected.id">
+                <div class="flex h-full min-h-0 flex-col">
+                    <header class="flex h-[76px] shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 dark:border-slate-700 sm:px-5">
+                        <div class="flex min-w-0 items-center gap-3">
+                            <button type="button" @click="closeThread()" class="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 xl:hidden" aria-label="Back to chats">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-width="2" d="m15 18-6-6 6-6"/></svg>
+                            </button>
+                            <span class="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-sm font-black text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
+                                <img :src="selected.avatar" :alt="selected.owner_name" class="h-full w-full object-cover">
+                                <span class="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white dark:border-slate-900" :class="selected.archived ? 'bg-slate-400' : 'bg-emerald-500'"></span>
+                            </span>
+                            <div class="min-w-0">
+                                <h2 class="truncate text-[15px] font-black text-slate-950 dark:text-white" x-text="selected.owner_name"></h2>
+                                <p class="truncate text-xs font-medium text-slate-500 dark:text-slate-400"><span x-text="selected.property"></span> · <span x-text="selected.owner_role"></span></p>
+                            </div>
+                        </div>
+
+                        <div class="flex shrink-0 items-center gap-1 text-blue-600 dark:text-blue-300">
+                            <a x-show="selected.owner_email" :href="'mailto:' + selected.owner_email" class="grid h-10 w-10 place-items-center rounded-full transition hover:bg-blue-50 dark:hover:bg-blue-500/10" aria-label="Email property owner" title="Email owner">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16v12H4zM4 7l8 6 8-6"/></svg>
+                            </a>
+                            <a :href="selected.details_url" class="grid h-10 w-10 place-items-center rounded-full transition hover:bg-blue-50 dark:hover:bg-blue-500/10" aria-label="View property" title="View property">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 11.5 12 4l9 7.5M5.5 10v10h13V10M9 20v-6h6v6"/></svg>
+                            </a>
+                            <div class="relative">
+                                <button type="button" @click="moreOpen = !moreOpen" class="grid h-10 w-10 place-items-center rounded-full transition hover:bg-blue-50 dark:hover:bg-blue-500/10" aria-label="Conversation information" title="Conversation information">
+                                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="9" stroke-width="1.8"/><path stroke-linecap="round" stroke-width="2" d="M12 11v5M12 8h.01"/></svg>
+                                </button>
+                                <div x-cloak x-show="moreOpen" x-transition @click.outside="moreOpen = false" class="absolute right-0 z-40 mt-2 w-64 rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-700 dark:bg-slate-800">
+                                    <div class="px-3 py-2">
+                                        <p class="truncate text-sm font-bold text-slate-950 dark:text-white" x-text="selected.property"></p>
+                                        <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400" x-text="selected.location"></p>
+                                        <p class="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400" x-text="selected.booking_status"></p>
+                                    </div>
+                                    <a :href="selected.details_url" class="mt-1 block rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700">Open property details</a>
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    <div x-ref="messageHistory" class="min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top,_rgba(219,234,254,0.72),_transparent_32rem),linear-gradient(180deg,#f8fafc,#eef2ff)] px-4 py-6 dark:bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.13),_transparent_32rem),linear-gradient(180deg,#0f172a,#111827)] sm:px-6">
+                        <div class="mx-auto flex max-w-4xl flex-col">
+                            <div class="mb-6 text-center">
+                                <span class="inline-flex rounded-full bg-white/80 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 shadow-sm ring-1 ring-slate-200 dark:bg-slate-800/85 dark:text-slate-400 dark:ring-slate-700" x-text="selected.time_full"></span>
+                            </div>
+                            <template x-for="(entry, index) in selected.timeline" :key="index">
+                                <div class="mb-3 flex items-end gap-2" :class="entry.sender === 'tenant' ? 'justify-end' : 'justify-start'">
+                                    <template x-if="entry.sender !== 'tenant'">
+                                        <span class="mb-5 flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-[10px] font-black text-blue-700 dark:bg-blue-500/20 dark:text-blue-300"><img :src="selected.avatar" :alt="selected.owner_name" class="h-full w-full object-cover"></span>
+                                    </template>
+                                    <div class="max-w-[82%] sm:max-w-[68%]" :class="entry.sender === 'tenant' ? 'text-right' : 'text-left'">
+                                        <div class="inline-block rounded-[1.35rem] px-4 py-2.5 text-left text-sm leading-5 shadow-sm" :class="entry.sender === 'tenant' ? 'rounded-br-md bg-gradient-to-r from-blue-600 to-violet-600 text-white' : 'rounded-bl-md bg-white text-slate-800 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-700'">
+                                            <p class="whitespace-pre-wrap break-words" x-text="entry.body"></p>
                                         </div>
-                                        <p class="mt-1 text-[11px] font-medium text-slate-400" :class="entry.sender === 'tenant' ? 'text-right' : ''">
-                                            <span x-text="entry.label"></span> · <span x-text="entry.time"></span>
-                                        </p>
+                                        <p class="mt-1 px-1 text-[10px] font-medium text-slate-400"><span x-text="entry.label"></span> · <span x-text="entry.time"></span></p>
                                     </div>
                                 </div>
                             </template>
-
-                            <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
-                                <p class="text-[11px] font-medium text-slate-400" x-text="conversation.response_time"></p>
-                                <a
-                                    :href="conversation.details_url"
-                                    class="inline-flex h-9 items-center justify-center rounded-xl bg-[#2563eb] px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-[#1d4ed8]"
-                                >
-                                    View Listing
-                                </a>
-                            </div>
                         </div>
                     </div>
+
+                    <footer class="shrink-0 border-t border-slate-200 bg-white px-3 py-3 dark:border-slate-700 dark:bg-slate-900 sm:px-4">
+                        <form method="POST" action="{{ route('user.messages.store') }}" class="mx-auto flex max-w-5xl items-end gap-2">
+                            @csrf
+                            <input type="hidden" name="boarding_house_id" :value="selected.house_id">
+                            <label class="relative min-w-0 flex-1">
+                                <span class="sr-only">Message property owner</span>
+                                <textarea name="message" rows="1" required maxlength="1200" x-model="messageBody" @keydown.enter="if (!$event.shiftKey && messageBody.trim()) { $event.preventDefault(); $event.target.form.requestSubmit(); }" class="block max-h-32 min-h-10 w-full resize-none rounded-[1.35rem] border-0 bg-slate-100 px-4 py-2.5 pr-11 text-sm leading-5 text-slate-900 outline-none ring-1 ring-transparent placeholder:text-slate-500 focus:bg-white focus:ring-blue-500 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-400 dark:focus:bg-slate-800" placeholder="Aa"></textarea>
+                                <span class="pointer-events-none absolute bottom-2.5 right-3 text-lg leading-none text-blue-600 dark:text-blue-300">☺</span>
+                            </label>
+                            <button class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-blue-600 text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="!messageBody.trim()" aria-label="Send message">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m4 4 16 8-16 8 3-8-3-8Zm3 8h13"/></svg>
+                            </button>
+                        </form>
+                    </footer>
                 </div>
             </template>
-
-            <template x-if="filteredConversations.length === 0">
-                <div class="px-6 py-16 text-center">
-                    <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-slate-800">
-                        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm3.75 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12c0 4.556-4.03 8.25-9 8.25a9.77 9.77 0 0 1-2.555-.337 5.972 5.972 0 0 1-4.035 1.057 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
-                        </svg>
-                    </div>
-                    <p class="mt-4 text-base font-bold text-slate-900 dark:text-white">No conversations found</p>
-                    <p class="mt-1.5 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                        @if (request('q'))
-                            Nothing matched "{{ request('q') }}". <a href="{{ route('user.messages.index') }}" class="font-semibold text-[#2563eb] hover:underline">Clear search</a>
-                        @else
-                            Message a boarding house owner from a listing to start a conversation.
-                        @endif
-                    </p>
-                </div>
-            </template>
-        </div>
-
-        {{-- Pagination --}}
-        <div class="flex flex-col gap-3 border-t border-slate-100 px-6 py-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
-            <p class="text-xs font-medium text-slate-400">
-                Showing {{ $messages->firstItem() ?? 0 }}–{{ $messages->lastItem() ?? 0 }} of {{ number_format($messages->total()) }} conversations
-            </p>
-            @if ($messages->hasPages())
-                <div class="flex items-center gap-2">
-                    @if ($messages->onFirstPage())
-                        <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-300 dark:border-slate-800 dark:text-slate-700">
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6"/></svg>
-                        </span>
-                    @else
-                        <a href="{{ $messages->previousPageUrl() }}" class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800" aria-label="Previous page">
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m15 18-6-6 6-6"/></svg>
-                        </a>
-                    @endif
-
-                    @if ($messages->hasMorePages())
-                        <a href="{{ $messages->nextPageUrl() }}" class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800" aria-label="Next page">
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/></svg>
-                        </a>
-                    @else
-                        <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-300 dark:border-slate-800 dark:text-slate-700">
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m9 18 6-6-6-6"/></svg>
-                        </span>
-                    @endif
-                </div>
-            @endif
-        </div>
-    </section>
+        </main>
+    </div>
 
     <template x-teleport="body">
-        <div
-            x-show="composeOpen"
-            x-cloak
-            x-transition.opacity.duration.150ms
-            @keydown.escape.window="composeOpen = false"
-            class="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-sm"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="tenant-compose-title"
-        >
-            <section
-                x-show="composeOpen"
-                x-transition:enter="transition ease-out duration-200"
-                x-transition:enter-start="translate-y-3 scale-95 opacity-0"
-                x-transition:enter-end="translate-y-0 scale-100 opacity-100"
-                @click.outside="composeOpen = false"
-                class="max-h-[calc(100dvh-2rem)] w-full max-w-xl overflow-x-hidden overflow-y-auto rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
-            >
-                <header class="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5 dark:border-slate-800">
+        <div x-show="composeOpen" x-cloak x-transition.opacity.duration.150ms @keydown.escape.window="composeOpen = false" class="bm-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="tenant-compose-title">
+            <section x-show="composeOpen" x-transition:enter="transition ease-out duration-200" x-transition:enter-start="translate-y-3 scale-95 opacity-0" x-transition:enter-end="translate-y-0 scale-100 opacity-100" @click.outside="composeOpen = false" class="bm-modal">
+                <header class="bm-modal__header">
                     <div>
-                        <p class="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-600 dark:text-blue-300">Tenant message</p>
-                        <h2 id="tenant-compose-title" class="mt-1 text-xl font-bold text-slate-950 dark:text-white">Contact a property owner</h2>
-                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Your message is delivered only to the owner of the selected boarding house.</p>
+                        <p class="bm-modal__eyebrow">New message</p>
+                        <h2 id="tenant-compose-title" class="bm-modal__title">Contact a property owner</h2>
+                        <p class="bm-modal__subtitle">Your message is delivered only to the owner of the selected boarding house.</p>
                     </div>
-                    <button type="button" @click="composeOpen = false" class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 dark:border-slate-700 dark:hover:bg-slate-800 dark:hover:text-white" aria-label="Close new message">
-                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" d="m6 6 12 12M18 6 6 18" /></svg>
-                    </button>
+                    <button type="button" @click="composeOpen = false" class="bm-modal__close" aria-label="Close new message">×</button>
                 </header>
 
-                <form method="POST" action="{{ route('user.messages.store') }}" class="space-y-5 px-6 py-6">
+                <form method="POST" action="{{ route('user.messages.store') }}">
                     @csrf
-                    @if ($errors->any())
-                        <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
-                            {{ $errors->first() }}
-                        </div>
-                    @endif
+                    <div class="bm-modal__body space-y-5">
+                        @if ($errors->any())
+                            <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">{{ $errors->first() }}</div>
+                        @endif
 
-                    <label class="block">
-                        <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Boarding house</span>
-                        <select name="boarding_house_id" required class="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-900">
-                            <option value="">Select a property</option>
-                            @foreach ($houses as $house)
-                                <option value="{{ $house->id }}" @selected((string) old('boarding_house_id') === (string) $house->id)>{{ $house->name }}</option>
-                            @endforeach
-                        </select>
-                    </label>
+                        @if ($houses->isEmpty())
+                            <div class="rounded-2xl border border-blue-200 bg-blue-50 px-5 py-6 text-center dark:border-blue-400/25 dark:bg-blue-400/10">
+                                <div class="mx-auto grid h-12 w-12 place-items-center rounded-full bg-blue-600 text-white">@include('components.sidebar.partials.admin-icon', ['name' => 'messages'])</div>
+                                <h3 class="mt-4 text-base font-bold text-slate-950 dark:text-white">Choose a boarding house first</h3>
+                                <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">Open an approved listing and select its message action to begin a private conversation with that property owner.</p>
+                                <a href="{{ route('user.boarding-houses.index') }}" class="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-bold text-white transition hover:bg-blue-700">Find boarding houses</a>
+                            </div>
+                        @else
+                        <label class="block">
+                            <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Boarding house</span>
+                            <select name="boarding_house_id" required class="ui-input">
+                                <option value="">Select an approved property</option>
+                                @foreach ($houses as $house)
+                                    <option value="{{ $house->id }}" @selected((string) old('boarding_house_id') === (string) $house->id)>{{ $house->name }}</option>
+                                @endforeach
+                            </select>
+                        </label>
 
-                    <label class="block">
-                        <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Message</span>
-                        <textarea name="message" rows="6" required maxlength="1200" class="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-900" placeholder="Ask about availability, rates, amenities, or viewing schedules.">{{ old('message') }}</textarea>
-                    </label>
-
-                    <div class="flex flex-col-reverse gap-3 border-t border-slate-100 pt-5 dark:border-slate-800 sm:flex-row sm:justify-end">
-                        <button type="button" @click="composeOpen = false" class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800">Cancel</button>
-                        <button class="inline-flex h-11 items-center justify-center rounded-xl bg-[#2563eb] px-6 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1d4ed8] focus:outline-none focus:ring-4 focus:ring-blue-200 dark:focus:ring-blue-900">Send message</button>
+                        <label class="block">
+                            <span class="mb-2 block text-sm font-semibold text-slate-700 dark:text-slate-200">Message</span>
+                            <textarea name="message" rows="6" required maxlength="1200" class="ui-input resize-y" placeholder="Ask about availability, rates, amenities, or viewing schedules.">{{ old('message') }}</textarea>
+                        </label>
+                        @endif
                     </div>
+
+                    <footer class="bm-modal__footer">
+                        <button type="button" @click="composeOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button>
+                        @if ($houses->isNotEmpty())
+                        <button class="bm-modal__button bm-modal__button--primary">Send message</button>
+                        @endif
+                    </footer>
                 </form>
             </section>
         </div>

@@ -9,13 +9,12 @@
     $respondedInq = (int) ($respondedInquiries ?? 0);
     $closedInq = max($totalInq - $newInq - $respondedInq, 0);
     $pendingFollowUp = $respondedInq;
-    $currentStatus = strtolower((string) request('status', ''));
-    $searchTerm = trim((string) request('q', ''));
-
     $initialsFor = function (?string $name): string {
         $words = preg_split('/\s+/', trim((string) $name)) ?: [];
         return collect($words)->filter()->map(fn ($w) => strtoupper(substr($w, 0, 1)))->take(2)->implode('') ?: 'T';
     };
+
+    $photoFor = fn ($user): ?string => $user?->photo_url;
 
     $badge = function ($status) {
         $s = strtolower((string) $status);
@@ -39,7 +38,6 @@
         };
     };
 
-    $hasActiveFilters = $searchTerm !== '' || $currentStatus !== '';
 @endphp
 
 <div
@@ -54,37 +52,6 @@
 >
     <div>
         <main class="min-w-0 space-y-3">
-            @if ($workspace !== 'admin')
-            <header data-inquiries-toolbar class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <h1 class="text-base font-bold text-slate-900">Property Inquiries</h1>
-                        <p class="text-xs text-slate-500">Manage tenant questions and requests.</p>
-                    </div>
-                    <form method="GET" action="{{ $route('inquiries') }}" class="flex flex-wrap items-center gap-2">
-                        <label class="relative">
-                            <span class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
-                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="10.5" cy="10.5" r="6.5" stroke-width="1.8"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m16 16 4 4"/></svg>
-                            </span>
-                            <input name="q" value="{{ $searchTerm }}" class="h-8 w-40 rounded-lg border border-slate-200 bg-slate-50 pl-8 pr-3 text-xs text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white" placeholder="Search by tenant, property, or message...">
-                        </label>
-                        <select name="status" class="h-8 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs font-medium text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white">
-                            <option value="">All statuses</option>
-                            <option value="new" @selected($currentStatus === 'new')>New</option>
-                            <option value="responded" @selected($currentStatus === 'responded')>Replied</option>
-                            <option value="closed" @selected($currentStatus === 'closed')>Closed</option>
-                        </select>
-                        <input name="date_from" type="date" value="{{ request('date_from') }}" class="h-8 w-32 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white">
-                        <input name="date_to" type="date" value="{{ request('date_to') }}" class="h-8 w-32 rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white">
-                        <button class="inline-flex h-8 items-center justify-center rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white transition hover:bg-blue-700">Apply</button>
-                        @if ($hasActiveFilters)
-                            <a href="{{ $route('inquiries') }}" class="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50">Clear</a>
-                        @endif
-                    </form>
-                </div>
-            </header>
-            @endif
-
             <section class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                 <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
                     <p class="text-[11px] font-semibold text-slate-500">Total Inquiries</p>
@@ -132,11 +99,13 @@
                                     $house = $inquiry->boardingHouse;
                                     $tenantName = $tenant?->name ?: 'Tenant';
                                     $tenantEmail = $tenant?->email ?: '';
+                                    $tenantPhotoUrl = $photoFor($tenant);
                                     $houseName = $house?->name ?: 'Boarding House';
                                     $date = $inquiry->created_at;
                                     $payload = [
                                         'tenant' => $tenantName,
                                         'email' => $tenantEmail,
+                                        'photo_url' => $tenantPhotoUrl,
                                         'house' => $houseName,
                                         'message' => $inquiry->message ?: 'No message provided.',
                                         'status' => $label($inquiry->status),
@@ -155,7 +124,7 @@
                                 >
                                     <td class="px-3 py-2.5">
                                         <div class="flex items-center gap-2">
-                                            <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-50 text-[10px] font-bold text-blue-700">{{ $initialsFor($tenantName) }}</div>
+                                            <div class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 text-[10px] font-bold text-blue-700">@if ($tenantPhotoUrl)<img src="{{ $tenantPhotoUrl }}" alt="{{ $tenantName }}" class="h-full w-full object-cover" loading="lazy">@else{{ $initialsFor($tenantName) }}@endif</div>
                                             <div class="min-w-0">
                                                 <p class="truncate text-xs font-semibold text-slate-900">{{ $tenantName }}</p>
                                                 @if ($tenantEmail)
@@ -184,10 +153,7 @@
                                     <td colspan="5" class="px-3 py-10 text-center">
                                         <svg class="mx-auto h-8 w-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 6h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H9l-5 4v-4H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z"/></svg>
                                         <p class="mt-3 text-sm font-medium text-slate-500">No inquiries found</p>
-                                        <p class="mt-1 text-xs text-slate-400">{{ $hasActiveFilters ? 'Try adjusting your search or filters.' : 'Tenant inquiries will appear here once submitted.' }}</p>
-                                        @if ($hasActiveFilters)
-                                            <a href="{{ $route('inquiries') }}" class="mt-3 inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-50">Clear Filters</a>
-                                        @endif
+                                        <p class="mt-1 text-xs text-slate-400">Tenant inquiries will appear here once submitted.</p>
                                     </td>
                                 </tr>
                             @endforelse
@@ -204,51 +170,104 @@
         </main>
     </div>
 
-    <div x-show="viewOpen" x-cloak class="bm-modal-overlay">
-        <div class="bm-modal bm-modal--lg">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h2 class="text-sm font-bold text-slate-900" x-text="selected.tenant"></h2>
-                    <p class="text-xs text-slate-500" x-text="selected.email"></p>
+    <div
+        data-modal-root
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="inquiry-details-title"
+        x-show="viewOpen"
+        x-cloak
+        x-transition.opacity
+        @click.self="viewOpen = false"
+        class="bm-modal-overlay"
+    >
+        <section class="bm-modal bm-modal--notification-detail" @click.stop>
+            <div class="bm-modal__header">
+                <div class="flex min-w-0 items-center gap-3">
+                    <span class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-sm font-black text-blue-700"><template x-if="selected.photo_url"><img :src="selected.photo_url" :alt="selected.tenant" class="h-full w-full object-cover"></template><span x-show="!selected.photo_url" x-text="(selected.tenant || 'T').slice(0, 2).toUpperCase()"></span></span>
+                    <div class="min-w-0">
+                    <p class="bm-modal__eyebrow">Inquiry</p>
+                    <h2 id="inquiry-details-title" class="bm-modal__title">Inquiry Details</h2>
+                    <p class="bm-modal__subtitle truncate">
+                        <span x-text="selected.tenant"></span>
+                        <span x-show="selected.email"> · </span>
+                        <span x-show="selected.email" x-text="selected.email"></span>
+                    </p>
+                    </div>
                 </div>
-                <button type="button" @click="viewOpen = false" class="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50">
-                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
+                <button type="button" @click="viewOpen = false" class="bm-modal__close" aria-label="Close inquiry details modal">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-            <div class="mt-3 space-y-2 text-xs">
-                <div class="flex gap-2">
-                    <span class="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700" x-text="selected.status"></span>
-                    <span class="text-slate-500" x-text="selected.date"></span>
+
+            <div class="bm-modal__body bm-modal__body--compact">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="inline-flex rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700" x-text="selected.status"></span>
+                    <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        <span x-text="selected.date"></span><span x-show="selected.time"> at </span><span x-show="selected.time" x-text="selected.time"></span>
+                    </span>
                 </div>
-                <p class="font-semibold text-slate-900" x-text="selected.house"></p>
-                <p class="font-semibold text-slate-600">Message</p>
-                <p class="whitespace-pre-line leading-5 text-slate-600" x-text="selected.message"></p>
+
+                <dl class="bm-modal__details mt-4">
+                    <div class="bm-modal__detail">
+                        <dt>Boarding House</dt>
+                        <dd x-text="selected.house"></dd>
+                    </div>
+                    <div class="bm-modal__detail">
+                        <dt>Tenant</dt>
+                        <dd x-text="selected.tenant"></dd>
+                    </div>
+                </dl>
+
+                <section class="bm-modal__section mt-4">
+                    <h3 class="bm-modal__section-title">Message</h3>
+                    <p class="mt-2 whitespace-pre-line break-words text-sm leading-6 text-slate-600 dark:text-slate-300" x-text="selected.message"></p>
+                </section>
             </div>
             <div class="bm-modal__footer">
                 <button type="button" @click="viewOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
                 <button type="button" @click="viewOpen = false; openReply(selected)" class="bm-modal__button bm-modal__button--primary">Reply</button>
             </div>
-        </div>
+        </section>
     </div>
 
-    <div x-show="replyOpen" x-cloak class="bm-modal-overlay">
-        <form method="POST" :action="selected.reply_url || '#'" class="bm-modal bm-modal--lg">
+    <div
+        data-modal-root
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="inquiry-reply-title"
+        x-show="replyOpen"
+        x-cloak
+        x-transition.opacity
+        @click.self="replyOpen = false"
+        class="bm-modal-overlay"
+    >
+        <form method="POST" :action="selected.reply_url || '#'" class="bm-modal bm-modal--notification-detail" @click.stop>
             @csrf @method('PATCH')
             <input type="hidden" name="status" value="replied">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h2 class="text-sm font-bold text-slate-900">Reply to <span x-text="selected.tenant"></span></h2>
-                    <p class="text-xs text-slate-500" x-text="selected.house"></p>
+            <div class="bm-modal__header">
+                <div class="flex min-w-0 items-center gap-3">
+                    <span class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-sm font-black text-blue-700"><template x-if="selected.photo_url"><img :src="selected.photo_url" :alt="selected.tenant" class="h-full w-full object-cover"></template><span x-show="!selected.photo_url" x-text="(selected.tenant || 'T').slice(0, 2).toUpperCase()"></span></span>
+                    <div class="min-w-0">
+                    <p class="bm-modal__eyebrow">Response</p>
+                    <h2 id="inquiry-reply-title" class="bm-modal__title">Reply to Inquiry</h2>
+                    <p class="bm-modal__subtitle truncate"><span x-text="selected.tenant"></span> · <span x-text="selected.house"></span></p>
+                    </div>
                 </div>
-                <button type="button" @click="replyOpen = false" class="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50">
-                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
+                <button type="button" @click="replyOpen = false" class="bm-modal__close" aria-label="Close inquiry reply modal">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-            <div class="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600" x-text="selected.message"></div>
-            <label class="mt-3 block text-xs font-semibold text-slate-700">
-                Reply Message
-                <textarea name="reply" rows="4" required placeholder="Write a clear response..." class="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white"></textarea>
-            </label>
+            <div class="bm-modal__body bm-modal__body--compact">
+                <section class="bm-modal__section">
+                    <h3 class="bm-modal__section-title">Tenant message</h3>
+                    <p class="mt-2 whitespace-pre-line break-words text-sm leading-6 text-slate-600 dark:text-slate-300" x-text="selected.message"></p>
+                </section>
+                <label class="mt-4 block text-sm font-bold text-slate-700 dark:text-slate-200">
+                    Your reply
+                    <textarea name="reply" rows="5" required placeholder="Write a clear response..." class="mt-2 w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-normal leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-800 dark:text-white dark:focus:border-blue-400 dark:focus:bg-slate-900 dark:focus:ring-blue-500/15"></textarea>
+                </label>
+            </div>
             <div class="bm-modal__footer">
                 <button type="button" @click="replyOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button>
                 <button class="bm-modal__button bm-modal__button--primary">Send Reply</button>

@@ -436,36 +436,36 @@
         </div>
     </section>
 
-    <div
+    <dialog
+        x-ref="composeDialog"
         data-modal-root
-        role="dialog"
+        data-native-modal
+        data-admin-notification-compose-modal
         aria-modal="true"
-        x-show="sendOpen"
+        aria-labelledby="admin-notification-compose-title"
         x-cloak
-        x-transition
-        class="bm-modal-overlay"
+        x-effect="if (sendOpen && !$el.open) { $el.showModal() } else if (!sendOpen && $el.open) { $el.close() }"
+        @cancel.prevent="sendOpen = false"
+        @close="sendOpen = false"
+        @click.self="sendOpen = false"
+        class="bm-native-dialog"
     >
-        <form method="POST" action="{{ $route('notifications.store') }}" class="bm-modal bm-modal--lg">
+        <form method="POST" action="{{ $route('notifications.store') }}" class="bm-modal bm-modal--notification" @click.stop>
             @csrf
             <div class="bm-modal__header">
-                <div>
-                    <p class="bm-modal__eyebrow">Create</p>
-                    <h2 class="bm-modal__title">Create Notification</h2>
-                    <p class="bm-modal__subtitle">Send a targeted or broadcast notice without changing the notification workflow.</p>
+                <div class="min-w-0">
+                    <p class="bm-modal__eyebrow">New notification</p>
+                    <h2 id="admin-notification-compose-title" class="bm-modal__title">Create Notification</h2>
+                    <p class="bm-modal__subtitle">Choose the recipients and send a clear system update.</p>
                 </div>
                 <button type="button" @click="sendOpen = false" class="bm-modal__close" aria-label="Close create notification modal">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
                 </button>
             </div>
-            <div class="bm-modal__body">
-                <section class="bm-modal__section">
-                    <div>
-                        <h3 class="bm-modal__section-title">Notification Content</h3>
-                        <p class="bm-modal__section-copy">Choose recipients and write the message in a structured, scannable format.</p>
-                    </div>
-                    <div class="bm-modal__grid mt-4">
-                        <label>
-                            Recipient Type
+            <div class="bm-modal__body bm-modal__body--compact">
+                    <div class="bm-modal__grid bm-notification-form-grid">
+                        <label class="bm-notification-field">
+                            Recipient
                             <select name="recipient_type" x-model="recipientType" required>
                                 <option value="all_tenants">{{ $isOwnerWorkspace ? 'All My Tenants' : 'All Tenants' }}</option>
                                 <option value="specific_tenant">Specific Tenant</option>
@@ -475,7 +475,7 @@
                                 @endunless
                             </select>
                         </label>
-                        <label x-show="recipientType === 'specific_tenant'" x-cloak>
+                        <label class="bm-notification-field bm-notification-field--full" x-show="recipientType === 'specific_tenant'" x-cloak>
                             Tenant
                             <select name="user_id">
                                 <option value="">Select tenant</option>
@@ -484,8 +484,8 @@
                                 @endforeach
                             </select>
                         </label>
-                        <label>
-                            Notification Type
+                        <label class="bm-notification-field">
+                            Type
                             <select name="notification_type" required>
                                 <option value="reservation" @selected(old('notification_type') === 'reservation')>Reservation</option>
                                 <option value="payment" @selected(old('notification_type') === 'payment')>Payment</option>
@@ -494,16 +494,15 @@
                                 <option value="system" @selected(old('notification_type') === 'system')>System</option>
                             </select>
                         </label>
-                        <label>
+                        <label class="bm-notification-field bm-notification-field--full">
                             Title
-                            <input name="title" value="{{ old('title') }}" required placeholder="Notification title">
+                            <input name="title" value="{{ old('title') }}" maxlength="150" required placeholder="Enter a short notification title">
                         </label>
-                        <label>
+                        <label class="bm-notification-field bm-notification-field--full">
                             Message
-                            <textarea name="message" rows="4" required placeholder="Write the notification message...">{{ old('message') }}</textarea>
+                            <textarea name="message" rows="4" maxlength="1000" required placeholder="Write the notification message clearly...">{{ old('message') }}</textarea>
                         </label>
                     </div>
-                </section>
             </div>
             <div class="bm-modal__footer">
                 <button type="button" @click="sendOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button>
@@ -515,22 +514,27 @@
                 </button>
             </div>
         </form>
-    </div>
+    </dialog>
 
-    <div
+    <dialog
+        x-ref="detailDialog"
         data-modal-root
-        role="dialog"
+        data-native-modal
+        data-admin-notification-detail-modal
         aria-modal="true"
-        x-show="detailOpen"
+        aria-labelledby="admin-notification-detail-title"
         x-cloak
-        x-transition
-        class="bm-modal-overlay"
+        x-effect="if (detailOpen && !$el.open) { $el.showModal() } else if (!detailOpen && $el.open) { $el.close() }"
+        @cancel.prevent="detailOpen = false"
+        @close="detailOpen = false"
+        @click.self="detailOpen = false"
+        class="bm-native-dialog"
     >
-        <div class="bm-modal">
+        <div class="bm-modal bm-modal--notification-detail" @click.stop>
             <div class="bm-modal__header">
                 <div class="min-w-0">
                     <p class="bm-modal__eyebrow">View</p>
-                    <h2 class="bm-modal__title truncate" x-text="selected.title"></h2>
+                    <h2 id="admin-notification-detail-title" class="bm-modal__title truncate" x-text="selected.title"></h2>
                     <p class="bm-modal__subtitle">Notification details and delivery status.</p>
                 </div>
                 <button type="button" @click="detailOpen = false" class="bm-modal__close" aria-label="Close notification details modal">
@@ -570,7 +574,7 @@
                 <button type="button" @click="detailOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
             </div>
         </div>
-    </div>
+    </dialog>
 </div>
 </x-admin.shell>
 </x-layouts.dashboard>

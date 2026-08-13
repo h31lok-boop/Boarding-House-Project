@@ -28,6 +28,13 @@ function makeNotification(User $user, array $attributes = []): UserNotification
     ], $attributes));
 }
 
+function notificationListContent($response): string
+{
+    preg_match('/<section data-notification-list.*?<\/section>/s', $response->getContent(), $matches);
+
+    return $matches[0] ?? '';
+}
+
 test('notifications page renders notification content instead of profile settings', function () {
     $user = notificationUser();
 
@@ -70,11 +77,13 @@ test('notifications can be filtered by type', function () {
         'title' => 'Owner replied',
     ]);
 
-    $this->actingAs($user)
+    $response = $this->actingAs($user)
         ->get(route('user.notifications.index', ['filter' => 'payments']))
-        ->assertOk()
-        ->assertSee('Payment receipt ready')
-        ->assertDontSee('Owner replied');
+        ->assertOk();
+
+    expect(notificationListContent($response))
+        ->toContain('Payment receipt ready')
+        ->not->toContain('Owner replied');
 });
 
 test('notifications can be searched', function () {
@@ -90,11 +99,13 @@ test('notifications can be searched', function () {
         'message' => 'Update your password soon.',
     ]);
 
-    $this->actingAs($user)
+    $response = $this->actingAs($user)
         ->get(route('user.notifications.index', ['q' => 'viewing']))
-        ->assertOk()
-        ->assertSee('Viewing schedule confirmed')
-        ->assertDontSee('Password reminder');
+        ->assertOk();
+
+    expect(notificationListContent($response))
+        ->toContain('Viewing schedule confirmed')
+        ->not->toContain('Password reminder');
 });
 
 test('notifications can be sorted unread first', function () {
@@ -114,9 +125,11 @@ test('notifications can be sorted unread first', function () {
         ->get(route('user.notifications.index', ['sort' => 'unread']))
         ->assertOk();
 
-    expect($response->getContent())->toContain('Unread should appear first')
-        ->and(strpos($response->getContent(), 'Unread should appear first'))
-        ->toBeLessThan(strpos($response->getContent(), 'Read first chronologically'));
+    $list = notificationListContent($response);
+
+    expect($list)->toContain('Unread should appear first')
+        ->and(strpos($list, 'Unread should appear first'))
+        ->toBeLessThan(strpos($list, 'Read first chronologically'));
 });
 
 test('duplicate database notifications are rendered and counted once', function () {

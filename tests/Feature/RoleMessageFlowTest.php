@@ -5,6 +5,7 @@ use App\Models\Inquiry;
 use App\Models\OwnerProfile;
 use App\Models\User;
 use App\Models\UserNotification;
+use Illuminate\Support\Facades\Storage;
 
 test('admin owner and tenant message pages are scoped to their roles', function () {
     $admin = User::factory()->create(['name' => 'Scope Admin', 'role' => 'admin']);
@@ -54,6 +55,10 @@ test('admin owner and tenant message pages are scoped to their roles', function 
     $this->actingAs($tenantA)
         ->get(route('user.messages.index'))
         ->assertOk()
+        ->assertSee('data-tenant-message-center', false)
+        ->assertSee('Chats')
+        ->assertSee('Property conversations')
+        ->assertSee('Search messages')
         ->assertSee('Alpha Role House')
         ->assertDontSee('Bravo Role House');
 
@@ -81,6 +86,8 @@ test('admin owner and tenant message pages are scoped to their roles', function 
 });
 
 test('tenant messages notify only the selected property owner and preserve reply identity', function () {
+    Storage::fake('public');
+
     $owner = User::factory()->create([
         'name' => 'Maria Owner',
         'role' => 'owner',
@@ -97,6 +104,7 @@ test('tenant messages notify only the selected property owner and preserve reply
         'valid_id_file' => 'tests/owner-id.png',
         'verification_status' => 'verified',
     ]);
+    Storage::disk('public')->put($ownerProfile->valid_id_file, 'Verified business permit');
 
     $house = BoardingHouse::factory()->create([
         'owner_id' => $owner->id,
@@ -172,4 +180,31 @@ test('tenant cannot message an inactive or unapproved property', function () {
         ->assertSessionHasErrors('boarding_house_id');
 
     expect(Inquiry::query()->where('user_id', $tenant->id)->exists())->toBeFalse();
+});
+
+test('tenant with no threads is guided to approved listings without exposing unrelated property names', function () {
+    $owner = User::factory()->verifiedOwner()->create();
+    $tenant = User::factory()->create(['role' => 'user']);
+
+    BoardingHouse::factory()->create([
+        'owner_id' => $owner->id,
+        'name' => 'Visible Compose House',
+        'approval_status' => 'approved',
+        'is_active' => true,
+    ]);
+    BoardingHouse::factory()->create([
+        'owner_id' => $owner->id,
+        'name' => 'Hidden Pending House',
+        'approval_status' => 'pending',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($tenant)
+        ->get(route('user.messages.index'))
+        ->assertOk()
+        ->assertSee('data-tenant-message-center', false)
+        ->assertDontSee('Visible Compose House')
+        ->assertDontSee('Hidden Pending House')
+        ->assertSee('Find boarding houses')
+        ->assertSee('No conversations found');
 });
