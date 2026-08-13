@@ -1062,7 +1062,7 @@
             x-transition
             class="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-3 backdrop-blur-sm"
         >
-            <div class="flex w-full max-w-3xl max-h-[92vh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl shadow-slate-900/25">
+            <div class="flex w-full max-w-3xl max-h-[92vh] flex-col overflow-x-hidden overflow-y-auto rounded-2xl bg-white shadow-2xl shadow-slate-900/25">
                 {{-- Header --}}
                 <div class="flex shrink-0 items-start justify-between border-b border-slate-100 px-7 py-5">
                     <div>
@@ -1074,8 +1074,8 @@
                     </button>
                 </div>
 
-                {{-- Scrollable Body --}}
-                <div class="min-h-0 flex-1 overflow-y-auto px-7 py-5">
+                {{-- Modal body; the whole dialog scrolls so its actions cannot cover content. --}}
+                <div class="shrink-0 px-7 py-5">
                     {{-- Error banner --}}
                     <div x-show="editError" x-cloak class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] font-semibold text-rose-800" x-text="editError"></div>
 
