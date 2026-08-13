@@ -4,12 +4,14 @@ use App\Http\Controllers\Admin\AdminHelpCenterController;
 use App\Http\Controllers\Admin\PaymentReceiptVerificationController;
 use App\Http\Controllers\AdminListingController;
 use App\Http\Controllers\AdminOwnerController;
+use App\Http\Controllers\AiAssistantController;
 use App\Http\Controllers\BoardingHouseController;
 use App\Http\Controllers\BoardingHouseServiceController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Map\BoardingHouseMapController;
-use App\Http\Controllers\PaymongoCheckoutController;
 use App\Http\Controllers\Owner\OwnerController;
+use App\Http\Controllers\PaymongoCheckoutController;
+use App\Http\Controllers\PredictiveInsightsController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\User\BoardingHouseBrowseController;
@@ -34,6 +36,10 @@ Route::post('/webhooks/paymongo', [PaymongoCheckoutController::class, 'webhook']
 Route::middleware('guest')->get('/auth', fn () => redirect()->route('login'))->name('auth.choice');
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::post('/assistant/ask', [AiAssistantController::class, 'ask'])
+        ->middleware('throttle:12,1')
+        ->name('assistant.ask');
+
     Route::get('/dashboard', function () {
         $user = Auth::user();
         $role = $user?->role ? strtolower($user->role) : null;
@@ -73,6 +79,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/users', [AdminOwnerController::class, 'storeUser'])->name('users.store');
         Route::patch('/users/{user}', [AdminOwnerController::class, 'updateUser'])->name('users.update');
         Route::delete('/users/{user}', [AdminOwnerController::class, 'destroyUser'])->name('users.destroy');
+        Route::patch('/owners/{user}/verify', [AdminOwnerController::class, 'verifyOwner'])->name('owners.verify');
+        Route::patch('/owners/{user}/reject', [AdminOwnerController::class, 'rejectOwner'])->name('owners.reject');
 
         // My property (owner's single-property dashboard)
         Route::get('/my-boarding-house', [AdminListingController::class, 'myBoardingHouse'])->name('my-boarding-house');
@@ -127,6 +135,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Reports
         Route::get('/reports/export', [AdminOwnerController::class, 'exportReports'])->name('reports.export');
         Route::get('/reports', [AdminOwnerController::class, 'reports'])->name('reports.index');
+        Route::get('/predictive-insights', [PredictiveInsightsController::class, 'index'])->name('insights.index');
 
         // Payment-receipt verification
         Route::get('/payment-verification', [PaymentReceiptVerificationController::class, 'index'])->name('payment-receipts.index');
@@ -233,8 +242,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/messages', [OwnerController::class, 'messages'])->name('messages');
         Route::get('/messages/inbox', [OwnerController::class, 'messages'])->name('messages.index');
 
+        // Feedback and reviews (restricted to the owner's boarding houses)
+        Route::get('/reviews', [OwnerController::class, 'reviews'])->name('reviews');
+        Route::patch('/reviews/{review}', [OwnerController::class, 'updateReview'])->name('reviews.update');
+
         // Notifications
         Route::get('/notifications', [OwnerController::class, 'notifications'])->name('notifications.index');
+        Route::get('/predictive-insights', [PredictiveInsightsController::class, 'index'])->name('insights.index');
         Route::post('/notifications', [OwnerController::class, 'storeNotification'])->name('notifications.store');
         Route::delete('/notifications/clear-all', [OwnerController::class, 'clearNotifications'])->name('notifications.clear');
         Route::patch('/notifications/{notification}', [OwnerController::class, 'updateNotification'])->name('notifications.update');
@@ -254,6 +268,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware('user')->prefix('user')->name('user.')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'userDashboard'])->name('dashboard');
+        Route::get('/predictive-insights', [PredictiveInsightsController::class, 'index'])->name('insights.index');
 
         Route::get('/boarding-houses', [BoardingHouseBrowseController::class, 'index'])->name('boarding-houses.index');
         Route::get('/boarding-houses/recommended', [BoardingHouseBrowseController::class, 'recommended'])->name('boarding-houses.recommended');
