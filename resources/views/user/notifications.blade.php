@@ -351,7 +351,7 @@
             </div>
 
             {{-- Body --}}
-            <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+            <div class="shrink-0 px-6 py-5">
                 <p class="whitespace-pre-line text-sm leading-7 text-slate-600" x-text="selected.message"></p>
 
                 <dl class="mt-5 divide-y divide-slate-100 rounded-2xl border border-slate-100 bg-slate-50/60">
