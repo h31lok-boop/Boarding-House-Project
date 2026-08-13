@@ -8,8 +8,8 @@ use App\Models\UserNotification;
 
 test('admin owner and tenant message pages are scoped to their roles', function () {
     $admin = User::factory()->create(['name' => 'Scope Admin', 'role' => 'admin']);
-    $ownerA = User::factory()->create(['name' => 'Owner Alpha', 'role' => 'owner']);
-    $ownerB = User::factory()->create(['name' => 'Owner Bravo', 'role' => 'owner']);
+    $ownerA = User::factory()->verifiedOwner()->create(['name' => 'Owner Alpha']);
+    $ownerB = User::factory()->verifiedOwner()->create(['name' => 'Owner Bravo']);
     $tenantA = User::factory()->create(['name' => 'Tenant Alpha Scope', 'role' => 'user']);
     $tenantB = User::factory()->create(['name' => 'Tenant Bravo Scope', 'role' => 'user']);
 
@@ -81,7 +81,12 @@ test('admin owner and tenant message pages are scoped to their roles', function 
 });
 
 test('tenant messages notify only the selected property owner and preserve reply identity', function () {
-    $owner = User::factory()->create(['name' => 'Maria Owner', 'role' => 'owner']);
+    $owner = User::factory()->create([
+        'name' => 'Maria Owner',
+        'role' => 'owner',
+        'status' => 'active',
+        'is_active' => true,
+    ]);
     $otherOwner = User::factory()->create(['name' => 'Other Owner', 'role' => 'owner']);
     $tenant = User::factory()->create(['name' => 'Paolo Tenant', 'role' => 'user']);
 
