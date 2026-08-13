@@ -14,7 +14,13 @@ use Illuminate\Support\Facades\Route;
 
 // ── Google OAuth ─────────────────────────────────────────────────────────────
 Route::middleware('guest')->group(function () {
-    Route::get('auth/google',          [GoogleAuthController::class, 'redirect'])->name('auth.google');
+    Route::get('auth/google', [GoogleAuthController::class, 'redirect'])->name('auth.google');
+    Route::post('register/google', [GoogleAuthController::class, 'register'])
+        ->middleware('throttle:6,1')
+        ->name('register.google');
+    Route::post('register/owner/google', [GoogleAuthController::class, 'registerOwner'])
+        ->middleware('throttle:6,1')
+        ->name('register.owner.google');
     Route::get('auth/google/callback', [GoogleAuthController::class, 'callback'])->name('auth.google.callback');
 });
 
@@ -22,10 +28,17 @@ Route::middleware('guest')->group(function () {
     Route::get('register', [RegisteredUserController::class, 'showRegistrationForm'])
         ->name('register');
 
+    Route::get('register/owner', [RegisteredUserController::class, 'showOwnerRegistrationForm'])
+        ->name('register.owner');
+
     // Rate-limited: max 6 registration attempts per minute per IP
     Route::post('register', [RegisteredUserController::class, 'register'])
         ->middleware('throttle:6,1')
         ->name('register.store');
+
+    Route::post('register/owner', [RegisteredUserController::class, 'registerOwner'])
+        ->middleware('throttle:6,1')
+        ->name('register.owner.store');
 
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
