@@ -248,7 +248,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Notifications
         Route::get('/notifications', [OwnerController::class, 'notifications'])->name('notifications.index');
-        Route::get('/predictive-insights', [PredictiveInsightsController::class, 'index'])->name('insights.index');
         Route::post('/notifications', [OwnerController::class, 'storeNotification'])->name('notifications.store');
         Route::delete('/notifications/clear-all', [OwnerController::class, 'clearNotifications'])->name('notifications.clear');
         Route::patch('/notifications/{notification}', [OwnerController::class, 'updateNotification'])->name('notifications.update');
@@ -268,8 +267,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware('user')->prefix('user')->name('user.')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'userDashboard'])->name('dashboard');
-        Route::get('/predictive-insights', [PredictiveInsightsController::class, 'index'])->name('insights.index');
-
         Route::get('/boarding-houses', [BoardingHouseBrowseController::class, 'index'])->name('boarding-houses.index');
         Route::get('/boarding-houses/recommended', [BoardingHouseBrowseController::class, 'recommended'])->name('boarding-houses.recommended');
         Route::get('/boarding-houses/compare', [BoardingHouseBrowseController::class, 'compare'])->name('boarding-houses.compare');
