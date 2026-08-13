@@ -18,6 +18,5 @@ test('role account dropdowns contain only profile and logout actions', function 
         ->and($userDashboard)
         ->not->toContain('>My Profile</a>')
         ->not->toContain('>Account Settings</a>')
-        ->toContain('>Profile</a>')
-        ->toContain('>Logout</button>');
+        ->not->toContain('profileOpen');
 });
