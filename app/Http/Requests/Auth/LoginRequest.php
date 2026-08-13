@@ -13,6 +13,7 @@ use Illuminate\Validation\ValidationException;
 class LoginRequest extends FormRequest
 {
     private const MAX_ATTEMPTS = 3;
+
     private const LOCKOUT_SECONDS = 180;
 
     /**
@@ -103,7 +104,7 @@ class LoginRequest extends FormRequest
         }
 
         $status = strtolower((string) ($user->status ?: ($user->account_status ?? 'active')));
-        if (in_array($status, ['suspended', 'inactive', 'disabled'], true)) {
+        if (in_array($status, ['suspended', 'inactive', 'disabled', 'rejected', 'denied'], true)) {
             Auth::logout();
 
             throw ValidationException::withMessages([
@@ -111,12 +112,28 @@ class LoginRequest extends FormRequest
             ]);
         }
 
-        if ($status === 'pending' && ! $user->isManager()) {
+        if ($status === 'pending') {
             Auth::logout();
 
             throw ValidationException::withMessages([
-                'email' => 'This account is pending approval.',
+                'email' => $user->isStrictOwner()
+                    ? 'Your owner account is waiting for administrator verification of the submitted business permit.'
+                    : 'This account is pending approval.',
             ]);
+        }
+
+        if ($user->isStrictOwner()) {
+            $profile = $user->ownerProfile;
+            $hasPermit = filled($profile?->proof_of_ownership) || filled($profile?->valid_id_file);
+            $isVerified = strtolower((string) $profile?->verification_status) === 'verified';
+
+            if (! $hasPermit || ! $isVerified) {
+                Auth::logout();
+
+                throw ValidationException::withMessages([
+                    'email' => 'This owner account cannot be used until an administrator verifies its business permit.',
+                ]);
+            }
         }
     }
 
