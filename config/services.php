@@ -35,18 +35,33 @@ return [
         ],
     ],
 
-    'deepseek' => [
-        'api_key' => env('DEEPSEEK_API_KEY'),
-        'base_url' => env('DEEPSEEK_BASE_URL', 'https://api.deepseek.com'),
-        'model' => env('DEEPSEEK_MODEL', 'deepseek-v4-flash'),
-        'timeout' => env('DEEPSEEK_TIMEOUT', 30),
-        'connect_timeout' => env('DEEPSEEK_CONNECT_TIMEOUT', 20),
+    'openai' => [
+        'api_key' => env('OPENAI_API_KEY'),
+        'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
+        'model' => env('OPENAI_MODEL', 'gpt-5.6'),
+        'timeout' => env('OPENAI_TIMEOUT', 45),
+        'connect_timeout' => env('OPENAI_CONNECT_TIMEOUT', 20),
+    ],
+
+    'ai_evaluation' => [
+        'provider' => env('AI_EVALUATION_PROVIDER', 'openai'),
+        'prompt_version' => env('AI_EVALUATION_PROMPT_VERSION', 'v1'),
+        'temperature' => (float) env('AI_EVALUATION_TEMPERATURE', 0.2),
+    ],
+
+    'freemodel' => [
+        'enabled' => filter_var(env('FREEMODEL_ENABLED', false), FILTER_VALIDATE_BOOL),
+        'api_key' => env('FREEMODEL_API_KEY'),
+        'base_url' => env('FREEMODEL_BASE_URL', 'https://api.freemodel.dev'),
+        'model' => env('FREEMODEL_MODEL', 'auto'),
+        'timeout' => env('FREEMODEL_TIMEOUT', 120),
+        'connect_timeout' => env('FREEMODEL_CONNECT_TIMEOUT', 20),
     ],
 
     'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
-        'redirect' => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
+        'redirect' => env('GOOGLE_REDIRECT_URI', rtrim((string) env('APP_URL'), '/').'/auth/google/callback'),
     ],
 
     'google_maps' => [
@@ -65,7 +80,7 @@ return [
         'webhook_secret' => env('PAYMONGO_WEBHOOK_SECRET'),
         'payment_methods' => array_values(array_filter(array_map(
             'trim',
-            explode(',', env('PAYMONGO_PAYMENT_METHODS', 'card,gcash,qrph'))
+            explode(',', env('PAYMONGO_PAYMENT_METHODS', 'card,gcash,paymaya,qrph'))
         ))),
     ],
 
