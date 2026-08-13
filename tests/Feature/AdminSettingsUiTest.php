@@ -25,11 +25,8 @@ test('admin settings page renders the compact account center layout', function (
 });
 
 test('owner settings page renders the owner account center', function () {
-    $owner = User::factory()->create([
-        'role' => 'owner',
+    $owner = User::factory()->verifiedOwner()->create([
         'name' => 'Hazel Owner',
-        'is_active' => true,
-        'email_verified_at' => now(),
     ]);
 
     $this->actingAs($owner)
