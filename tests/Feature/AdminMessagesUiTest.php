@@ -2,7 +2,7 @@
 
 use App\Models\User;
 
-test('admin messages page renders the modern communication center layout', function () {
+test('admin messages page renders the messenger-style workspace inside the admin shell', function () {
     $admin = User::factory()->create([
         'role' => 'admin',
         'is_active' => true,
@@ -12,29 +12,28 @@ test('admin messages page renders the modern communication center layout', funct
     $this->actingAs($admin)
         ->get(route('admin.messages'))
         ->assertOk()
-        ->assertSee('Admin Messages Dashboard')
-        ->assertSee('Communication Center')
-        ->assertSee('All conversations')
-        ->assertSee('Conversation List')
+        ->assertSee('BoardMatch Admin')
+        ->assertSee('Chats')
+        ->assertSee('Platform conversations')
+        ->assertSee('Search messages')
+        ->assertSee('Your messages')
         ->assertSee('Active')
         ->assertSee('Archived')
-        ->assertSee('Awaiting Reply')
-        ->assertSee('Apply')
+        ->assertSee('Dashboard')
+        ->assertSee('data-messaging-interaction', false)
         ->assertDontSee('Portfolio HQ')
         ->assertDontSee('BoardMatch Owner Portal')
         ->assertDontSee('Track portfolio performance, tenant activity, earnings, and action queues from one owner workspace.');
 });
 
 test('owner messages page uses the owner workspace identity', function () {
-    $owner = User::factory()->create([
-        'role' => 'owner',
-        'is_active' => true,
-        'email_verified_at' => now(),
-    ]);
+    $owner = User::factory()->verifiedOwner()->create();
 
     $this->actingAs($owner)
         ->get(route('owner.messages'))
         ->assertOk()
-        ->assertSee('Owner Messages Dashboard')
-        ->assertDontSee('Admin Messages Dashboard');
+        ->assertSee('BoardMatch Workspace')
+        ->assertSee('Tenant conversations')
+        ->assertSee('Chats')
+        ->assertDontSee('Platform conversations');
 });
