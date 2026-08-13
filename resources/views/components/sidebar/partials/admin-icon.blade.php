@@ -120,6 +120,12 @@
         </svg>
         @break
 
+    @case('reviews')
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/>
+        </svg>
+        @break
+
     @case('analytics')
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M4 20V14M8 20V10M12 20V6M16 20V12M20 20V8"/>
