@@ -4,7 +4,7 @@
     <div>
         <p class="text-xs font-bold uppercase tracking-[0.16em] text-blue-600 dark:text-blue-400">Payment configuration</p>
         <h1 class="mt-1 text-2xl font-black text-slate-950 dark:text-white">PayMongo settings</h1>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Connect each property owner to PayMongo Hosted Checkout. Secret values are encrypted and are never displayed after saving.</p>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">One secure PayMongo Hosted Checkout configuration is used by every boarding house owner.</p>
     </div>
 
     @if (session('success'))
@@ -25,6 +25,62 @@
         </div>
     </div>
 
+    @if ($usesSharedPaymongo)
+        <section class="rounded-2xl border border-emerald-200 bg-white p-5 shadow-sm dark:border-emerald-400/20 dark:bg-slate-900">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+                        </span>
+                        <div>
+                            <h2 class="font-bold text-slate-950 dark:text-white">Shared gateway is active</h2>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Credentials are loaded securely from the server environment.</p>
+                        </div>
+                    </div>
+                </div>
+                <span class="w-fit rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">Checkout ready</span>
+            </div>
+
+            <div class="mt-5 grid gap-3 sm:grid-cols-3">
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Public key</p>
+                    <p class="mt-1 text-sm font-bold text-emerald-700 dark:text-emerald-300">Configured</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Secret key</p>
+                    <p class="mt-1 text-sm font-bold text-emerald-700 dark:text-emerald-300">Configured</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Webhook signing</p>
+                    <p class="mt-1 text-sm font-bold {{ filled($sharedCredentials['webhook_secret']) ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300' }}">{{ filled($sharedCredentials['webhook_secret']) ? 'Configured' : 'Optional setup pending' }}</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+            <div class="border-b border-slate-200 px-5 py-4 dark:border-slate-700">
+                <h2 class="font-bold text-slate-950 dark:text-white">Owner coverage</h2>
+                <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Every owner below automatically uses the same platform gateway.</p>
+            </div>
+            <div class="divide-y divide-slate-200 dark:divide-slate-700">
+                @forelse ($owners as $owner)
+                    <div class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="min-w-0">
+                            <p class="truncate text-sm font-bold text-slate-950 dark:text-white">{{ $owner->name }}</p>
+                            <p class="truncate text-xs text-slate-500 dark:text-slate-400">{{ $owner->email }}</p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700 dark:bg-blue-400/10 dark:text-blue-300">Shared .env gateway</span>
+                            <span class="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300">Checkout ready</span>
+                        </div>
+                    </div>
+                @empty
+                    <p class="px-5 py-6 text-sm text-slate-500 dark:text-slate-400">No owner accounts found.</p>
+                @endforelse
+            </div>
+        </section>
+    @else
     <div class="grid gap-4 lg:grid-cols-2">
         @forelse ($owners as $owner)
             @php
@@ -71,6 +127,7 @@
             <p class="text-sm text-slate-500 dark:text-slate-400">No owner profiles found.</p>
         @endforelse
     </div>
+    @endif
 </div>
 </x-admin.shell>
 </x-layouts.dashboard>
