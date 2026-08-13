@@ -41,8 +41,20 @@ class RegisteredUserController extends Controller
         return $this->showRegistrationForm();
     }
 
+    public function showOwnerRegistrationForm(): View
+    {
+        return view('auth.register-owner');
+    }
+
     public function register(Request $request): RedirectResponse
     {
+        return $this->store($request);
+    }
+
+    public function registerOwner(Request $request): RedirectResponse
+    {
+        $request->merge(['role' => 'owner']);
+
         return $this->store($request);
     }
 
@@ -126,14 +138,18 @@ class RegisteredUserController extends Controller
 
             event(new Registered($user));
 
+            if ($isOwnerRegistration) {
+                return redirect()
+                    ->route('login')
+                    ->with('status', 'Your owner registration and business permit were submitted. An administrator must verify your permit before you can sign in.');
+            }
+
             Auth::login($user);
             $request->session()->regenerate();
 
             return redirect()
                 ->route($user->dashboardRouteName())
-                ->with('status', $role === 'tenant'
-                    ? 'Your account has been created successfully.'
-                    : 'Your owner account has been submitted successfully and is pending verification.');
+                ->with('status', 'Your account has been created successfully.');
         } catch (Throwable $e) {
             DB::rollBack();
 
@@ -191,6 +207,7 @@ class RegisteredUserController extends Controller
             $rules['amenities'] = ['required', 'array', 'min:1'];
             $rules['amenities.*'] = ['string', 'max:50'];
             $rules['house_rules'] = ['required', 'string', 'max:5000'];
+            $rules['business_permit_number'] = ['nullable', 'string', 'max:120'];
             $rules['photos'] = ['nullable', 'array', 'max:10'];
             $rules['photos.*'] = ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'];
             $rules['proof_of_ownership'] = ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:2048'];
@@ -241,9 +258,9 @@ class RegisteredUserController extends Controller
             'photos.max' => 'You may upload up to 10 boarding house photos.',
             'photos.*.mimes' => 'Each photo must be a JPG, PNG, or WEBP image.',
             'photos.*.max' => 'Each photo may not exceed 5 MB.',
-            'proof_of_ownership.required' => 'Valid ID or proof of ownership is required.',
-            'proof_of_ownership.mimes' => 'Proof of ownership must be a JPG, PNG, or PDF.',
-            'proof_of_ownership.max' => 'Proof of ownership may not exceed 2 MB.',
+            'proof_of_ownership.required' => 'A valid business permit is required before an owner account can be reviewed.',
+            'proof_of_ownership.mimes' => 'The business permit must be a JPG, PNG, or PDF.',
+            'proof_of_ownership.max' => 'The business permit may not exceed 2 MB.',
         ];
     }
 
@@ -297,7 +314,7 @@ class RegisteredUserController extends Controller
             'role' => $role,
             'password' => $hashedPassword,
             'password_hash' => $hashedPassword,
-            'is_active' => true,
+            'is_active' => ! $isOwnerRegistration,
             'status' => $status,
             'account_status' => $status === 'active' ? 'Active' : 'Pending',
             'email_verified_at' => now(),
@@ -372,8 +389,8 @@ class RegisteredUserController extends Controller
             'house_rules' => $validated['house_rules'],
             'proof_of_ownership' => $proofPath,
             'company_name' => $validated['bh_name'],
-            'valid_id_type' => 'proof_of_ownership',
-            'valid_id_number' => 'pending',
+            'valid_id_type' => 'business_permit',
+            'valid_id_number' => $validated['business_permit_number'] ?? 'uploaded',
             'valid_id_file' => $proofPath,
             'verification_status' => 'pending',
         ]));
