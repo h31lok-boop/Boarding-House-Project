@@ -1,9 +1,8 @@
 <?php
 
 use App\Models\User;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
@@ -11,10 +10,18 @@ test('registration screen can be rendered', function () {
     $response = $this->get('/register');
 
     $response->assertStatus(200)
-        ->assertSee('Owner / Admin')
+        ->assertSee('data-theme-mode="light-only"', false)
+        ->assertSee('Create your student account')
         ->assertSee('Tenant / Student')
+        ->assertSee('Register with Google')
+        ->assertSee('formaction="'.route('register.google').'"', false)
+        ->assertDontSee('href="'.route('auth.google').'"', false)
+        ->assertSee(route('register.owner'))
         ->assertDontSee('Caretaker')
         ->assertDontSee('OSAS');
+
+    expect(strpos($response->getContent(), 'id="googleSubmitBtn"'))
+        ->toBeGreaterThan(strpos($response->getContent(), 'Lifestyle Information for AI Recommendation'));
 });
 
 test('new users can register', function () {
@@ -76,13 +83,20 @@ test('new users can register', function () {
     ]);
 });
 
-test('owners can register from the public form', function () {
+test('owners register through the dedicated permit form and remain blocked until admin verification', function () {
     Storage::fake('public');
 
-    $response = $this->post('/register', [
+    $this->get(route('register.owner'))
+        ->assertOk()
+        ->assertSee('data-theme-mode="light-only"', false)
+        ->assertSee('Upload business permit')
+        ->assertSee('Submit and link with Google')
+        ->assertSee('formaction="'.route('register.owner.google').'"', false)
+        ->assertSee('Your account opens only after approval.');
+
+    $response = $this->post(route('register.owner.store'), [
         'name' => 'Admin User',
         'email' => 'admin-user@example.com',
-        'role' => 'owner',
         'phone' => '+639991111111',
         'password' => 'OwnerSafe9!',
         'password_confirmation' => 'OwnerSafe9!',
@@ -103,17 +117,18 @@ test('owners can register from the public form', function () {
     ]);
 
     $response->assertSessionDoesntHaveErrors();
-    $response->assertRedirect(route('owner.dashboard', absolute: false));
+    $response->assertRedirect(route('login', absolute: false));
 
     $owner = User::where('email', 'admin-user@example.com')->first();
     $boardingHouse = DB::table('boarding_houses')->where('user_id', $owner->id)->first();
 
-    $this->assertAuthenticatedAs($owner);
+    $this->assertGuest();
     expect($owner?->role)->toBe('owner');
     expect($owner?->isOwner())->toBeTrue();
     expect($owner?->isAdmin())->toBeFalse();
     expect($owner?->email_verified_at)->not->toBeNull();
     expect($owner?->status)->toBe('pending');
+    expect($owner?->is_active)->toBeFalse();
     expect($boardingHouse)->not->toBeNull();
 
     $this->assertDatabaseHas('owner_profiles', [
@@ -142,6 +157,74 @@ test('owners can register from the public form', function () {
 
     Storage::disk('public')->assertExists($boardingHouse->proof_of_ownership);
     expect($boardingHouse->proof_of_ownership)->toStartWith('proof-of-ownership/');
+
+    $this->post('/login', [
+        'email' => 'admin-user@example.com',
+        'password' => 'OwnerSafe9!',
+        'role' => 'owner',
+    ])->assertSessionHasErrors('email');
+    $this->assertGuest();
+
+    $admin = User::factory()->create([
+        'role' => 'admin',
+        'status' => 'active',
+        'is_active' => true,
+    ]);
+
+    $this->actingAs($admin)
+        ->patch(route('admin.owners.verify', $owner))
+        ->assertSessionHas('success');
+
+    $this->assertDatabaseHas('users', [
+        'id' => $owner->id,
+        'status' => 'active',
+        'is_active' => true,
+    ]);
+    $this->assertDatabaseHas('owner_profiles', [
+        'user_id' => $owner->id,
+        'verification_status' => 'verified',
+        'verified_by' => $admin->id,
+    ]);
+    $this->assertDatabaseHas('boarding_houses', [
+        'id' => $boardingHouse->id,
+        'status' => 'approved',
+        'approval_status' => 'approved',
+        'is_active' => true,
+    ]);
+
+    $this->post('/logout');
+    $this->post('/login', [
+        'email' => 'admin-user@example.com',
+        'password' => 'OwnerSafe9!',
+        'role' => 'owner',
+    ])->assertRedirect(route('owner.dashboard', absolute: false));
+    $this->assertAuthenticatedAs($owner);
+});
+
+test('owner registration cannot be submitted without a business permit', function () {
+    Storage::fake('public');
+
+    $this->post(route('register.owner.store'), [
+        'name' => 'Permitless Owner',
+        'email' => 'permitless@example.com',
+        'phone' => '+639991111112',
+        'password' => 'OwnerSafe9!',
+        'password_confirmation' => 'OwnerSafe9!',
+        'bh_name' => 'Permitless House',
+        'bh_address' => 'Digos City',
+        'bh_contact' => '+639991111112',
+        'room_types' => ['Solo Room'],
+        'rent_min' => 3000,
+        'rent_max' => 5000,
+        'amenities' => ['WiFi'],
+        'house_rules' => 'Respect quiet hours.',
+        'terms' => '1',
+    ])->assertSessionHasErrors([
+        'proof_of_ownership' => 'A valid business permit is required before an owner account can be reviewed.',
+    ]);
+
+    $this->assertDatabaseMissing('users', ['email' => 'permitless@example.com']);
+    $this->assertGuest();
 });
 
 test('registration rejects weak passwords with clear backend messages', function (string $password, string $confirmation, string $message) {
