@@ -64,11 +64,15 @@
                             <tbody class="divide-y divide-slate-100">
                                 @forelse ($payments as $payment)
                                     @php
-                                        $tenantName = $payment->tenant->user->name ?? 'Tenant';
+                                        $tenantUser = $payment->tenant?->user;
+                                        $tenantName = $tenantUser?->name ?? 'Tenant';
                                         $tenantInitials = collect(explode(' ', trim($tenantName)))->filter()->take(2)->map(fn ($p) => strtoupper(substr($p, 0, 1)))->join('') ?: 'T';
+                                        $tenantPhotoUrl = $tenantUser?->photo_url;
                                         $houseName = $payment->boardingHouse->name ?? 'Boarding house';
                                         $payload = [
                                             'tenant' => $tenantName,
+                                            'tenant_initials' => $tenantInitials,
+                                            'photo_url' => $tenantPhotoUrl,
                                             'house' => $houseName,
                                             'amount' => number_format((float) $payment->amount, 2),
                                             'due_date' => $payment->due_date?->format('M d, Y') ?? 'Not set',
@@ -78,6 +82,9 @@
                                             'payment_method' => $payment->payment_method ?: 'cash',
                                             'notes' => $payment->notes,
                                             'update_url' => $route('payments.update', $payment),
+                                            'document_url' => $route('payments.document', $payment),
+                                            'document_print_url' => $route('payments.document', ['payment' => $payment, 'print' => 1]),
+                                            'document_word_url' => $route('payments.document.word', $payment),
                                             'recorded_at' => $payment->paid_at?->format('M d, Y h:i A') ?? ($payment->created_at?->format('M d, Y h:i A') ?? 'Not recorded'),
                                             'receipt_id' => $payment->receipts->first()?->id,
                                             'receipt_url' => $payment->receipts->first() ? route('payment-receipts.print', $payment->receipts->first()) : null,
@@ -93,7 +100,7 @@
                                     >
                                         <td class="px-3.5 py-2.5">
                                             <div class="flex items-center gap-2">
-                                                <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-[10px] font-black text-blue-700">{{ $tenantInitials }}</div>
+                                                <div class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-[10px] font-black text-blue-700">@if ($tenantPhotoUrl)<img src="{{ $tenantPhotoUrl }}" alt="{{ $tenantName }}" class="h-full w-full object-cover" loading="lazy">@else{{ $tenantInitials }}@endif</div>
                                                 <div class="min-w-0">
                                                     <p class="truncate text-xs font-semibold text-slate-900">{{ $tenantName }}</p>
                                                 </div>
@@ -145,16 +152,29 @@
             </main>
         </div>
 
-        <div x-show="addOpen" x-cloak class="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-3 backdrop-blur-sm">
-            <form method="POST" action="{{ $route('payments.store') }}" class="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
+        <div
+            x-show="addOpen"
+            x-cloak
+            @keydown.escape.window="addOpen = false"
+            data-modal-root
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="record-payment-title"
+            class="bm-modal-overlay"
+        >
+            <form method="POST" action="{{ $route('payments.store') }}" class="bm-modal bm-modal--lg">
                 @csrf
-                <div class="flex items-center justify-between">
-                    <h2 class="text-sm font-bold text-slate-900">Record Payment</h2>
-                    <button type="button" @click="addOpen = false" class="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50">
+                <div class="bm-modal__header">
+                    <div>
+                        <p class="bm-modal__eyebrow">Payment record</p>
+                        <h2 id="record-payment-title" class="bm-modal__title">Record Payment</h2>
+                        <p class="bm-modal__subtitle">Add a collection record and its payment reference.</p>
+                    </div>
+                    <button type="button" @click="addOpen = false" class="bm-modal__close" aria-label="Close record payment modal">
                         <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
-                <div class="mt-3 grid gap-2.5 sm:grid-cols-2">
+                <div class="bm-modal__body bm-modal__grid bm-modal__grid--two-col">
                     <label class="text-xs font-semibold text-slate-700">
                         Tenant
                         <select name="tenant_id" required class="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white">
@@ -201,23 +221,40 @@
                         <textarea name="notes" rows="2" class="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white"></textarea>
                     </label>
                 </div>
-                <div class="mt-4 flex justify-end gap-2">
-                    <button type="button" @click="addOpen = false" class="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">Cancel</button>
-                    <button class="inline-flex h-8 items-center justify-center rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700">Save Payment</button>
+                <div class="bm-modal__footer">
+                    <button type="button" @click="addOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
+                    <button class="bm-modal__button bm-modal__button--primary">Save Payment</button>
                 </div>
             </form>
         </div>
 
-        <div x-show="detailOpen" x-cloak class="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-3 backdrop-blur-sm">
-            <form method="POST" :action="selected.update_url" class="w-full max-w-lg rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
+        <div
+            x-show="detailOpen"
+            x-cloak
+            @keydown.escape.window="detailOpen = false"
+            data-modal-root
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="payment-details-title"
+            class="bm-modal-overlay"
+        >
+            <form method="POST" :action="selected.update_url" class="bm-modal bm-modal--lg">
                 @csrf @method('PATCH')
-                <div class="flex items-center justify-between">
-                    <h2 class="text-sm font-bold text-slate-900">Payment Details</h2>
-                    <button type="button" @click="detailOpen = false" class="flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50">
+                <div class="bm-modal__header">
+                    <div class="flex min-w-0 items-center gap-3">
+                        <span class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-sm font-black text-blue-700"><template x-if="selected.photo_url"><img :src="selected.photo_url" :alt="selected.tenant" class="h-full w-full object-cover"></template><span x-show="!selected.photo_url" x-text="selected.tenant_initials || 'T'"></span></span>
+                        <div class="min-w-0">
+                        <p class="bm-modal__eyebrow">Payment record</p>
+                        <h2 id="payment-details-title" class="bm-modal__title">Payment Details</h2>
+                        <p class="bm-modal__subtitle truncate" x-text="selected.tenant"></p>
+                        </div>
+                    </div>
+                    <button type="button" @click="detailOpen = false" class="bm-modal__close" aria-label="Close payment details modal">
                         <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
-                <dl class="mt-3 space-y-1.5 text-xs">
+                <div class="bm-modal__body">
+                <dl class="space-y-1.5 text-xs">
                     <div class="flex justify-between border-b border-slate-100 py-1">
                         <dt class="font-semibold text-slate-500">Tenant</dt>
                         <dd class="font-bold text-slate-900" x-text="selected.tenant"></dd>
@@ -264,23 +301,44 @@
                     Notes
                     <textarea name="notes" rows="2" class="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white" x-text="selected.notes || ''"></textarea>
                 </label>
-                <div class="mt-4 flex flex-wrap justify-end gap-2">
+                </div>
+                <div class="bm-modal__footer">
+                    <div class="bm-modal__footer-group bm-modal__footer-group--leading">
+                    <a
+                        :href="selected.document_word_url"
+                        class="bm-modal__button border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                    >Download Word (.docx)</a>
+                    <a
+                        :href="selected.document_url"
+                        target="_blank"
+                        rel="noopener"
+                        class="bm-modal__button bm-modal__button--secondary"
+                    >Preview</a>
+                    <a
+                        :href="selected.document_print_url"
+                        target="_blank"
+                        rel="noopener"
+                        class="bm-modal__button bg-slate-900 text-white hover:bg-slate-800"
+                    >Print</a>
                     <a
                         x-show="selected.receipt_url"
                         :href="selected.receipt_url"
                         target="_blank"
-                        class="inline-flex h-8 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-semibold text-blue-700 transition hover:bg-blue-100"
+                        class="bm-modal__button border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
                     >Preview Receipt</a>
+                    </div>
+                    <div class="bm-modal__footer-group">
                     <button
                         type="submit"
                         name="status"
                         value="paid"
                         x-show="selected.status !== 'paid'"
                         @click="detailStatus = 'paid'"
-                        class="inline-flex h-8 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                        class="bm-modal__button border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
                     >Mark Paid</button>
-                    <button type="button" @click="detailOpen = false" class="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">Cancel</button>
-                    <button class="inline-flex h-8 items-center justify-center rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700">Save Changes</button>
+                    <button type="button" @click="detailOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
+                    <button class="bm-modal__button bm-modal__button--primary">Save Changes</button>
+                    </div>
                 </div>
             </form>
         </div>

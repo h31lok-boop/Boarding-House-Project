@@ -22,7 +22,29 @@
         $sc = collect($financeWorkbench['summary_cards'] ?? []);
     @endphp
 
-    <div x-data="{ filterOpen: false, deleteOpen: false, deleteUrl: '' }" class="space-y-3 text-slate-950">
+    <div
+        x-data="{
+            filterOpen: false,
+            receiptOpen: false,
+            receiptLoading: false,
+            selectedReceipt: {},
+            openReceipt(receipt) {
+                this.selectedReceipt = receipt;
+                this.receiptLoading = true;
+                this.receiptOpen = true;
+            },
+            closeReceipt() {
+                this.receiptOpen = false;
+                this.receiptLoading = false;
+                window.setTimeout(() => this.selectedReceipt = {}, 180);
+            },
+            printReceipt() {
+                const frame = this.$refs.receiptFrame;
+                if (frame && frame.contentWindow) frame.contentWindow.print();
+            }
+        }"
+        class="space-y-3 text-slate-950"
+    >
         <header class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div class="min-w-0">
@@ -115,20 +137,40 @@
                                     <th class="px-3 py-2">Amount</th>
                                     <th class="px-3 py-2">Date</th>
                                     <th class="px-3 py-2">Status</th>
-                                    <th class="px-3 py-2 text-right">Action</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
                                 @forelse ($payments as $payment)
                                     @php
-                                        $tenantName = $payment->tenant->user->name ?? 'Tenant';
+                                        $tenantUser = $payment->tenant?->user;
+                                        $tenantName = $tenantUser?->name ?? 'Tenant';
+                                        $tenantInitials = collect(explode(' ', trim($tenantName)))->filter()->take(2)->map(fn ($part) => strtoupper(substr($part, 0, 1)))->join('') ?: 'T';
+                                        $tenantPhotoUrl = $tenantUser?->photo_url;
                                         $houseName = $payment->boardingHouse->name ?? 'Boarding House';
                                         $type = $payment->payment_type ?? 'Rent';
                                         $date = $payment->paid_at ?? $payment->created_at;
+                                        $receiptPayload = [
+                                            'title' => strtolower((string) $payment->status) === 'paid' ? 'Payment Receipt' : 'Payment Statement',
+                                            'number' => $payment->receipt_number ?: 'PAY-'.now()->format('Y').'-'.str_pad((string) $payment->id, 6, '0', STR_PAD_LEFT),
+                                            'tenant' => $tenantName,
+                                            'tenant_initials' => $tenantInitials,
+                                            'photo_url' => $tenantPhotoUrl,
+                                            'preview_url' => route('admin.payments.document', ['payment' => $payment, 'embedded' => 1]),
+                                            'word_url' => route('admin.payments.document.word', $payment),
+                                        ];
                                     @endphp
-                                    <tr class="bg-white transition hover:bg-slate-50/90">
+                                    <tr
+                                        class="cursor-pointer bg-white transition hover:bg-blue-50/70 focus:bg-blue-50/70 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+                                        role="button"
+                                        tabindex="0"
+                                        aria-label="Preview {{ $receiptPayload['title'] }} {{ $receiptPayload['number'] }} for {{ $tenantName }}"
+                                        @click="openReceipt({{ \Illuminate\Support\Js::from($receiptPayload) }})"
+                                        @keydown.enter.prevent="openReceipt({{ \Illuminate\Support\Js::from($receiptPayload) }})"
+                                        @keydown.space.prevent="openReceipt({{ \Illuminate\Support\Js::from($receiptPayload) }})"
+                                        data-transaction-row-receipt-preview
+                                    >
                                         <td class="px-3 py-2.5 font-mono text-[11px] text-slate-500">#{{ $payment->id }}</td>
-                                        <td class="px-3 py-2.5 font-semibold text-slate-900">{{ $tenantName }}</td>
+                                        <td class="px-3 py-2.5 font-semibold text-slate-900"><span class="flex items-center gap-2"><span class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-[10px] font-black text-blue-700">@if ($tenantPhotoUrl)<img src="{{ $tenantPhotoUrl }}" alt="{{ $tenantName }}" class="h-full w-full object-cover" loading="lazy">@else{{ $tenantInitials }}@endif</span><span class="truncate">{{ $tenantName }}</span></span></td>
                                         <td class="px-3 py-2.5 text-slate-700">{{ $houseName }}</td>
                                         <td class="px-3 py-2.5 text-slate-700">{{ $type }}</td>
                                         <td class="whitespace-nowrap px-3 py-2.5 font-semibold text-slate-900">PHP {{ number_format((float) $payment->amount, 2) }}</td>
@@ -136,18 +178,10 @@
                                         <td class="whitespace-nowrap px-3 py-2.5">
                                             <span class="inline-flex rounded-full border px-2 py-0.5 text-[10px] font-black {{ $badge($payment->status) }}">{{ $statusLabel($payment->status) }}</span>
                                         </td>
-                                        <td class="px-3 py-2.5">
-                                            <div class="flex justify-end gap-1">
-                                                <a href="{{ route('admin.payments') }}?q={{ urlencode($tenantName) }}" class="inline-flex h-7 items-center justify-center rounded-lg border border-slate-200 bg-white px-2 text-[10px] font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">View</a>
-                                                @if ($payment->reference_no)
-                                                    <a href="#" class="inline-flex h-7 items-center justify-center rounded-lg border border-slate-200 bg-white px-2 text-[10px] font-semibold text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700">Receipt</a>
-                                                @endif
-                                            </div>
-                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="8" class="px-3 py-10 text-center">
+                                        <td colspan="7" class="px-3 py-10 text-center">
                                             <svg class="mx-auto h-8 w-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"/></svg>
                                             <p class="mt-3 text-sm font-medium text-slate-500">No transactions found yet</p>
                                             <p class="mt-1 text-xs text-slate-400">Payments will appear here once recorded.</p>
@@ -166,6 +200,60 @@
                     @endif
                 </section>
             </main>
+        </div>
+
+        <div
+            x-show="receiptOpen"
+            x-cloak
+            @keydown.escape.window="receiptOpen && closeReceipt()"
+            data-modal-root
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="transaction-receipt-preview-title"
+            class="bm-modal-overlay"
+        >
+            <section class="bm-modal bm-modal--xl bm-modal--document-preview">
+                <div class="bm-modal__header">
+                    <div class="flex min-w-0 items-center gap-3">
+                        <span class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-sm font-black text-blue-700">
+                            <template x-if="selectedReceipt.photo_url"><img :src="selectedReceipt.photo_url" :alt="selectedReceipt.tenant" class="h-full w-full object-cover"></template>
+                            <span x-show="!selectedReceipt.photo_url" x-text="selectedReceipt.tenant_initials || 'T'"></span>
+                        </span>
+                        <div class="min-w-0">
+                            <p class="bm-modal__eyebrow">Printable document</p>
+                            <h2 id="transaction-receipt-preview-title" class="bm-modal__title" x-text="selectedReceipt.title || 'Payment Receipt'"></h2>
+                            <p class="bm-modal__subtitle"><span x-text="selectedReceipt.number"></span><span x-show="selectedReceipt.tenant"> · </span><span x-text="selectedReceipt.tenant"></span></p>
+                        </div>
+                    </div>
+                    <button type="button" @click="closeReceipt()" class="bm-modal__close" aria-label="Close receipt preview">
+                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+
+                <div class="bm-modal__body bm-modal__body--document-preview">
+                    <div x-show="receiptLoading" class="bm-document-preview-loading" aria-live="polite">
+                        <img src="{{ asset('images/boardmatch-final-logo.png') }}" alt="" class="h-10 w-10 rounded-xl" aria-hidden="true">
+                        <span>Preparing receipt preview...</span>
+                    </div>
+                    <iframe
+                        x-ref="receiptFrame"
+                        :src="receiptOpen && selectedReceipt.preview_url ? selectedReceipt.preview_url : 'about:blank'"
+                        @load="if (receiptOpen) receiptLoading = false"
+                        class="bm-document-preview-frame"
+                        title="Payment receipt document preview"
+                    ></iframe>
+                </div>
+
+                <div class="bm-modal__footer">
+                    <div class="bm-modal__footer-group bm-modal__footer-group--leading">
+                        <a :href="selectedReceipt.word_url" class="bm-modal__button border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100">Download Word (.docx)</a>
+                    </div>
+                    <div class="bm-modal__footer-group">
+                        <button type="button" @click="closeReceipt()" class="bm-modal__button bm-modal__button--secondary">Close</button>
+                        <button type="button" @click="printReceipt()" class="bm-modal__button bm-modal__button--primary">Print Receipt</button>
+                    </div>
+                </div>
+            </section>
         </div>
     </div>
 </x-admin.shell>

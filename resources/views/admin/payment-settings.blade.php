@@ -66,9 +66,12 @@
             <div class="divide-y divide-slate-200 dark:divide-slate-700">
                 @forelse ($owners as $owner)
                     <div class="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div class="min-w-0">
+                        <div class="flex min-w-0 items-center gap-3">
+                            <span class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-xs font-black text-blue-700">@if ($owner->photo_url)<img src="{{ $owner->photo_url }}" alt="{{ $owner->name }}" class="h-full w-full object-cover" loading="lazy">@else{{ strtoupper(substr($owner->name ?: 'O', 0, 2)) }}@endif</span>
+                            <div class="min-w-0">
                             <p class="truncate text-sm font-bold text-slate-950 dark:text-white">{{ $owner->name }}</p>
                             <p class="truncate text-xs text-slate-500 dark:text-slate-400">{{ $owner->email }}</p>
+                            </div>
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
                             <span class="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700 dark:bg-blue-400/10 dark:text-blue-300">Shared .env gateway</span>
@@ -90,7 +93,7 @@
             @endphp
             <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <div class="mb-4 flex items-start justify-between gap-3">
-                    <div><h2 class="font-bold text-slate-950 dark:text-white">{{ $owner->name }}</h2><p class="text-xs text-slate-500 dark:text-slate-400">{{ $owner->email }} · {{ ucfirst($owner->role) }}</p></div>
+                    <div class="flex min-w-0 items-center gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-xs font-black text-blue-700">@if ($owner->photo_url)<img src="{{ $owner->photo_url }}" alt="{{ $owner->name }}" class="h-full w-full object-cover" loading="lazy">@else{{ strtoupper(substr($owner->name ?: 'O', 0, 2)) }}@endif</span><div class="min-w-0"><h2 class="truncate font-bold text-slate-950 dark:text-white">{{ $owner->name }}</h2><p class="truncate text-xs text-slate-500 dark:text-slate-400">{{ $owner->email }} · {{ ucfirst($owner->role) }}</p></div></div>
                     <span class="shrink-0 rounded-full px-2.5 py-1 text-[11px] font-bold {{ $checkoutReady ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300' }}">
                         {{ $checkoutReady ? 'Checkout ready' : 'Setup incomplete' }}
                     </span>
