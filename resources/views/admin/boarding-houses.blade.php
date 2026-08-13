@@ -181,6 +181,7 @@
             editPhotos: [],
             createCoverSelection: '',
             editCoverSelection: '',
+            viewPhotoCursor: 0,
             editPhotoCursor: 0,
             photoStore() {
                 window.boardingHousePhotoFiles ??= { create: new Map(), edit: new Map() };
@@ -193,8 +194,14 @@
                 }
 
                 this.selected = house;
+                this.viewPhotoCursor = 0;
                 this.viewOpen = true;
                 this.$nextTick(() => window.dispatchEvent(new CustomEvent('boarding-house-map:show', { detail: house })));
+            },
+            moveViewPhoto(direction) {
+                const count = (this.selected.images || []).length;
+                if (count < 2) return;
+                this.viewPhotoCursor = (this.viewPhotoCursor + direction + count) % count;
             },
             editDetails(house) {
                 this.selected = JSON.parse(JSON.stringify(house));
@@ -992,144 +999,96 @@
                     <div>
                         <p class="bm-modal__eyebrow">View</p>
                         <h2 class="bm-modal__title">Boarding House Details</h2>
-                        <p class="bm-modal__subtitle">Review listing information, location, amenities, photos, and room inventory.</p>
+                        <p class="bm-modal__subtitle">A simplified view of the verified property record.</p>
                     </div>
                     <button type="button" @click="viewOpen = false" class="bm-modal__close" aria-label="Close boarding house details modal">x</button>
                 </div>
                 <div class="bm-modal__body">
-                <div class="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-                    <div class="space-y-5">
-                        <dl class="grid gap-4 text-sm md:grid-cols-2">
-                            <div><dt class="ui-muted">Name</dt><dd class="font-semibold" x-text="selected.name"></dd></div>
-                            <div><dt class="ui-muted">Monthly Fee</dt><dd x-text="selected.monthly_payment ? `PHP ${Number(selected.monthly_payment).toLocaleString()}` : 'Not set'"></dd></div>
-                            <div><dt class="ui-muted">Capacity</dt><dd x-text="selected.capacity || 'Not set'"></dd></div>
-                            <div><dt class="ui-muted">Available Rooms</dt><dd x-text="selected.available_rooms ?? 'Not set'"></dd></div>
-                            <div><dt class="ui-muted">Listing Status</dt><dd x-text="selected.active_label || (selected.is_active ? 'Active' : 'Inactive')"></dd></div>
-                            <div><dt class="ui-muted">Approval</dt><dd x-text="selected.approval_status || 'Pending'"></dd></div>
-                            <div class="md:col-span-2"><dt class="ui-muted">Address</dt><dd x-text="selected.full_address || selected.address || 'Not set'"></dd></div>
-                            <div><dt class="ui-muted">Barangay</dt><dd x-text="selected.barangay || 'Not set'"></dd></div>
-                            <div><dt class="ui-muted">Nearby Landmark</dt><dd x-text="selected.nearby_landmark || 'Not set'"></dd></div>
-                            <div><dt class="ui-muted">Distance from DSSC</dt><dd x-text="selected.distance_from_dssc !== null ? `${selected.distance_from_dssc} km` : 'Not set'"></dd></div>
-                            <div><dt class="ui-muted">Location Status</dt><dd class="capitalize" x-text="selected.location_status || 'Approximate'"></dd></div>
-                            <div x-show="selected.location_label" class="md:col-span-2"><dt class="ui-muted">Location Scope</dt><dd x-text="selected.location_label"></dd></div>
-                            <div><dt class="ui-muted">Latitude</dt><dd x-text="selected.latitude ?? 'Not set'"></dd></div>
-                            <div><dt class="ui-muted">Longitude</dt><dd x-text="selected.longitude ?? 'Not set'"></dd></div>
-                        </dl>
+                    <div class="grid gap-5 lg:grid-cols-[1fr_0.95fr]">
+                        <div class="space-y-4">
+                            <section data-admin-property-photo-carousel class="relative overflow-hidden rounded-2xl border ui-border bg-slate-100 dark:bg-slate-900">
+                                <template x-if="selected.images && selected.images.length">
+                                    <img :src="selected.images[viewPhotoCursor]?.url" alt="Boarding house photo" class="h-72 w-full object-cover" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}'">
+                                </template>
+                                <template x-if="!selected.images || !selected.images.length">
+                                    <img src="{{ asset('images/boarding-house-placeholder.svg') }}" alt="Boarding house photo unavailable" class="h-72 w-full object-cover">
+                                </template>
+                                <template x-if="(selected.images || []).length > 1">
+                                    <div>
+                                        <button type="button" @click="moveViewPhoto(-1)" class="absolute left-3 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-slate-950/70 text-white" aria-label="Previous property photo"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 18-6-6 6-6"/></svg></button>
+                                        <button type="button" @click="moveViewPhoto(1)" class="absolute right-3 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-slate-950/70 text-white" aria-label="Next property photo"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 18 6-6-6-6"/></svg></button>
+                                        <span class="absolute bottom-3 right-3 rounded-full bg-slate-950/75 px-3 py-1 text-xs font-bold text-white" x-text="`${viewPhotoCursor + 1} / ${selected.images.length}`"></span>
+                                    </div>
+                                </template>
+                            </section>
 
-                        <dl class="grid gap-4 border-t ui-border pt-5 text-sm md:grid-cols-2">
-                            <div><dt class="ui-muted">Owner Account</dt><dd class="font-semibold" x-text="selected.owner_name || 'Not assigned'"></dd></div>
-                            <div><dt class="ui-muted">Owner Email</dt><dd x-text="selected.owner_email || 'Not set'"></dd></div>
-                            <div><dt class="ui-muted">Owner Company</dt><dd x-text="selected.owner_company || selected.landlord_info || 'Not set'"></dd></div>
-                            <div><dt class="ui-muted">Contact Person</dt><dd x-text="selected.contact_name || selected.landlord_info || 'Not set'"></dd></div>
-                            <div><dt class="ui-muted">Contact Number</dt><dd x-text="selected.contact_phone || selected.owner_phone || 'Not set'"></dd></div>
-                            <div><dt class="ui-muted">Approval Date</dt><dd x-text="selected.approval_date || 'Not set'"></dd></div>
-                        </dl>
-
-                        <div class="border-t ui-border pt-5 text-sm">
-                            <p class="ui-muted">Description</p>
-                            <p class="mt-1" x-text="selected.description || 'No description'"></p>
-                            <p class="mt-4 ui-muted">House Rules</p>
-                            <p class="mt-1" x-text="selected.house_rules || 'No rules specified yet.'"></p>
-                            <template x-if="selected.rejection_reason">
-                                <div>
-                                    <p class="mt-4 ui-muted">Rejection Reason</p>
-                                    <p class="mt-1 text-rose-600" x-text="selected.rejection_reason"></p>
+                            <div>
+                                <div class="flex flex-wrap items-start justify-between gap-3">
+                                    <div>
+                                        <h3 class="text-xl font-black" x-text="selected.name"></h3>
+                                        <p class="mt-1 text-sm ui-muted" x-text="selected.full_address || selected.address || 'Location not set'"></p>
+                                    </div>
+                                    <span class="rounded-full border border-emerald-300/30 bg-emerald-400/10 px-3 py-1 text-xs font-bold capitalize text-emerald-600 dark:text-emerald-300" x-text="selected.active_label || selected.approval_status || 'Pending'"></span>
                                 </div>
-                            </template>
-                        </div>
-
-                        <div class="grid gap-3 border-t ui-border pt-5 text-sm sm:grid-cols-4">
-                            <div><p class="ui-muted">Rooms</p><p class="font-semibold" x-text="selected.rooms_count ?? 0"></p></div>
-                            <div><p class="ui-muted">Inquiries</p><p class="font-semibold" x-text="selected.inquiries_count ?? 0"></p></div>
-                            <div><p class="ui-muted">Reservations</p><p class="font-semibold" x-text="selected.reservations_count ?? 0"></p></div>
-                            <div><p class="ui-muted">Reviews</p><p class="font-semibold" x-text="selected.reviews_count ?? 0"></p></div>
-                        </div>
-                    </div>
-
-                    <div class="space-y-5">
-                        <div>
-                            <h3 class="text-sm font-semibold">Photos</h3>
-                            <div class="mt-3 grid grid-cols-2 gap-3">
-                                <template x-for="image in selected.images || []" :key="image.id">
-                                    <img :src="image.url" alt="Property photo" class="h-32 w-full rounded-xl border border-slate-200 object-cover" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}'">
-                                </template>
-                                <template x-if="!selected.images || selected.images.length === 0">
-                                    <img src="{{ asset('images/boarding-house-placeholder.svg') }}" alt="No Photo Available" class="col-span-2 h-48 w-full rounded-xl border border-slate-200 object-cover">
-                                </template>
                             </div>
-                        </div>
-                        <div>
-                            <div class="flex items-center justify-between gap-3">
-                                <h3 class="text-sm font-semibold">Map Location</h3>
-                                <a x-show="selected.google_maps_url" :href="selected.google_maps_url" target="_blank" class="text-sm text-[color:var(--brand-600)]">Open Maps</a>
-                            </div>
-                            <div id="boardingHouseDetailMap" class="mt-3 h-72 w-full overflow-hidden rounded-lg border ui-border"></div>
-                            <p id="boardingHouseDetailMapEmpty" class="mt-2 hidden text-sm ui-muted">No geotag coordinates set for this boarding house.</p>
-                        </div>
 
-                        <div>
-                            <h3 class="text-sm font-semibold">Amenities</h3>
-                            <div class="mt-3 flex flex-wrap gap-2">
-                                <template x-if="!selected.amenities || selected.amenities.length === 0">
-                                    <span class="text-sm ui-muted">No amenities listed.</span>
-                                </template>
-                                <template x-for="amenity in selected.amenities || []" :key="amenity">
-                                    <span class="rounded-md border ui-border px-2 py-1 text-xs" x-text="amenity"></span>
-                                </template>
+                            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                                <div class="rounded-xl border ui-border p-3"><p class="text-[10px] font-bold uppercase ui-muted">Monthly fee</p><p class="mt-1 font-black" x-text="selected.monthly_payment ? `PHP ${Number(selected.monthly_payment).toLocaleString()}` : 'Not set'"></p></div>
+                                <div class="rounded-xl border ui-border p-3"><p class="text-[10px] font-bold uppercase ui-muted">Available</p><p class="mt-1 font-black" x-text="selected.available_rooms ?? 0"></p></div>
+                                <div class="rounded-xl border ui-border p-3"><p class="text-[10px] font-bold uppercase ui-muted">Capacity</p><p class="mt-1 font-black" x-text="selected.capacity || 'Not set'"></p></div>
+                                <div class="rounded-xl border ui-border p-3"><p class="text-[10px] font-bold uppercase ui-muted">Reservations</p><p class="mt-1 font-black" x-text="selected.reservations_count ?? 0"></p></div>
+                            </div>
+
+                            <div class="rounded-xl border ui-border p-4 text-sm">
+                                <p class="font-bold">About this property</p>
+                                <p class="mt-2 leading-6 ui-muted" x-text="selected.description || 'No description provided.'"></p>
+                                <p class="mt-4 font-bold">House rules</p>
+                                <p class="mt-2 leading-6 ui-muted" x-text="selected.house_rules || 'No house rules provided.'"></p>
                             </div>
                         </div>
 
-                        <div>
-                            <h3 class="text-sm font-semibold">Room Categories</h3>
-                            <div class="mt-3 overflow-x-auto">
-                                <table class="min-w-full text-sm">
-                                    <thead class="ui-surface-2 text-xs uppercase ui-muted">
-                                        <tr>
-                                            <th class="px-3 py-2 text-left">Type</th>
-                                            <th class="px-3 py-2 text-left">Rate</th>
-                                            <th class="px-3 py-2 text-left">Available</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <template x-if="!selected.room_categories || selected.room_categories.length === 0">
-                                            <tr><td colspan="3" class="px-3 py-3 ui-muted">No room categories listed.</td></tr>
-                                        </template>
-                                        <template x-for="category in selected.room_categories || []" :key="category.name">
-                                            <tr class="border-b ui-border">
-                                                <td class="px-3 py-2" x-text="category.name"></td>
-                                                <td class="px-3 py-2" x-text="category.monthly_rate ? `PHP ${Number(category.monthly_rate).toLocaleString()}` : 'N/A'"></td>
-                                                <td class="px-3 py-2" x-text="`${category.available_rooms || 0} / ${category.total_rooms || 0}`"></td>
-                                            </tr>
-                                        </template>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
+                        <div class="space-y-4">
+                            <section class="rounded-xl border ui-border p-4">
+                                <div class="flex items-center justify-between gap-3">
+                                    <div><h3 class="text-sm font-bold">Property location</h3><p class="mt-1 text-xs ui-muted" x-text="selected.location_label || selected.full_address || 'Location not set'"></p></div>
+                                    <a x-show="selected.google_maps_url" :href="selected.google_maps_url" target="_blank" rel="noopener" class="shrink-0 text-xs font-bold text-[color:var(--brand-600)]">Open map</a>
+                                </div>
+                                <div id="boardingHouseDetailMap" class="mt-3 h-56 w-full overflow-hidden rounded-lg border ui-border"></div>
+                                <p id="boardingHouseDetailMapEmpty" class="mt-2 hidden text-sm ui-muted">No geotag coordinates set for this boarding house.</p>
+                            </section>
 
-                        <div>
-                            <h3 class="text-sm font-semibold">Rooms</h3>
-                            <div class="mt-3 max-h-48 overflow-y-auto">
-                                <template x-if="!selected.rooms || selected.rooms.length === 0">
-                                    <p class="text-sm ui-muted">No room records listed.</p>
-                                </template>
-                                <div class="divide-y ui-border">
-                                    <template x-for="room in selected.rooms || []" :key="room.name">
-                                        <div class="grid grid-cols-[1fr_auto] gap-3 py-2 text-sm">
-                                            <div>
-                                                <p class="font-semibold" x-text="room.name"></p>
-                                                <p class="ui-muted" x-text="`${room.available_slots || 0} slots, capacity ${room.capacity || 0}`"></p>
-                                            </div>
-                                            <div class="text-right">
-                                                <p x-text="room.price ? `PHP ${Number(room.price).toLocaleString()}` : 'N/A'"></p>
-                                                <p class="ui-muted" x-text="room.status || 'No status'"></p>
-                                            </div>
+                            <section class="rounded-xl border ui-border p-4">
+                                <h3 class="text-sm font-bold">Amenities</h3>
+                                <div class="mt-3 flex flex-wrap gap-2">
+                                    <template x-if="!selected.amenities || !selected.amenities.length"><span class="text-sm ui-muted">No amenities listed.</span></template>
+                                    <template x-for="amenity in selected.amenities || []" :key="amenity"><span class="rounded-full border ui-border px-2.5 py-1 text-xs" x-text="amenity"></span></template>
+                                </div>
+                            </section>
+
+                            <section class="rounded-xl border ui-border p-4">
+                                <h3 class="text-sm font-bold">Owner and contact</h3>
+                                <dl class="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+                                    <div><dt class="text-xs ui-muted">Owner</dt><dd class="mt-1 font-semibold" x-text="selected.owner_name || 'Not assigned'"></dd></div>
+                                    <div><dt class="text-xs ui-muted">Company</dt><dd class="mt-1 font-semibold" x-text="selected.owner_company || selected.landlord_info || 'Not set'"></dd></div>
+                                    <div><dt class="text-xs ui-muted">Email</dt><dd class="mt-1 break-all" x-text="selected.owner_email || 'Not set'"></dd></div>
+                                    <div><dt class="text-xs ui-muted">Phone</dt><dd class="mt-1" x-text="selected.contact_phone || selected.owner_phone || 'Not set'"></dd></div>
+                                </dl>
+                            </section>
+
+                            <section class="rounded-xl border ui-border p-4">
+                                <h3 class="text-sm font-bold">Room options</h3>
+                                <div class="mt-3 divide-y ui-border">
+                                    <template x-if="!selected.room_categories || !selected.room_categories.length"><p class="py-2 text-sm ui-muted">No room categories listed.</p></template>
+                                    <template x-for="category in selected.room_categories || []" :key="category.name">
+                                        <div class="flex items-center justify-between gap-3 py-2 text-sm">
+                                            <div><p class="font-semibold" x-text="category.name"></p><p class="text-xs ui-muted" x-text="`${category.available_rooms || 0} of ${category.total_rooms || 0} available`"></p></div>
+                                            <p class="shrink-0 font-bold" x-text="category.monthly_rate ? `PHP ${Number(category.monthly_rate).toLocaleString()}` : 'N/A'"></p>
                                         </div>
                                     </template>
                                 </div>
-                            </div>
+                            </section>
                         </div>
                     </div>
-                </div>
                 </div>
                 <div class="bm-modal__footer items-center justify-between">
                     <div class="flex flex-wrap gap-2">
@@ -1137,7 +1096,7 @@
                         <button
                             type="button"
                             @click="askConfirm({ url: selected.destroy_url, title: 'Delete this boarding house?', message: `This will permanently remove ${selected.name}. This cannot be undone.`, label: 'Yes, Delete' }); viewOpen = false"
-                            class="inline-flex h-9 items-center justify-center rounded-xl bg-rose-600 px-4 text-sm font-bold text-white shadow-sm shadow-rose-600/20 transition hover:bg-rose-700"
+                            class="bm-modal__button bm-modal__button--danger"
                         >Delete</button>
                     </div>
                     <button type="button" @click="viewOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
