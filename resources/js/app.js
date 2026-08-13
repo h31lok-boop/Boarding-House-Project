@@ -19,7 +19,7 @@ Alpine.data('boardmatchAssistant', (config = {}) => ({
 
     welcomeMessage() {
         return config.configured
-            ? 'Hi! I’m the BoardMatch AI assistant. Ask me how to use listings, reservations, payments, messages, or other system features.'
+            ? 'Hi! I’m the BoardMatch AI assistant. Ask about current listings, reservations, payments, occupancy, messages, or how to use the system.'
             : 'The AI assistant is installed, but its server-side AI provider must be configured before it can answer questions.';
     },
 
