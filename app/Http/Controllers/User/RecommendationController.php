@@ -9,8 +9,8 @@ use App\Models\RoommateMatchRequest;
 use App\Models\User;
 use App\Services\BoardingHouseRecommendationService;
 use App\Services\CompatibilityService;
-use App\Services\DeepSeekService;
 use App\Services\LocationService;
+use App\Services\OpenAIService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -27,7 +27,7 @@ class RecommendationController extends Controller
     public function __construct(
         private readonly CompatibilityService $compatibilityService,
         private readonly BoardingHouseRecommendationService $boardingHouseRecommendationService,
-        private readonly DeepSeekService $deepSeekService,
+        private readonly OpenAIService $openAIService,
         private readonly LocationService $locationService,
     ) {}
 
@@ -49,7 +49,7 @@ class RecommendationController extends Controller
         $houseRecommendations = $hasPreferences
             ? $this->applyHouseFilters($this->boardingHouseRecommendationService->rank($tenant), $houseFilters)
             : collect();
-        $houseRecommendations = $this->attachDeepSeekExplanations($tenant, $houseRecommendations);
+        $houseRecommendations = $this->attachAiExplanations($tenant, $houseRecommendations);
 
         // Roommate matches — only if match profile is fully completed
         $matches = collect();
@@ -100,7 +100,8 @@ class RecommendationController extends Controller
             'houseRecommendationCount' => $houseRecommendations->count(),
             'houseFilters' => $houseFilters,
             'favoriteHouseIds' => $this->favoriteHouseIds($tenant),
-            'deepSeekConfigured' => $this->deepSeekService->isConfigured(),
+            'openAiConfigured' => $this->openAIService->isConfigured(),
+            'aiProviderLabel' => $this->openAIService->providerLabel(),
             'matches' => $filteredMatches->take(20),
             'matchCount' => $filteredMatches->count(),
             'totalMatchCount' => $matches->count(),
@@ -123,15 +124,15 @@ class RecommendationController extends Controller
 
         $ranked = $this->boardingHouseRecommendationService->generateForUser($tenant);
         $count = $ranked->count();
-        $deepSeekResult = $this->deepSeekService->explainBoardingHouseRecommendations(
+        $aiResult = $this->openAIService->explainBoardingHouseRecommendations(
             $this->boardingHouseAiPayload($tenant, $ranked->take(8))
         );
 
-        if ($deepSeekResult['success'] ?? false) {
-            $this->persistDeepSeekExplanations(
+        if ($aiResult['success'] ?? false) {
+            $this->persistAiExplanations(
                 $tenant,
-                $deepSeekResult['explanations'] ?? [],
-                (string) ($deepSeekResult['model'] ?? config('services.deepseek.model'))
+                $aiResult['explanations'] ?? [],
+                (string) ($aiResult['model'] ?? $this->openAIService->model())
             );
         }
 
@@ -143,11 +144,11 @@ class RecommendationController extends Controller
             ->route($redirectRoute[0], $redirectRoute[1])
             ->with('success', $count > 0
                 ? "Generated {$count} ranked boarding house recommendations"
-                    .(($deepSeekResult['success'] ?? false) ? ' with DeepSeek AI explanations.' : '.')
+                    .(($aiResult['success'] ?? false) ? ' with AI explanations.' : '.')
                 : 'No compatible boarding houses are currently available.');
 
-        if ($count > 0 && $this->deepSeekService->isConfigured() && ! ($deepSeekResult['success'] ?? false)) {
-            $redirect->with('warning', 'The verified recommendation scores were generated, but DeepSeek explanations are temporarily unavailable.');
+        if ($count > 0 && $this->openAIService->isConfigured() && ! ($aiResult['success'] ?? false)) {
+            $redirect->with('warning', 'The verified recommendation scores were generated, but AI explanations are temporarily unavailable.');
         }
 
         return $redirect;
@@ -175,7 +176,7 @@ class RecommendationController extends Controller
         }
 
         $match = $this->matchDetailData($request, $candidate);
-        $match['aiExplanation'] = $this->deepSeekService->explainRoommateMatch([
+        $match['aiExplanation'] = $this->openAIService->explainRoommateMatch([
             'tenant' => $this->profilePayload($match['tenant']),
             'candidate' => $this->profilePayload($match['candidate']),
             'compatibility' => [
@@ -328,7 +329,7 @@ class RecommendationController extends Controller
         return $items->values();
     }
 
-    private function attachDeepSeekExplanations(User $tenant, Collection $recommendations): Collection
+    private function attachAiExplanations(User $tenant, Collection $recommendations): Collection
     {
         $houseIds = $recommendations
             ->pluck('house.id')
@@ -350,9 +351,9 @@ class RecommendationController extends Controller
             $match = $matches->get($item['house']->id);
 
             if ($match) {
-                $item['recommendation']['deepseek_explanation'] = $match->ai_explanation;
-                $item['recommendation']['deepseek_model'] = $match->ai_model;
-                $item['recommendation']['deepseek_generated_at'] = $match->ai_generated_at;
+                $item['recommendation']['ai_explanation'] = $match->ai_explanation;
+                $item['recommendation']['ai_model'] = $match->ai_model;
+                $item['recommendation']['ai_generated_at'] = $match->ai_generated_at;
             }
 
             return $item;
@@ -396,7 +397,7 @@ class RecommendationController extends Controller
         ];
     }
 
-    private function persistDeepSeekExplanations(User $tenant, array $explanations, string $model): void
+    private function persistAiExplanations(User $tenant, array $explanations, string $model): void
     {
         foreach ($explanations as $boardingHouseId => $explanation) {
             if (! is_numeric($boardingHouseId) || ! is_string($explanation) || trim($explanation) === '') {
@@ -672,7 +673,8 @@ class RecommendationController extends Controller
             'context' => $this->candidateContext($tenant, $candidate),
             'requestState' => $this->resolveRequestState($tenant, $candidate, $requests),
             'aiExplanation' => null,
-            'deepSeekConfigured' => $this->deepSeekService->isConfigured(),
+            'openAiConfigured' => $this->openAIService->isConfigured(),
+            'aiProviderLabel' => $this->openAIService->providerLabel(),
         ];
     }
 
