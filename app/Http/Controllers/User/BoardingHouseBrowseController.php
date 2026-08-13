@@ -9,6 +9,7 @@ use App\Models\BoardingHouse;
 use App\Models\CityMunicipality;
 use App\Services\BoardingHouseRecommendationService;
 use App\Services\LocationService;
+use App\Services\OpenAIService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -25,6 +26,7 @@ class BoardingHouseBrowseController extends Controller
     public function __construct(
         private readonly BoardingHouseRecommendationService $recommendationService,
         private readonly LocationService $locationService,
+        private readonly OpenAIService $openAIService,
     ) {}
 
     public function index(Request $request)
@@ -134,10 +136,10 @@ class BoardingHouseBrowseController extends Controller
         // AJAX: return JSON for dynamic filter updates
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
-                'houses'       => $houses->getCollection()->map(fn ($h) => $this->houseToArray($h))->values(),
-                'total'        => $houses->total(),
+                'houses' => $houses->getCollection()->map(fn ($h) => $this->houseToArray($h))->values(),
+                'total' => $houses->total(),
                 'current_page' => $houses->currentPage(),
-                'last_page'    => $houses->lastPage(),
+                'last_page' => $houses->lastPage(),
             ]);
         }
 
@@ -199,7 +201,8 @@ class BoardingHouseBrowseController extends Controller
                 ],
                 'matchmakingActionUrl' => route('user.boarding-houses.index'),
                 'matchmakingRefreshRedirect' => 'boarding_houses',
-                'deepSeekConfigured' => filled(config('services.deepseek.api_key')),
+                'openAiConfigured' => $this->openAIService->isConfigured(),
+                'aiProviderLabel' => $this->openAIService->providerLabel(),
             ]);
         }
 
@@ -417,46 +420,53 @@ class BoardingHouseBrowseController extends Controller
     private function houseToArray($house): array
     {
         $typeLabel = match ($house->property_type) {
-            'dormitory'      => 'Dormitory',
-            'apartment'      => 'Apartment / Studio',
+            'dormitory' => 'Dormitory',
+            'apartment' => 'Apartment / Studio',
             'boarding_house' => 'Boarding House',
-            'bedspace'       => 'Bed Space',
-            'other'          => 'Transient / Resort',
-            default          => 'Boarding House',
+            'bedspace' => 'Bed Space',
+            'other' => 'Transient / Resort',
+            default => 'Boarding House',
         };
 
         return [
-            'id'              => $house->id,
-            'name'            => $house->name,
-            'address'         => $house->full_address ?? $house->address ?? '',
-            'city_name'       => $house->city?->city_name ?? 'Digos City',
-            'barangay_name'   => $house->display_barangay ?? '',
-            'display_price'   => (float) ($house->display_price ?? 0),
-            'price_label'     => $house->display_price ? '₱'.number_format((float) $house->display_price) : 'Price TBD',
+            'id' => $house->id,
+            'name' => $house->name,
+            'address' => $house->full_address ?? $house->address ?? '',
+            'city_name' => $house->city?->city_name ?? 'Digos City',
+            'barangay_name' => $house->display_barangay ?? '',
+            'display_price' => (float) ($house->display_price ?? 0),
+            'price_label' => $house->display_price ? '₱'.number_format((float) $house->display_price) : 'Price TBD',
             'available_rooms' => (int) ($house->computed_available_rooms ?? 0),
             'room_type_label' => $typeLabel,
-            'amenities'       => $house->amenities->map(fn ($a) => ['id' => $a->id, 'name' => $a->name])->values()->toArray(),
-            'images_count'    => $house->images->count(),
-            'images'          => collect($house->gallery_image_urls ?? [$this->resolveImageUrl($house)])->values()->all(),
-            'match_score'     => (int) ($house->match_score ?? 70),
-            'match_label'     => $house->match_label ?? 'Good Match',
-            'distance_km'     => $house->distance_km,
+            'amenities' => $house->amenities->map(fn ($a) => ['id' => $a->id, 'name' => $a->name])->values()->toArray(),
+            'images_count' => $house->images->count(),
+            'images' => collect($house->gallery_image_urls ?? [$this->resolveImageUrl($house)])->values()->all(),
+            'match_score' => (int) ($house->match_score ?? 0),
+            'match_label' => $house->match_label ?? 'Not scored',
+            'distance_km' => $house->distance_km,
             'distance_from_dssc' => $house->dssc_distance_km,
             'distance_from_dssc_label' => $house->dssc_distance_label,
-            'image_url'       => $this->resolveImageUrl($house),
-            'latitude'        => $house->latitude !== null ? (float) $house->latitude : null,
-            'longitude'       => $house->longitude !== null ? (float) $house->longitude : null,
-            'url'             => route('user.boarding-houses.show', $house),
-            'rating'          => round((float) ($house->reviews_avg_rating ?? 0), 1),
-            'reviews_count'   => (int) ($house->reviews_count ?? 0),
+            'image_url' => $this->resolveImageUrl($house),
+            'latitude' => $house->latitude !== null ? (float) $house->latitude : null,
+            'longitude' => $house->longitude !== null ? (float) $house->longitude : null,
+            'url' => route('user.boarding-houses.show', $house),
+            'rating' => round((float) ($house->reviews_avg_rating ?? 0), 1),
+            'reviews_count' => (int) ($house->reviews_count ?? 0),
         ];
     }
 
     private function matchLabel(int $score): string
     {
-        if ($score >= 90) return 'Best Match';
-        if ($score >= 80) return 'Great Match';
-        if ($score >= 70) return 'Good Match';
+        if ($score >= 90) {
+            return 'Best Match';
+        }
+        if ($score >= 80) {
+            return 'Great Match';
+        }
+        if ($score >= 70) {
+            return 'Good Match';
+        }
+
         return 'Fair Match';
     }
 
@@ -467,22 +477,33 @@ class BoardingHouseBrowseController extends Controller
         if ($filters['max_price'] !== null) {
             $p = (float) ($house->display_price ?? 0);
             $score += ($p > 0 && $p <= $filters['max_price']) ? 20 : ($p > $filters['max_price'] ? -10 : 0);
-        } else { $score += 10; }
+        } else {
+            $score += 10;
+        }
         // Location
         if ($filters['city_id'] !== null) {
             $score += ($house->city_id == $filters['city_id']) ? 15 : 0;
-        } else { $score += 8; }
+        } else {
+            $score += 8;
+        }
         // Amenities
         if (! empty($filters['amenity_ids'])) {
-            $hIds    = $house->amenities->pluck('id')->toArray();
+            $hIds = $house->amenities->pluck('id')->toArray();
             $matched = count(array_intersect($filters['amenity_ids'], $hIds));
-            $score  += (int) ($matched / max(count($filters['amenity_ids']), 1) * 12);
-        } else { $score += 8; }
+            $score += (int) ($matched / max(count($filters['amenity_ids']), 1) * 12);
+        } else {
+            $score += 8;
+        }
         // Availability + rating
-        if (($house->computed_available_rooms ?? 0) > 0) $score += 5;
-        if ((float) ($house->reviews_avg_rating ?? 0) >= 4.0) $score += 4;
+        if (($house->computed_available_rooms ?? 0) > 0) {
+            $score += 5;
+        }
+        if ((float) ($house->reviews_avg_rating ?? 0) >= 4.0) {
+            $score += 4;
+        }
 
         $score = min(99, max(40, $score));
+
         return ['score' => $score, 'label' => $this->matchLabel($score)];
     }
 
@@ -568,19 +589,19 @@ class BoardingHouseBrowseController extends Controller
             : false;
 
         return view('user.boarding-houses.show', [
-            'house'                 => $boardingHouse,
-            'boardingHouse'         => $boardingHouse,
-            'alreadyReservedToday'  => $alreadyReservedToday,
-            'alreadyInquiredToday'  => $alreadyInquiredToday,
-            'availableRooms'        => $availableRooms,
-            'displayPrice'          => $displayPrice,
-            'galleryImages'         => $galleryImages,
-            'isSaved'               => $isSaved,
-            'matchScore'            => $matchScore,
-            'primaryRoom'           => $primaryRoom,
-            'primaryCategory'       => $primaryCategory,
-            'roomTypeLabel'         => $roomTypeLabel,
-            'similarHouses'         => $this->similarHouses($boardingHouse, $displayPrice),
+            'house' => $boardingHouse,
+            'boardingHouse' => $boardingHouse,
+            'alreadyReservedToday' => $alreadyReservedToday,
+            'alreadyInquiredToday' => $alreadyInquiredToday,
+            'availableRooms' => $availableRooms,
+            'displayPrice' => $displayPrice,
+            'galleryImages' => $galleryImages,
+            'isSaved' => $isSaved,
+            'matchScore' => $matchScore,
+            'primaryRoom' => $primaryRoom,
+            'primaryCategory' => $primaryCategory,
+            'roomTypeLabel' => $roomTypeLabel,
+            'similarHouses' => $this->similarHouses($boardingHouse, $displayPrice),
         ]);
     }
 
@@ -992,21 +1013,21 @@ class BoardingHouseBrowseController extends Controller
                 $hasPropertyType = Schema::hasColumn('boarding_houses', 'property_type');
                 $propertyTypeMap = [
                     'dormitory' => 'dormitory',
-                    'studio'    => 'apartment',
-                    'bedspace'  => 'bedspace',
+                    'studio' => 'apartment',
+                    'bedspace' => 'bedspace',
                 ];
 
                 if ($hasPropertyType && isset($propertyTypeMap[$type])) {
                     $listingQuery->where('property_type', $propertyTypeMap[$type]);
                 } else {
                     $keyword = match ($type) {
-                        'single'  => 'Single',
-                        'shared'  => 'Shared',
+                        'single' => 'Single',
+                        'shared' => 'Shared',
                         'private' => 'Private',
                         'studio' => 'Studio',
                         'bedspace' => 'Bed',
                         'dormitory' => 'Dorm',
-                        default   => null,
+                        default => null,
                     };
 
                     if ($keyword) {
