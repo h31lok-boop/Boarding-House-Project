@@ -12,7 +12,7 @@
         ? (\Illuminate\Support\Str::startsWith($profileImage, ['http://', 'https://', '/'])
             ? $profileImage
             : \Illuminate\Support\Facades\Storage::url($profileImage))
-        : asset('images/boardmatch-mark.svg');
+        : asset('images/boardmatch-final-logo.png');
     $notificationsCount = 0;
 
     if ($currentUser
@@ -78,6 +78,7 @@
                         <button class="shrink-0 rounded-lg bg-indigo-600 px-3 text-sm font-semibold text-white hover:bg-indigo-700 sm:px-4">Search</button>
                     </form>
                     <div class="flex w-full min-w-0 items-center justify-end gap-2 sm:w-auto">
+                        <x-ai-assistant />
                         <x-header-notification-link :href="$r('user.notifications.index')" :count="$notificationsCount" />
                         <x-theme-icon-toggle />
                         <div class="relative z-[70]" x-data="{ open: false, confirm: false }">
