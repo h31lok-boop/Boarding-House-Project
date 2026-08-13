@@ -101,7 +101,7 @@
         </div>
         @endif
 
-        <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:grid-cols-7">
+        <div data-admin-stats-grid class="grid grid-cols-1 gap-2.5 min-[420px]:grid-cols-2 sm:grid-cols-4 xl:grid-cols-7">
             <div data-admin-stat-card class="rounded-lg border border-slate-200/80 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <div class="flex items-center gap-2.5">
                     <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300">
@@ -176,7 +176,7 @@
                 </div>
                 <p class="mt-1 text-[10px] text-rose-600 dark:text-rose-300">{{ $pendingPaymentsCount }} payments</p>
             </div>
-            <div data-admin-stat-card class="rounded-lg border border-blue-200/70 bg-blue-50/40 p-3 shadow-sm dark:border-blue-400/35 dark:bg-slate-900">
+            <div data-admin-stat-card class="rounded-lg border border-blue-200/70 bg-blue-50/40 p-3 shadow-sm dark:border-blue-400/35 dark:bg-slate-900 min-[420px]:col-span-2 sm:col-span-1">
                 <div class="flex items-center gap-2.5">
                     <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-400/15 dark:text-blue-300">
                         <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
@@ -242,7 +242,7 @@ $textColor = $pct >= 70 ? 'text-emerald-600' : ($pct >= 45 ? 'text-amber-600' : 
                     </div>
                 @endif
 
-                <div class="mt-3 grid grid-cols-4 gap-2 border-t border-slate-100 pt-3 text-center">
+                <div class="mt-3 grid grid-cols-2 gap-x-2 gap-y-3 border-t border-slate-100 pt-3 text-center sm:grid-cols-4">
                     <div>
                         <p class="text-sm font-bold text-slate-950">₱{{ number_format($monthlyIncome) }}</p>
                         <p class="text-[10px] text-slate-500">Monthly</p>
