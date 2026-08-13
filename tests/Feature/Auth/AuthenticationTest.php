@@ -5,7 +5,10 @@ use App\Models\User;
 test('login screen can be rendered', function () {
     $response = $this->get('/login');
 
-    $response->assertStatus(200);
+    $response->assertStatus(200)
+        ->assertSee('data-theme-mode="light-only"', false)
+        ->assertSee('Student registration')
+        ->assertSee('Owner registration');
 });
 
 test('users are redirected to their role dashboard after login', function () {
