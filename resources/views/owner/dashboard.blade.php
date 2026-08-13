@@ -78,6 +78,20 @@
                 @endforeach
             </section>
 
+            <x-dashboard-chart-pair
+                id-prefix="owner-dashboard"
+                pie-title="Room Occupancy"
+                pie-description="Room status for the selected properties."
+                :pie-labels="['Occupied', 'Available', 'Reserved']"
+                :pie-data="[(int) ($occupiedRooms ?? 0), $availableRooms, (int) ($reservedRooms ?? 0)]"
+                line-title="Revenue Trend"
+                line-description="Collected payments across the last six reporting months."
+                :line-labels="$revenueChart['labels'] ?? []"
+                :line-data="$revenueChart['data'] ?? []"
+                line-dataset-label="Collected revenue"
+                :currency="true"
+            />
+
             <section class="grid gap-5 lg:grid-cols-[1.2fr_.8fr]">
                 <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
                     <header class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-700">
