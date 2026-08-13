@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 GeoBoard / BoardMatch is a Laravel 12 (PHP 8.2+) web app for boarding-house management with three role-based workspaces (admin, owner, tenant/user), location-aware browsing via Leaflet maps, and an AI-assisted roommate/boarding-house matchmaking system. Frontend is Blade + Alpine.js + Tailwind CSS, bundled by Vite.
 
+The final academic scope and objective-to-feature mapping are defined in `docs/STUDY_OBJECTIVES_TRACEABILITY.md`. Treat that document as the requirements baseline. The weighted compatibility algorithm remains authoritative for ranking; predictive analytics are a separate role-scoped decision-support module.
+
 ## Commands
 
 ```bash
@@ -38,7 +40,7 @@ First-time setup: `composer setup` (install, copy `.env`, key:generate, migrate,
 
 - DB is **MySQL** in `.env.example` (`DB_CONNECTION=mysql`), but tests run against in-memory **SQLite** (see `phpunit.xml`). Guard schema-dependent code — services like `CompatibilityService` call `Schema::hasTable(...)` before querying.
 - Local dev host is `final-project.test` (Laravel Herd). Trusted hosts also include `*.ngrok-free.dev` and `localhost` (`bootstrap/app.php`).
-- Key integrations (all optional, degrade gracefully when unconfigured): **Google OAuth** (Socialite login), **Google Maps** + OpenStreetMap routing URLs, **DeepSeek** LLM for match explanations.
+- Key integrations (all optional, degrade gracefully when unconfigured): **Google OAuth** (Socialite login), **Google Maps** + OpenStreetMap routing URLs, **OpenAI** for match explanations.
 
 ## Architecture
 
@@ -63,7 +65,7 @@ Organized by workspace: top-level shared controllers, `Controllers/Admin`, `Cont
 ### Services (`app/Services`) — the domain core
 - `CompatibilityService` — scores roommate compatibility between two tenants using weighted criteria from `config/matchmaking.php` (`weights`); returns overall score, per-criterion breakdown, highlights, conflicts.
 - `BoardingHouseRecommendationService` / `TenantPreferenceRecommendationService` — rank boarding houses for a tenant using `boarding_house_weights` and `max_recommendation_distance_km` from `config/matchmaking.php`.
-- `DeepSeekService` — optional LLM calls (via `Http`) that generate human-readable explanations of matches; returns a "not configured" result when no API key, so callers never hard-fail.
+- `OpenAIService` — optional server-side Responses API calls (via `Http`) that generate human-readable explanations of matches; returns a "not configured" result when no API key, so callers never hard-fail.
 - `LocationService` — geocoding / distance helpers backing map features.
 - `ReservationLifecycleService` — reservation state transitions.
 
@@ -76,7 +78,7 @@ Rich Eloquent domain (~40 models). Central: `User`, `BoardingHouse` (owned via `
 Vite entry points: `resources/css/app.css` and `resources/js/app.js` (`vite.config.js`). Map behavior lives in standalone JS modules `resources/js/boarding-house-map.js` and `boarding-house-browse-map.js` (Leaflet). Blade views under `resources/views` are split by workspace (`admin/`, `user/`, `auth/`) with shared `components/` (including `components/admin/shell.blade.php`, `components/payments`, `components/sidebar`). UI is orange-themed.
 
 ## Tests
-Pest with `tests/Feature` and `tests/Unit` suites. Feature tests are UI/behavior-focused (many `*UiTest.php` asserting rendered admin pages) plus service tests (`CompatibilityServiceTest`, `BoardingHouseRecommendationServiceTest`, `DeepSeekMatchExplanationTest`). Tests boot against SQLite `:memory:`.
+Pest with `tests/Feature` and `tests/Unit` suites. Feature tests are UI/behavior-focused (many `*UiTest.php` asserting rendered admin pages) plus service tests (`CompatibilityServiceTest`, `BoardingHouseRecommendationServiceTest`, `OpenAIMatchExplanationTest`). Tests boot against SQLite `:memory:`.
 
 ## Demo credentials (after seeding)
 - Admin: `admin@boardmatch.com` / `admin123` (role `admin`)
