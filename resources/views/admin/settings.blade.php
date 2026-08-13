@@ -2,6 +2,7 @@
 <x-admin.shell :show-header="false">
 @php
     $workspace = request()->routeIs('owner.*') ? 'owner' : 'admin';
+    $isOwnerAccount = $workspace === 'owner';
     $route = fn (string $name, $params = []) => route($workspace.'.'.$name, $params);
     $admin = auth()->user();
     $photoPath = $admin?->profile_photo ?: $admin?->profile_image;
@@ -23,24 +24,59 @@
 
     $inputClasses = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-100';
     $labelClasses = 'mb-1 block text-xs font-semibold text-slate-600';
-    $primaryButtonClasses = 'inline-flex h-9 items-center justify-center rounded-lg bg-blue-600 px-4 text-[13px] font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:opacity-60 disabled:cursor-not-allowed';
-    $cardClasses = 'rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50';
+    $primaryButtonClasses = 'inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-4 text-[13px] font-bold text-white shadow-sm shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-blue-700 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60';
+    $cardClasses = 'rounded-[1.35rem] border border-slate-200/80 bg-white p-5 shadow-[0_14px_40px_rgba(15,23,42,0.05)] sm:p-6';
     $sectionIconClasses = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600';
 @endphp
 
-<div x-data="adminSettingsPage()" class="mx-auto w-full max-w-6xl space-y-6">
+<div x-data="adminSettingsPage()" class="mx-auto w-full max-w-6xl space-y-5 py-2 sm:py-3" @if($isOwnerAccount) data-owner-account @endif>
 
     <div x-show="toast" x-transition x-cloak
          class="fixed right-4 top-4 z-[9999] rounded-xl border border-blue-100 bg-white px-4 py-3 text-sm font-semibold text-blue-700 shadow-lg"
          x-text="toast"></div>
 
-    <header>
-        <h1 class="text-xl font-bold tracking-tight text-slate-900">Profile Settings</h1>
-        <p class="mt-0.5 text-[13px] text-slate-500">Manage your profile, security, and account preferences.</p>
-    </header>
+    @if ($isOwnerAccount)
+        <section class="relative overflow-hidden rounded-[1.6rem] border border-white/90 bg-white/95 p-5 shadow-[0_18px_50px_rgba(15,23,42,0.07)] sm:p-6" aria-labelledby="owner-account-heading">
+            <div class="pointer-events-none absolute -right-16 -top-24 h-56 w-56 rounded-full bg-blue-100/70 blur-3xl"></div>
+            <div class="pointer-events-none absolute -bottom-20 left-1/3 h-40 w-40 rounded-full bg-emerald-100/60 blur-3xl"></div>
+            <div class="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                <div class="flex min-w-0 items-center gap-4">
+                    <div class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-blue-600 to-emerald-500 text-xl font-black text-white shadow-lg shadow-blue-600/20 ring-4 ring-white">
+                        @if ($photoUrl)
+                            <img src="{{ $photoUrl }}" alt="{{ $adminName }}" class="h-full w-full object-cover">
+                        @else
+                            {{ $initial }}
+                        @endif
+                    </div>
+                    <div class="min-w-0">
+                        <p class="text-[10px] font-extrabold uppercase tracking-[0.18em] text-blue-700">Owner account</p>
+                        <h1 id="owner-account-heading" class="mt-1 truncate text-xl font-black tracking-tight text-slate-950 sm:text-2xl">{{ $adminName }}</h1>
+                        <div class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                            <span class="truncate">{{ $admin?->email }}</span>
+                            <span class="inline-flex items-center gap-1 font-semibold {{ $emailVerified ? 'text-emerald-700' : 'text-amber-700' }}">
+                                <span class="h-1.5 w-1.5 rounded-full {{ $emailVerified ? 'bg-emerald-500' : 'bg-amber-500' }}"></span>
+                                {{ $emailVerified ? 'Email verified' : 'Verification pending' }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <nav class="flex w-full gap-1 rounded-xl border border-slate-200/80 bg-slate-50/90 p-1 lg:w-auto" aria-label="Account settings sections">
+                    <a href="#profile-information" class="flex-1 rounded-lg px-3 py-2 text-center text-xs font-bold text-slate-600 transition hover:bg-white hover:text-blue-700 hover:shadow-sm lg:flex-none">Profile</a>
+                    <a href="#account-security" class="flex-1 rounded-lg px-3 py-2 text-center text-xs font-bold text-slate-600 transition hover:bg-white hover:text-blue-700 hover:shadow-sm lg:flex-none">Password</a>
+                    <a href="#additional-security" class="flex-1 rounded-lg px-3 py-2 text-center text-xs font-bold text-slate-600 transition hover:bg-white hover:text-blue-700 hover:shadow-sm lg:flex-none">Security</a>
+                </nav>
+            </div>
+        </section>
+    @else
+        <header>
+            <h1 class="text-xl font-bold tracking-tight text-slate-900">Profile Settings</h1>
+            <p class="mt-0.5 text-[13px] text-slate-500">Manage your profile, security, and account preferences.</p>
+        </header>
+    @endif
 
     {{-- 1. Profile Information --}}
-    <form method="POST" action="{{ $route('settings.profile.update') }}" enctype="multipart/form-data" class="{{ $cardClasses }}"
+    <form id="profile-information" method="POST" action="{{ $route('settings.profile.update') }}" enctype="multipart/form-data" class="scroll-mt-28 {{ $cardClasses }}"
           x-data="{ saving: false }" x-on:submit="saving = true">
         @csrf
         @method('PUT')
@@ -127,7 +163,7 @@
     </form>
 
     {{-- 2. Security --}}
-    <form method="POST" action="{{ $route('settings.password.update') }}" class="{{ $cardClasses }}"
+    <form id="account-security" method="POST" action="{{ $route('settings.password.update') }}" class="scroll-mt-28 {{ $cardClasses }}"
           x-data="{ saving: false }" x-on:submit="saving = true">
         @csrf
         @method('PUT')
@@ -209,7 +245,7 @@
     </form>
 
     {{-- Additional Security: 2FA & Logout Devices --}}
-    <div class="{{ $cardClasses }}">
+    <div id="additional-security" class="scroll-mt-28 {{ $cardClasses }}">
         <div class="grid gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
             <div class="flex items-start gap-3">
                 <span class="{{ $sectionIconClasses }}">
