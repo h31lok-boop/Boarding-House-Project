@@ -14,20 +14,17 @@
         return 'https://placehold.co/48x48/f3f4f6/9ca3af?text=BH';
     };
 
-    $reviewItems    = $reviews->getCollection();
-    $totalReviews   = $reviews->total() ?: 128;
-    $averageRating  = $reviewItems->count()
-        ? round($reviewItems->avg(fn($r) => (float) $r->rating), 1)
-        : 4.6;
+    $totalReviews   = (int) ($totalReviewCount ?? $reviews->total());
+    $averageRating  = round((float) ($averageRating ?? 0), 1);
 
     $breakdown = [];
     foreach ([5,4,3,2,1] as $star) {
-        $cnt = $reviewItems->where('rating', $star)->count();
+        $cnt = (int) ($ratingBreakdown[$star] ?? 0);
         $pct = $totalReviews > 0 ? round(($cnt / $totalReviews) * 100) : 0;
-        $breakdown[$star] = ['count' => $cnt ?: [5=>72,4=>36,3=>14,2=>4,1=>2][$star], 'pct' => $pct ?: [5=>56,4=>28,3=>11,2=>3,1=>2][$star]];
+        $breakdown[$star] = ['count' => $cnt, 'pct' => $pct];
     }
 
-    $pendingCount = $reviewItems->filter(fn($r) => !in_array($r->status ?? '', ['approved','rejected']))->count() ?: 2;
+    $pendingCount = (int) ($pendingCount ?? 0);
 
     $renderStars = function(float $rating, string $size = 'h-4 w-4'): string {
         $html = '';
@@ -56,7 +53,7 @@
     <x-user.page-header
         eyebrow="Feedback"
         title="Feedback & Reviews"
-        subtitle="Read and manage reviews from tenants and share your experience to help others."
+        subtitle="Manage the reviews you submitted and share verified experiences to help other students."
     />
 
     {{-- Overall Rating Card --}}
@@ -313,24 +310,24 @@
                 </button>
             </div>
 
-            {{-- Pending Reviews --}}
+            {{-- Pending moderation --}}
             <div class="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                 <div class="flex items-start gap-3 mb-4">
                     <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50">
                         <svg class="h-5 w-5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     </div>
                     <div>
-                        <p class="text-sm font-bold text-gray-900">Pending Reviews</p>
+                        <p class="text-sm font-bold text-gray-900">Pending Moderation</p>
                         <p class="text-xs text-gray-400 mt-0.5 leading-relaxed">
-                            You have <span class="font-bold text-orange-500">{{ $pendingCount }}</span> completed stays waiting for your review.
+                            <span class="font-bold text-orange-500">{{ $pendingCount }}</span> submitted {{ \Illuminate\Support\Str::plural('review', $pendingCount) }} awaiting publication review.
                         </p>
                     </div>
                 </div>
-                <button type="button"
-                        class="relative w-full rounded-xl border border-orange-400 py-2.5 text-sm font-semibold text-orange-500 hover:bg-orange-50 transition-colors">
-                    View Pending Reviews
+                <a href="{{ route('user.reviews', ['status' => 'pending']) }}"
+                        class="relative block w-full rounded-xl border border-orange-400 py-2.5 text-center text-sm font-semibold text-orange-500 transition-colors hover:bg-orange-50">
+                    View Pending Moderation
                     <span class="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-[10px] font-bold text-white">{{ $pendingCount }}</span>
-                </button>
+                </a>
             </div>
 
             {{-- Review Guidelines --}}
@@ -437,7 +434,7 @@
                 <button type="button" @click="editOpen=true; viewOpen=false" class="bm-modal__button bm-modal__button--primary">Edit</button>
                 <form method="POST" :action="selected.delete_url" onsubmit="return confirm('Delete this review?')">
                     @csrf @method('DELETE')
-                    <button class="bm-modal__button border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100">Delete</button>
+                    <button class="bm-modal__button bm-modal__button--danger">Delete</button>
                 </form>
                 <button type="button" @click="viewOpen=false" class="bm-modal__button bm-modal__button--secondary">Close</button>
             </div>
