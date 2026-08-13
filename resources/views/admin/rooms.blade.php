@@ -287,7 +287,7 @@
                         <button type="button" @click="selected = JSON.parse(JSON.stringify(selected)); editOpen = true; viewOpen = false" class="bm-modal__button bm-modal__button--primary">Edit</button>
                         <form method="POST" :action="selected.destroy_url" onsubmit="return confirm('Delete this room?')">
                             @csrf @method('DELETE')
-                            <button class="inline-flex h-9 items-center justify-center rounded-xl bg-rose-600 px-4 text-sm font-bold text-white shadow-sm shadow-rose-600/20 transition hover:bg-rose-700">Delete</button>
+                            <button class="bm-modal__button bm-modal__button--danger">Delete</button>
                         </form>
                     </div>
                     <button type="button" @click="viewOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
