@@ -25,6 +25,22 @@ class OwnerMiddleware
             abort(403, 'Access denied. This page is only for property owners.');
         }
 
+        $user->loadMissing('ownerProfile');
+        $status = strtolower((string) ($user->status ?: ($user->account_status ?? 'pending')));
+        $profile = $user->ownerProfile;
+        $hasPermit = filled($profile?->proof_of_ownership) || filled($profile?->valid_id_file);
+        $isVerified = strtolower((string) $profile?->verification_status) === 'verified';
+
+        if ($status !== 'active' || ! $user->is_active || ! $hasPermit || ! $isVerified) {
+            auth()->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->route('login')->withErrors([
+                'email' => 'This owner account cannot be used until an administrator verifies its business permit.',
+            ]);
+        }
+
         return $next($request);
     }
 }
