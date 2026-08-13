@@ -385,6 +385,7 @@
         }"
         class="space-y-5 text-slate-950"
     >
+        @if ($workspace !== 'admin')
         <section class="overflow-hidden rounded-[1.6rem] border border-slate-200/80 bg-white shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
             <div class="border-b border-slate-200/80 bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.08),_transparent_30%),linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] px-5 py-5 dark:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.16),_transparent_34%),linear-gradient(180deg,#0f172a_0%,#111c30_100%)] sm:px-6">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -465,6 +466,7 @@
                 @endif
             </div>
         </section>
+        @endif
 
         {{-- Stat Cards --}}
         @php
