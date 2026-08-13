@@ -43,7 +43,6 @@
     };
 @endphp
 
-<<<<<<< Updated upstream
 <x-user.shell>
     <div class="space-y-5">
         <section class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between">
@@ -51,16 +50,6 @@
                 <p class="text-xs font-bold uppercase tracking-[0.16em] text-blue-600 dark:text-blue-300">Student dashboard</p>
                 <h1 class="mt-1 text-xl font-black text-slate-950 dark:text-white">Welcome back, {{ $firstName }}</h1>
                 <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Your reservation, payment, and best match in one place.</p>
-=======
-<x-user.shell :top-bar="false">
-<div x-data="{ profileOpen: false }" @keydown.escape.window="profileOpen = false" class="space-y-3 text-slate-950 dark:text-white">
-    <header class="sticky top-[4.25rem] z-[60] rounded-[18px] border border-slate-200/80 bg-white px-3 py-3 shadow-sm sm:px-4 md:top-3 dark:border-slate-800/90 dark:bg-slate-950">
-        <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div class="min-w-0">
-                <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-600">Tenant Dashboard</p>
-                <h1 class="mt-1 text-lg font-black tracking-tight text-slate-950 sm:text-xl dark:text-white">Welcome back, {{ $firstName }}! <span aria-hidden="true">&#128075;</span></h1>
-                <p class="mt-1 max-w-2xl text-xs leading-5 text-slate-500 dark:text-slate-400">{{ $nextActionHint }}</p>
->>>>>>> Stashed changes
             </div>
             <a href="{{ $route('user.boarding-houses.index') }}" class="inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-bold text-white transition hover:bg-blue-700">Find a boarding house</a>
         </section>
