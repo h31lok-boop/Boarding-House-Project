@@ -95,8 +95,7 @@
                                     <p class="text-xs ui-muted">{{ auth()->user()->email ?? '' }}</p>
                                 </div>
                                 <div class="py-2 text-sm">
-                                    <a href="{{ $r('user.settings.index') }}" class="block px-4 py-2 hover:bg-[color:var(--surface-2)]">Settings</a>
-                                    <a href="{{ $r('user.preferences.index') }}" class="block px-4 py-2 hover:bg-[color:var(--surface-2)]">Match Preferences</a>
+                                    <a href="{{ $r('user.settings.index') }}" class="block px-4 py-2 hover:bg-[color:var(--surface-2)]">Profile</a>
                                     <button @click="confirm = true; open = false" class="w-full text-left px-4 py-2 text-rose-600 hover:bg-rose-50">Log out</button>
                                 </div>
                             </div>

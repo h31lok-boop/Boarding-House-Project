@@ -293,35 +293,36 @@
         <div class="relative mx-auto flex max-w-[1640px] flex-col gap-2.5 px-2.5 py-2.5 sm:px-3 sm:py-3 xl:px-4">
             <div class="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.7),_transparent_62%)] dark:bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.08),_transparent_62%)]"></div>
 
-            <div class="relative md:hidden">
-                <button
-                    type="button"
-                    class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white/90 px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-400/70"
-                    data-sidebar-toggle
-                    aria-controls="adminSidebar"
-                    aria-expanded="false"
-                    aria-label="Open sidebar"
-                >
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16M4 12h16M4 18h16"/>
-                    </svg>
-                    <span>Menu</span>
-                </button>
-            </div>
-
             @if ($showHeader)
-                <header data-admin-workspace-header data-workspace="{{ $workspace }}" class="sticky top-2.5 z-[60] overflow-visible rounded-[1.1rem] border border-white/80 bg-white/95 px-3 py-2.5 shadow-[0_14px_30px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800/90 dark:bg-slate-950/95 xl:px-3.5">
+                <header data-admin-workspace-header data-workspace="{{ $workspace }}" class="admin-workspace-header sticky top-2.5 z-[60] overflow-visible rounded-[1.1rem] border border-white/80 bg-white/95 px-3 py-2.5 shadow-[0_14px_30px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800/90 dark:bg-slate-950/95 xl:px-3.5">
                     <div class="absolute inset-y-0 right-0 hidden w-32 bg-[radial-gradient(circle_at_center,_rgba(16,185,129,0.12),_transparent_68%)] lg:block"></div>
                     <div class="relative flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
-                        <div class="min-w-0">
-                            <h1 class="text-[1.2rem] font-black tracking-tight text-slate-950 dark:text-white">{{ $workspaceHeaderTitle }}</h1>
-                            <p class="mt-1 max-w-3xl text-[11px] leading-5 text-slate-500 dark:text-slate-400">{{ $workspaceHeaderDescription }}</p>
+                        <div class="flex min-w-0 items-center gap-2.5">
+                            <button
+                                type="button"
+                                class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-400/70 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 md:hidden"
+                                data-sidebar-toggle
+                                aria-controls="adminSidebar"
+                                aria-expanded="false"
+                                aria-label="Open navigation menu"
+                            >
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16M4 12h16M4 18h16"/>
+                                </svg>
+                            </button>
+                            <div class="min-w-0">
+                                <h1 class="truncate text-[1.2rem] font-black tracking-tight text-slate-950 dark:text-white">{{ $workspaceHeaderTitle }}</h1>
+                                <p class="mt-1 hidden max-w-3xl text-[11px] leading-5 text-slate-500 dark:text-slate-400 sm:block">{{ $workspaceHeaderDescription }}</p>
+                            </div>
                         </div>
 
                         <div class="flex w-full flex-col gap-2 xl:w-auto xl:min-w-[32rem] xl:items-end">
-                            <div class="flex min-w-0 flex-wrap items-center gap-2 xl:flex-nowrap xl:justify-end">
+                            <div class="admin-header-actions flex min-w-0 items-center justify-between gap-1.5 sm:flex-wrap sm:justify-start sm:gap-2 xl:flex-nowrap xl:justify-end">
                                 @if (! $isOwnerWorkspace)
-                                    <form method="GET" action="{{ $r('admin.search') }}" class="min-w-0 flex-1 sm:flex-none">
+                                    <a href="{{ $r('admin.search') }}" class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 sm:hidden" aria-label="Open search">
+                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" stroke-width="1.8"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m16 16 4 4"/></svg>
+                                    </a>
+                                    <form method="GET" action="{{ $r('admin.search') }}" class="hidden min-w-0 sm:block sm:flex-none">
                                         <label class="relative block">
                                             <span class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
                                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -338,8 +339,8 @@
                                         </label>
                                     </form>
                                 @endif
-                                <a href="{{ $r('admin.reservations') }}" class="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 text-[11px] font-bold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300 dark:hover:bg-emerald-400/15">
-                                    <span>Reservations</span>
+                                <a href="{{ $r('admin.reservations') }}" class="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-2.5 text-[11px] font-bold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300 dark:hover:bg-emerald-400/15 sm:px-3">
+                                    <span class="admin-reservation-label">Reservations</span>
                                     <span class="rounded-full bg-white px-2 py-0.5 text-[11px] leading-none text-emerald-700 dark:bg-slate-900 dark:text-emerald-300">{{ $pendingReservationCount }}</span>
                                 </a>
                                 <a href="{{ $r('admin.messages') }}" class="relative inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-emerald-400/30 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-300" aria-label="Messages, {{ $messageCount }} awaiting reply">
@@ -351,30 +352,30 @@
                                         <span class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{{ $messageCount > 99 ? '99+' : $messageCount }}</span>
                                     @endif
                                 </a>
-                                <x-ai-assistant />
-                                <x-header-notification-link :href="$r($workspaceRoute('notifications.index'))" :count="$notificationsCount" />
-                                <x-theme-icon-toggle />
+                                <div class="admin-header-ai inline-flex"><x-ai-assistant /></div>
+                                <div class="inline-flex"><x-header-notification-link :href="$r($workspaceRoute('notifications.index'))" :count="$notificationsCount" /></div>
+                                <div class="inline-flex"><x-theme-icon-toggle /></div>
 
-                                <div class="relative z-[70] min-w-0 flex-1 sm:flex-none">
+                                <div class="relative z-[70] shrink-0 sm:min-w-0 sm:flex-none">
                                     <button
                                         type="button"
                                         @click.stop="adminProfileOpen = ! adminProfileOpen; adminProfileMenuReady = false; if (adminProfileOpen) setTimeout(() => adminProfileMenuReady = true, 120)"
-                                        class="flex h-11 w-full min-w-0 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-2.5 shadow-sm transition hover:border-blue-200 hover:bg-blue-50/60 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600 dark:hover:bg-slate-800 sm:w-auto sm:min-w-[12rem] sm:max-w-[15rem]"
+                                        class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white p-0 shadow-sm transition hover:border-blue-200 hover:bg-blue-50/60 focus:outline-none focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600 dark:hover:bg-slate-800 sm:h-11 sm:w-auto sm:min-w-[12rem] sm:max-w-[15rem] sm:justify-start sm:gap-2 sm:rounded-2xl sm:px-2.5"
                                         aria-haspopup="menu"
                                         :aria-expanded="adminProfileOpen"
                                     >
-                                        <span class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-emerald-500 to-blue-600 text-sm font-bold text-white">
+                                        <span class="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-emerald-500 to-blue-600 text-xs font-bold text-white sm:h-9 sm:w-9 sm:text-sm">
                                             @if ($accountImageUrl)
                                                 <img src="{{ $accountImageUrl }}" alt="{{ $ownerName }}" class="h-full w-full object-cover">
                                             @else
                                                 {{ $ownerInitial }}
                                             @endif
                                         </span>
-                                        <span class="min-w-0 flex-1 text-left leading-tight">
+                                        <span class="hidden min-w-0 flex-1 text-left leading-tight sm:block">
                                             <span class="block truncate text-[13px] font-bold text-slate-900 dark:text-white">{{ $ownerName }}</span>
                                             <span class="block truncate text-[11px] font-semibold text-slate-500 dark:text-slate-400">{{ $ownerRole }}</span>
                                         </span>
-                                        <svg class="h-4 w-4 shrink-0 text-slate-400 transition" :class="adminProfileOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <svg class="hidden h-4 w-4 shrink-0 text-slate-400 transition sm:block" :class="adminProfileOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/>
                                         </svg>
                                     </button>
@@ -394,8 +395,7 @@
                                             <p class="mt-0.5 truncate text-sm text-slate-500 dark:text-slate-400">{{ $currentUser?->email }}</p>
                                         </div>
                                         <div class="p-2 text-sm">
-                                            <a href="{{ $r('admin.settings.index') }}" class="flex items-center rounded-xl px-3 py-3 text-base font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700 dark:text-slate-200 dark:hover:bg-blue-400/10 dark:hover:text-blue-300" role="menuitem">Profile Management</a>
-                                            <a href="{{ $r('admin.settings.index', ['tab' => 'security']) }}" class="flex items-center rounded-xl px-3 py-3 text-base font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700 dark:text-slate-200 dark:hover:bg-blue-400/10 dark:hover:text-blue-300" role="menuitem">Security Settings</a>
+                                            <a href="{{ $r('admin.settings.index') }}" class="flex items-center rounded-xl px-3 py-3 text-base font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700 dark:text-slate-200 dark:hover:bg-blue-400/10 dark:hover:text-blue-300" role="menuitem">Profile</a>
                                             <form method="POST" action="{{ route('logout') }}">
                                                 @csrf
                                                 <button class="flex w-full items-center rounded-xl px-3 py-3 text-left text-base font-semibold text-rose-600 transition hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-400/10" role="menuitem">Logout</button>

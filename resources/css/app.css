@@ -208,6 +208,12 @@ body.modal-open [data-modal-active='true'] {
     z-index: 2147483647 !important;
 }
 
+/* A BoardMatch modal has exactly one vertical scroll owner. Letting both the
+   overlay and its panel scroll can strand touch/wheel input between them. */
+body.modal-open .bm-modal-overlay[data-modal-active='true'] {
+    overflow: hidden !important;
+}
+
 body.modal-open [data-modal-active='true'] [data-modal-backdrop] {
     background-color: transparent !important;
     backdrop-filter: none !important;
@@ -290,7 +296,8 @@ body.modal-open header:not([data-modal-active] header) {
        the content instead of visually covering maps, tables, or form fields. */
     overflow-x: hidden;
     overflow-y: auto;
-    overscroll-behavior: contain;
+    overscroll-behavior-y: auto;
+    -webkit-overflow-scrolling: touch;
     scrollbar-gutter: stable;
     width: min(100%, 42rem);
 }
@@ -1646,6 +1653,10 @@ body.sidebar-mobile-open {
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
+    overscroll-behavior-y: auto;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch;
     transition: margin-left 0.22s ease;
 }
 
@@ -1753,8 +1764,22 @@ body.sidebar-mobile-open {
 }
 
 @media (max-width: 767px) {
+    .user-shell {
+        height: auto;
+        min-height: 100vh;
+        min-height: 100dvh;
+        overflow: visible;
+    }
+
     .user-shell .user-dashboard-main {
+        height: auto;
         margin-left: 0 !important;
+        min-height: 100vh;
+        min-height: 100dvh;
+        overflow-x: clip;
+        overflow-y: visible;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        scrollbar-gutter: auto;
         width: 100%;
     }
 
@@ -1865,9 +1890,14 @@ body.sidebar-mobile-open {
 
 .admin-shell .admin-dashboard-main {
     height: 100vh;
+    height: 100dvh;
     margin-left: 240px;
     overflow-x: hidden;
     overflow-y: auto;
+    overscroll-behavior-y: auto;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch;
     transition: margin-left 0.22s ease;
 }
 
@@ -2397,8 +2427,34 @@ body.sidebar-mobile-open {
 }
 
 @media (max-width: 767px) {
+    .admin-shell {
+        height: auto;
+        min-height: 100vh;
+        min-height: 100dvh;
+        overflow: visible;
+    }
+
     .admin-shell .admin-dashboard-main {
+        height: auto;
         margin-left: 0 !important;
+        min-height: 100vh;
+        min-height: 100dvh;
+        overflow-x: clip;
+        overflow-y: visible;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        scrollbar-gutter: auto;
+        width: 100%;
+    }
+
+    .admin-shell .admin-dashboard-main > div {
+        padding: 0.5rem !important;
+    }
+
+    .admin-shell .admin-workspace-header {
+        top: 0.5rem;
+    }
+
+    .admin-shell .admin-header-actions {
         width: 100%;
     }
 
@@ -2472,6 +2528,18 @@ body.sidebar-mobile-open {
     .admin-shell .sidebar .sidebar-nav button,
     .admin-shell .sidebar .sidebar-menu-button {
         justify-content: flex-start;
+    }
+}
+
+@media (max-width: 479px) {
+    .admin-shell .admin-header-ai {
+        display: none !important;
+    }
+}
+
+@media (max-width: 359px) {
+    .admin-shell .admin-reservation-label {
+        display: none;
     }
 }
 

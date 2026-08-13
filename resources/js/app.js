@@ -344,6 +344,14 @@ const setupSidebarControls = () => {
     } else {
         sidebarMobileMedia.addListener(onBreakpointChange);
     }
+
+    window.addEventListener('pageshow', () => {
+        if (sidebarMobileMedia.matches) {
+            applyMobileSidebar('closed');
+        } else {
+            syncSidebarControls();
+        }
+    });
 };
 
 const setupReservationCountdowns = () => {
@@ -423,7 +431,12 @@ const setupModalIsolation = () => {
             return false;
         }
 
-        if (el.hidden || el.classList.contains('hidden') || el.style.display === 'none') {
+        if (
+            el.hidden
+            || el.getAttribute('aria-hidden') === 'true'
+            || el.classList.contains('hidden')
+            || el.style.display === 'none'
+        ) {
             return false;
         }
 
@@ -712,6 +725,12 @@ const setupModalIsolation = () => {
         childList: true,
         subtree: true,
     });
+
+    /* A page restored from the browser back/forward cache can retain the body
+       class from a modal that no longer exists. Re-evaluate instead of leaving
+       the entire dashboard frozen. */
+    window.addEventListener('pageshow', queueModalState);
+    window.addEventListener('pagehide', restoreLockedElements);
 
     queueModalState();
 };
