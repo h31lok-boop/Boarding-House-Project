@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Amenity;
 use App\Models\Barangay;
 use App\Models\BoardingHouse;
+use App\Models\BoardingHouseMatch;
 use App\Models\CityMunicipality;
 use App\Services\BoardingHouseRecommendationService;
 use App\Services\LocationService;
@@ -179,21 +180,39 @@ class BoardingHouseBrowseController extends Controller
             $nearestHouse = $houses->getCollection()->sortBy('distance_km')->first();
         }
 
-        $recommendedHouses = $showMatchScores
-            ? $rankedHouses->take(6)->map(fn (BoardingHouse $house) => [
+        $allRecommendedHouses = $showMatchScores
+            ? $rankedHouses->map(fn (BoardingHouse $house) => [
                 'house' => $house,
                 'image_url' => $this->resolveImageUrl($house),
                 'recommendation' => $house->recommendation,
             ])->values()
             : collect();
+        $recommendedHouses = $allRecommendedHouses->take(6)->values();
 
         if ($activeTab === 'matchmaking') {
+            $classification = $this->recommendationService->classifyRecommendations($tenant, $allRecommendedHouses);
+            $recommendationMode = $classification['matches']->isNotEmpty() ? 'matches' : 'suggestions';
+            $visibleRecommendations = $recommendationMode === 'matches'
+                ? $classification['matches']->take(6)->values()
+                : $classification['suggestions']->take(6)->values();
+
             return view('user.recommendations', [
                 'tenant' => $tenant,
-                'houseRecommendations' => $recommendedHouses,
-                'houseRecommendationCount' => $recommendedHouses->count(),
+                'houseRecommendations' => $visibleRecommendations,
+                'houseRecommendationCount' => $visibleRecommendations->count(),
                 'hasPreferences' => $hasRecommendationPreferences,
                 'preferenceSummary' => $preferenceSummary,
+                'recommendationMode' => $recommendationMode,
+                'preferenceMatchCount' => $classification['matches']->count(),
+                'suggestionCount' => $classification['suggestions']->count(),
+                'scannedListingCount' => $classification['scanned_count'],
+                'matchThreshold' => $classification['match_threshold'],
+                'lastAiScanAt' => Schema::hasTable('boarding_house_matches')
+                    ? BoardingHouseMatch::query()
+                        ->where('user_id', $tenant->id)
+                        ->whereNotNull('ai_generated_at')
+                        ->max('ai_generated_at')
+                    : null,
                 'houseFilters' => [
                     'house_sort' => $request->query('house_sort', $request->query('sort', 'highest_match')),
                     'room_type' => $request->query('room_type') ?: null,

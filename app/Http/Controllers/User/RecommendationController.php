@@ -46,10 +46,22 @@ class RecommendationController extends Controller
         $houseFilters = $this->houseFilters($request);
 
         // House recommendations — always available once a tenant has any preferences
-        $houseRecommendations = $hasPreferences
+        $rankedRecommendations = $hasPreferences
             ? $this->applyHouseFilters($this->boardingHouseRecommendationService->rank($tenant), $houseFilters)
             : collect();
-        $houseRecommendations = $this->attachAiExplanations($tenant, $houseRecommendations);
+        $rankedRecommendations = $this->attachAiExplanations($tenant, $rankedRecommendations);
+        $classification = $hasPreferences
+            ? $this->boardingHouseRecommendationService->classifyRecommendations($tenant, $rankedRecommendations)
+            : [
+                'matches' => collect(),
+                'suggestions' => collect(),
+                'scanned_count' => 0,
+                'match_threshold' => (int) config('matchmaking.boarding_house_match_threshold', 70),
+            ];
+        $recommendationMode = $classification['matches']->isNotEmpty() ? 'matches' : 'suggestions';
+        $houseRecommendations = $recommendationMode === 'matches'
+            ? $classification['matches']
+            : $classification['suggestions'];
 
         // Roommate matches — only if match profile is fully completed
         $matches = collect();
@@ -98,6 +110,12 @@ class RecommendationController extends Controller
             'preferenceSummary' => $preferenceSummary,
             'houseRecommendations' => $houseRecommendations,
             'houseRecommendationCount' => $houseRecommendations->count(),
+            'recommendationMode' => $recommendationMode,
+            'preferenceMatchCount' => $classification['matches']->count(),
+            'suggestionCount' => $classification['suggestions']->count(),
+            'scannedListingCount' => $classification['scanned_count'],
+            'matchThreshold' => $classification['match_threshold'],
+            'lastAiScanAt' => $this->latestAiScanAt($tenant),
             'houseFilters' => $houseFilters,
             'favoriteHouseIds' => $this->favoriteHouseIds($tenant),
             'openAiConfigured' => $this->openAIService->isConfigured(),
@@ -123,9 +141,15 @@ class RecommendationController extends Controller
         }
 
         $ranked = $this->boardingHouseRecommendationService->generateForUser($tenant);
-        $count = $ranked->count();
+        $classification = $this->boardingHouseRecommendationService->classifyRecommendations($tenant, $ranked);
+        $matches = $classification['matches'];
+        $suggestions = $classification['suggestions'];
+        $visibleRecommendations = $matches->isNotEmpty() ? $matches : $suggestions;
+        $scannedCount = (int) $classification['scanned_count'];
+        $matchCount = $matches->count();
+        $suggestionCount = $suggestions->count();
         $aiResult = $this->openAIService->explainBoardingHouseRecommendations(
-            $this->boardingHouseAiPayload($tenant, $ranked->take(8))
+            $this->boardingHouseAiPayload($tenant, $visibleRecommendations->take(8))
         );
 
         if ($aiResult['success'] ?? false) {
@@ -142,12 +166,25 @@ class RecommendationController extends Controller
 
         $redirect = redirect()
             ->route($redirectRoute[0], $redirectRoute[1])
-            ->with('success', $count > 0
-                ? "Generated {$count} ranked boarding house recommendations"
-                    .(($aiResult['success'] ?? false) ? ' with AI explanations.' : '.')
-                : 'No compatible boarding houses are currently available.');
+            ->with('success', $matchCount > 0
+                ? "AI scan completed: {$scannedCount} approved listings scanned and {$matchCount} preference "
+                    .str('match')->plural($matchCount).' found.'
+                : ($suggestionCount > 0
+                    ? "AI scan completed: no preference match was found. Showing {$suggestionCount} rating- and feature-based "
+                        .str('suggestion')->plural($suggestionCount).' instead.'
+                    : 'AI scan completed: no approved, available boarding houses are currently listed.'))
+            ->with('ai_scan_status', [
+                'provider' => $this->openAIService->providerLabel(),
+                'provider_configured' => $this->openAIService->isConfigured(),
+                'provider_responded' => $visibleRecommendations->isNotEmpty() && (bool) ($aiResult['success'] ?? false),
+                'model' => (string) ($aiResult['model'] ?? $this->openAIService->model()),
+                'scanned_count' => $scannedCount,
+                'match_count' => $matchCount,
+                'suggestion_count' => $suggestionCount,
+                'completed_at' => now()->format('M d, Y h:i A'),
+            ]);
 
-        if ($count > 0 && $this->openAIService->isConfigured() && ! ($aiResult['success'] ?? false)) {
+        if ($visibleRecommendations->isNotEmpty() && $this->openAIService->isConfigured() && ! ($aiResult['success'] ?? false)) {
             $redirect->with('warning', 'The verified recommendation scores were generated, but AI explanations are temporarily unavailable.');
         }
 
@@ -390,7 +427,9 @@ class RecommendationController extends Controller
                         (int) $house->rooms->sum('available_slots')
                     ),
                     'match_score' => $recommendation['recommendation_percent'],
+                    'result_type' => $recommendation['result_type'] ?? 'match',
                     'verified_reasons' => $recommendation['reasons'],
+                    'suggestion_reasons' => $recommendation['suggestion_reasons'] ?? [],
                     'warnings' => $recommendation['warnings'],
                 ];
             })->values()->all(),
@@ -413,6 +452,18 @@ class RecommendationController extends Controller
                     'ai_generated_at' => now(),
                 ]);
         }
+    }
+
+    private function latestAiScanAt(User $tenant): mixed
+    {
+        if (! Schema::hasTable('boarding_house_matches')) {
+            return null;
+        }
+
+        return BoardingHouseMatch::query()
+            ->where('user_id', $tenant->id)
+            ->whereNotNull('ai_generated_at')
+            ->max('ai_generated_at');
     }
 
     private function houseAvailableSlots(BoardingHouse $house): int

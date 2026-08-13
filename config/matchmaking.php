@@ -1,6 +1,10 @@
 <?php
 
 return [
+    // A listing must meet this weighted score and the tenant's selected core
+    // criteria before the UI may call it a preference match.
+    'boarding_house_match_threshold' => 70,
+
     'weights' => [
         'budget' => 0.18,
         'gender_preference' => 0.08,

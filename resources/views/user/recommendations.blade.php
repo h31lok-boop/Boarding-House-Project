@@ -5,6 +5,13 @@
 
     $houseRecommendations = collect($houseRecommendations ?? []);
     $hasPreferences = (bool) ($hasPreferences ?? false);
+    $recommendationMode = ($recommendationMode ?? 'matches') === 'suggestions' ? 'suggestions' : 'matches';
+    $isSuggestionMode = $recommendationMode === 'suggestions' && $houseRecommendations->isNotEmpty();
+    $preferenceMatchCount = (int) ($preferenceMatchCount ?? ($isSuggestionMode ? 0 : $houseRecommendations->count()));
+    $suggestionCount = (int) ($suggestionCount ?? ($isSuggestionMode ? $houseRecommendations->count() : 0));
+    $scannedListingCount = (int) ($scannedListingCount ?? $houseRecommendations->count());
+    $matchThreshold = (int) ($matchThreshold ?? config('matchmaking.boarding_house_match_threshold', 70));
+    $aiScanStatus = session('ai_scan_status');
     $tenant = $tenant ?? auth()->user();
     $preferenceSummary = $preferenceSummary ?? [];
     $houseFilters = $houseFilters ?? ['house_sort' => 'highest_match', 'room_type' => null, 'dssc_area' => null];
@@ -137,6 +144,9 @@
     $averageScore = $houseRecommendations->isNotEmpty()
         ? (int) round($houseRecommendations->map(fn ($item) => $rawScore($item))->avg())
         : 0;
+    $bestSuggestionRating = $isSuggestionMode
+        ? (float) $houseRecommendations->max(fn ($item) => (float) data_get($item, 'house.reviews_avg_rating', 0))
+        : 0;
     $nearDsscCount = $houseRecommendations
         ->filter(fn ($item) => (bool) data_get($item, 'house.is_near_dssc') || (is_numeric(data_get($item, 'recommendation.distance_from_dssc')) && (float) data_get($item, 'recommendation.distance_from_dssc') <= 1))
         ->count();
@@ -196,10 +206,12 @@
                 <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-blue-600 dark:text-blue-400">Recommended for You</p>
                 <h1 class="mt-1 text-lg font-black tracking-normal text-slate-950 dark:text-white sm:text-xl">Smart Matchmaking</h1>
                 <p class="mt-1.5 text-xs font-medium leading-5 text-slate-600 dark:text-slate-300 sm:text-sm">
-                    @if ($hasPreferences)
-                        AI analyzed your preferences and found
-                        <span class="font-black text-blue-600 dark:text-blue-400">{{ $totalMatches }}</span>
-                        highly compatible {{ \Illuminate\Support\Str::plural('boarding house', $totalMatches) }}.
+                    @if ($hasPreferences && $isSuggestionMode)
+                        No listing met the {{ $matchThreshold }}% preference-match standard. These are clearly labeled alternatives based on published ratings, useful features, and availability.
+                    @elseif ($hasPreferences)
+                        The preference scan found
+                        <span class="font-black text-blue-600 dark:text-blue-400">{{ $preferenceMatchCount }}</span>
+                        compatible {{ \Illuminate\Support\Str::plural('boarding house', $preferenceMatchCount) }}.
                     @else
                         Set your preferences to unlock AI-ranked boarding houses matched to your budget, location, and lifestyle.
                     @endif
@@ -211,15 +223,17 @@
                     <div class="relative h-12 w-12">
                         <svg viewBox="0 0 120 120" class="h-12 w-12 -rotate-90">
                             <circle cx="60" cy="60" r="46" fill="none" stroke="currentColor" stroke-width="10" class="text-blue-100 dark:text-slate-800" />
-                            <circle cx="60" cy="60" r="46" pathLength="100" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-dasharray="{{ $averageScore }} 100" class="text-emerald-500" />
+                            <circle cx="60" cy="60" r="46" pathLength="100" fill="none" stroke="currentColor" stroke-width="10" stroke-linecap="round" stroke-dasharray="{{ $isSuggestionMode ? 0 : $averageScore }} 100" class="text-emerald-500" />
                         </svg>
                         <div class="absolute inset-0 grid place-items-center">
-                            <span class="text-sm font-black text-emerald-600 dark:text-emerald-400">{{ $averageScore }}%</span>
+                            <span class="text-sm font-black text-emerald-600 dark:text-emerald-400">{{ $isSuggestionMode ? '0' : $averageScore.'%' }}</span>
                         </div>
                     </div>
                     <div>
-                        <p class="text-[10px] font-bold text-slate-500 dark:text-slate-400">Average Match Score</p>
-                        <p class="mt-0.5 text-xs font-semibold text-slate-700 dark:text-slate-200">{{ $topMatches->count() }} top matches scanned</p>
+                        <p class="text-[10px] font-bold text-slate-500 dark:text-slate-400">{{ $isSuggestionMode ? 'Preference Scan Result' : 'Average Match Score' }}</p>
+                        <p class="mt-0.5 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                            {{ $isSuggestionMode ? $scannedListingCount.' listings scanned · no match' : $scannedListingCount.' approved listings scanned' }}
+                        </p>
                     </div>
                 </div>
 
@@ -233,7 +247,7 @@
                             <svg class="h-4 w-4" :class="refreshing ? 'animate-spin' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
                             </svg>
-                            <span x-text="refreshing ? 'Recalculating…' : 'Refresh Matches'">Refresh Matches</span>
+                            <span x-text="refreshing ? 'Scanning listings…' : 'Run AI Scan'">Run AI Scan</span>
                         </button>
                     </form>
                     <a href="{{ route('user.preferences.index', ['return_to' => 'matchmaking']) }}" class="inline-flex h-8 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 text-[11px] font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:text-blue-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:border-blue-500/40">
@@ -247,12 +261,32 @@
         </div>
     </section>
 
+    @if (is_array($aiScanStatus))
+        <section data-ai-scan-result role="status" class="flex flex-col gap-2 rounded-2xl border px-4 py-3 text-xs sm:flex-row sm:items-center sm:justify-between {{ data_get($aiScanStatus, 'provider_responded') ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200' : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200' }}">
+            <div>
+                <p class="font-black">
+                    {{ data_get($aiScanStatus, 'provider_responded')
+                        ? data_get($aiScanStatus, 'provider').' AI responded successfully'
+                        : 'Weighted scan completed; AI explanations were unavailable' }}
+                </p>
+                <p class="mt-1 font-medium">
+                    {{ data_get($aiScanStatus, 'scanned_count', 0) }} approved listings scanned against your saved preferences ·
+                    {{ data_get($aiScanStatus, 'match_count', 0) }} matches ·
+                    {{ data_get($aiScanStatus, 'suggestion_count', 0) }} suggestions.
+                </p>
+            </div>
+            <span class="shrink-0 font-bold">{{ data_get($aiScanStatus, 'completed_at') }}</span>
+        </section>
+    @elseif ($lastAiScanAt ?? null)
+        <p class="px-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">Last successful AI explanation scan: {{ \Illuminate\Support\Carbon::parse($lastAiScanAt)->format('M d, Y h:i A') }}</p>
+    @endif
+
     <section class="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
         @foreach ([
-            ['label' => 'Total Matches', 'value' => $totalMatches, 'caption' => 'Boarding Houses', 'color' => 'blue', 'icon' => 'home'],
-            ['label' => 'Best Match', 'value' => $bestScore.'%', 'caption' => 'Compatibility', 'color' => 'violet', 'icon' => 'sparkles'],
+            ['label' => $isSuggestionMode ? 'Suggestions' : 'Total Matches', 'value' => $isSuggestionMode ? $suggestionCount : $preferenceMatchCount, 'caption' => $isSuggestionMode ? 'Not preference matches' : 'Boarding Houses', 'color' => 'blue', 'icon' => 'home'],
+            ['label' => $isSuggestionMode ? 'Top Rating' : 'Best Match', 'value' => $isSuggestionMode ? ($bestSuggestionRating > 0 ? number_format($bestSuggestionRating, 1).'/5' : 'Feature-based') : $bestScore.'%', 'caption' => $isSuggestionMode ? 'Published reviews' : 'Compatibility', 'color' => 'violet', 'icon' => 'sparkles'],
             ['label' => 'Near DSSC', 'value' => $nearDsscCount, 'caption' => 'Within 1 km', 'color' => 'emerald', 'icon' => 'pin'],
-            ['label' => 'Within Budget', 'value' => $withinBudgetCount, 'caption' => 'Matches', 'color' => 'amber', 'icon' => 'wallet'],
+            ['label' => 'Within Budget', 'value' => $withinBudgetCount, 'caption' => $isSuggestionMode ? 'Suggested options' : 'Matches', 'color' => 'amber', 'icon' => 'wallet'],
         ] as $stat)
             @php
                 $statColor = [
@@ -362,9 +396,9 @@
                             </button>
                         </form>
                     </div>
-                    <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-black text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30">
-                        <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-                        Best Match For You
+                    <span class="inline-flex items-center gap-1 rounded-full {{ $isSuggestionMode ? 'bg-amber-100 text-amber-700 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30' : 'bg-emerald-100 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30' }} px-2.5 py-1 text-[11px] font-black ring-1">
+                        <span class="h-2 w-2 rounded-full {{ $isSuggestionMode ? 'bg-amber-500' : 'bg-emerald-500' }}"></span>
+                        {{ $isSuggestionMode ? 'Suggested Alternative · Not a Preference Match' : 'Best Match For You' }}
                     </span>
 
                     <div class="mt-3 grid gap-3 lg:grid-cols-[0.86fr_1.14fr]">
@@ -386,12 +420,18 @@
                         <div class="flex flex-col justify-between">
                             <div>
                                 <h2 class="pr-10 text-base font-black leading-tight text-slate-950 dark:text-white">{{ $featuredHouse->name }}</h2>
-                                <p class="mt-1 text-lg font-black {{ $featuredTone['text'] }}">{{ $featuredScore }}% <span class="text-[11px] font-bold">Compatible</span></p>
+                                @if ($isSuggestionMode)
+                                    <p class="mt-1 text-sm font-black text-amber-700 dark:text-amber-300">
+                                        {{ (float) ($featuredHouse->reviews_avg_rating ?? 0) > 0 ? number_format((float) $featuredHouse->reviews_avg_rating, 1).'/5 published rating' : 'Feature-based suggestion' }}
+                                    </p>
+                                @else
+                                    <p class="mt-1 text-lg font-black {{ $featuredTone['text'] }}">{{ $featuredScore }}% <span class="text-[11px] font-bold">Compatible</span></p>
+                                @endif
                                 <p class="mt-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">{{ $locationLabel($featuredHouse) }}</p>
 
-                                <h3 class="mt-3 text-xs font-black text-slate-700 dark:text-slate-200">Why it matches:</h3>
+                                <h3 class="mt-3 text-xs font-black text-slate-700 dark:text-slate-200">{{ $isSuggestionMode ? 'Why it is suggested:' : 'Why it matches:' }}</h3>
                                 <ul class="mt-2 space-y-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                                    @forelse ($featuredReasons as $reason)
+                                    @forelse ($isSuggestionMode ? collect(data_get($featured, 'recommendation.suggestion_reasons', [])) : $featuredReasons as $reason)
                                         <li class="flex gap-2">
                                             <svg class="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
                                             <span>{{ rtrim($reason, '.') }}</span>
@@ -399,7 +439,7 @@
                                     @empty
                                         <li class="flex gap-2">
                                             <svg class="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" /></svg>
-                                            <span>Strong fit based on your saved preferences</span>
+                                            <span>{{ $isSuggestionMode ? 'Approved listing with useful features to review' : 'Strong fit based on your saved preferences' }}</span>
                                         </li>
                                     @endforelse
                                 </ul>
@@ -424,8 +464,8 @@
                 <article class="self-start rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_14px_34px_rgba(15,23,42,0.07)] dark:border-slate-800 dark:bg-slate-900">
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h2 class="text-base font-black text-slate-950 dark:text-white">Top Matches For You</h2>
-                        <p class="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">Ranked from strongest compatibility to practical alternatives.</p>
+                        <h2 class="text-base font-black text-slate-950 dark:text-white">{{ $isSuggestionMode ? 'Suggested Alternatives' : 'Top Matches For You' }}</h2>
+                        <p class="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">{{ $isSuggestionMode ? 'These are recommendations based on ratings, features, and availability—not preference matches.' : 'Only listings that meet the preference-match standard are shown here.' }}</p>
                     </div>
                     <button type="button" class="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-700 dark:border-slate-700 dark:text-slate-200 xl:hidden" @click="filtersOpen = ! filtersOpen">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" /></svg>
@@ -445,7 +485,7 @@
                         @endphp
                         <a
                             href="{{ route('user.boarding-houses.show', $house) }}"
-                            x-show="{{ $score }} >= minimumScore"
+                            x-show="{{ $isSuggestionMode ? 'true' : $score.' >= minimumScore' }}"
                             x-transition.opacity
                             class="grid gap-2.5 py-2.5 transition hover:bg-slate-50/70 dark:hover:bg-slate-800/40 sm:grid-cols-[auto_4.5rem_1fr_auto_auto]"
                         >
@@ -461,8 +501,13 @@
                                 <span class="mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[10px] font-black ring-1 {{ $roomsTone }}">{{ $roomsLabel }}</span>
                             </div>
                             <div class="flex items-center sm:block sm:text-right">
-                                <p class="text-lg font-black {{ $tone['text'] }}">{{ $score }}%</p>
-                                <p class="ml-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400 sm:ml-0">Match</p>
+                                @if ($isSuggestionMode)
+                                    <p class="text-sm font-black text-amber-700 dark:text-amber-300">{{ (float) ($house->reviews_avg_rating ?? 0) > 0 ? number_format((float) $house->reviews_avg_rating, 1).'/5' : 'Features' }}</p>
+                                    <p class="ml-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400 sm:ml-0">Suggestion</p>
+                                @else
+                                    <p class="text-lg font-black {{ $tone['text'] }}">{{ $score }}%</p>
+                                    <p class="ml-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400 sm:ml-0">Match</p>
+                                @endif
                             </div>
                             <div class="hidden items-center text-slate-400 sm:flex">
                                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
@@ -470,7 +515,7 @@
                         </a>
                     @endforeach
 
-                    <div x-show="![{{ $topMatches->map(fn ($item) => $rawScore($item))->implode(',') }}].some(score => score >= minimumScore)" x-cloak class="py-6 text-center">
+                    <div x-show="{{ $isSuggestionMode ? 'false' : '!['.$topMatches->map(fn ($item) => $rawScore($item))->implode(',').'].some(score => score >= minimumScore)' }}" x-cloak class="py-6 text-center">
                         <p class="text-sm font-bold text-slate-700 dark:text-slate-200">No matches at this score threshold</p>
                         <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Lower the minimum match score, or tap "All" to see every ranked match.</p>
                         <button type="button" @click="minimumScore = 0" class="mt-3 inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 px-3 text-xs font-bold text-blue-600 transition hover:bg-blue-50 dark:border-slate-700 dark:text-blue-300">Show all matches</button>
@@ -479,7 +524,7 @@
 
                 <div class="mt-4 flex justify-center">
                     <a href="{{ route('user.boarding-houses.index', ['tab' => 'recommended']) }}" class="inline-flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-black text-blue-600 transition hover:bg-blue-50 hover:text-blue-700 dark:text-blue-300 dark:hover:bg-blue-500/10">
-                        View All Matches
+                        {{ $isSuggestionMode ? 'View All Listings' : 'View All Matches' }}
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 8.25 21 12m0 0-3.75 3.75M21 12H3" /></svg>
                     </a>
                 </div>
@@ -488,7 +533,7 @@
                 @if ($compareMatches->isNotEmpty())
                     <section class="rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_14px_34px_rgba(15,23,42,0.07)] dark:border-slate-800 dark:bg-slate-900">
                         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <h2 class="text-base font-black text-slate-950 dark:text-white">Compare Top Matches</h2>
+                            <h2 class="text-base font-black text-slate-950 dark:text-white">{{ $isSuggestionMode ? 'Compare Suggestions' : 'Compare Top Matches' }}</h2>
                             <a href="{{ route('user.boarding-houses.index', ['tab' => 'recommended']) }}" class="inline-flex items-center gap-2 text-xs font-black text-blue-600 dark:text-blue-300">
                                 View Full Comparison
                                 <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 8.25 21 12m0 0-3.75 3.75M21 12H3" /></svg>
@@ -507,7 +552,9 @@
                                             @endphp
                                             <th class="px-3 py-2.5 text-center text-xs font-black text-slate-950 dark:text-white">
                                                 {{ $house->name }}
-                                                <span class="mt-1 block text-[11px] font-black text-emerald-600 dark:text-emerald-400">{{ $score }}% Match</span>
+                                                <span class="mt-1 block text-[11px] font-black {{ $isSuggestionMode ? 'text-amber-600 dark:text-amber-300' : 'text-emerald-600 dark:text-emerald-400' }}">
+                                                    {{ $isSuggestionMode ? ((float) ($house->reviews_avg_rating ?? 0) > 0 ? number_format((float) $house->reviews_avg_rating, 1).'/5 rating' : 'Feature-based') : $score.'% Match' }}
+                                                </span>
                                             </th>
                                         @endforeach
                                     </tr>
@@ -562,6 +609,11 @@
                         @if ($matchmakingRefreshRedirect === 'boarding_houses')
                             <input type="hidden" name="tab" value="matchmaking">
                         @endif
+                        @if ($isSuggestionMode)
+                            <div class="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+                                Minimum match filters do not apply because these listings are suggestions, not preference matches.
+                            </div>
+                        @else
                         <div>
                             <label class="text-xs font-bold text-slate-500 dark:text-slate-400">Minimum Match Score</label>
                             <input type="hidden" name="house_min_score" :value="minimumScore">
@@ -572,6 +624,7 @@
                                 <button type="button" @click="minimumScore = 0" :class="minimumScore === 0 ? 'border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300'" class="h-8 rounded-xl border text-[11px] font-black transition focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-100">All</button>
                             </div>
                         </div>
+                        @endif
 
                         <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
                             <label class="block">
@@ -613,7 +666,7 @@
                 <article class="rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_14px_34px_rgba(15,23,42,0.07)] dark:border-slate-800 dark:bg-slate-900">
                     <h2 class="flex items-center gap-2 text-base font-black text-slate-950 dark:text-white">
                         <svg class="h-5 w-5 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" /></svg>
-                        AI Insights
+                        {{ $isSuggestionMode ? 'Suggestion Basis' : 'AI Insights' }}
                     </h2>
                     <p class="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">Based on your preferences, you value:</p>
                     <ul class="mt-2 space-y-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">

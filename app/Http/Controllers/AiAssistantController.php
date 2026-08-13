@@ -27,10 +27,16 @@ class AiAssistantController extends Controller
         $user = $request->user();
         abort_unless($user, 401);
 
+        abort_unless(
+            $user->isSuperAdmin() || $user->isStrictOwner() || $user->isUser(),
+            403,
+            'The AI assistant is not available for this account role.'
+        );
+
         $role = match (true) {
             $user->isSuperAdmin() => 'administrator',
             $user->isStrictOwner() => 'property owner',
-            default => 'tenant',
+            $user->isUser() => 'tenant',
         };
 
         $result = $this->openAIService->answerQuestion(

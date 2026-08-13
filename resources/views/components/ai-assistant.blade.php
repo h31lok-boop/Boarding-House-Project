@@ -2,6 +2,14 @@
     $aiService = app(\App\Services\OpenAIService::class);
     $assistantConfigured = $aiService->isConfigured();
     $assistantProvider = $aiService->providerLabel();
+    $assistantRole = match (true) {
+        auth()->user()?->isSuperAdmin() => 'administrator',
+        auth()->user()?->isStrictOwner() => 'property owner',
+        default => 'tenant',
+    };
+    $assistantScopeLabel = $assistantRole === 'tenant'
+        ? 'Tenant assistant · your records only'
+        : ucfirst($assistantRole).' assistant · role-authorized records';
 @endphp
 
 <div
@@ -40,14 +48,15 @@
             aria-labelledby="boardmatch-ai-title"
             class="bm-modal-overlay"
         >
-        <section class="bm-modal w-full max-w-lg overflow-hidden" @click.stop>
-            <header class="flex items-center justify-between gap-4 border-b border-slate-100 px-5 py-4 dark:border-slate-700">
+        <section class="bm-modal bm-modal--notification-detail w-full max-w-lg" @click.stop>
+            <header class="bm-modal__header items-center dark:border-slate-700 dark:bg-slate-950">
                 <div class="flex min-w-0 items-center gap-3">
                     <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300">
                         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m12 3 1.2 4.2a5 5 0 0 0 3.5 3.5L21 12l-4.3 1.3a5 5 0 0 0-3.5 3.5L12 21l-1.2-4.2a5 5 0 0 0-3.5-3.5L3 12l4.3-1.3a5 5 0 0 0 3.5-3.5L12 3Z"/></svg>
                     </span>
                     <div class="min-w-0">
                         <h2 id="boardmatch-ai-title" class="truncate text-base font-black text-slate-950 dark:text-white">BoardMatch AI Assistant</h2>
+                        <p class="truncate text-[10px] font-bold text-slate-500 dark:text-slate-400">{{ $assistantScopeLabel }}</p>
                         <p class="mt-0.5 flex items-center gap-1.5 text-xs font-semibold {{ $assistantConfigured ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400' }}">
                             <span class="h-2 w-2 rounded-full {{ $assistantConfigured ? 'bg-emerald-500' : 'bg-amber-400' }}"></span>
                             {{ $assistantConfigured ? 'Ready via '.$assistantProvider : 'API key required' }}
@@ -62,7 +71,7 @@
                 </div>
             </header>
 
-            <div x-ref="messages" class="h-[min(20rem,44dvh)] min-h-52 space-y-3 overflow-y-auto bg-slate-50/70 px-4 py-4 dark:bg-slate-900/50 sm:px-5">
+            <div x-ref="messages" class="bm-modal__body space-y-3 bg-slate-50/70 px-4 py-4 dark:bg-slate-900/50 sm:px-5">
                 <template x-for="(message, index) in messages" :key="index">
                     <div class="flex" :class="message.role === 'user' ? 'justify-end' : 'justify-start'">
                         <div
@@ -86,7 +95,7 @@
                 </div>
             </div>
 
-            <footer class="border-t border-slate-100 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-950 sm:px-5 sm:py-4">
+            <footer class="bm-modal__footer !block border-slate-100 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-950 sm:px-5 sm:py-4">
                 <div x-show="error" x-transition class="mb-2.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300" x-text="error"></div>
                 <form @submit.prevent="send()" class="flex items-end gap-2.5">
                     <label class="min-w-0 flex-1">

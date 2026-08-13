@@ -22,6 +22,8 @@ class BoardMatchAiContextService
     public function build(User $user): string
     {
         $role = $this->role($user);
+        abort_unless($role !== null, 403, 'No AI data scope is defined for this account role.');
+
         $context = [
             'generated_at' => now()->toIso8601String(),
             'data_freshness' => 'Live read-only database snapshot generated for this question.',
@@ -168,9 +170,29 @@ class BoardMatchAiContextService
             ->where('user_id', $user->getKey())
             ->pluck('id')
             ->all(), []);
-        $paymentScope = fn (Builder $query) => $query->whereIn('tenant_id', $tenantIds ?: [-1]);
+        $paymentScope = function (Builder $query) use ($user, $tenantIds): void {
+            if (Schema::hasColumn('payments', 'tenant_id')) {
+                $query->whereIn('tenant_id', $tenantIds ?: [-1]);
+
+                return;
+            }
+
+            if (Schema::hasColumn('payments', 'user_id')) {
+                $query->where('user_id', $user->getKey());
+
+                return;
+            }
+
+            $query->whereRaw('1 = 0');
+        };
 
         return [
+            'my_saved_preferences' => $this->records('user_preferences', [
+                'preferred_rental_budget', 'preferred_rental_budget_min', 'preferred_rental_budget_max',
+                'preferred_locations', 'preferred_landmark', 'distance_from_school', 'room_type',
+                'study_habits', 'sleeping_schedule', 'cleanliness_level', 'noise_tolerance',
+                'safety_preferences', 'amenities', 'lifestyle_notes', 'profile_completion', 'updated_at',
+            ], $userScope, 1),
             'public_boarding_houses' => $this->records('boarding_houses', [
                 'id', 'name', 'address', 'barangay', 'nearby_landmark', 'distance_from_dssc',
                 'price', 'monthly_payment', 'available_rooms', 'capacity', 'status',
@@ -248,13 +270,17 @@ class BoardMatchAiContextService
         };
     }
 
-    private function role(User $user): string
+    private function role(User $user): ?string
     {
         if ($user->isSuperAdmin()) {
             return 'administrator';
         }
 
-        return $user->isStrictOwner() ? 'property_owner' : 'tenant';
+        if ($user->isStrictOwner()) {
+            return 'property_owner';
+        }
+
+        return $user->isUser() ? 'tenant' : null;
     }
 
     private function records(

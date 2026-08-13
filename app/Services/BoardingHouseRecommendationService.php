@@ -63,6 +63,50 @@ class BoardingHouseRecommendationService
         return $this->rank($tenant, $houses, self::DEFAULT_LAT, self::DEFAULT_LNG, true);
     }
 
+    /**
+     * Separate genuine preference matches from practical fallback suggestions.
+     * Suggestions are shown only when no listing satisfies the tenant's core
+     * preferences and are ranked by published ratings, features, and availability.
+     */
+    public function classifyRecommendations(User $tenant, Collection $ranked): array
+    {
+        $this->loadTenantPreferences($tenant);
+        $preference = $this->preferencePayload($tenant);
+
+        $matches = $ranked
+            ->filter(fn (array $item): bool => $this->isPreferenceMatch(
+                $preference,
+                (array) ($item['recommendation'] ?? [])
+            ))
+            ->map(function (array $item): array {
+                $item['recommendation']['result_type'] = 'match';
+
+                return $item;
+            })
+            ->values();
+
+        $suggestions = $matches->isEmpty()
+            ? $ranked
+                ->map(function (array $item): array {
+                    $house = $item['house'];
+                    $item['recommendation']['result_type'] = 'suggestion';
+                    $item['recommendation']['suggestion_score'] = $this->suggestionQualityScore($house);
+                    $item['recommendation']['suggestion_reasons'] = $this->suggestionReasons($house);
+
+                    return $item;
+                })
+                ->sortByDesc(fn (array $item): float => (float) data_get($item, 'recommendation.suggestion_score', 0))
+                ->values()
+            : collect();
+
+        return [
+            'matches' => $matches,
+            'suggestions' => $suggestions,
+            'scanned_count' => $ranked->count(),
+            'match_threshold' => (int) config('matchmaking.boarding_house_match_threshold', 70),
+        ];
+    }
+
     public function score(
         User $tenant,
         BoardingHouse $house,
@@ -142,6 +186,78 @@ class BoardingHouseRecommendationService
         }
 
         return $result;
+    }
+
+    private function isPreferenceMatch(array $preference, array $recommendation): bool
+    {
+        $percent = (int) ($recommendation['recommendation_percent'] ?? 0);
+        $scores = (array) ($recommendation['scores'] ?? []);
+
+        if ($percent < (int) config('matchmaking.boarding_house_match_threshold', 70)) {
+            return false;
+        }
+
+        $coreChecks = [];
+
+        if ($preference['preferred_rental_budget'] !== null
+            || $preference['budget_min'] !== null
+            || $preference['budget_max'] !== null) {
+            $coreChecks[] = (float) ($scores['budget'] ?? 0) >= 0.65;
+        }
+
+        if ($preference['preferred_locations'] !== [] || filled($preference['preferred_landmark'])) {
+            $coreChecks[] = (float) ($scores['location'] ?? 0) >= 0.65;
+        }
+
+        if (filled($preference['room_type']) && $preference['room_type'] !== 'any') {
+            $coreChecks[] = (float) ($scores['room_type'] ?? 0) >= 0.65;
+        }
+
+        if ($preference['amenities'] !== []) {
+            $coreChecks[] = (float) ($scores['amenities'] ?? 0) >= 0.50;
+        }
+
+        return ! in_array(false, $coreChecks, true)
+            && (float) ($scores['availability'] ?? 0) > 0;
+    }
+
+    private function suggestionQualityScore(BoardingHouse $house): float
+    {
+        $rating = max(0.0, min(5.0, (float) ($house->reviews_avg_rating ?? 0)));
+        $reviewConfidence = min(1.0, ((int) ($house->reviews_count ?? 0)) / 5);
+        $ratingScore = ($rating / 5) * (0.65 + (0.35 * $reviewConfidence));
+
+        $amenityCount = $house->relationLoaded('amenities') ? $house->amenities->count() : 0;
+        $roomTypeCount = $house->relationLoaded('roomCategories') ? $house->roomCategories->count() : 0;
+        $featureScore = min(1.0, (($amenityCount * 1.5) + $roomTypeCount) / 10);
+        $availabilityScore = $this->scoreAvailability($house);
+
+        return round(($ratingScore * 0.55) + ($featureScore * 0.30) + ($availabilityScore * 0.15), 4);
+    }
+
+    private function suggestionReasons(BoardingHouse $house): array
+    {
+        $reasons = [];
+        $rating = (float) ($house->reviews_avg_rating ?? 0);
+        $reviewCount = (int) ($house->reviews_count ?? 0);
+        $amenities = $house->relationLoaded('amenities')
+            ? $house->amenities->pluck('name')->filter()->take(3)->values()
+            : collect();
+
+        if ($rating > 0 && $reviewCount > 0) {
+            $reasons[] = number_format($rating, 1).'/5 rating from '.$reviewCount.' published '
+                .Str::plural('review', $reviewCount).'.';
+        }
+
+        if ($amenities->isNotEmpty()) {
+            $reasons[] = 'Features include '.$amenities->implode(', ').'.';
+        }
+
+        if ($this->scoreAvailability($house) > 0) {
+            $reasons[] = 'Currently records available rooms or slots.';
+        }
+
+        return $reasons ?: ['Approved active listing with details available for review.'];
     }
 
     public function candidates(int $limit = 100): Collection

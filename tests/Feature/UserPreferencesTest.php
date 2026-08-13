@@ -93,7 +93,8 @@ test('dashboard prompts users without saved preferences to complete them', funct
     $this->actingAs($user)
         ->get(route('user.dashboard'))
         ->assertOk()
-        ->assertSee('Complete your preferences first to get better AI recommendations.');
+        ->assertSee('Complete your preferences')
+        ->assertSee('Add your budget, location, room, and lifestyle needs.');
 });
 
 test('preference arrays and numeric limits are validated', function () {
