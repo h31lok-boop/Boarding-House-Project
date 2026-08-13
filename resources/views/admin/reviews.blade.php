@@ -1,6 +1,9 @@
 <x-layouts.dashboard>
 <x-admin.shell>
     @php
+        $reviewWorkspace = request()->routeIs('owner.*') ? 'owner' : 'admin';
+        $reviewUpdateRoute = $reviewWorkspace.'.reviews.update';
+        $workspaceLabel = $reviewWorkspace === 'owner' ? 'your properties' : 'all properties';
         $badge = fn ($status) => match (strtolower((string) $status)) {
             'published' => 'bg-emerald-100 text-emerald-700 border-emerald-200',
             'pending' => 'bg-amber-100 text-amber-700 border-amber-200',
@@ -11,8 +14,8 @@
 
     <div x-data="{ detailOpen: false, selected: {} }" class="space-y-6">
         <div class="ui-card p-6">
-            <h1 class="mt-2 text-2xl font-bold">Reviews</h1>
-            <p class="mt-2 text-sm ui-muted">Review tenant ratings, comments, and publication status.</p>
+            <h1 class="mt-2 text-2xl font-bold">Feedback &amp; Reviews</h1>
+            <p class="mt-2 text-sm ui-muted">Review tenant ratings, comments, and publication status for {{ $workspaceLabel }}.</p>
         </div>
 
         <div class="grid gap-4 md:grid-cols-3">
@@ -43,7 +46,7 @@
                         'comment' => $review->comment,
                         'title' => $review->title,
                         'status' => $review->status ?? 'pending',
-                        'update_url' => route('admin.reviews.update', $review),
+                        'update_url' => route($reviewUpdateRoute, $review),
                     ];
                 @endphp
                 <article
@@ -66,7 +69,7 @@
                     <div class="hidden">
                         <button type="button" class="btn-secondary px-3 py-1.5 text-xs" @click="selected = {{ \Illuminate\Support\Js::from($payload) }}; detailOpen = true">View</button>
                         @foreach (['published' => 'Publish', 'hidden' => 'Hide'] as $status => $label)
-                            <form method="POST" action="{{ route('admin.reviews.update', $review) }}">@csrf @method('PATCH')<input type="hidden" name="status" value="{{ $status }}"><button class="{{ $status === 'hidden' ? 'btn-danger' : 'btn-secondary' }} px-3 py-1.5 text-xs">{{ $label }}</button></form>
+                            <form method="POST" action="{{ route($reviewUpdateRoute, $review) }}">@csrf @method('PATCH')<input type="hidden" name="status" value="{{ $status }}"><button class="{{ $status === 'hidden' ? 'btn-danger' : 'btn-secondary' }} px-3 py-1.5 text-xs">{{ $label }}</button></form>
                         @endforeach
                     </div>
                 </article>
