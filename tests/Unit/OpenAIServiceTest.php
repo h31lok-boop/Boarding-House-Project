@@ -57,6 +57,195 @@ test('it uses the FreeModel Responses API when selected', function () {
         && str_starts_with($request['instructions'], '[BoardMatch prompt v1]'));
 });
 
+test('it uses the DeepSeek chat completions API when selected', function () {
+    config()->set('services.ai_evaluation.provider', 'deepseek');
+    config()->set('services.deepseek.enabled', true);
+    config()->set('services.deepseek.api_key', 'test-deepseek-key');
+    config()->set('services.deepseek.base_url', 'https://api.deepseek.com');
+    config()->set('services.deepseek.model', 'deepseek-v4-flash');
+
+    Http::fake([
+        'api.deepseek.com/chat/completions' => Http::response([
+            'model' => 'deepseek-v4-flash',
+            'choices' => [[
+                'finish_reason' => 'stop',
+                'message' => [
+                    'role' => 'assistant',
+                    'content' => 'Open Payments, review the receipt, and continue to PayMongo.',
+                ],
+            ]],
+        ], 200, ['x-request-id' => 'ds_req_test']),
+    ]);
+
+    $result = app(OpenAIService::class)->answerQuestion(
+        question: 'How do I pay?',
+        role: 'tenant',
+        history: [['role' => 'assistant', 'content' => 'I can help with BoardMatch.']],
+        safetyIdentifier: 'privacy-safe-user-hash',
+        systemContext: '{"my_reservations":{"pending":1}}',
+    );
+
+    expect($result)
+        ->success->toBeTrue()
+        ->provider->toBe('deepseek')
+        ->model->toBe('deepseek-v4-flash')
+        ->request_id->toBe('ds_req_test');
+
+    Http::assertSent(function ($request) {
+        $messages = $request['messages'];
+
+        return $request->url() === 'https://api.deepseek.com/chat/completions'
+            && $request->hasHeader('Authorization', 'Bearer test-deepseek-key')
+            && $request['model'] === 'deepseek-v4-flash'
+            && $request['stream'] === false
+            && $request['max_tokens'] === 900
+            && data_get($request->data(), 'thinking.type') === 'disabled'
+            && $request['user_id'] === 'privacy-safe-user-hash'
+            && data_get($messages, '0.role') === 'system'
+            && str_starts_with(data_get($messages, '0.content'), '[BoardMatch prompt v1]')
+            && str_contains(data_get($messages, '0.content'), '"pending":1')
+            && data_get($messages, '2.content') === 'How do I pay?';
+    });
+});
+
+test('it rejects incomplete DeepSeek responses', function () {
+    config()->set('services.ai_evaluation.provider', 'deepseek');
+    config()->set('services.deepseek.enabled', true);
+    config()->set('services.deepseek.api_key', 'test-deepseek-key');
+    config()->set('services.deepseek.base_url', 'https://api.deepseek.com');
+    config()->set('services.deepseek.model', 'deepseek-v4-flash');
+
+    Http::fake([
+        'api.deepseek.com/chat/completions' => Http::response([
+            'choices' => [[
+                'finish_reason' => 'length',
+                'message' => ['content' => 'Truncated'],
+            ]],
+        ]),
+    ]);
+
+    $result = app(OpenAIService::class)->answerQuestion('Help me', 'admin');
+
+    expect($result)
+        ->success->toBeFalse()
+        ->reason->toContain('incomplete response');
+});
+
+test('it uses the Groq chat completions API when selected', function () {
+    config()->set('services.ai_evaluation.provider', 'groq');
+    config()->set('services.groq.enabled', true);
+    config()->set('services.groq.api_key', 'test-groq-key');
+    config()->set('services.groq.base_url', 'https://api.groq.com/openai/v1');
+    config()->set('services.groq.model', 'openai/gpt-oss-20b');
+
+    Http::fake([
+        'api.groq.com/openai/v1/chat/completions' => Http::response([
+            'model' => 'openai/gpt-oss-20b',
+            'choices' => [[
+                'finish_reason' => 'stop',
+                'message' => [
+                    'role' => 'assistant',
+                    'content' => 'Open Payments, review the receipt, and continue to PayMongo.',
+                ],
+            ]],
+        ], 200, ['x-request-id' => 'groq_req_test']),
+    ]);
+
+    $result = app(OpenAIService::class)->answerQuestion(
+        question: 'How do I pay?',
+        role: 'tenant',
+        history: [['role' => 'assistant', 'content' => 'I can help with BoardMatch.']],
+        safetyIdentifier: 'privacy-safe-user-hash',
+    );
+
+    expect($result)
+        ->success->toBeTrue()
+        ->provider->toBe('groq')
+        ->model->toBe('openai/gpt-oss-20b')
+        ->request_id->toBe('groq_req_test');
+
+    Http::assertSent(function ($request) {
+        $messages = $request['messages'];
+
+        return $request->url() === 'https://api.groq.com/openai/v1/chat/completions'
+            && $request->hasHeader('Authorization', 'Bearer test-groq-key')
+            && $request['model'] === 'openai/gpt-oss-20b'
+            && $request['stream'] === false
+            && $request['include_reasoning'] === false
+            && $request['reasoning_effort'] === 'low'
+            && $request['max_completion_tokens'] === 900
+            && $request['user'] === 'privacy-safe-user-hash'
+            && ! isset($request['response_format'])
+            && data_get($messages, '0.role') === 'system'
+            && str_starts_with(data_get($messages, '0.content'), '[BoardMatch prompt v1]')
+            && data_get($messages, '2.content') === 'How do I pay?';
+    });
+});
+
+test('it rejects incomplete Groq responses', function () {
+    config()->set('services.ai_evaluation.provider', 'groq');
+    config()->set('services.groq.enabled', true);
+    config()->set('services.groq.api_key', 'test-groq-key');
+    config()->set('services.groq.base_url', 'https://api.groq.com/openai/v1');
+    config()->set('services.groq.model', 'openai/gpt-oss-20b');
+
+    Http::fake([
+        'api.groq.com/openai/v1/chat/completions' => Http::response([
+            'choices' => [[
+                'finish_reason' => 'length',
+                'message' => ['content' => 'Truncated'],
+            ]],
+        ]),
+    ]);
+
+    $result = app(OpenAIService::class)->answerQuestion('Help me', 'admin');
+
+    expect($result)
+        ->success->toBeFalse()
+        ->reason->toContain('incomplete response');
+});
+
+test('it enables Groq JSON mode for structured analytics', function () {
+    config()->set('services.ai_evaluation.provider', 'groq');
+    config()->set('services.groq.enabled', true);
+    config()->set('services.groq.api_key', 'test-groq-key');
+    config()->set('services.groq.base_url', 'https://api.groq.com/openai/v1');
+    config()->set('services.groq.model', 'openai/gpt-oss-20b');
+
+    Http::fake([
+        'api.groq.com/openai/v1/chat/completions' => Http::response([
+            'model' => 'openai/gpt-oss-20b',
+            'choices' => [[
+                'finish_reason' => 'stop',
+                'message' => ['content' => json_encode([
+                    'summary' => 'Demand is stable.',
+                    'highlights' => ['Demand is 2.', 'Payment risk is 0%.'],
+                    'action' => 'Continue monitoring verified records.',
+                ])],
+            ]],
+        ]),
+    ]);
+
+    $result = app(OpenAIService::class)->analyzePredictiveInsights([
+        'scope' => 'Test records',
+        'labels' => ['Aug 2026'],
+        'series' => [
+            'demand' => [2],
+            'reservations' => [1],
+            'occupancy' => [50],
+            'payment_risk' => [0],
+        ],
+        'cards' => [],
+        'topDemand' => [],
+    ], 'admin');
+
+    expect($result)
+        ->success->toBeTrue()
+        ->analysis->summary->toBe('Demand is stable.');
+
+    Http::assertSent(fn ($request) => data_get($request->data(), 'response_format.type') === 'json_object');
+});
+
 test('it calls the OpenAI Responses API without storing the response', function () {
     config()->set('services.openai.api_key', 'test-openai-key');
     config()->set('services.openai.base_url', 'https://api.openai.com/v1');
