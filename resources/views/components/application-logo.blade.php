@@ -1,1 +1,1 @@
-<img src="{{ asset('images/boardmatch-mark.svg') }}" alt="BoardMatch" {{ $attributes->merge(['class' => 'object-contain']) }}>
+<img src="{{ asset('images/boardmatch-final-logo.png') }}" alt="BoardMatch" {{ $attributes->merge(['class' => 'object-contain']) }}>
