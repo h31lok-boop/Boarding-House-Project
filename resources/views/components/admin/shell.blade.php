@@ -168,6 +168,13 @@
             'title' => 'Conversation Hub',
             'description' => 'Keep tenant conversations organized, timely, and easy to resolve.',
         ],
+        request()->is($workspacePath.'/reviews*') => [
+            'label' => 'Feedback & Reviews',
+            'title' => 'Review Management',
+            'description' => $isOwnerWorkspace
+                ? 'Review feedback submitted for your boarding houses.'
+                : 'Monitor and moderate feedback records across all boarding houses.',
+        ],
         request()->is($workspacePath.'/payments*', $workspacePath.'/transactions*') => [
             'label' => 'Payments & Earnings',
             'title' => 'Revenue Tracking',
@@ -187,6 +194,11 @@
             'label' => 'Reports & Analytics',
             'title' => 'Performance Reports',
             'description' => 'Review occupancy, revenue, inquiry, and operational performance trends.',
+        ],
+        request()->is($workspacePath.'/predictive-insights*') => [
+            'label' => 'Machine Learning',
+            'title' => 'Predictive Insights',
+            'description' => 'Forecast demand, reservations, occupancy, and payment risk from role-scoped historical records.',
         ],
         request()->is($workspacePath.'/match-requests*', $workspacePath.'/recommendations*', $workspacePath.'/compatibility-scores*') => [
             'label' => 'Matching Insights',
@@ -232,8 +244,8 @@
     >
         <div class="sidebar-header flex items-center gap-1.5">
             <a href="{{ $r($workspaceRoute('dashboard')) }}" class="admin-sidebar-brand flex min-w-0 flex-1 items-center gap-2">
-                <div class="sidebar-brand-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-[0_10px_22px_rgba(37,99,235,0.3)] ring-1 ring-white/15">
-                    @include('components.sidebar.partials.admin-icon', ['name' => 'boarding-house'])
+                <div class="sidebar-brand-icon h-8 w-8 shrink-0 overflow-hidden rounded-xl shadow-[0_10px_22px_rgba(37,99,235,0.3)] ring-1 ring-white/15">
+                    <img src="{{ asset('images/boardmatch-final-logo.png') }}" alt="" class="h-full w-full object-cover" aria-hidden="true">
                 </div>
                 <div class="sidebar-brand-text min-w-0 leading-tight">
                     <p class="truncate text-base font-bold tracking-tight text-white">BoardMatch</p>
@@ -339,6 +351,7 @@
                                         <span class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{{ $messageCount > 99 ? '99+' : $messageCount }}</span>
                                     @endif
                                 </a>
+                                <x-ai-assistant />
                                 <x-header-notification-link :href="$r($workspaceRoute('notifications.index'))" :count="$notificationsCount" />
                                 <x-theme-icon-toggle />
 
