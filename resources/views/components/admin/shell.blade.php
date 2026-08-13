@@ -35,12 +35,7 @@
 
         return url()->current();
     };
-    $profileImage = $currentUser?->profile_photo ?: $currentUser?->profile_image;
-    $accountImageUrl = $profileImage
-        ? (\Illuminate\Support\Str::startsWith($profileImage, ['http://', 'https://', '/'])
-            ? $profileImage
-            : \Illuminate\Support\Facades\Storage::url($profileImage))
-        : null;
+    $accountImageUrl = $currentUser?->photo_url;
 
     $ownerName = $currentUser?->name ?: 'Property Owner';
     $ownerInitial = strtoupper(substr($ownerName, 0, 1));
@@ -153,6 +148,11 @@
             'title' => 'Reservation Queue',
             'description' => 'Review incoming requests, approvals, move-in schedules, and follow-up actions.',
         ],
+        request()->is('admin/user-management*', 'admin/users*', 'admin/tenants*') => [
+            'label' => 'Account Administration',
+            'title' => 'User Management',
+            'description' => 'Manage tenants separately and verify owner permits and property applications before granting access.',
+        ],
         request()->is($workspacePath.'/tenants*', $workspacePath.'/tenant-profiles*') => [
             'label' => 'Tenant Management',
             'title' => 'Tenant Directory',
@@ -199,6 +199,11 @@
             'label' => 'Machine Learning',
             'title' => 'Predictive Insights',
             'description' => 'Forecast demand, reservations, occupancy, and payment risk from role-scoped historical records.',
+        ],
+        request()->is('admin/api-settings*') => [
+            'label' => 'System Integrations',
+            'title' => 'API Settings',
+            'description' => 'Manage encrypted credentials and endpoints for system-wide external services.',
         ],
         request()->is($workspacePath.'/match-requests*', $workspacePath.'/recommendations*', $workspacePath.'/compatibility-scores*') => [
             'label' => 'Matching Insights',

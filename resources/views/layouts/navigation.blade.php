@@ -40,8 +40,12 @@
 
     <div class="px-4 py-4 border-b ui-border">
         <div class="flex items-center gap-3">
-            <div class="h-10 w-10 rounded-full bg-gradient-to-br from-blue-600 via-slate-700 to-slate-900 text-white flex items-center justify-center text-xs font-semibold uppercase">
-                {{ Str::substr(Auth::user()->name ?? 'U', 0, 2) }}
+            <div class="h-10 w-10 overflow-hidden rounded-full bg-gradient-to-br from-blue-600 via-slate-700 to-slate-900 text-white flex items-center justify-center text-xs font-semibold uppercase">
+                @if (Auth::user()?->photo_url)
+                    <img src="{{ Auth::user()->photo_url }}" alt="{{ Auth::user()->name }}" class="h-full w-full object-cover">
+                @else
+                    {{ Str::substr(Auth::user()->name ?? 'U', 0, 2) }}
+                @endif
             </div>
             <div class="min-w-0">
                 <p class="text-sm font-semibold truncate">{{ Auth::user()->name }}</p>

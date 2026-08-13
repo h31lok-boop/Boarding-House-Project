@@ -1,17 +1,50 @@
 <?php
 
-test('shared modal action rows follow content without overlaying it', function () {
+test('shared modal panels keep stable dimensions with one scrollable body', function () {
     $projectRoot = dirname(__DIR__, 2);
     $css = file_get_contents($projectRoot.'/resources/css/app.css');
 
     expect($css)
-        ->toContain('overflow-y: auto;')
+        ->toContain('--bm-modal-block-size: 38rem;')
+        ->toContain('--bm-modal-viewport-gap: 2rem;')
+        ->toContain('height: min(var(--bm-modal-block-size), calc(100dvh - var(--bm-modal-viewport-gap, 2rem)));')
+        ->toContain('.bm-modal--sm {')
+        ->toContain('--bm-modal-block-size: 28rem;')
+        ->toContain(".bm-modal--lg {\n    --bm-modal-block-size: 46rem;")
+        ->toContain(".bm-modal--notification-detail {\n    --bm-modal-block-size: 34rem;")
+        ->toContain(".bm-modal--xl {\n    --bm-modal-block-size: 50rem;")
         ->toContain('scrollbar-gutter: stable;')
-        ->toContain(".bm-modal__body {\n    flex: 0 0 auto;")
-        ->toContain('overflow: visible;')
+        ->toContain(".bm-modal__body {\n    flex: 1 1 auto;")
+        ->toContain('min-height: 0;')
+        ->toContain('overflow-y: auto;')
         ->toContain(".bm-modal__footer {\n    border-top:")
         ->toContain('flex-shrink: 0;')
         ->toContain('position: relative;');
+});
+
+test('shared and data driven dialogs use the complete fixed panel structure', function () {
+    $projectRoot = dirname(__DIR__, 2);
+    $views = [
+        'resources/views/admin/users.blade.php',
+        'resources/views/admin/compatibility-scores.blade.php',
+        'resources/views/admin/reviews.blade.php',
+        'resources/views/components/ai-assistant.blade.php',
+        'resources/views/components/header-notification-link.blade.php',
+        'resources/views/user/notifications.blade.php',
+    ];
+
+    foreach ($views as $view) {
+        expect(file_get_contents($projectRoot.'/'.$view))
+            ->toContain('bm-modal__header')
+            ->toContain('bm-modal__body')
+            ->toContain('bm-modal__footer');
+    }
+
+    expect(file_get_contents($projectRoot.'/resources/views/admin/users.blade.php'))
+        ->toContain('class="bm-modal bm-modal--lg"')
+        ->toContain("viewTab = 'permit'")
+        ->toContain("viewTab = 'photos'")
+        ->toContain("viewTab = 'permissions'");
 });
 
 test('boarding house details uses the shared modal footer for all actions', function () {
@@ -73,5 +106,7 @@ test('legacy long dialogs scroll as a whole instead of pinning actions over cont
     expect(file_get_contents($projectRoot.'/resources/views/admin/reservations.blade.php'))
         ->toContain('max-h-[92vh] flex-col overflow-x-hidden overflow-y-auto');
     expect(file_get_contents($projectRoot.'/resources/views/user/messages.blade.php'))
-        ->toContain('max-h-[calc(100dvh-2rem)]');
+        ->toContain('class="bm-modal"')
+        ->toContain('bm-modal__body')
+        ->toContain('bm-modal__footer');
 });

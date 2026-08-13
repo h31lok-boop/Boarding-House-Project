@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\BoardingHouse;
+use App\Models\Inquiry;
 use App\Models\User;
 use App\Models\UserNotification;
 
@@ -98,14 +100,41 @@ test('owner header has persistent theme and owner notification controls beside t
 test('tenant header has persistent theme and tenant notification controls beside the profile', function () {
     $tenant = User::factory()->create(['role' => 'user', 'is_active' => true]);
     $otherTenant = User::factory()->create(['role' => 'user', 'is_active' => true]);
+    $house = BoardingHouse::factory()->create();
+    $tenantInquiry = Inquiry::query()->create([
+        'user_id' => $tenant->id,
+        'boarding_house_id' => $house->id,
+        'message' => 'My private tenant conversation.',
+        'status' => 'pending',
+    ]);
+    $otherInquiry = Inquiry::query()->create([
+        'user_id' => $otherTenant->id,
+        'boarding_house_id' => $house->id,
+        'message' => 'Another tenant conversation.',
+        'status' => 'pending',
+    ]);
 
     headerNotification($tenant);
     headerNotification($tenant, ['title' => 'Read tenant alert', 'is_read' => true, 'read_at' => now()]);
     headerNotification($otherTenant, ['title' => 'Foreign tenant notification']);
+    headerNotification($tenant, [
+        'type' => 'inquiry',
+        'title' => 'Owner replied to your inquiry',
+        'reference_id' => 'inquiry:'.$tenantInquiry->id,
+    ]);
+    headerNotification($otherTenant, [
+        'type' => 'inquiry',
+        'title' => 'Foreign owner reply',
+        'reference_id' => 'inquiry:'.$otherInquiry->id,
+    ]);
 
     $this->actingAs($tenant)
         ->get(route('user.dashboard'))
         ->assertOk()
+        ->assertSee('data-tenant-workspace-header', false)
+        ->assertSee('data-tenant-message-link', false)
+        ->assertSee('Messages, 1 unread', false)
+        ->assertSee('Tenant assistant · your records only')
         ->assertSee('data-theme-toggle', false)
         ->assertSee('data-sidebar-reopen', false)
         ->assertSee('aria-controls="userSidebar"', false)
@@ -113,9 +142,10 @@ test('tenant header has persistent theme and tenant notification controls beside
         ->assertSee('data-notification-modal', false)
         ->assertSee('Header notification')
         ->assertDontSee('Foreign tenant notification')
+        ->assertDontSee('Foreign owner reply')
         ->assertSee('href="'.route('user.notifications.index').'"', false)
-        ->assertSee('Open notifications, 1 unread', false)
-        ->assertSee('sticky top-[4.25rem]', false);
+        ->assertSee('Open notifications, 2 unread', false)
+        ->assertSee('sticky top-2.5', false);
 });
 
 test('each role can open only its own notification workspace', function () {

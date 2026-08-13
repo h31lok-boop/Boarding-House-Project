@@ -189,7 +189,8 @@ body.modal-open {
     pointer-events: auto !important;
 }
 
-body.modal-open [data-modal-active='true'] {
+body.modal-open [data-modal-active='true']:not(.bm-native-dialog),
+body.modal-open .bm-native-dialog[open][data-modal-active='true'] {
     align-items: center;
     background-color: rgb(2 6 23 / 0.82) !important;
     backdrop-filter: blur(6px) saturate(0.86);
@@ -206,6 +207,29 @@ body.modal-open [data-modal-active='true'] {
     position: fixed !important;
     width: 100vw !important;
     z-index: 2147483647 !important;
+}
+
+/* Legacy page dialogs are normalized by the modal manager and mounted below
+   <body>. These rules keep every one of them inside the viewport even when a
+   page originally rendered it inside a scrolling dashboard workspace. */
+body.modal-open [data-modal-active='true'][data-modal-portaled='true'] {
+    box-sizing: border-box;
+    padding: clamp(0.65rem, 2vw, 1.5rem) !important;
+}
+
+body.modal-open [data-modal-active='true'] > form:not(.bm-modal),
+body.modal-open [data-modal-active='true'] > section:not(.bm-modal),
+body.modal-open [data-modal-active='true'] > [data-modal-panel]:not(.bm-modal),
+body.modal-open [data-modal-active='true']:not(.bm-native-dialog) > div:not([data-modal-backdrop]) {
+    margin: auto !important;
+    max-height: calc(100dvh - clamp(1.3rem, 4vw, 3rem)) !important;
+    max-width: calc(100vw - clamp(1.3rem, 4vw, 3rem));
+    min-height: 0;
+    min-width: 0;
+    overflow-x: hidden;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* A BoardMatch modal has exactly one vertical scroll owner. Letting both the
@@ -248,6 +272,7 @@ body.modal-open header:not([data-modal-active] header) {
 }
 
 .bm-modal-overlay {
+    --bm-modal-viewport-gap: 2rem;
     align-items: center;
     backdrop-filter: blur(4px);
     background:
@@ -266,6 +291,55 @@ body.modal-open header:not([data-modal-active] header) {
     z-index: 2147483647 !important;
 }
 
+/* Native dialogs are used for critical workspace modals. The browser places
+   them in the top layer, so sticky headers and transformed dashboard shells
+   can never cover either the panel or its backdrop. */
+.bm-native-dialog {
+    --bm-modal-viewport-gap: clamp(1.5rem, 4vw, 3rem);
+    background: transparent;
+    border: 0;
+    color: inherit;
+    height: 100dvh;
+    inset: 0;
+    margin: 0;
+    max-height: none;
+    max-width: none;
+    overflow: hidden;
+    padding: clamp(0.75rem, 2vw, 1.5rem);
+    width: 100vw;
+}
+
+/* Never let the active-modal presentation rules revive a dialog after the
+   browser has removed its open attribute. */
+.bm-native-dialog:not([open]),
+body.modal-open .bm-native-dialog[data-modal-active='true']:not([open]) {
+    display: none !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
+}
+
+.bm-native-dialog[open] {
+    align-items: center;
+    display: flex;
+    justify-content: center;
+}
+
+.bm-native-dialog::backdrop {
+    background: rgba(2, 6, 23, 0.84);
+    backdrop-filter: blur(6px) saturate(0.82);
+}
+
+body.modal-open .bm-native-dialog[data-modal-active='true'] {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    overflow: hidden !important;
+    padding: clamp(0.75rem, 2vw, 1.5rem) !important;
+}
+
+.bm-native-dialog > .bm-modal {
+    margin: auto;
+}
+
 [data-notification-modal] {
     align-items: center !important;
     justify-content: center !important;
@@ -278,6 +352,7 @@ body.modal-open header:not([data-modal-active] header) {
 }
 
 .bm-modal {
+    --bm-modal-block-size: 38rem;
     background:
         linear-gradient(180deg, rgba(248, 250, 252, 0.88), rgba(255, 255, 255, 0.98) 6rem),
         #ffffff;
@@ -289,16 +364,14 @@ body.modal-open header:not([data-modal-active] header) {
     color: #0f172a;
     display: flex;
     flex-direction: column;
+    height: min(var(--bm-modal-block-size), calc(100dvh - var(--bm-modal-viewport-gap, 2rem)));
     margin: auto;
     max-height: min(calc(100dvh - 2rem), 920px);
     min-width: 0;
-    /* Scroll the modal as one document so action buttons always remain after
-       the content instead of visually covering maps, tables, or form fields. */
+    /* The panel keeps a stable size while its body owns scrolling. This stops
+       tabbed and data-driven dialogs from jumping between tall and short. */
     overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior-y: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-gutter: stable;
+    overflow-y: hidden;
     width: min(100%, 42rem);
 }
 
@@ -313,16 +386,80 @@ body.modal-open header:not([data-modal-active] header) {
     color: var(--text);
 }
 
+.bm-modal--sm {
+    --bm-modal-block-size: 28rem;
+    width: min(100%, 32rem);
+}
+
 .bm-modal--lg {
+    --bm-modal-block-size: 46rem;
     width: min(100%, 56rem);
 }
 
+.bm-modal--notification {
+    --bm-modal-block-size: 42rem;
+    width: min(100%, 44rem);
+}
+
+.bm-modal--notification-detail {
+    --bm-modal-block-size: 34rem;
+    width: min(100%, 34rem);
+}
+
+.bm-notification-form-grid {
+    gap: 0.85rem;
+}
+
+.bm-modal--notification textarea {
+    min-height: 6.5rem;
+}
+
 .bm-modal--xl {
+    --bm-modal-block-size: 50rem;
     width: min(100%, 72rem);
 }
 
 .bm-modal--property-editor {
+    --bm-modal-block-size: 54rem;
     width: min(96vw, 92rem);
+}
+
+.bm-modal--document-preview {
+    --bm-modal-block-size: 50rem;
+    max-height: calc(100dvh - 2rem);
+    overflow: hidden;
+    width: min(96vw, 76rem);
+}
+
+.bm-modal__body.bm-modal__body--document-preview {
+    background: #e2e8f0;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+    position: relative;
+}
+
+.bm-document-preview-frame {
+    background: #e2e8f0;
+    border: 0;
+    display: block;
+    height: min(68dvh, 52rem);
+    width: 100%;
+}
+
+.bm-document-preview-loading {
+    align-items: center;
+    background: rgba(241, 245, 249, 0.96);
+    color: #475569;
+    display: flex;
+    font-size: 0.8rem;
+    font-weight: 700;
+    gap: 0.75rem;
+    inset: 0;
+    justify-content: center;
+    position: absolute;
+    z-index: 2;
 }
 
 .bm-modal__header,
@@ -387,10 +524,14 @@ body.modal-open header:not([data-modal-active] header) {
 }
 
 .bm-modal__body {
-    flex: 0 0 auto;
-    min-height: auto;
-    overflow: visible;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 1.25rem;
+    scrollbar-gutter: stable;
+    -webkit-overflow-scrolling: touch;
 }
 
 .bm-modal__body--compact {
@@ -407,6 +548,18 @@ body.modal-open header:not([data-modal-active] header) {
     padding: 1rem 1.25rem 1.15rem;
     position: relative;
     z-index: 1;
+}
+
+.bm-modal__footer-group {
+    align-items: center;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    min-width: 0;
+}
+
+.bm-modal__footer-group--leading {
+    margin-right: auto;
 }
 
 .bm-modal__section {
@@ -662,6 +815,7 @@ body.modal-open header:not([data-modal-active] header) {
 
 @media (min-width: 640px) {
     .bm-modal-overlay {
+        --bm-modal-viewport-gap: 3rem;
         padding: 1.5rem;
     }
 
@@ -684,10 +838,24 @@ body.modal-open header:not([data-modal-active] header) {
     .bm-modal__grid--two-col {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
+    .bm-notification-form-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .bm-notification-field--full {
+        grid-column: 1 / -1;
+    }
 }
 
 @media (max-width: 639px) {
     .bm-modal-overlay {
+        --bm-modal-viewport-gap: 1.3rem;
+        align-items: flex-start;
+        padding: 0.65rem;
+    }
+
+    .bm-native-dialog[open] {
         align-items: flex-start;
         padding: 0.65rem;
     }
@@ -696,6 +864,14 @@ body.modal-open header:not([data-modal-active] header) {
         border-radius: 1.1rem;
         max-height: calc(100dvh - 1.3rem);
         width: 100%;
+    }
+
+    .bm-modal--document-preview {
+        max-height: calc(100dvh - 1.3rem);
+    }
+
+    .bm-document-preview-frame {
+        height: 64dvh;
     }
 
     .bm-modal__header,
@@ -708,6 +884,14 @@ body.modal-open header:not([data-modal-active] header) {
     .bm-modal__footer {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
+    }
+
+    .bm-modal__footer-group,
+    .bm-modal__footer-group--leading {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        margin-right: 0;
+        width: 100%;
     }
 
     .bm-modal__footer > :only-child {

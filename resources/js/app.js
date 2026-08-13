@@ -19,7 +19,7 @@ Alpine.data('boardmatchAssistant', (config = {}) => ({
 
     welcomeMessage() {
         return config.configured
-            ? 'Hi! I’m the BoardMatch AI assistant. Ask about current listings, reservations, payments, occupancy, messages, or how to use the system.'
+            ? 'Hi! I’m the BoardMatch AI assistant. I answer only from records authorized for your account role. Ask about your listings, reservations, payments, messages, preferences, or how to use the system.'
             : 'The AI assistant is installed, but its server-side AI provider must be configured before it can answer questions.';
     },
 
@@ -103,6 +103,85 @@ Alpine.data('boardmatchAssistant', (config = {}) => ({
             this.loading = false;
             this.scrollToLatest();
             this.$nextTick(() => this.$refs.question?.focus({ preventScroll: true }));
+        }
+    },
+}));
+
+Alpine.data('walkInReservation', (config = {}) => ({
+    walkInOpen: Boolean(config.walkInOpen),
+    walkInSaving: false,
+    walkInTenants: Array.isArray(config.walkInTenants) ? config.walkInTenants : [],
+    walkInHouses: Array.isArray(config.walkInHouses) ? config.walkInHouses : [],
+    walkIn: {
+        tenant_id: String(config.walkIn?.tenant_id || ''),
+        boarding_house_id: String(config.walkIn?.boarding_house_id || ''),
+        room_id: String(config.walkIn?.room_id || ''),
+        total_amount: config.walkIn?.total_amount ?? '',
+        service_ids: Array.isArray(config.walkIn?.service_ids)
+            ? config.walkIn.service_ids.map((id) => String(id))
+            : [],
+    },
+
+    get walkInSelectedHouse() {
+        return this.walkInHouses.find((house) => String(house.id) === String(this.walkIn.boarding_house_id)) || null;
+    },
+
+    get walkInTenantOptions() {
+        if (!this.walkIn.boarding_house_id) {
+            return this.walkInTenants;
+        }
+
+        return this.walkInTenants.filter((tenant) => String(tenant.house_id) === String(this.walkIn.boarding_house_id));
+    },
+
+    get walkInRoomOptions() {
+        return this.walkInSelectedHouse?.rooms || [];
+    },
+
+    get walkInServiceOptions() {
+        return this.walkInSelectedHouse?.services || [];
+    },
+
+    openWalkIn() {
+        this.walkInSaving = false;
+        this.walkInOpen = true;
+        this.$nextTick(() => this.$refs.walkInHouse?.focus({ preventScroll: true }));
+    },
+
+    closeWalkIn() {
+        if (!this.walkInSaving) {
+            this.walkInOpen = false;
+        }
+    },
+
+    onWalkInTenantChange() {
+        const tenant = this.walkInTenants.find((item) => String(item.id) === String(this.walkIn.tenant_id));
+        if (!tenant) {
+            return;
+        }
+
+        this.walkIn.boarding_house_id = String(tenant.house_id);
+        this.onWalkInHouseChange();
+    },
+
+    onWalkInHouseChange() {
+        const tenant = this.walkInTenants.find((item) => String(item.id) === String(this.walkIn.tenant_id));
+        if (tenant && String(tenant.house_id) !== String(this.walkIn.boarding_house_id)) {
+            this.walkIn.tenant_id = '';
+        }
+
+        if (!this.walkInRoomOptions.some((room) => String(room.id) === String(this.walkIn.room_id))) {
+            this.walkIn.room_id = '';
+        }
+
+        const validServiceIds = new Set(this.walkInServiceOptions.map((service) => String(service.id)));
+        this.walkIn.service_ids = this.walkIn.service_ids.filter((id) => validServiceIds.has(String(id)));
+    },
+
+    onWalkInRoomChange() {
+        const room = this.walkInRoomOptions.find((item) => String(item.id) === String(this.walkIn.room_id));
+        if (room && Number(room.price) >= 0) {
+            this.walkIn.total_amount = Number(room.price).toFixed(2);
         }
     },
 }));
@@ -414,6 +493,7 @@ const setupModalIsolation = () => {
         '[data-modal-root]',
         '[role="dialog"]',
         '.bm-modal-overlay',
+        '.fixed.inset-0',
     ].join(',');
     const modalNamePattern = /(modal|dialog|overlay|confirm)/i;
     const modalContentSelector = [
@@ -427,13 +507,23 @@ const setupModalIsolation = () => {
     ].join(',');
 
     const isVisible = (el) => {
+        /* A closed native dialog must never be inferred as visible from our
+           active-modal CSS. Otherwise display:flex keeps it on screen after
+           close(), and the next observer pass incorrectly activates it again. */
+        if (el instanceof HTMLDialogElement && !el.open) {
+            return false;
+        }
+
         if (el.hasAttribute('x-cloak')) {
             return false;
         }
 
         if (
             el.hidden
-            || el.getAttribute('aria-hidden') === 'true'
+            || (
+                el.getAttribute('aria-hidden') === 'true'
+                && !(el instanceof HTMLDialogElement && el.open)
+            )
             || el.classList.contains('hidden')
             || el.style.display === 'none'
         ) {
@@ -496,12 +586,48 @@ const setupModalIsolation = () => {
             && (
                 el.hasAttribute('x-show')
                 || modalNamePattern.test(modalIdentity)
-                || Boolean(el.querySelector(modalContentSelector))
+                || el.getAttribute('aria-modal') === 'true'
             );
     };
 
-    const openModals = () => [...document.querySelectorAll(modalSelector)]
-        .filter((el) => isModalCandidate(el) && isVisible(el));
+    const modalOrigins = new WeakMap();
+
+    /*
+     * A fixed dialog can still be trapped below a sticky app bar when one of
+     * its ancestors establishes a stacking context (overflow, transform,
+     * filter, containment, and similar dashboard layout rules do this). Move
+     * an opened overlay to the document body so "fixed" really means the
+     * viewport. Alpine keeps the initialized data stack on the moved element,
+     * so existing x-show, x-model, and click handlers continue to work.
+     * Native <dialog> elements already live in the browser top layer.
+     */
+    const mountModalAtDocumentLevel = (modal) => {
+        if (
+            !(modal instanceof HTMLElement)
+            || modal instanceof HTMLDialogElement
+            || modal.parentElement === document.body
+        ) {
+            return;
+        }
+
+        if (!modalOrigins.has(modal)) {
+            const placeholder = document.createComment('boardmatch-modal-origin');
+            modal.parentNode?.insertBefore(placeholder, modal);
+            modalOrigins.set(modal, placeholder);
+        }
+
+        document.body.appendChild(modal);
+        modal.setAttribute('data-modal-portaled', 'true');
+    };
+
+    const openModals = () => {
+        const modals = [...document.querySelectorAll(modalSelector)]
+            .filter((el) => isModalCandidate(el) && isVisible(el));
+
+        modals.forEach(mountModalAtDocumentLevel);
+
+        return modals;
+    };
 
     const focusablesIn = (modal) => [...modal.querySelectorAll(focusableSelector)]
         .filter((el) => {
@@ -522,6 +648,18 @@ const setupModalIsolation = () => {
         }
 
         target.focus({ preventScroll: true });
+    };
+
+    const resetModalScroll = (modal) => {
+        if (!modal) {
+            return;
+        }
+
+        modal.scrollTop = 0;
+        modal.querySelectorAll(':scope > .bm-modal, :scope > [data-modal-panel]')
+            .forEach((panel) => {
+                panel.scrollTop = 0;
+            });
     };
 
     const lockElement = (el) => {
@@ -594,6 +732,10 @@ const setupModalIsolation = () => {
         document.querySelectorAll('[data-modal-active="true"]').forEach((modal) => {
             if (modal !== topModal) {
                 modal.removeAttribute('data-modal-active');
+
+                if (modal instanceof HTMLDialogElement && !modal.open) {
+                    modal.setAttribute('aria-hidden', 'true');
+                }
             }
         });
 
@@ -613,6 +755,7 @@ const setupModalIsolation = () => {
         }
 
         if (newlyOpened) {
+            resetModalScroll(topModal);
             window.setTimeout(() => focusModal(topModal), 0);
         }
 
