@@ -318,31 +318,12 @@
 
                         <div class="flex w-full flex-col gap-2 xl:w-auto xl:min-w-[32rem] xl:items-end">
                             <div class="admin-header-actions flex min-w-0 items-center justify-between gap-1.5 sm:flex-wrap sm:justify-start sm:gap-2 xl:flex-nowrap xl:justify-end">
-                                @if (! $isOwnerWorkspace)
-                                    <a href="{{ $r('admin.search') }}" class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 sm:hidden" aria-label="Open search">
-                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" stroke-width="1.8"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m16 16 4 4"/></svg>
+                                @if ($isOwnerWorkspace)
+                                    <a href="{{ $r('admin.reservations') }}" class="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-2.5 text-[11px] font-bold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300 dark:hover:bg-emerald-400/15 sm:px-3">
+                                        <span class="admin-reservation-label">Reservations</span>
+                                        <span class="rounded-full bg-white px-2 py-0.5 text-[11px] leading-none text-emerald-700 dark:bg-slate-900 dark:text-emerald-300">{{ $pendingReservationCount }}</span>
                                     </a>
-                                    <form method="GET" action="{{ $r('admin.search') }}" class="hidden min-w-0 sm:block sm:flex-none">
-                                        <label class="relative block">
-                                            <span class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
-                                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <circle cx="10.5" cy="10.5" r="6.5" stroke-width="1.8"/>
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m16 16 4 4"/>
-                                                </svg>
-                                            </span>
-                                            <input
-                                                name="query"
-                                                value="{{ request('query') }}"
-                                                class="h-9 w-full min-w-[120px] max-w-[180px] rounded-xl border border-slate-200 bg-slate-50/90 pl-9 pr-3 text-[12px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100 dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:border-emerald-400 dark:focus:bg-slate-800 dark:focus:ring-emerald-900"
-                                                placeholder="Search..."
-                                            >
-                                        </label>
-                                    </form>
                                 @endif
-                                <a href="{{ $r('admin.reservations') }}" class="inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-2.5 text-[11px] font-bold text-emerald-700 transition hover:bg-emerald-100 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-300 dark:hover:bg-emerald-400/15 sm:px-3">
-                                    <span class="admin-reservation-label">Reservations</span>
-                                    <span class="rounded-full bg-white px-2 py-0.5 text-[11px] leading-none text-emerald-700 dark:bg-slate-900 dark:text-emerald-300">{{ $pendingReservationCount }}</span>
-                                </a>
                                 <a href="{{ $r('admin.messages') }}" class="relative inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-emerald-400/30 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-300" aria-label="Messages, {{ $messageCount }} awaiting reply">
                                     <svg class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 6h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H9l-5 4v-4H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z"/>
