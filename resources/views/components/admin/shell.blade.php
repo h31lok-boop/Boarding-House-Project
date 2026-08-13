@@ -294,7 +294,7 @@
             <div class="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.7),_transparent_62%)] dark:bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.08),_transparent_62%)]"></div>
 
             @if ($showHeader)
-                <header data-admin-workspace-header data-workspace="{{ $workspace }}" class="admin-workspace-header sticky top-2.5 z-[60] overflow-visible rounded-[1.1rem] border border-white/80 bg-white/95 px-3 py-2.5 shadow-[0_14px_30px_rgba(15,23,42,0.08)] backdrop-blur dark:border-slate-800/90 dark:bg-slate-950/95 xl:px-3.5">
+                <header data-admin-workspace-header data-workspace="{{ $workspace }}" class="admin-workspace-header sticky top-2.5 z-[60] overflow-visible rounded-[1.1rem] border border-white/80 bg-white px-3 py-2.5 shadow-[0_14px_30px_rgba(15,23,42,0.08)] dark:border-slate-800/90 dark:bg-slate-950 xl:px-3.5">
                     <div class="absolute inset-y-0 right-0 hidden w-32 bg-[radial-gradient(circle_at_center,_rgba(16,185,129,0.12),_transparent_68%)] lg:block"></div>
                     <div class="relative flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
                         <div class="flex min-w-0 items-center gap-2.5">
