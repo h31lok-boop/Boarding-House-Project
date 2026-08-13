@@ -5,7 +5,14 @@
     $money = fn ($value) => '₱'.number_format((float) $value, 2);
 @endphp
 
-<div x-data="{ detailOpen: false, selected: {} }" class="space-y-5">
+<div
+    x-data="{
+        createOpen: @js($namespace === 'admin' && old('form_context') === 'create_service' && $errors->any()),
+        detailOpen: false,
+        selected: {}
+    }"
+    class="space-y-5"
+>
     <div>
         <p class="text-xs font-bold uppercase tracking-[0.16em] text-blue-600">Property services</p>
         <h1 class="mt-1 text-2xl font-black text-slate-950">Add-ons tenants can reserve</h1>
@@ -18,27 +25,43 @@
         @endif
     @endforeach
 
-    <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 class="text-sm font-bold text-slate-950">Create a service</h2>
-        <form method="POST" action="{{ route($namespace.'.services.store') }}" class="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-5">
-            @csrf
-            <select name="boarding_house_id" required class="rounded-xl border-slate-200 text-sm">
-                <option value="">Boarding house</option>
-                @foreach ($boardingHouses as $house)
-                    <option value="{{ $house->id }}">{{ $house->name }}</option>
-                @endforeach
-            </select>
-            <input name="name" required placeholder="e.g. Laundry service" class="rounded-xl border-slate-200 text-sm">
-            <input name="price" required type="number" min="0" step="0.01" placeholder="Price" class="rounded-xl border-slate-200 text-sm">
-            <select name="billing_type" required class="rounded-xl border-slate-200 text-sm">
-                <option value="per_use">Per use</option>
-                <option value="monthly">Monthly</option>
-                <option value="one_time">One time</option>
-            </select>
-            <button class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">Add service</button>
-            <textarea name="description" placeholder="Short description" class="md:col-span-2 lg:col-span-5 rounded-xl border-slate-200 text-sm"></textarea>
-        </form>
-    </section>
+    @if ($namespace === 'admin')
+        <div class="flex justify-end">
+            <button
+                type="button"
+                data-add-service-trigger
+                @click="createOpen = true"
+                class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700"
+            >
+                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v14m7-7H5"/>
+                </svg>
+                Add Service
+            </button>
+        </div>
+    @else
+        <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 class="text-sm font-bold text-slate-950">Create a service</h2>
+            <form method="POST" action="{{ route($namespace.'.services.store') }}" class="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-5">
+                @csrf
+                <select name="boarding_house_id" required class="rounded-xl border-slate-200 text-sm">
+                    <option value="">Boarding house</option>
+                    @foreach ($boardingHouses as $house)
+                        <option value="{{ $house->id }}">{{ $house->name }}</option>
+                    @endforeach
+                </select>
+                <input name="name" required placeholder="e.g. Laundry service" class="rounded-xl border-slate-200 text-sm">
+                <input name="price" required type="number" min="0" step="0.01" placeholder="Price" class="rounded-xl border-slate-200 text-sm">
+                <select name="billing_type" required class="rounded-xl border-slate-200 text-sm">
+                    <option value="per_use">Per use</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="one_time">One time</option>
+                </select>
+                <button class="rounded-xl bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700">Add service</button>
+                <textarea name="description" placeholder="Short description" class="md:col-span-2 lg:col-span-5 rounded-xl border-slate-200 text-sm"></textarea>
+            </form>
+        </section>
+    @endif
 
     <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div class="overflow-x-auto">
@@ -96,6 +119,87 @@
             </table>
         </div>
     </section>
+
+    @if ($namespace === 'admin')
+    <template x-teleport="body">
+        <div
+            data-modal-root
+            data-create-service-modal
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="create-service-title"
+            x-show="createOpen"
+            x-cloak
+            @click.self="createOpen = false"
+            @keydown.escape.window="createOpen = false"
+            class="bm-modal-overlay"
+        >
+            <form method="POST" action="{{ route($namespace.'.services.store') }}" class="bm-modal bm-modal--lg">
+                @csrf
+                <input type="hidden" name="form_context" value="create_service">
+
+                <div class="bm-modal__header">
+                    <div>
+                        <p class="bm-modal__eyebrow">Property Service</p>
+                        <h2 id="create-service-title" class="bm-modal__title">Add a Service</h2>
+                        <p class="bm-modal__subtitle">Create an optional service tenants can include with their reservation.</p>
+                    </div>
+                    <button type="button" @click="createOpen = false" class="bm-modal__close" aria-label="Close service creation">&times;</button>
+                </div>
+
+                <div class="bm-modal__body">
+                    @if (old('form_context') === 'create_service' && $errors->any())
+                        <div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                            <p class="font-bold">Please check the service details.</p>
+                            <ul class="mt-1 list-disc space-y-1 pl-5">
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
+                    <div class="bm-modal__grid bm-modal__grid--two-col">
+                        <label>
+                            Boarding House
+                            <select name="boarding_house_id" required>
+                                <option value="">Select a boarding house</option>
+                                @foreach ($boardingHouses as $house)
+                                    <option value="{{ $house->id }}" @selected((string) old('boarding_house_id') === (string) $house->id)>{{ $house->name }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+                        <label>
+                            Service Name
+                            <input name="name" value="{{ old('name') }}" required maxlength="120" placeholder="e.g. Laundry service">
+                        </label>
+                        <label>
+                            Price
+                            <input name="price" value="{{ old('price') }}" required type="number" min="0" max="999999.99" step="0.01" placeholder="0.00">
+                        </label>
+                        <label>
+                            Billing Type
+                            <select name="billing_type" required>
+                                <option value="per_use" @selected(old('billing_type', 'per_use') === 'per_use')>Per use</option>
+                                <option value="monthly" @selected(old('billing_type') === 'monthly')>Monthly</option>
+                                <option value="one_time" @selected(old('billing_type') === 'one_time')>One time</option>
+                            </select>
+                        </label>
+                        <label class="sm:col-span-2">
+                            Description <span class="font-normal text-slate-400">(optional)</span>
+                            <textarea name="description" rows="4" maxlength="500" placeholder="Briefly describe what the service includes.">{{ old('description') }}</textarea>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="bm-modal__footer">
+                    <button type="button" @click="createOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button>
+                    <button type="submit" class="bm-modal__button bm-modal__button--primary">Create Service</button>
+                </div>
+            </form>
+        </div>
+    </template>
+    @endif
 
     <template x-teleport="body">
         <div data-modal-root role="dialog" aria-modal="true" x-show="detailOpen" x-cloak @keydown.escape.window="detailOpen = false" class="bm-modal-overlay">
