@@ -12,7 +12,7 @@ test('admin dashboard renders the modern dashboard sections', function () {
     $this->actingAs($admin)
         ->get(route('admin.dashboard'))
         ->assertOk()
-        ->assertSee('Hello')
+        ->assertSee('BoardMatch Admin')
         ->assertSee('Properties')
         ->assertSee('Occupancy')
         ->assertSee('Tenants')
