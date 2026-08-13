@@ -45,7 +45,7 @@
         <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div class="min-w-0">
                 <p class="text-[11px] font-bold uppercase tracking-[0.22em] text-blue-600">Analytics Center</p>
-                <h1 class="mt-1 text-xl font-bold tracking-tight text-slate-950">Owner Reports Dashboard</h1>
+                <h1 class="mt-1 text-xl font-bold tracking-tight text-slate-950">Administrator Reports Dashboard</h1>
                 <p class="mt-0.5 text-xs text-slate-500">Compact revenue, occupancy, property performance, and booking analytics in one workspace.</p>
             </div>
 
@@ -331,7 +331,7 @@
                     <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <h2 class="text-base font-bold text-slate-950">Detailed Reports</h2>
-                            <p class="mt-0.5 text-xs text-slate-500">Property-by-property revenue, booking, occupancy, and tenant counts with the current filters applied.</p>
+                            <p class="mt-0.5 text-xs text-slate-500">Property-by-property revenue, bookings, occupancy, tenants, and review results with the current filters applied.</p>
                         </div>
                         <div class="flex flex-wrap items-center gap-2">
                             <span class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-[11px] font-semibold text-slate-600">
@@ -353,7 +353,7 @@
                 </div>
 
                 <div class="overflow-x-auto">
-                    <table class="min-w-[980px] w-full text-left text-sm">
+                    <table class="min-w-[1160px] w-full text-left text-sm">
                         <thead class="border-b border-slate-200 bg-slate-50/80">
                             <tr class="text-[11px] font-bold uppercase tracking-wide text-slate-500">
                                 <th class="px-4 py-3">Boarding House</th>
@@ -362,6 +362,8 @@
                                 <th class="px-4 py-3">Occupancy</th>
                                 <th class="px-4 py-3">Tenants</th>
                                 <th class="px-4 py-3">Rooms</th>
+                                <th class="px-4 py-3">Reviews</th>
+                                <th class="px-4 py-3">Rating</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100">
@@ -396,10 +398,15 @@
                                     </td>
                                     <td class="px-4 py-3.5 text-slate-700">{{ number_format((int) $row['tenants']) }}</td>
                                     <td class="px-4 py-3.5 text-slate-700">{{ number_format((int) ($row['rooms'] ?? 0)) }}</td>
+                                    <td class="px-4 py-3.5 text-slate-700">{{ number_format((int) ($row['reviews'] ?? 0)) }}</td>
+                                    <td class="px-4 py-3.5 text-slate-700">
+                                        <span class="font-semibold">{{ number_format((float) ($row['average_rating'] ?? 0), 1) }}</span>
+                                        <span class="text-xs text-slate-400">/ 5</span>
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="px-6 py-12">
+                                    <td colspan="8" class="px-6 py-12">
                                         <div class="mx-auto max-w-md text-center">
                                             <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
                                                 <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -457,10 +464,10 @@
             <section class="rounded-[1.35rem] border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/70">
                 <div class="flex items-start justify-between gap-3">
                     <div>
-                        <h2 class="text-base font-bold text-slate-950">AI Insights</h2>
-                        <p class="mt-0.5 text-xs text-slate-500">Fast readouts based on the live dashboard metrics for {{ strtolower($rangeLabel) }}.</p>
+                        <h2 class="text-base font-bold text-slate-950">Operational Insights</h2>
+                        <p class="mt-0.5 text-xs text-slate-500">Descriptive readouts based on the verified dashboard metrics for {{ strtolower($rangeLabel) }}.</p>
                     </div>
-                    <span class="inline-flex h-8 items-center rounded-lg bg-blue-50 px-2.5 text-[11px] font-semibold text-blue-700">BoardMatch AI</span>
+                    <a href="{{ route('admin.insights.index') }}" class="inline-flex h-8 items-center rounded-lg bg-violet-50 px-2.5 text-[11px] font-semibold text-violet-700 transition hover:bg-violet-100">Open ML Predictions</a>
                 </div>
 
                 <div class="mt-4 space-y-3">
@@ -477,7 +484,7 @@
                         </article>
                     @empty
                         <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-center">
-                            <p class="text-sm font-semibold text-slate-900">AI insights will appear here</p>
+                            <p class="text-sm font-semibold text-slate-900">Operational insights will appear here</p>
                             <p class="mt-1 text-xs text-slate-500">Once reports have enough data, the dashboard will surface trends and opportunities.</p>
                         </div>
                     @endforelse
