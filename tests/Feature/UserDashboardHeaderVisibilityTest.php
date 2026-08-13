@@ -38,6 +38,7 @@ test('dashboard search header is hidden on other user pages', function (string $
     'notifications' => ['user.notifications.index'],
     'settings' => ['user.settings.index'],
     'help center' => ['user.help-center.index'],
+    'ML insights' => ['user.insights.index'],
 ]);
 
 test('dashboard search header is hidden on admin pages', function (string $routeName) {
@@ -71,6 +72,7 @@ test('dashboard search header is hidden on admin pages', function (string $route
     'transactions' => ['admin.transactions.index'],
     'reviews' => ['admin.reviews'],
     'reports' => ['admin.reports.index'],
+    'ML insights' => ['admin.insights.index'],
     'notifications' => ['admin.notifications.index'],
     'settings' => ['admin.settings'],
 ]);
