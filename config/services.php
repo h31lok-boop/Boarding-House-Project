@@ -58,6 +58,26 @@ return [
         'connect_timeout' => env('FREEMODEL_CONNECT_TIMEOUT', 20),
     ],
 
+    'deepseek' => [
+        'enabled' => filter_var(env('DEEPSEEK_ENABLED', env('FREEMODEL_ENABLED', false)), FILTER_VALIDATE_BOOL),
+        // Keep the legacy variable as a local compatibility fallback while
+        // deployments migrate their secret to DEEPSEEK_API_KEY.
+        'api_key' => env('DEEPSEEK_API_KEY', env('FREEMODEL_API_KEY')),
+        'base_url' => env('DEEPSEEK_BASE_URL', 'https://api.deepseek.com'),
+        'model' => env('DEEPSEEK_MODEL', 'deepseek-v4-flash'),
+        'timeout' => env('DEEPSEEK_TIMEOUT', 120),
+        'connect_timeout' => env('DEEPSEEK_CONNECT_TIMEOUT', 20),
+    ],
+
+    'groq' => [
+        'enabled' => filter_var(env('GROQ_ENABLED', false), FILTER_VALIDATE_BOOL),
+        'api_key' => env('GROQ_API_KEY'),
+        'base_url' => env('GROQ_BASE_URL', 'https://api.groq.com/openai/v1'),
+        'model' => env('GROQ_MODEL', 'openai/gpt-oss-20b'),
+        'timeout' => env('GROQ_TIMEOUT', 120),
+        'connect_timeout' => env('GROQ_CONNECT_TIMEOUT', 20),
+    ],
+
     'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
