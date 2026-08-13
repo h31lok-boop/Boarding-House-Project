@@ -102,6 +102,13 @@
                     'icon' => 'messages',
                     'active' => $isPath($workspacePath.'/messages*'),
                 ],
+                [
+                    'key' => 'reviews',
+                    'label' => 'Feedback & Reviews',
+                    'href' => $r($routeName('reviews')),
+                    'icon' => 'reviews',
+                    'active' => $isPath($workspacePath.'/reviews*'),
+                ],
             ],
         ],
         [
@@ -113,6 +120,13 @@
                     'href' => $r($routeName('notifications.index')),
                     'icon' => 'notifications',
                     'active' => $isPath($workspacePath.'/notifications*'),
+                ],
+                [
+                    'key' => 'insights',
+                    'label' => 'ML Insights',
+                    'href' => $r($routeName('insights.index')),
+                    'icon' => 'analytics',
+                    'active' => $isPath($workspacePath.'/predictive-insights*'),
                 ],
                 [
                     'key' => 'reports',
