@@ -163,11 +163,11 @@
         ['label' => 'Lifestyle Match', 'score' => $scoreAverage('lifestyle', $hasPreferences ? 88 : 0)],
     ];
 
-    $deepSeekInsights = $houseRecommendations
+    $aiInsights = $houseRecommendations
         ->map(fn ($item) => [
             'house' => data_get($item, 'house.name'),
-            'text' => data_get($item, 'recommendation.deepseek_explanation'),
-            'model' => data_get($item, 'recommendation.deepseek_model'),
+            'text' => data_get($item, 'recommendation.ai_explanation'),
+            'model' => data_get($item, 'recommendation.ai_model'),
         ])
         ->filter(fn ($item) => filled($item['text']))
         ->values();
@@ -627,11 +627,11 @@
                         @endforelse
                     </ul>
 
-                    @if ($deepSeekInsights->isNotEmpty())
+                    @if ($aiInsights->isNotEmpty())
                         <div class="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-3 dark:border-blue-500/20 dark:bg-blue-500/10">
-                            <p class="text-xs font-black text-blue-700 dark:text-blue-300">DeepSeek AI insight</p>
+                            <p class="text-xs font-black text-blue-700 dark:text-blue-300">AI insight</p>
                             <div class="mt-2 space-y-2">
-                                @foreach ($deepSeekInsights->take(2) as $insight)
+                                @foreach ($aiInsights->take(2) as $insight)
                                     <div>
                                         <p class="text-xs font-black uppercase tracking-[0.12em] text-blue-500 dark:text-blue-300">{{ $insight['house'] }}</p>
                                         <p class="mt-1 text-xs leading-5 text-slate-700 dark:text-slate-200">{{ $insight['text'] }}</p>
