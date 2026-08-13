@@ -21,13 +21,13 @@ class PredictiveInsightsController extends Controller
             'months' => ['nullable', 'integer', 'in:4,6,9,12'],
         ]);
         $user = $request->user();
-        abort_unless($user, 401);
+        abort_unless($user?->isSuperAdmin(), 403);
 
         $data = $this->analytics->build($user, (int) ($validated['months'] ?? 6));
         $data['months'] = (int) ($validated['months'] ?? 6);
         $data['aiInsights'] = $this->aiInsights($user->id, $data);
 
-        return view($user->isUser() ? 'user.predictive-insights' : 'admin.predictive-insights', $data);
+        return view('admin.predictive-insights', $data);
     }
 
     private function aiInsights(int $userId, array $data): array
