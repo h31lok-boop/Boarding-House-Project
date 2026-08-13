@@ -28,7 +28,7 @@
     <div class="p-6 border-b ui-border">
         <a href="{{ route($dashRoute) }}" class="flex items-center gap-3">
             <div class="h-10 w-10 overflow-hidden rounded-2xl shadow-[0_10px_24px_rgba(37,99,235,0.24)]">
-                <img src="{{ asset('images/boardmatch-mark.svg') }}" alt="BoardMatch" class="h-full w-full object-cover">
+                <img src="{{ asset('images/boardmatch-final-logo.png') }}" alt="BoardMatch" class="h-full w-full object-cover">
             </div>
             <div class="leading-tight">
                 <p class="text-[11px] uppercase tracking-[0.18em] ui-muted font-semibold">BoardMatch</p>
