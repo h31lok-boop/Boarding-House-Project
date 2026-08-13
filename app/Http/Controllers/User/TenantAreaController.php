@@ -482,7 +482,15 @@ class TenantAreaController extends Controller
             ->paginate(12)
             ->withQueryString();
 
-        $houses = $this->approvedHouses();
+        $contactedHouseIds = Inquiry::query()
+            ->where('user_id', $tenant->id)
+            ->whereNotNull('boarding_house_id')
+            ->pluck('boarding_house_id')
+            ->map(fn ($id) => (int) $id)
+            ->unique();
+        $houses = $this->approvedHouses()
+            ->whereIn('id', $contactedHouseIds)
+            ->values();
         $threads = $this->buildInquiryThreads($tenant->id, $messages->getCollection());
         $messages->setCollection($threads);
 
@@ -598,16 +606,36 @@ class TenantAreaController extends Controller
     public function reviews(Request $request)
     {
         $tenant = $this->tenant($request);
+        $status = in_array($request->query('status'), ['pending', 'published', 'hidden'], true)
+            ? $request->query('status')
+            : null;
 
         $reviews = Review::with('boardingHouse.images')
             ->where('user_id', $tenant->id)
+            ->when($status, fn ($query) => $query->where('status', $status))
             ->latest()
             ->paginate(12)
             ->withQueryString();
 
+        $reviewStats = Review::query()->where('user_id', $tenant->id);
+        $totalReviewCount = (clone $reviewStats)->count();
+        $averageRating = (float) ((clone $reviewStats)->avg('rating') ?? 0);
+        $ratingBreakdown = (clone $reviewStats)
+            ->selectRaw('rating, COUNT(*) as total')
+            ->groupBy('rating')
+            ->pluck('total', 'rating');
+        $pendingCount = (clone $reviewStats)->where('status', 'pending')->count();
+
         $houses = $this->approvedHouses();
 
-        return view('user.reviews', compact('reviews', 'houses'));
+        return view('user.reviews', compact(
+            'reviews',
+            'houses',
+            'totalReviewCount',
+            'averageRating',
+            'ratingBreakdown',
+            'pendingCount'
+        ));
     }
 
     public function storeReview(Request $request)
