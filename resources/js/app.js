@@ -6,6 +6,107 @@ import Alpine from 'alpinejs';
 
 window.Alpine = Alpine;
 
+Alpine.data('boardmatchAssistant', (config = {}) => ({
+    open: false,
+    loading: false,
+    question: '',
+    error: '',
+    messages: [],
+
+    init() {
+        this.resetConversation();
+    },
+
+    welcomeMessage() {
+        return config.configured
+            ? 'Hi! I’m the BoardMatch AI assistant. Ask me how to use listings, reservations, payments, messages, or other system features.'
+            : 'The AI assistant is installed, but its server-side AI provider must be configured before it can answer questions.';
+    },
+
+    resetConversation() {
+        this.messages = [{ role: 'assistant', content: this.welcomeMessage(), local: true }];
+        this.question = '';
+        this.error = '';
+        this.scrollToLatest();
+    },
+
+    openAssistant() {
+        this.open = true;
+        this.$nextTick(() => {
+            this.scrollToLatest();
+            this.$refs.question?.focus({ preventScroll: true });
+        });
+    },
+
+    close() {
+        if (!this.open) {
+            return;
+        }
+
+        this.open = false;
+        this.error = '';
+    },
+
+    scrollToLatest() {
+        this.$nextTick(() => {
+            const container = this.$refs.messages;
+            if (container) {
+                container.scrollTop = container.scrollHeight;
+            }
+        });
+    },
+
+    async send() {
+        const question = this.question.trim();
+        if (this.loading || question.length < 2) {
+            return;
+        }
+
+        if (!config.configured) {
+            this.error = 'Configure the selected server-side AI provider, then clear the Laravel configuration cache.';
+            return;
+        }
+
+        const history = this.messages
+            .filter((message) => !message.local)
+            .slice(-8)
+            .map(({ role, content }) => ({ role, content }));
+
+        this.messages.push({ role: 'user', content: question });
+        this.question = '';
+        this.error = '';
+        this.loading = true;
+        this.scrollToLatest();
+
+        try {
+            const response = await fetch(config.endpoint, {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({ question, history }),
+            });
+            const payload = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                const validationMessage = Object.values(payload.errors || {}).flat()[0];
+                throw new Error(validationMessage || payload.message || 'The AI assistant is temporarily unavailable.');
+            }
+
+            this.messages.push({ role: 'assistant', content: payload.answer });
+        } catch (error) {
+            this.error = error instanceof Error ? error.message : 'The AI assistant is temporarily unavailable.';
+        } finally {
+            this.loading = false;
+            this.scrollToLatest();
+            this.$nextTick(() => this.$refs.question?.focus({ preventScroll: true }));
+        }
+    },
+}));
+
 const focusableSelector = [
     'a[href]',
     'area[href]',
@@ -21,13 +122,17 @@ const focusableSelector = [
 ].join(',');
 
 const applyTheme = (theme) => {
+    const dashboardThemeEnabled = document.documentElement.getAttribute('data-theme-mode') === 'dashboard';
+    const lightOnly = !dashboardThemeEnabled;
     const stored = getStorageItem('theme');
     const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    const candidate = theme || stored || systemTheme;
+    const candidate = lightOnly ? 'light' : (theme || stored || systemTheme);
     const resolved = candidate === 'dark' ? 'dark' : 'light';
 
     document.documentElement.setAttribute('data-theme', resolved);
-    setStorageItem('theme', resolved);
+    if (!lightOnly) {
+        setStorageItem('theme', resolved);
+    }
     document.querySelectorAll('[data-theme-label]').forEach((el) => {
         el.textContent = resolved === 'dark' ? 'Dark' : 'Light';
     });
@@ -611,11 +716,215 @@ const setupModalIsolation = () => {
     queueModalState();
 };
 
+const setupGlobalLoadingOverlay = () => {
+    if (document.body.dataset.loadingOverlayReady === 'true') {
+        return;
+    }
+
+    document.body.dataset.loadingOverlayReady = 'true';
+
+    const messagePathPattern = /(^|\/)(messages?|conversations?|chat)(\/|$)/i;
+    const currentPageIsMessaging = messagePathPattern.test(window.location.pathname);
+    const minimumDuration = 1000;
+    const loadingDeadlineKey = 'boardmatch-loading-visible-until';
+    const overlay = document.createElement('div');
+    let safetyTimer = null;
+    let minimumTimer = null;
+
+    overlay.className = 'boardmatch-loading-overlay';
+    overlay.setAttribute('aria-hidden', 'true');
+    overlay.setAttribute('aria-label', 'BoardMatch is loading');
+    overlay.innerHTML = `
+        <div class="boardmatch-loading-content" role="status" aria-live="polite">
+            <div class="boardmatch-loading-mark" aria-hidden="true">
+                <img src="/images/boardmatch-final-logo.png" alt="" class="boardmatch-loading-logo">
+            </div>
+            <div class="boardmatch-loading-text">
+                <span>Loading</span>
+                <span class="boardmatch-loading-dots" aria-hidden="true"><span></span><span></span><span></span></span>
+            </div>
+        </div>`;
+    document.body.appendChild(overlay);
+
+    const storedDeadline = () => {
+        try {
+            return Number.parseInt(sessionStorage.getItem(loadingDeadlineKey) || '0', 10) || 0;
+        } catch {
+            return 0;
+        }
+    };
+
+    const storeDeadline = (deadline) => {
+        try {
+            sessionStorage.setItem(loadingDeadlineKey, String(deadline));
+        } catch {
+            // Private browsing or strict storage policies must not break navigation.
+        }
+    };
+
+    const clearDeadline = () => {
+        try {
+            sessionStorage.removeItem(loadingDeadlineKey);
+        } catch {
+            // Nothing else is required when session storage is unavailable.
+        }
+    };
+
+    const reset = () => {
+        window.clearTimeout(safetyTimer);
+        window.clearTimeout(minimumTimer);
+        safetyTimer = null;
+        minimumTimer = null;
+        clearDeadline();
+        document.body.classList.remove('boardmatch-is-loading');
+        document.body.removeAttribute('aria-busy');
+        overlay.setAttribute('aria-hidden', 'true');
+    };
+
+    const show = () => {
+        if (currentPageIsMessaging) {
+            return;
+        }
+
+        if (document.body.classList.contains('boardmatch-is-loading')) {
+            return;
+        }
+
+        window.clearTimeout(safetyTimer);
+        storeDeadline(Date.now() + minimumDuration);
+        document.body.classList.add('boardmatch-is-loading');
+        document.body.setAttribute('aria-busy', 'true');
+        overlay.setAttribute('aria-hidden', 'false');
+        safetyTimer = window.setTimeout(reset, 12000);
+    };
+
+    const resumeMinimumDisplay = () => {
+        if (currentPageIsMessaging) {
+            reset();
+            return;
+        }
+
+        const remaining = storedDeadline() - Date.now();
+        if (remaining <= 0) {
+            reset();
+            return;
+        }
+
+        window.clearTimeout(safetyTimer);
+        window.clearTimeout(minimumTimer);
+        document.body.classList.add('boardmatch-is-loading');
+        document.body.setAttribute('aria-busy', 'true');
+        overlay.setAttribute('aria-hidden', 'false');
+        minimumTimer = window.setTimeout(reset, remaining);
+    };
+
+    const urlFor = (value) => {
+        try {
+            return new URL(value, window.location.href);
+        } catch {
+            return null;
+        }
+    };
+
+    const isMessageUrl = (url) => Boolean(url && messagePathPattern.test(url.pathname));
+    const isExcludedElement = (element) => Boolean(element?.closest?.('[data-no-loading-overlay], [data-messaging-interaction]'));
+    const isModifiedClick = (event) => event.button !== 0
+        || event.metaKey
+        || event.ctrlKey
+        || event.shiftKey
+        || event.altKey;
+
+    const eligibleLink = (link) => {
+        if (!(link instanceof HTMLAnchorElement) || !link.href || isExcludedElement(link)) {
+            return false;
+        }
+
+        if (link.hasAttribute('download')) {
+            return false;
+        }
+
+        const target = (link.getAttribute('target') || '').toLowerCase();
+        if (target && target !== '_self') {
+            return false;
+        }
+
+        const url = urlFor(link.href);
+        if (!url || url.origin !== window.location.origin || !['http:', 'https:'].includes(url.protocol) || isMessageUrl(url)) {
+            return false;
+        }
+
+        const sameDocument = url.pathname === window.location.pathname
+            && url.search === window.location.search;
+
+        return !sameDocument;
+    };
+
+    const eligibleForm = (form) => {
+        if (!(form instanceof HTMLFormElement) || isExcludedElement(form)) {
+            return false;
+        }
+
+        const target = (form.getAttribute('target') || '').toLowerCase();
+        if ((target && target !== '_self') || form.getAttribute('method')?.toLowerCase() === 'dialog') {
+            return false;
+        }
+
+        return !isMessageUrl(urlFor(form.action || window.location.href));
+    };
+
+    document.addEventListener('click', (event) => {
+        if (event.defaultPrevented || isModifiedClick(event) || currentPageIsMessaging) {
+            return;
+        }
+
+        const link = event.target.closest?.('a[href]');
+        if (eligibleLink(link)) {
+            window.setTimeout(() => {
+                if (!event.defaultPrevented) {
+                    show();
+                }
+            }, 0);
+            return;
+        }
+
+        const trigger = event.target.closest?.('[data-loading-overlay="true"]');
+        if (trigger && !isExcludedElement(trigger)) {
+            window.setTimeout(() => {
+                if (!event.defaultPrevented) {
+                    show();
+                }
+            }, 0);
+        }
+    });
+
+    document.addEventListener('submit', (event) => {
+        const form = event.target;
+
+        window.setTimeout(() => {
+            if (!event.defaultPrevented && eligibleForm(form)) {
+                show();
+            }
+        }, 0);
+    });
+
+    window.addEventListener('beforeunload', show);
+    window.addEventListener('pageshow', resumeMinimumDisplay);
+    window.addEventListener('load', resumeMinimumDisplay);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            resumeMinimumDisplay();
+        }
+    });
+
+    resumeMinimumDisplay();
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     setupReservationCountdowns();
     applyTheme();
     setupSidebarControls();
     setupModalIsolation();
+    setupGlobalLoadingOverlay();
 
     document.querySelectorAll('[data-theme-toggle]').forEach((btn) => {
         btn.addEventListener('click', () => {
