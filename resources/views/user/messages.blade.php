@@ -313,7 +313,7 @@
                 x-transition:enter-start="translate-y-3 scale-95 opacity-0"
                 x-transition:enter-end="translate-y-0 scale-100 opacity-100"
                 @click.outside="composeOpen = false"
-                class="w-full max-w-xl overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+                class="max-h-[calc(100dvh-2rem)] w-full max-w-xl overflow-x-hidden overflow-y-auto rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
             >
                 <header class="flex items-start justify-between gap-4 border-b border-slate-200 px-6 py-5 dark:border-slate-800">
                     <div>
