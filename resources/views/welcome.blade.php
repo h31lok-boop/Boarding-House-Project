@@ -3,12 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BoardMatch | Student Boarding House Finder</title>
-    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
-    <link rel="shortcut icon" href="{{ asset('favicon.svg') }}">
+    <title>BoardMatch | DSSC Student Boarding House Finder</title>
+    <meta name="description" content="BoardMatch helps Davao del Sur State College students find, compare, and reserve verified boarding houses near the DSSC campus.">
+    <link rel="icon" type="image/png" href="{{ asset('images/boardmatch-final-logo.png') }}">
+    <link rel="shortcut icon" type="image/png" href="{{ asset('images/boardmatch-final-logo.png') }}">
     <link rel="preconnect" href="https://fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=manrope:400,500,600,700,800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
     <style>
         :root {
             --ink: #172033;
@@ -68,9 +70,9 @@
         }
 
         .site-nav {
-            background: rgba(255, 255, 255, 0.94);
-            border-bottom: 1px solid rgba(221, 229, 239, 0.9);
-            backdrop-filter: blur(16px);
+            background: #101827;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+            box-shadow: 0 12px 30px rgba(15, 24, 39, 0.24);
             position: sticky;
             top: 0;
             z-index: 50;
@@ -110,6 +112,11 @@
             color: var(--brand);
         }
 
+        .site-nav .brand-name,
+        .site-nav .brand-name span {
+            color: var(--white);
+        }
+
         .nav-links {
             align-items: center;
             display: flex;
@@ -121,7 +128,7 @@
         }
 
         .nav-links a {
-            color: var(--muted);
+            color: rgba(255, 255, 255, 0.78);
             font-size: 0.92rem;
             font-weight: 700;
             transition: color 0.2s ease;
@@ -130,7 +137,17 @@
 
         .nav-links a:hover,
         .nav-links a.active {
-            color: var(--brand);
+            color: var(--white);
+        }
+
+        .site-nav .nav-links a {
+            border-radius: 999px;
+            padding: 7px 10px;
+        }
+
+        .site-nav .nav-links a:hover,
+        .site-nav .nav-links a.active {
+            background: rgba(255, 255, 255, 0.14);
         }
 
         .nav-actions {
@@ -155,6 +172,16 @@
             height: 42px;
             justify-content: center;
             width: 42px;
+        }
+
+        .site-nav .menu-toggle {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.26);
+            color: var(--white);
+        }
+
+        .site-nav .menu-toggle:hover {
+            background: rgba(255, 255, 255, 0.2);
         }
 
         .btn {
@@ -199,6 +226,28 @@
         .btn-light {
             background: var(--white);
             color: var(--ink);
+        }
+
+        .site-nav .btn-secondary {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.34);
+            color: var(--white);
+        }
+
+        .site-nav .btn-secondary:hover {
+            background: var(--white);
+            border-color: var(--white);
+            color: var(--brand-dark);
+        }
+
+        .site-nav .btn-primary {
+            background: var(--brand);
+            border-color: rgba(255, 255, 255, 0.16);
+            box-shadow: 0 12px 26px rgba(37, 99, 235, 0.3);
+        }
+
+        .site-nav .btn-primary:hover {
+            background: var(--brand-dark);
         }
 
         .hero {
@@ -799,6 +848,25 @@
             max-width: 560px;
         }
 
+        .cta-actions {
+            align-items: center;
+            display: flex;
+            flex-shrink: 0;
+            gap: 10px;
+        }
+
+        .cta .btn-owner {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.42);
+            color: var(--white);
+        }
+
+        .cta .btn-owner:hover {
+            background: rgba(255, 255, 255, 0.16);
+            border-color: var(--white);
+            transform: translateY(-1px);
+        }
+
         .footer {
             background: #101827;
             color: rgba(255, 255, 255, 0.72);
@@ -809,7 +877,11 @@
             align-items: start;
             display: grid;
             gap: 26px;
-            grid-template-columns: 1.5fr repeat(3, 1fr);
+            grid-template-columns: minmax(0, 1.5fr) repeat(3, minmax(0, 1fr));
+        }
+
+        .footer-grid > div {
+            min-width: 0;
         }
 
         .footer .brand-name {
@@ -821,6 +893,7 @@
         .footer a {
             color: rgba(255, 255, 255, 0.68);
             font-size: 0.9rem;
+            overflow-wrap: anywhere;
         }
 
         .footer h3 {
@@ -841,15 +914,58 @@
 
         .footer-bottom {
             border-top: 1px solid rgba(255, 255, 255, 0.1);
+            line-height: 1.6;
             margin-top: 30px;
             padding-top: 18px;
             text-align: center;
         }
 
-        @media (max-width: 1120px) {
+        @media (max-width: 1400px) and (min-width: 1241px) {
+            .nav-inner {
+                gap: 14px;
+            }
+
+            .brand {
+                gap: 8px;
+            }
+
+            .brand-mark {
+                height: 38px;
+                width: 38px;
+            }
+
+            .brand-name {
+                font-size: 1.05rem;
+            }
+
             .nav-links {
-                background: var(--white);
-                border-bottom: 1px solid var(--line);
+                flex: 0 1 auto;
+                gap: 8px;
+                justify-content: flex-start;
+            }
+
+            .site-nav .nav-links a {
+                font-size: 0.82rem;
+                padding: 6px 7px;
+            }
+
+            .nav-actions {
+                gap: 7px;
+            }
+
+            .site-nav .nav-actions .btn {
+                gap: 7px;
+                min-height: 40px;
+                padding: 8px 11px;
+                font-size: 0.8rem;
+            }
+        }
+
+        @media (max-width: 1240px) {
+            .nav-links {
+                background: #101827;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+                box-shadow: 0 18px 30px rgba(15, 24, 39, 0.24);
                 display: none;
                 flex-direction: column;
                 gap: 18px;
@@ -877,7 +993,7 @@
             }
 
             .mobile-auth-actions {
-                border-top: 1px solid var(--line);
+                border-top: 1px solid rgba(255, 255, 255, 0.2);
                 display: flex;
                 flex-direction: column;
                 gap: 10px;
@@ -886,6 +1002,8 @@
             }
 
             .mobile-auth-actions .btn {
+                min-height: 44px;
+                padding: 11px 18px;
                 width: 100%;
             }
 
@@ -907,7 +1025,7 @@
             }
 
             .footer-grid {
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: repeat(2, minmax(0, 1fr));
             }
         }
 
@@ -941,6 +1059,12 @@
                 flex-direction: column;
             }
 
+            .cta-actions {
+                align-items: stretch;
+                flex-direction: column;
+                width: 100%;
+            }
+
             .hero-actions .btn,
             .cta-inner .btn {
                 width: 100%;
@@ -968,7 +1092,20 @@
             .listing-grid,
             .meta-grid,
             .footer-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: minmax(0, 1fr);
+            }
+
+            .footer {
+                padding: 34px 0 22px;
+            }
+
+            .footer-grid {
+                gap: 28px;
+            }
+
+            .footer-bottom {
+                margin-top: 26px;
+                padding-inline: 8px;
             }
 
             .section {
@@ -1005,7 +1142,7 @@
     <nav class="site-nav" aria-label="Primary navigation">
         <div class="container nav-inner">
             <a href="#home" class="brand" aria-label="BoardMatch home">
-                <img class="brand-mark" src="{{ asset('images/boardmatch-mark.svg') }}" alt="" aria-hidden="true">
+                <img class="brand-mark" src="{{ asset('images/boardmatch-final-logo.png') }}" alt="" aria-hidden="true">
                 <span class="brand-name">Board<span>Match</span></span>
             </a>
 
@@ -1017,13 +1154,11 @@
                 <li><a href="#locations">Locations</a></li>
                 <li class="mobile-auth-actions">
                     <a class="btn btn-secondary" href="{{ route('auth.choice') }}"><i class="fas fa-right-to-bracket"></i> Sign In</a>
-                    <a class="btn btn-primary" href="{{ route('register') }}"><i class="fas fa-user-plus"></i> Get Started</a>
                 </li>
             </ul>
 
             <div class="nav-actions">
                 <a class="btn btn-secondary" href="{{ route('auth.choice') }}"><i class="fas fa-right-to-bracket"></i> Sign In</a>
-                <a class="btn btn-primary" href="{{ route('register') }}"><i class="fas fa-user-plus"></i> Get Started</a>
                 <button class="menu-toggle" id="menu-toggle" type="button" aria-label="Open menu" aria-expanded="false">
                     <i class="fas fa-bars"></i>
                 </button>
@@ -1034,17 +1169,17 @@
     <header class="hero" id="home">
         <div class="container hero-inner">
             <div class="hero-copy">
-                <p class="eyebrow">Boarding house finder</p>
-                <h1>Student Boarding Houses in Digos City</h1>
-                <p>Compare rooms by budget, distance, amenities, availability, and compatibility so students can shortlist safer places with less back-and-forth.</p>
+                <p class="eyebrow">Exclusively for DSSC students</p>
+                <h1>Find Your Student Boarding House Near DSSC</h1>
+                <p>BoardMatch is built for Davao del Sur State College students to compare verified boarding houses by budget, campus distance, amenities, availability, and compatibility.</p>
                 <div class="hero-actions">
                     <a class="btn btn-light" href="#finder"><i class="fas fa-magnifying-glass"></i> Start Searching</a>
                     <a class="btn btn-secondary" href="#matching"><i class="fas fa-sliders"></i> View Match Criteria</a>
                 </div>
                 <div class="hero-facts" aria-label="BoardMatch highlights">
-                    <div class="hero-fact"><strong>120+</strong><span>rooms to compare</span></div>
-                    <div class="hero-fact"><strong>3 min</strong><span>profile setup</span></div>
-                    <div class="hero-fact"><strong>88%</strong><span>sample top match</span></div>
+                    <div class="hero-fact"><strong>DSSC</strong><span>student-focused</span></div>
+                    <div class="hero-fact"><strong>Smart</strong><span>compatibility ranking</span></div>
+                    <div class="hero-fact"><strong>Secure</strong><span>online reservations</span></div>
                 </div>
             </div>
         </div>
@@ -1054,15 +1189,14 @@
         <section class="finder-band" id="finder" aria-label="Boarding house search">
             <div class="container">
                 <form class="finder-panel" id="search-form">
-                    <div class="finder-tabs" aria-label="Search audience">
-                        <span class="finder-tab active"><i class="fas fa-user-graduate"></i> For students</span>
-                        <span class="finder-tab"><i class="fas fa-house-user"></i> For owners</span>
+                    <div class="finder-tabs" aria-label="Student boarding house search">
+                        <span class="finder-tab active"><i class="fas fa-user-graduate"></i> DSSC student room search</span>
                     </div>
                     <div class="search-grid">
                         <div class="field">
                             <label for="location-filter">Location</label>
                             <select id="location-filter" name="location">
-                                <option value="">Any Digos City area</option>
+                                <option value="">Any area near DSSC</option>
                                 <option value="Rizal Avenue">Rizal Avenue</option>
                                 <option value="Digos Centro">Digos Centro</option>
                                 <option value="Aplaya">Aplaya</option>
@@ -1116,11 +1250,11 @@
             <div class="container">
                 <div class="section-header">
                     <div class="section-title">
-                        <p class="eyebrow">Featured stays</p>
-                        <h2>Boarding houses laid out like property listings</h2>
-                        <p>Each listing keeps the details students need most visible: price, room setup, distance, availability, and match score.</p>
+                        <p class="eyebrow">Student boarding options</p>
+                        <h2>Compare boarding houses near your campus</h2>
+                        <p>Each listing highlights what DSSC students need most: monthly rent, room setup, campus distance, availability, amenities, and compatibility score.</p>
                     </div>
-                    <a class="btn btn-secondary" href="{{ route('auth.choice') }}"><i class="fas fa-table-list"></i> View Dashboard</a>
+                    <a class="btn btn-secondary" href="{{ route('register', ['role' => 'tenant']) }}"><i class="fas fa-user-graduate"></i> Create Student Profile</a>
                 </div>
 
                 <div class="listing-grid">
@@ -1137,7 +1271,7 @@
                                 <h3>Rizal Avenue Solo Room</h3>
                                 <span class="price">&#8369;4,500/mo</span>
                             </div>
-                            <p class="location"><i class="fas fa-location-dot"></i> Near Digos City colleges</p>
+                            <p class="location"><i class="fas fa-location-dot"></i> Near DSSC Main Campus</p>
                             <div class="meta-grid">
                                 <span class="meta"><i class="fas fa-bed"></i> Solo room</span>
                                 <span class="meta"><i class="fas fa-wifi"></i> WiFi included</span>
@@ -1201,7 +1335,7 @@
                 <div class="section-title">
                     <p class="eyebrow">Smart matching</p>
                     <h2>Shortlists based on student priorities</h2>
-                    <p>BoardMatch adapts the real-estate browsing pattern for student boarding decisions, where compatibility matters as much as rent.</p>
+                    <p>BoardMatch ranks boarding houses around the needs and lifestyle preferences of DSSC students, where compatibility matters as much as rent.</p>
                     <div class="steps">
                         <div class="step">
                             <span class="step-number">1</span>
@@ -1277,7 +1411,7 @@
                 <div class="amenity-panel">
                     <p class="eyebrow">Student filters</p>
                     <h3>Focused details, less visual noise</h3>
-                    <p>The landing page keeps the real-estate feel while prioritizing the checks that matter for student boarding houses.</p>
+                    <p>Every result is organized around the practical checks DSSC students need before choosing a boarding house.</p>
                     <ul class="amenity-list">
                         <li><i class="fas fa-school"></i> Distance from school and transit</li>
                         <li><i class="fas fa-peso-sign"></i> Monthly rent, deposit, and included utilities</li>
@@ -1292,10 +1426,13 @@
         <section class="cta" id="start">
             <div class="container cta-inner">
                 <div>
-                    <h2>Ready to find a boarding house that fits?</h2>
-                    <p>Create a profile, compare recommendations, and move from search to inquiry with cleaner information.</p>
+                    <h2>DSSC student looking for the right boarding house?</h2>
+                    <p>Create your student profile, receive compatibility-ranked recommendations, and reserve a room that fits your budget and daily routine.</p>
                 </div>
-                <a class="btn btn-light" href="{{ route('register') }}"><i class="fas fa-user-plus"></i> Create Account</a>
+                <div class="cta-actions">
+                    <a class="btn btn-light" href="{{ route('register', ['role' => 'tenant']) }}"><i class="fas fa-user-graduate"></i> Create Student Account</a>
+                    <a class="btn btn-owner" href="{{ route('register.owner') }}"><i class="fas fa-building"></i> Register as Owner</a>
+                </div>
             </div>
         </section>
     </main>
@@ -1305,10 +1442,10 @@
             <div class="footer-grid">
                 <div>
                     <a href="#home" class="brand">
-                        <img class="brand-mark" src="{{ asset('images/boardmatch-mark.svg') }}" alt="" aria-hidden="true">
+                        <img class="brand-mark" src="{{ asset('images/boardmatch-final-logo.png') }}" alt="" aria-hidden="true">
                         <span class="brand-name">Board<span>Match</span></span>
                     </a>
-                    <p style="margin-top: 14px;">A student boarding house finder and matchmaking system for Digos City.</p>
+                    <p style="margin-top: 14px;">A boarding house finder and compatibility-matching system exclusively for Davao del Sur State College students.</p>
                 </div>
                 <div>
                     <h3>Explore</h3>
@@ -1322,7 +1459,8 @@
                     <h3>Account</h3>
                     <ul>
                         <li><a href="{{ route('auth.choice') }}">Sign In</a></li>
-                        <li><a href="{{ route('register') }}">Create Account</a></li>
+                        <li><a href="{{ route('register', ['role' => 'tenant']) }}">Create Student Account</a></li>
+                        <li><a href="{{ route('register.owner') }}">Register as Owner</a></li>
                     </ul>
                 </div>
                 <div>
