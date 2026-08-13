@@ -11,6 +11,12 @@ use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\URL;
 
+beforeEach(function () {
+    config()->set('services.paymongo.public_key', null);
+    config()->set('services.paymongo.secret_key', null);
+    config()->set('services.paymongo.webhook_secret', null);
+});
+
 function paymongoFixture(): array
 {
     $owner = User::factory()->create([
@@ -25,6 +31,11 @@ function paymongoFixture(): array
     ]);
     $profile = OwnerProfile::create([
         'user_id' => $owner->id,
+        'valid_id_type' => 'business_permit',
+        'valid_id_number' => 'PAYMONGO-OWNER-001',
+        'valid_id_file' => 'test-permits/paymongo-owner.pdf',
+        'proof_of_ownership' => 'test-permits/paymongo-owner.pdf',
+        'verification_status' => 'verified',
         'paymongo_public_key' => 'pk_test_owner123',
         'paymongo_secret_key' => 'sk_test_owner123',
         'paymongo_webhook_secret' => 'whsk_test_owner123',
@@ -55,11 +66,7 @@ function paymongoFixture(): array
 }
 
 it('stores encrypted owner-scoped PayMongo settings without revealing saved secrets', function () {
-    $owner = User::factory()->create([
-        'role' => 'owner',
-        'is_active' => true,
-        'email_verified_at' => now(),
-    ]);
+    $owner = User::factory()->verifiedOwner()->create();
 
     $this->actingAs($owner)->put(route('owner.payment-settings.update'), [
         'owner_id' => $owner->id,
