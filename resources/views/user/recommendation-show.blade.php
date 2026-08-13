@@ -13,7 +13,7 @@
                 </div>
                 <div class="flex gap-3">
                     <a href="{{ route('user.boarding-houses.index', ['tab' => 'recommended']) }}" class="rounded-lg border ui-border px-4 py-2 text-sm">Back to Find Boarding Houses</a>
-                    <a href="{{ route('user.matchmaking.explain', $candidate) }}" class="rounded-lg border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-700 hover:bg-sky-100">Explain with DeepSeek</a>
+                    <a href="{{ route('user.matchmaking.explain', $candidate) }}" class="rounded-lg border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-700 hover:bg-sky-100">Explain with AI</a>
                     <a href="{{ route('user.preferences.index') }}" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500">Update Profile</a>
                 </div>
             </div>
@@ -28,12 +28,12 @@
                 </div>
 
                 <div class="ui-card p-6">
-                    <p class="text-xs uppercase tracking-[0.18em] ui-muted">DeepSeek Status</p>
-                    <p class="mt-3 text-lg font-semibold {{ $deepSeekConfigured ? 'text-emerald-700' : 'text-amber-700' }}">
-                        {{ $deepSeekConfigured ? 'Configured' : 'Not Configured' }}
+                    <p class="text-xs uppercase tracking-[0.18em] ui-muted">{{ $aiProviderLabel ?? 'AI' }} Status</p>
+                    <p class="mt-3 text-lg font-semibold {{ $openAiConfigured ? 'text-emerald-700' : 'text-amber-700' }}">
+                        {{ $openAiConfigured ? 'Configured' : 'Not Configured' }}
                     </p>
                     <p class="mt-3 text-sm ui-muted">
-                        {{ $deepSeekConfigured ? 'Use DeepSeek to generate a short explanation for this recommendation.' : 'Set DEEPSEEK_API_KEY in your environment to enable AI match explanations.' }}
+                        {{ $openAiConfigured ? 'Use BoardMatch AI to generate a short explanation for this recommendation.' : 'Configure the selected server-side AI provider to enable match explanations.' }}
                     </p>
                 </div>
 
@@ -119,9 +119,9 @@
                         <div class="flex items-center justify-between gap-3">
                             <div>
                                 <p class="text-xs uppercase tracking-[0.18em] ui-muted">AI Explanation</p>
-                                <h3 class="mt-1 text-lg font-semibold">DeepSeek Match Explanation</h3>
+                                <h3 class="mt-1 text-lg font-semibold">AI Match Explanation</h3>
                             </div>
-                            <span class="rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">{{ $aiExplanation['model'] ?? 'DeepSeek' }}</span>
+                            <span class="rounded-full bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">{{ $aiExplanation['model'] ?? ($aiProviderLabel ?? 'AI') }}</span>
                         </div>
 
                         @if ($aiExplanation['success'])
