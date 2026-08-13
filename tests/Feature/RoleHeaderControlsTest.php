@@ -26,6 +26,7 @@ test('admin header has persistent theme and role-scoped notification controls', 
     $this->actingAs($admin)
         ->get(route('admin.dashboard'))
         ->assertOk()
+        ->assertSee('data-theme-mode="dashboard"', false)
         ->assertSee('data-theme-toggle', false)
         ->assertSee('data-theme-icon="moon"', false)
         ->assertSee('data-theme-icon="sun"', false)
@@ -65,8 +66,8 @@ test('admin workspace header is identical and present once across admin pages', 
 ]);
 
 test('owner header has persistent theme and owner notification controls beside the profile', function () {
-    $owner = User::factory()->create(['role' => 'owner', 'is_active' => true]);
-    $otherOwner = User::factory()->create(['role' => 'owner', 'is_active' => true]);
+    $owner = User::factory()->verifiedOwner()->create();
+    $otherOwner = User::factory()->verifiedOwner()->create();
 
     headerNotification($owner);
     headerNotification($otherOwner, ['title' => 'Foreign owner notification']);
@@ -119,7 +120,7 @@ test('tenant header has persistent theme and tenant notification controls beside
 
 test('each role can open only its own notification workspace', function () {
     $admin = User::factory()->create(['role' => 'admin', 'is_active' => true]);
-    $owner = User::factory()->create(['role' => 'owner', 'is_active' => true]);
+    $owner = User::factory()->verifiedOwner()->create();
     $tenant = User::factory()->create(['role' => 'user', 'is_active' => true]);
 
     $this->actingAs($admin)->get(route('admin.notifications.index'))->assertOk();
