@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\OwnerProfile;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -40,5 +41,33 @@ class UserFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
         ]);
+    }
+
+    /**
+     * Create an active owner whose permit has already been verified.
+     * Public owner registration does not use factories and always remains pending.
+     */
+    public function verifiedOwner(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'owner',
+            'status' => 'active',
+            'account_status' => 'Active',
+            'is_active' => true,
+            'email_verified_at' => now(),
+        ])->afterCreating(function ($user) {
+            OwnerProfile::firstOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'company_name' => $user->name.' Boarding House',
+                    'valid_id_type' => 'business_permit',
+                    'valid_id_number' => 'TEST-PERMIT-'.$user->id,
+                    'valid_id_file' => 'test-permits/verified-owner-'.$user->id.'.pdf',
+                    'proof_of_ownership' => 'test-permits/verified-owner-'.$user->id.'.pdf',
+                    'verification_status' => 'verified',
+                    'verified_at' => now(),
+                ]
+            );
+        });
     }
 }
