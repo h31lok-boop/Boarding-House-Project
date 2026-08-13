@@ -99,12 +99,12 @@
     </div>
 
     <div id="addHouseModal" data-modal-root role="dialog" aria-modal="true" class="fixed inset-0 z-[90] hidden items-center justify-center bg-black/30 p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-md shadow-xl mx-4 flex flex-col" style="width: min(720px, 92vw); max-height: 85vh;">
+        <div class="bg-white rounded-md shadow-xl mx-4 flex flex-col overflow-x-hidden overflow-y-auto" style="width: min(720px, 92vw); max-height: 85vh;">
             <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
                 <h3 class="text-xl font-semibold text-gray-900">Add Boarding House</h3>
                 <button id="closeAddHouseModal" class="text-gray-400 hover:text-gray-600 text-xl" aria-label="Close">x</button>
             </div>
-            <div id="addHouseModalBody" class="px-6 py-6 space-y-4 text-sm overflow-y-auto flex-1">
+            <div id="addHouseModalBody" class="px-6 py-6 space-y-4 text-sm">
                 <div id="addHouseModalError" class="px-4 py-3 rounded-lg bg-rose-50 text-rose-700 text-sm hidden"></div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <label class="text-xs text-gray-500">
@@ -173,12 +173,12 @@
         </div>
     </div>
     <div id="houseModal" data-modal-root role="dialog" aria-modal="true" class="fixed inset-0 z-[90] hidden items-center justify-center bg-black/30 p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-md shadow-xl mx-4 flex flex-col" style="width: min(720px, 92vw); max-height: 85vh;">
+        <div class="bg-white rounded-md shadow-xl mx-4 flex flex-col overflow-x-hidden overflow-y-auto" style="width: min(720px, 92vw); max-height: 85vh;">
             <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
                 <h3 class="text-xl font-semibold text-gray-900">Boarding House Details</h3>
                 <button id="closeHouseModal" class="text-gray-400 hover:text-gray-600 text-xl" aria-label="Close">x</button>
             </div>
-            <div id="houseModalBody" class="px-6 py-6 space-y-4 text-sm overflow-y-auto flex-1">
+            <div id="houseModalBody" class="px-6 py-6 space-y-4 text-sm">
                 <div id="manageSaveError" class="px-4 py-3 rounded-lg bg-rose-50 text-rose-700 text-sm hidden"></div>
                 <div id="manageSaveSuccess" class="px-4 py-3 rounded-lg bg-emerald-50 text-emerald-700 text-sm hidden"></div>
                 <div class="flex items-center justify-between">
