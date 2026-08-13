@@ -3,6 +3,7 @@
 use App\Models\BoardingHouse;
 use App\Models\Inquiry;
 use App\Models\Payment;
+use App\Models\Review;
 use App\Models\Room;
 use App\Models\Tenant;
 use App\Models\User;
@@ -10,8 +11,8 @@ use Illuminate\Support\Facades\DB;
 
 function ownerIsolationFixture(): array
 {
-    $owner = User::factory()->create(['role' => 'owner', 'email_verified_at' => now()]);
-    $otherOwner = User::factory()->create(['role' => 'owner', 'email_verified_at' => now()]);
+    $owner = User::factory()->verifiedOwner()->create();
+    $otherOwner = User::factory()->verifiedOwner()->create();
     $tenantUser = User::factory()->create(['role' => 'user', 'email_verified_at' => now()]);
     $otherTenantUser = User::factory()->create(['role' => 'user', 'email_verified_at' => now()]);
 
@@ -140,4 +141,39 @@ test('owner notification actions affect only the signed in owner', function () {
     expect(DB::table('notifications')->where('id', $ownId)->exists())->toBeFalse();
     expect(DB::table('notifications')->where('id', $foreignId)->exists())->toBeTrue();
     expect((bool) DB::table('notifications')->where('id', $foreignId)->value('is_read'))->toBeFalse();
+});
+
+test('owners can manage reviews only for their own properties', function () {
+    $data = ownerIsolationFixture();
+    $ownReview = Review::create([
+        'user_id' => $data['tenantUser']->id,
+        'boarding_house_id' => $data['house']->id,
+        'rating' => 5,
+        'comment' => 'A verified review for the owner.',
+        'status' => 'pending',
+    ]);
+    $foreignReview = Review::create([
+        'user_id' => $data['otherTenantUser']->id,
+        'boarding_house_id' => $data['otherHouse']->id,
+        'rating' => 2,
+        'comment' => 'This review belongs to another owner.',
+        'status' => 'pending',
+    ]);
+
+    $this->actingAs($data['owner'])
+        ->get(route('owner.reviews'))
+        ->assertOk()
+        ->assertSee('A verified review for the owner.')
+        ->assertDontSee('This review belongs to another owner.');
+
+    $this->actingAs($data['owner'])
+        ->patch(route('owner.reviews.update', $foreignReview), ['status' => 'hidden'])
+        ->assertForbidden();
+
+    $this->actingAs($data['owner'])
+        ->patch(route('owner.reviews.update', $ownReview), ['status' => 'published'])
+        ->assertRedirect();
+
+    expect($ownReview->fresh()->status)->toBe('published')
+        ->and($foreignReview->fresh()->status)->toBe('pending');
 });
