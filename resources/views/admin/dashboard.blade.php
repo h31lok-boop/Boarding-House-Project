@@ -89,6 +89,20 @@
             @endforeach
         </section>
 
+        <x-dashboard-chart-pair
+            id-prefix="admin-dashboard"
+            pie-title="Room Occupancy"
+            pie-description="Occupied and available rooms across the platform."
+            :pie-labels="$occupancyChartData['labels'] ?? ['Occupied Rooms', 'Available Rooms']"
+            :pie-data="$occupancyChartData['data'] ?? [0, 0]"
+            line-title="Weekly Revenue"
+            line-description="Verified payments collected during the current week."
+            :line-labels="$revenueChartData['labels'] ?? []"
+            :line-data="$revenueChartData['data'] ?? []"
+            line-dataset-label="Revenue"
+            :currency="true"
+        />
+
         <section class="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
             <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <header class="border-b border-slate-100 px-5 py-4 dark:border-slate-700">
