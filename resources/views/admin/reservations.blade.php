@@ -483,7 +483,8 @@
         @keydown.escape.window="if (!submitting && !editSaving) { editOpen = false; filterOpen = false; menuOpen = null; confirmOpen = false; }"
         class="space-y-5 text-slate-950"
     >
-        <header class="overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+        @if ($workspace !== 'admin')
+        <header data-reservations-toolbar class="overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
             <div class="px-5 py-4 sm:px-6">
             <div class="space-y-3.5">
                 <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -569,6 +570,7 @@
                 @endif
             </div>
         </header>
+        @endif
 
         <section class="rounded-2xl border border-blue-100 bg-blue-50/50 p-5 shadow-sm">
             <div class="flex flex-wrap items-center justify-between gap-3">
