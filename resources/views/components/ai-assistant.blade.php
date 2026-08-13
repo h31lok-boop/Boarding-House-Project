@@ -1,6 +1,7 @@
 @php
     $aiService = app(\App\Services\OpenAIService::class);
     $assistantConfigured = $aiService->isConfigured();
+    $assistantProvider = $aiService->providerLabel();
 @endphp
 
 <div
@@ -46,7 +47,7 @@
                         <h2 id="boardmatch-ai-title" class="truncate text-base font-black text-slate-950 dark:text-white sm:text-lg">BoardMatch AI Assistant</h2>
                         <p class="mt-0.5 flex items-center gap-1.5 text-xs font-semibold {{ $assistantConfigured ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400' }}">
                             <span class="h-2 w-2 rounded-full {{ $assistantConfigured ? 'bg-emerald-500' : 'bg-amber-400' }}"></span>
-                            {{ $assistantConfigured ? 'Ready for questions' : 'API key required' }}
+                            {{ $assistantConfigured ? 'Ready via '.$assistantProvider : 'API key required' }}
                         </p>
                     </div>
                 </div>
@@ -106,7 +107,7 @@
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m5 12 14-7-4 14-3-6-7-1Z"/><path stroke-linecap="round" stroke-width="1.8" d="m12 13 7-8"/></svg>
                     </button>
                 </form>
-                <p class="mt-2 text-center text-[10px] font-medium text-slate-400">AI answers may be inaccurate. Verify availability, balances, and payment status in BoardMatch.</p>
+                <p class="mt-2 text-center text-[10px] font-medium text-slate-400">Answers use role-authorized BoardMatch records. Verify critical payment and availability details before acting.</p>
             </footer>
         </section>
     </div>
