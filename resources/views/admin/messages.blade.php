@@ -5,7 +5,6 @@
     $isOwnerWorkspace = $workspace === 'owner';
     $workspaceActorName = request()->user()?->name ?: ($isOwnerWorkspace ? 'Property Owner' : 'BoardMatch Admin');
     $workspaceActorRole = $isOwnerWorkspace ? 'Property Owner' : 'BoardMatch Admin';
-    $workspaceTitle = $isOwnerWorkspace ? 'Owner Messages Dashboard' : 'Admin Messages Dashboard';
     $route = fn (string $name, $params = []) => route($workspace.'.'.$name, $params);
     $openStatuses = $openStatuses ?? ['new', 'pending', 'open', null, ''];
     $resolvedStatuses = $resolvedStatuses ?? ['closed', 'declined'];
@@ -111,13 +110,6 @@
     $firstThread = $threads->first();
     $initialPayload = $firstThread ? $threadPayloadFor($firstThread) : null;
 
-    $detailStats = [
-        ['label' => 'Active', 'value' => number_format((int) ($conversationOverview['active'] ?? 0)), 'tone' => 'blue'],
-        ['label' => 'Archived', 'value' => number_format((int) ($conversationOverview['resolved'] ?? 0)), 'tone' => 'slate'],
-        ['label' => 'Response Rate', 'value' => number_format((int) ($conversationOverview['responseRate'] ?? 0)).'%', 'tone' => 'emerald'],
-        ['label' => 'Coverage', 'value' => number_format((int) ($conversationOverview['coverage'] ?? 0)), 'tone' => 'violet'],
-    ];
-
     $quickReplyPresets = [
         'Hello! Thanks for reaching out. I am reviewing your inquiry now.',
         'Thanks for your message. I will send the boarding house details shortly.',
@@ -136,435 +128,224 @@
             this.mobileThreadOpen = true;
             this.moreOpen = false;
             this.replyBody = '';
+            this.$nextTick(() => {
+                const panel = this.$refs.messageHistory;
+                if (panel) panel.scrollTop = panel.scrollHeight;
+            });
         },
         closeThread() {
             this.mobileThreadOpen = false;
             this.moreOpen = false;
         }
     }"
-    class="space-y-3 text-slate-950"
+    x-init="$nextTick(() => { if ($refs.messageHistory) $refs.messageHistory.scrollTop = $refs.messageHistory.scrollHeight })"
+    data-messaging-interaction
+    class="h-[calc(100dvh-7.25rem)] min-h-[620px] overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white text-slate-950 shadow-[0_20px_55px_rgba(15,23,42,0.12)] dark:border-slate-700 dark:bg-slate-900 dark:text-white"
 >
-    <header class="relative z-10 overflow-visible rounded-xl border border-slate-200 bg-white/95 p-3.5 shadow-sm shadow-slate-200/60 backdrop-blur">
-        <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-            <div class="min-w-0">
-                <p class="text-[11px] font-bold uppercase tracking-[0.22em] text-blue-600">Communication Center</p>
-                <h1 class="mt-1 text-xl font-bold tracking-tight text-slate-950">{{ $workspaceTitle }}</h1>
-                <p class="mt-0.5 text-xs text-slate-500">Role-scoped tenant conversations, replies, and archived message history.</p>
-            </div>
-
-            <div class="flex flex-wrap items-center gap-2">
-                <span class="inline-flex h-9 items-center rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-600">
-                    {{ number_format($threads->total()) }} total threads
-                </span>
-                <a href="{{ $inquiriesUrl }}" class="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600">
-                    Open Inquiries
-                </a>
-                <a href="{{ $route('notifications.index') }}" class="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600">
-                    Notifications
-                </a>
-            </div>
-        </div>
-    </header>
-
-    <section class="rounded-[1.35rem] border border-slate-200 bg-white p-3.5 shadow-sm shadow-slate-200/70">
-        <div class="flex flex-col gap-3">
-            <div class="flex justify-end">
-                <a href="{{ $route('messages') }}" class="text-xs font-semibold text-slate-500 transition hover:text-blue-600">Clear all</a>
-            </div>
-
-            <form method="GET" action="{{ $route('messages') }}" class="grid gap-2.5 xl:grid-cols-[minmax(260px,1fr)_220px_auto_auto]">
-                <label class="relative block">
-                    <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <circle cx="10.5" cy="10.5" r="6.5" stroke-width="1.8"/>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m16 16 4 4"/>
-                        </svg>
-                    </span>
-                    <input
-                        name="q"
-                        value="{{ $searchTerm }}"
-                        class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
-                        placeholder="Search tenant, boarding house, or conversation text"
-                    >
-                </label>
-
-                <select
-                    name="filter"
-                    class="h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
-                >
-                    <option value="">All conversations</option>
-                    <option value="unread" @selected($activeFilter === 'unread')>Unread</option>
-                    <option value="active" @selected($activeFilter === 'active')>Active</option>
-                    <option value="awaiting" @selected($activeFilter === 'awaiting')>Awaiting Reply</option>
-                    <option value="archived" @selected($activeFilter === 'archived')>Archived</option>
-                </select>
-
-                <button
-                    type="submit"
-                    class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
-                >
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <circle cx="10.5" cy="10.5" r="6.5" stroke-width="1.8"/>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m16 16 4 4"/>
-                    </svg>
-                    Apply
-                </button>
-
-                <a
-                    href="{{ $route('messages') }}"
-                    class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                >
-                    Reset
-                </a>
-            </form>
-
-            <div class="flex flex-wrap gap-2">
-                @foreach ($conversationTabs as $tab)
-                    @php
-                        $params = request()->except('page');
-                        if ($tab['key'] === '') {
-                            unset($params['filter']);
-                        } else {
-                            $params['filter'] = $tab['key'];
-                        }
-                        $isActiveTab = (string) $activeFilter === (string) $tab['key'];
-                    @endphp
-                    <a
-                        href="{{ $route('messages', $params) }}"
-                        class="inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition {{ $isActiveTab ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200 bg-white text-slate-600 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700' }}"
-                    >
-                        <span>{{ $tab['label'] }}</span>
-                        <span class="rounded-full {{ $isActiveTab ? 'bg-white text-blue-700' : 'bg-slate-100 text-slate-600' }} px-2 py-0.5 text-[10px] font-bold">{{ number_format((int) $tab['count']) }}</span>
-                    </a>
-                @endforeach
-            </div>
-        </div>
-    </section>
-
-    <section class="grid gap-3 xl:grid-cols-[360px_minmax(0,1fr)]">
+    <div class="grid h-full min-h-0 xl:grid-cols-[350px_minmax(0,1fr)]">
         <aside
-            class="min-h-0 flex-col overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white shadow-sm shadow-slate-200/70"
+            class="min-h-0 flex-col border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
             :class="mobileThreadOpen && selected.id ? 'hidden xl:flex' : 'flex'"
         >
-            <div class="border-b border-slate-200 px-4 py-3">
+            <div class="shrink-0 px-4 pb-3 pt-4">
                 <div class="flex items-center justify-between gap-3">
                     <div>
-                        <h2 class="text-sm font-bold text-slate-950">Conversation List</h2>
-                        <p class="mt-0.5 text-xs text-slate-500">Tenant threads with online state, unread counts, previews, and timestamps.</p>
+                        <h1 class="text-2xl font-black tracking-tight text-slate-950 dark:text-white">Chats</h1>
+                        <p class="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">{{ $isOwnerWorkspace ? 'Tenant conversations' : 'Platform conversations' }}</p>
                     </div>
-                    <span class="inline-flex h-8 items-center rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-[11px] font-semibold text-slate-600">
-                        {{ number_format($threads->total()) }} threads
-                    </span>
+                    <div class="flex items-center gap-2">
+                        <a href="{{ $inquiriesUrl }}" class="grid h-10 w-10 place-items-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-blue-100 hover:text-blue-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-blue-500/15 dark:hover:text-blue-300" aria-label="Open inquiries" title="Open inquiries">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 6h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H9l-5 4v-4H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z"/></svg>
+                        </a>
+                        <a href="{{ $route('notifications.index') }}" class="grid h-10 w-10 place-items-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-blue-100 hover:text-blue-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-blue-500/15 dark:hover:text-blue-300" aria-label="Notifications" title="Notifications">
+                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+                        </a>
+                    </div>
                 </div>
+
+                <form method="GET" action="{{ $route('messages') }}" class="mt-4">
+                    @if ($activeFilter !== '')
+                        <input type="hidden" name="filter" value="{{ $activeFilter }}">
+                    @endif
+                    <label class="relative block">
+                        <span class="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">
+                            <svg class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="10.5" cy="10.5" r="6.5" stroke-width="1.8"/><path stroke-linecap="round" stroke-width="1.8" d="m16 16 4 4"/></svg>
+                        </span>
+                        <input name="q" value="{{ $searchTerm }}" class="h-10 w-full rounded-full border-0 bg-slate-100 pl-10 pr-10 text-sm text-slate-900 outline-none ring-1 ring-transparent transition placeholder:text-slate-500 focus:bg-white focus:ring-blue-500 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-400 dark:focus:bg-slate-800" placeholder="Search messages">
+                        @if ($searchTerm !== '')
+                            <a href="{{ $route('messages', array_filter(['filter' => $activeFilter])) }}" class="absolute right-2.5 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-white" aria-label="Clear search">×</a>
+                        @endif
+                    </label>
+                </form>
+
+                <nav class="mt-3 flex gap-1 overflow-x-auto" aria-label="Conversation filters">
+                    @foreach ($conversationTabs as $tab)
+                        @php
+                            $params = request()->except('page', 'filter');
+                            if ($tab['key'] !== '') $params['filter'] = $tab['key'];
+                            $isActiveTab = (string) $activeFilter === (string) $tab['key'];
+                        @endphp
+                        <a href="{{ $route('messages', $params) }}" class="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-bold transition {{ $isActiveTab ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800' }}">
+                            {{ $tab['label'] }}
+                            <span class="text-[10px] opacity-70">{{ number_format((int) $tab['count']) }}</span>
+                        </a>
+                    @endforeach
+                </nav>
             </div>
 
-            <div class="min-h-0 flex-1 overflow-y-auto">
+            <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
                 @forelse ($threads as $thread)
                     @php($payload = $threadPayloadFor($thread))
-                    <button
-                        type="button"
-                        @click="openThread({{ \Illuminate\Support\Js::from($payload) }})"
-                        class="block w-full border-b border-slate-100 px-4 py-3 text-left transition"
-                        :class="selected.id === {{ $thread->id }} ? 'bg-blue-50/90 dark:bg-blue-500/15 shadow-[inset_3px_0_0_0_#2563eb]' : 'bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800'"
-                    >
-                        <span class="flex items-start gap-3">
-                            <span class="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold {{ $payload['avatar_tone'] }}">
+                    <button type="button" @click="openThread({{ \Illuminate\Support\Js::from($payload) }})" class="group mb-1 block w-full rounded-xl px-3 py-3 text-left transition" :class="selected.id === {{ $thread->id }} ? 'bg-blue-50 dark:bg-blue-500/15' : 'hover:bg-slate-100 dark:hover:bg-slate-800/80'">
+                        <span class="flex items-center gap-3">
+                            <span class="relative flex h-[3.25rem] w-[3.25rem] shrink-0 items-center justify-center rounded-full text-sm font-black {{ $payload['avatar_tone'] }}">
                                 {{ $payload['initials'] }}
+                                <span class="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white {{ $payload['is_resolved'] ? 'bg-slate-400' : 'bg-emerald-500' }} dark:border-slate-900"></span>
                             </span>
                             <span class="min-w-0 flex-1">
-                                <span class="flex items-start justify-between gap-3">
-                                    <span class="min-w-0">
-                                        <span class="block truncate text-[13px] font-bold text-slate-950">{{ $payload['tenant'] }}</span>
-                                        <span class="mt-0.5 block truncate text-[11px] font-medium text-slate-500">{{ $payload['role_label'] }}</span>
-                                    </span>
-                                    <span class="shrink-0 text-[11px] font-semibold text-slate-400">{{ $payload['time'] }}</span>
+                                <span class="flex items-center justify-between gap-2">
+                                    <span class="truncate text-sm font-bold text-slate-950 dark:text-white">{{ $payload['tenant'] }}</span>
+                                    <span class="shrink-0 text-[10px] font-medium text-slate-400">{{ $payload['time'] }}</span>
                                 </span>
-
-                                <span class="mt-2 flex items-center justify-between gap-2">
-                                    <span class="min-w-0">
-                                        <span class="block truncate text-[12px] font-semibold text-slate-700">{{ $payload['house'] }}</span>
-                                        <span class="mt-0.5 block truncate text-[11px] text-slate-500">{{ $payload['location'] }}</span>
-                                    </span>
+                                <span class="mt-0.5 block truncate text-xs font-semibold text-slate-600 dark:text-slate-300">{{ $payload['house'] }}</span>
+                                <span class="mt-1 flex items-center gap-2">
+                                    <span class="min-w-0 flex-1 truncate text-xs {{ $payload['unread_count'] ? 'font-bold text-slate-800 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400' }}">{{ $payload['preview'] }}</span>
                                     @if ((int) $payload['unread_count'] > 0)
-                                        <span class="inline-flex h-6 min-w-6 shrink-0 items-center justify-center rounded-lg bg-blue-600 px-2 text-[10px] font-bold text-white">
-                                            {{ $payload['unread_count'] }}
-                                        </span>
+                                        <span class="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-blue-600 px-1.5 text-[10px] font-bold text-white">{{ $payload['unread_count'] }}</span>
                                     @endif
-                                </span>
-
-                                <span class="mt-2 block truncate text-[12px] leading-5 text-slate-500">{{ $payload['preview'] }}</span>
-
-                                <span class="mt-2 flex items-center justify-between gap-2">
-                                    <span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold {{ $payload['status_badge'] }}">
-                                        <span class="h-2 w-2 rounded-full {{ $payload['status_dot'] }}"></span>
-                                        {{ $payload['status'] }}
-                                    </span>
-                                    <span class="text-[10px] font-medium text-slate-400">{{ $payload['message_status'] }}</span>
                                 </span>
                             </span>
                         </span>
                     </button>
                 @empty
-                    <div class="p-6">
-                        <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
-                            <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
-                                @include('components.sidebar.partials.admin-icon', ['name' => 'messages'])
-                            </div>
-                            <p class="mt-4 text-base font-bold text-slate-950">No message threads yet</p>
-                            <p class="mt-2 text-sm leading-6 text-slate-500">Tenant and owner conversations will appear here.</p>
+                    <div class="grid h-full min-h-60 place-items-center px-6 text-center">
+                        <div>
+                            <div class="mx-auto grid h-16 w-16 place-items-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300">@include('components.sidebar.partials.admin-icon', ['name' => 'messages'])</div>
+                            <p class="mt-4 font-bold text-slate-950 dark:text-white">No conversations found</p>
+                            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">New tenant messages will appear here.</p>
                         </div>
                     </div>
                 @endforelse
             </div>
 
-            <div class="border-t border-slate-200 px-4 py-3">
-                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p class="text-[12px] font-medium text-slate-500">
-                        Showing {{ $threads->firstItem() ?? 0 }} to {{ $threads->lastItem() ?? 0 }} of {{ number_format($threads->total()) }} conversations
-                    </p>
-                    @if ($threads->hasPages())
-                        <div class="flex items-center gap-2">
-                            @if ($threads->onFirstPage())
-                                <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-300">
-                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 18-6-6 6-6"/></svg>
-                                </span>
-                            @else
-                                <a href="{{ $threads->previousPageUrl() }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-blue-50 hover:text-blue-700">
-                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 18-6-6 6-6"/></svg>
-                                </a>
-                            @endif
-
-                            @if ($threads->hasMorePages())
-                                <a href="{{ $threads->nextPageUrl() }}" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-blue-50 hover:text-blue-700">
-                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 18 6-6-6-6"/></svg>
-                                </a>
-                            @else
-                                <span class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 text-slate-300">
-                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m9 18 6-6-6-6"/></svg>
-                                </span>
-                            @endif
-                        </div>
-                    @endif
+            @if ($threads->hasPages())
+                <div class="flex shrink-0 items-center justify-between border-t border-slate-200 px-4 py-2.5 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                    <span>{{ $threads->firstItem() ?? 0 }}–{{ $threads->lastItem() ?? 0 }} of {{ $threads->total() }}</span>
+                    <div class="flex gap-1">
+                        @if (! $threads->onFirstPage())
+                            <a href="{{ $threads->previousPageUrl() }}" class="grid h-8 w-8 place-items-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Previous conversations">‹</a>
+                        @endif
+                        @if ($threads->hasMorePages())
+                            <a href="{{ $threads->nextPageUrl() }}" class="grid h-8 w-8 place-items-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Next conversations">›</a>
+                        @endif
+                    </div>
                 </div>
-            </div>
+            @endif
         </aside>
 
-        <section
-            class="min-h-[700px] flex-col overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white shadow-sm shadow-slate-200/70"
-            :class="selected.id ? (mobileThreadOpen ? 'flex' : 'hidden xl:flex') : 'hidden xl:flex'"
-        >
+        <main class="min-h-0 bg-white dark:bg-slate-900" :class="selected.id ? (mobileThreadOpen ? 'flex flex-col' : 'hidden xl:flex xl:flex-col') : 'hidden xl:flex xl:flex-col'">
             <template x-if="!selected.id">
-                <div class="flex flex-1 items-center justify-center p-8 text-center">
+                <div class="grid h-full place-items-center p-8 text-center">
                     <div class="max-w-sm">
-                        <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
-                            @include('components.sidebar.partials.admin-icon', ['name' => 'messages'])
-                        </div>
-                        <h2 class="mt-4 text-lg font-bold text-slate-950">Select a conversation to view messages</h2>
-                        <p class="mt-2 text-sm leading-6 text-slate-500">Choose a tenant conversation from the left rail to open the active chat panel.</p>
+                        <div class="mx-auto grid h-20 w-20 place-items-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300">@include('components.sidebar.partials.admin-icon', ['name' => 'messages'])</div>
+                        <h2 class="mt-5 text-xl font-black text-slate-950 dark:text-white">Your messages</h2>
+                        <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">Select a conversation to view the tenant inquiry and send a reply.</p>
                     </div>
                 </div>
             </template>
 
             <template x-if="selected.id">
-                <div class="flex min-h-0 flex-1 flex-col">
-                    <div class="border-b border-slate-200 bg-white px-4 py-3">
-                        <div class="flex flex-col gap-3">
-                            <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                                <div class="flex min-w-0 items-center gap-3">
-                                    <button type="button" @click="closeThread()" class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-50 xl:hidden" aria-label="Back to conversations">
-                                        <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m15 18-6-6 6-6"/>
-                                        </svg>
-                                    </button>
-                                    <span class="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-bold" :class="selected.avatar_tone" x-text="selected.initials"></span>
-                                    <div class="min-w-0">
-                                        <div class="flex flex-wrap items-center gap-2">
-                                            <h2 class="truncate text-base font-bold text-slate-950" x-text="selected.tenant"></h2>
-                                            <span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600" x-text="selected.role_label"></span>
-                                        </div>
-                                        <p class="truncate text-[12px] font-semibold text-slate-600" x-text="selected.house"></p>
-                                        <p class="mt-0.5 flex items-center gap-1 truncate text-[12px] text-slate-500">
-                                            <svg class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 21s7-4.8 7-11a7 7 0 1 0-14 0c0 6.2 7 11 7 11Z"/>
-                                                <circle cx="12" cy="10" r="2.5" stroke-width="1.8"/>
-                                            </svg>
-                                            <span class="truncate" x-text="selected.location"></span>
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div class="flex flex-wrap items-center gap-2 lg:justify-end">
-                                    <span
-                                        class="inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-[11px] font-bold"
-                                        :class="selected.status_badge"
-                                    >
-                                        <span class="h-2 w-2 rounded-full" :class="selected.status_dot"></span>
-                                        <span x-text="selected.status"></span>
-                                    </span>
-
-                                    <form method="POST" :action="selected.update_url || '#'">
-                                        @csrf
-                                        @method('PATCH')
-                                        <input type="hidden" name="status" value="closed">
-                                        <button
-                                            class="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
-                                            :disabled="selected.is_resolved"
-                                        >
-                                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12.5 11.2 15 16 9.5"/>
-                                                <circle cx="12" cy="12" r="9" stroke-width="1.8"/>
-                                            </svg>
-                                            Mark Resolved
-                                        </button>
-                                    </form>
-
-                                    <a href="{{ $inquiriesUrl }}" class="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700">
-                                        Inquiry Queue
-                                    </a>
-
-                                    <div class="relative">
-                                        <button
-                                            type="button"
-                                            @click="moreOpen = !moreOpen"
-                                            class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50"
-                                            aria-label="More options"
-                                        >
-                                            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6h.01M12 12h.01M12 18h.01"/>
-                                            </svg>
-                                        </button>
-
-                                        <div
-                                            x-cloak
-                                            x-show="moreOpen"
-                                            x-transition
-                                            @click.outside="moreOpen = false"
-                                            class="absolute right-0 z-40 mt-2 w-48 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 text-sm shadow-xl shadow-slate-900/12"
-                                        >
-                                            <form method="POST" :action="selected.update_url || '#'">
-                                                @csrf
-                                                @method('PATCH')
-                                                <input type="hidden" name="status" value="closed">
-                                                <button class="flex w-full items-center rounded-xl px-3 py-2.5 text-left font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700">Archive thread</button>
-                                            </form>
-                                            <a href="{{ $inquiriesUrl }}" class="flex items-center rounded-xl px-3 py-2.5 font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700">Open inquiries</a>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
-                                <div class="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-                                    <span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600 ring-1 ring-slate-200" x-text="selected.email"></span>
-                                    <span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600 ring-1 ring-slate-200" x-text="selected.full_time"></span>
-                                    <span class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 font-semibold text-slate-600 ring-1 ring-slate-200" x-text="'Status: ' + selected.message_status"></span>
-                                </div>
-                                <div class="rounded-2xl border border-slate-200 bg-slate-50/80 p-3">
-                                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Conversation Details</p>
-                                    <div class="mt-2 grid grid-cols-2 gap-2">
-                                        @foreach ($detailStats as $stat)
-                                            <div class="rounded-xl bg-white px-2.5 py-2 shadow-sm ring-1 ring-slate-100">
-                                                <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">{{ $stat['label'] }}</p>
-                                                <p class="mt-0.5 text-[13px] font-bold text-slate-950">{{ $stat['value'] }}</p>
-                                            </div>
-                                        @endforeach
-                                    </div>
-                                </div>
+                <div class="flex h-full min-h-0 flex-col">
+                    <header class="flex h-[76px] shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 dark:border-slate-700 sm:px-5">
+                        <div class="flex min-w-0 items-center gap-3">
+                            <button type="button" @click="closeThread()" class="grid h-9 w-9 shrink-0 place-items-center rounded-full text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800 xl:hidden" aria-label="Back to chats">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-width="2" d="m15 18-6-6 6-6"/></svg>
+                            </button>
+                            <span class="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-black" :class="selected.avatar_tone">
+                                <span x-text="selected.initials"></span>
+                                <span class="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white dark:border-slate-900" :class="selected.is_resolved ? 'bg-slate-400' : 'bg-emerald-500'"></span>
+                            </span>
+                            <div class="min-w-0">
+                                <h2 class="truncate text-[15px] font-black text-slate-950 dark:text-white" x-text="selected.tenant"></h2>
+                                <p class="truncate text-xs font-medium text-slate-500 dark:text-slate-400"><span x-text="selected.house"></span> · <span x-text="selected.status"></span></p>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="min-h-0 flex-1 space-y-4 overflow-y-auto bg-[linear-gradient(180deg,rgba(248,250,252,0.88),rgba(241,245,249,0.64))] px-4 py-4 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(30,41,59,0.78))]">
-                        <div class="flex items-center justify-between rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 text-[11px] text-slate-500 shadow-sm">
-                            <span>Active Chat Panel</span>
-                            <span class="font-medium text-slate-400">Live-style view with current inquiry history</span>
-                        </div>
-
-                        <template x-for="(message, index) in selected.messages" :key="index">
-                            <div class="flex gap-3" :class="message.sender !== 'tenant' ? 'justify-end' : 'justify-start'">
-                                <template x-if="message.sender === 'tenant'">
-                                    <span class="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold" :class="selected.avatar_tone" x-text="message.initials"></span>
-                                </template>
-
-                                <div class="max-w-[min(560px,82%)]" :class="message.sender !== 'tenant' ? 'text-right' : 'text-left'">
-                                    <div
-                                        class="rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm"
-                                        :class="message.sender !== 'tenant' ? 'rounded-br-md border border-blue-200 bg-blue-100 text-slate-950' : 'rounded-tl-md bg-white text-slate-700 ring-1 ring-slate-100'"
-                                    >
-                                        <p class="whitespace-pre-line" x-text="message.body"></p>
-                                    </div>
-                                    <p class="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-slate-500">
-                                        <template x-if="message.label"><span x-text="message.label + ' · '"></span></template>
-                                        <span x-text="message.stamp"></span>
-                                        <template x-if="message.sender !== 'tenant'">
-                                            <svg class="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 13 4 4L19 7"/>
-                                            </svg>
-                                        </template>
-                                    </p>
-                                </div>
-                            </div>
-                        </template>
-                    </div>
-
-                    <div class="border-t border-slate-200 bg-white px-4 py-3">
-                        <div class="mb-3 flex flex-wrap items-center gap-2">
-                            @foreach ($quickReplyPresets as $preset)
-                                <button
-                                    type="button"
-                                    @click="replyBody = @js($preset)"
-                                    class="inline-flex h-8 items-center justify-center rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                                >
-                                    {{ \Illuminate\Support\Str::limit($preset, 26) }}
+                        <div class="flex shrink-0 items-center gap-1 text-blue-600 dark:text-blue-300">
+                            <a :href="'mailto:' + selected.email" class="grid h-10 w-10 place-items-center rounded-full transition hover:bg-blue-50 dark:hover:bg-blue-500/10" aria-label="Email tenant" title="Email tenant">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16v12H4zM4 7l8 6 8-6"/></svg>
+                            </a>
+                            <form method="POST" :action="selected.update_url || '#'" class="contents">
+                                @csrf
+                                @method('PATCH')
+                                <input type="hidden" name="status" value="closed">
+                                <button class="grid h-10 w-10 place-items-center rounded-full transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-blue-500/10" :disabled="selected.is_resolved" aria-label="Mark conversation resolved" title="Mark resolved">
+                                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="9" stroke-width="1.8"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m8 12 2.5 2.5L16 9"/></svg>
                                 </button>
-                            @endforeach
+                            </form>
+                            <div class="relative">
+                                <button type="button" @click="moreOpen = !moreOpen" class="grid h-10 w-10 place-items-center rounded-full transition hover:bg-blue-50 dark:hover:bg-blue-500/10" aria-label="Conversation information" title="Conversation options">
+                                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="12" cy="12" r="9" stroke-width="1.8"/><path stroke-linecap="round" stroke-width="2" d="M12 11v5M12 8h.01"/></svg>
+                                </button>
+                                <div x-cloak x-show="moreOpen" x-transition @click.outside="moreOpen = false" class="absolute right-0 z-40 mt-2 w-64 rounded-2xl border border-slate-200 bg-white p-2 shadow-2xl dark:border-slate-700 dark:bg-slate-800">
+                                    <div class="px-3 py-2">
+                                        <p class="truncate text-sm font-bold text-slate-950 dark:text-white" x-text="selected.house"></p>
+                                        <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400" x-text="selected.location"></p>
+                                        <p class="mt-2 truncate text-xs text-slate-500 dark:text-slate-400" x-text="selected.email"></p>
+                                    </div>
+                                    <a href="{{ $inquiriesUrl }}" class="mt-1 block rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700">Open inquiry details</a>
+                                </div>
+                            </div>
                         </div>
+                    </header>
 
-                        <form method="POST" :action="selected.update_url || '#'" class="rounded-2xl border border-slate-200 bg-slate-50/60 p-3">
+                    <div x-ref="messageHistory" class="min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top,_rgba(219,234,254,0.72),_transparent_32rem),linear-gradient(180deg,#f8fafc,#eef2ff)] px-4 py-6 dark:bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.13),_transparent_32rem),linear-gradient(180deg,#0f172a,#111827)] sm:px-6">
+                        <div class="mx-auto flex max-w-4xl flex-col">
+                            <div class="mb-6 text-center">
+                                <span class="inline-flex rounded-full bg-white/80 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 shadow-sm ring-1 ring-slate-200 dark:bg-slate-800/85 dark:text-slate-400 dark:ring-slate-700" x-text="selected.full_time"></span>
+                            </div>
+                            <template x-for="(message, index) in selected.messages" :key="index">
+                                <div class="mb-3 flex items-end gap-2" :class="message.sender !== 'tenant' ? 'justify-end' : 'justify-start'">
+                                    <template x-if="message.sender === 'tenant'">
+                                        <span class="mb-5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[10px] font-black" :class="selected.avatar_tone" x-text="message.initials"></span>
+                                    </template>
+                                    <div class="max-w-[82%] sm:max-w-[68%]" :class="message.sender !== 'tenant' ? 'text-right' : 'text-left'">
+                                        <div class="inline-block rounded-[1.35rem] px-4 py-2.5 text-left text-sm leading-5 shadow-sm" :class="message.sender !== 'tenant' ? 'rounded-br-md bg-gradient-to-r from-blue-600 to-violet-600 text-white' : 'rounded-bl-md bg-white text-slate-800 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:ring-slate-700'">
+                                            <p class="whitespace-pre-wrap break-words" x-text="message.body"></p>
+                                        </div>
+                                        <p class="mt-1 px-1 text-[10px] font-medium text-slate-400"><span x-text="message.stamp"></span><template x-if="message.sender !== 'tenant'"><span> · Sent</span></template></p>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <footer class="shrink-0 border-t border-slate-200 bg-white px-3 py-3 dark:border-slate-700 dark:bg-slate-900 sm:px-4">
+                        <form method="POST" :action="selected.update_url || '#'" class="mx-auto flex max-w-5xl items-end gap-2">
                             @csrf
                             @method('PATCH')
                             <input type="hidden" name="status" value="replied">
-                            <label class="sr-only" for="admin-message-reply">Reply message</label>
-                            <textarea
-                                id="admin-message-reply"
-                                name="reply"
-                                rows="3"
-                                required
-                                x-model="replyBody"
-                                class="h-24 w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
-                                placeholder="Type your reply..."
-                            ></textarea>
-                            <div class="mt-3 flex justify-end">
-                                <button
-                                    class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-semibold text-white shadow-sm shadow-blue-600/25 transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100"
-                                    :disabled="!replyBody.trim()"
-                                    :class="!replyBody.trim() ? 'cursor-not-allowed opacity-60' : ''"
-                                >
-                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 12h14M12 5l7 7-7 7"/>
-                                    </svg>
-                                    Send Reply
-                                </button>
+                            <div class="hidden items-center gap-1 text-blue-600 dark:text-blue-300 sm:flex">
+                                @foreach (array_slice($quickReplyPresets, 0, 1) as $preset)
+                                    <button type="button" @click="replyBody = @js($preset)" class="grid h-10 w-10 place-items-center rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10" aria-label="Use quick reply" title="Quick reply">
+                                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M7 8h10M7 12h7M5 20l1.4-3H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8Z"/></svg>
+                                    </button>
+                                @endforeach
                             </div>
+                            <label class="relative min-w-0 flex-1">
+                                <span class="sr-only">Reply message</span>
+                                <textarea name="reply" rows="1" required maxlength="1200" x-model="replyBody" @keydown.enter="if (!$event.shiftKey && replyBody.trim()) { $event.preventDefault(); $event.target.form.requestSubmit(); }" class="block max-h-32 min-h-10 w-full resize-none rounded-[1.35rem] border-0 bg-slate-100 px-4 py-2.5 pr-11 text-sm leading-5 text-slate-900 outline-none ring-1 ring-transparent placeholder:text-slate-500 focus:bg-white focus:ring-blue-500 dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-400 dark:focus:bg-slate-800" placeholder="Aa"></textarea>
+                                <span class="pointer-events-none absolute bottom-2.5 right-3 text-lg leading-none text-blue-600 dark:text-blue-300">☺</span>
+                            </label>
+                            <button class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-blue-600 text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40" :disabled="!replyBody.trim()" aria-label="Send reply">
+                                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m4 4 16 8-16 8 3-8-3-8Zm3 8h13"/></svg>
+                            </button>
                         </form>
-                    </div>
+                    </footer>
                 </div>
             </template>
-        </section>
-    </section>
-
-    <section
-        class="min-h-[360px] items-center justify-center rounded-[1.35rem] border border-slate-200 bg-white p-8 text-center shadow-sm shadow-slate-200/70 xl:hidden"
-        :class="selected.id ? 'hidden' : 'flex'"
-    >
-        <div class="max-w-sm">
-            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
-                @include('components.sidebar.partials.admin-icon', ['name' => 'messages'])
-            </div>
-            <h2 class="mt-4 text-lg font-bold text-slate-950">Select a conversation to view messages</h2>
-            <p class="mt-2 text-sm leading-6 text-slate-500">Choose a tenant conversation from the left rail to open the active chat panel.</p>
-        </div>
-    </section>
+        </main>
+    </div>
 </div>
 </x-admin.shell>
 </x-layouts.dashboard>
