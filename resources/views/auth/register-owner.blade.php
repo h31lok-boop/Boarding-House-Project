@@ -112,6 +112,15 @@
                         <label class="field">Username<input name="username" value="{{ old('username') }}" autocomplete="username" placeholder="Optional"></label>
                         <label class="field">Email address <span>*</span><input name="email" type="email" value="{{ old('email') }}" required autocomplete="email"></label>
                         <label class="field">Mobile number <span>*</span><input name="phone" value="{{ old('phone') }}" required autocomplete="tel"></label>
+                        <label class="upload wide">
+                            <input id="owner-profile-photo" name="profile_photo" type="file" accept=".jpg,.jpeg,.png,.webp">
+                            <span class="upload-content">
+                                <span class="upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0" stroke-linecap="round"/></svg></span>
+                                <strong>Add a profile photo</strong>
+                                <small>Optional · used for email or Google registration · JPG, PNG, or WEBP · maximum 2 MB</small>
+                                <span class="file-name" id="owner-profile-photo-name">No profile photo selected</span>
+                            </span>
+                        </label>
                         <label class="field">Password <small>(email registration only)</small><input id="ownerPassword" name="password" type="password" autocomplete="new-password"></label>
                         <label class="field">Confirm password <small>(email registration only)</small><input id="ownerPasswordConfirmation" name="password_confirmation" type="password" autocomplete="new-password"></label>
                     </div>
@@ -212,6 +221,9 @@
     });
     document.getElementById('photos')?.addEventListener('change', function () {
         document.getElementById('photo-count').textContent = this.files.length ? `${this.files.length} property photo(s) selected` : 'No property photos selected';
+    });
+    document.getElementById('owner-profile-photo')?.addEventListener('change', function () {
+        document.getElementById('owner-profile-photo-name').textContent = this.files[0]?.name || 'No profile photo selected';
     });
 
     document.getElementById('ownerRegistrationForm')?.addEventListener('submit', function (event) {

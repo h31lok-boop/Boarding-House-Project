@@ -25,6 +25,7 @@ class OwnerProfile extends Model
         'valid_id_number',
         'valid_id_file',
         'verification_status',
+        'is_seeded_demo',
         'verified_by',
         'verified_at',
         'gcash_account_name',
@@ -42,8 +43,40 @@ class OwnerProfile extends Model
         'paymongo_secret_key' => 'encrypted',
         'paymongo_webhook_secret' => 'encrypted',
         'paymongo_enabled' => 'boolean',
+        'is_seeded_demo' => 'boolean',
         'verified_at' => 'datetime',
     ];
+
+    public function hasPermitEvidence(): bool
+    {
+        return $this->is_seeded_demo
+            || filled($this->proof_of_ownership)
+            || filled($this->valid_id_file);
+    }
+
+    public function hasStoredPermit(): bool
+    {
+        if ($this->is_seeded_demo) {
+            return true;
+        }
+
+        $path = $this->proof_of_ownership ?: $this->valid_id_file;
+
+        return filled($path)
+            && \Illuminate\Support\Facades\Storage::disk('public')->exists($path);
+    }
+
+    public function isApprovedForAccess(bool $requireStoredPermit = true): bool
+    {
+        $isApproved = in_array(
+            strtolower((string) $this->verification_status),
+            ['verified', 'approved'],
+            true
+        );
+
+        return $isApproved
+            && ($requireStoredPermit ? $this->hasStoredPermit() : $this->hasPermitEvidence());
+    }
 
     public function user()
     {

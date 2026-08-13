@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BoardingHouse;
 use App\Models\BoardingHouseImage;
+use App\Models\User;
 use App\Services\LocationService;
 use App\Support\SystemActionLogger;
 use Illuminate\Http\Request;
@@ -92,6 +93,31 @@ class BoardingHouseController extends Controller
         $data['is_active'] = $request->boolean('is_active', true);
         $data['is_near_dssc'] = $request->boolean('is_near_dssc');
         $data['approval_status'] = $data['approval_status'] ?? 'approved';
+
+        // Owners may only publish after their account and permit have passed
+        // administrator review. Admin-created listings retain the existing flow.
+        if ($request->user()?->isStrictOwner()) {
+            $request->user()->loadMissing('ownerProfile');
+            $ownerIsVerified = $request->user()->hasApprovedOwnerAccess(requireStoredPermit: true);
+
+            abort_unless($ownerIsVerified && $request->user()->is_active, 403, 'Your owner application must be verified before you can publish a boarding house.');
+            $data['approval_status'] = 'pending';
+            $data['is_active'] = false;
+            if (Schema::hasColumn('boarding_houses', 'status')) {
+                $data['status'] = 'pending';
+            }
+        }
+
+        if ($request->user()?->isSuperAdmin() && ! empty($data['owner_id'])) {
+            $assignedOwner = User::query()->with('ownerProfile')->find($data['owner_id']);
+            if ($assignedOwner?->isStrictOwner() && ! $this->ownerHasVerifiedPermit($assignedOwner)) {
+                $data['approval_status'] = 'pending';
+                $data['is_active'] = false;
+                if (Schema::hasColumn('boarding_houses', 'status')) {
+                    $data['status'] = 'pending';
+                }
+            }
+        }
         $data = $this->sanitizeBoardingHouseInput($data);
         $data = $this->locationService->enrichBoardingHouseData($data);
 
@@ -232,6 +258,38 @@ class BoardingHouseController extends Controller
         $data['is_active'] = $request->boolean('is_active', $boarding_house->is_active);
         $data['is_near_dssc'] = $request->boolean('is_near_dssc', $boarding_house->is_near_dssc);
         $data['location_status'] = $data['location_status'] ?? $boarding_house->location_status ?? 'approximate';
+
+        if ($request->user()?->isStrictOwner()) {
+            $approved = strtolower((string) ($boarding_house->approval_status ?: $boarding_house->status)) === 'approved';
+            if (! $approved) {
+                $data['approval_status'] = 'pending';
+                $data['is_active'] = false;
+                if (Schema::hasColumn('boarding_houses', 'status')) {
+                    $data['status'] = 'pending';
+                }
+            } else {
+                // Listing approval belongs to the administrator. Owners can
+                // edit an approved listing but cannot change its review state.
+                $data['approval_status'] = 'approved';
+            }
+        }
+
+        if ($request->user()?->isSuperAdmin()) {
+            $ownerId = $data['owner_id'] ?? $boarding_house->owner_id ?? $boarding_house->user_id;
+            $assignedOwner = $ownerId ? User::query()->with('ownerProfile')->find($ownerId) : null;
+            $adminIsPublishing = ($data['approval_status'] ?? $boarding_house->approval_status) === 'approved'
+                || ($data['is_active'] ?? false);
+
+            if ($assignedOwner?->isStrictOwner() && $adminIsPublishing && ! $this->ownerHasVerifiedPermit($assignedOwner)) {
+                throw ValidationException::withMessages([
+                    'approval_status' => 'Verify the owner application and uploaded business permit before publishing this boarding house.',
+                ]);
+            }
+
+            if (Schema::hasColumn('boarding_houses', 'status') && array_key_exists('approval_status', $data)) {
+                $data['status'] = $data['approval_status'];
+            }
+        }
         $data = $this->sanitizeBoardingHouseInput($data);
         $data = $this->locationService->enrichBoardingHouseData($data);
 
@@ -516,6 +574,13 @@ class BoardingHouseController extends Controller
         }
 
         return back()->with('success', 'Property photo removed.');
+    }
+
+    private function ownerHasVerifiedPermit(User $owner): bool
+    {
+        $owner->loadMissing('ownerProfile');
+
+        return $owner->hasApprovedOwnerAccess(requireStoredPermit: true);
     }
 
     private function sanitizeBoardingHouseInput(array $data): array

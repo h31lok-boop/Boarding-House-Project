@@ -67,6 +67,7 @@ class GoogleAuthController extends Controller
             'name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'string', 'email:rfc', 'max:255'],
             'phone' => ['required', 'string', 'max:20'],
+            'profile_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'school' => ['required', 'string', 'max:255'],
             'course_year' => ['required', 'string', 'max:255'],
             'preferred_location' => ['required', 'string', 'max:255'],
@@ -84,9 +85,29 @@ class GoogleAuthController extends Controller
             'terms.accepted' => 'You must accept the Terms and Conditions.',
         ]);
 
-        $validated['started_at'] = now()->timestamp;
-        $this->deleteTemporaryOwnerUploads($request->session()->pull('google_registration'));
-        $request->session()->put('google_registration', $validated);
+        $temporaryDirectory = 'google-tenant-registrations/'.Str::uuid();
+
+        try {
+            $this->deleteTemporaryRegistrationUploads($request->session()->pull('google_registration'));
+
+            if ($request->hasFile('profile_photo')) {
+                $profilePhoto = $request->file('profile_photo');
+                $validated['profile_photo_temp_path'] = $profilePhoto->store($temporaryDirectory, 'local');
+                $validated['profile_photo_original_name'] = $profilePhoto->getClientOriginalName();
+                $validated['temp_directory'] = $temporaryDirectory;
+            }
+
+            unset($validated['profile_photo']);
+            $validated['started_at'] = now()->timestamp;
+            $request->session()->put('google_registration', $validated);
+        } catch (Throwable $exception) {
+            Storage::disk('local')->deleteDirectory($temporaryDirectory);
+            report($exception);
+
+            return back()
+                ->withInput($request->except(['profile_photo']))
+                ->withErrors(['registration' => 'The profile photo could not be prepared for Google registration. Please try again.']);
+        }
 
         return Socialite::driver('google')->redirect();
     }
@@ -119,6 +140,7 @@ class GoogleAuthController extends Controller
             'name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'string', 'email:rfc', 'max:255', 'unique:users,email'],
             'phone' => ['required', 'string', 'max:20'],
+            'profile_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'bh_name' => ['required', 'string', 'max:255'],
             'bh_address' => ['required', 'string', 'max:1000'],
             'bh_contact' => ['required', 'string', 'max:50'],
@@ -155,10 +177,16 @@ class GoogleAuthController extends Controller
         $temporaryDirectory = 'google-owner-registrations/'.Str::uuid();
 
         try {
-            $this->deleteTemporaryOwnerUploads($request->session()->pull('google_registration'));
+            $this->deleteTemporaryRegistrationUploads($request->session()->pull('google_registration'));
             $permit = $request->file('proof_of_ownership');
             $permitPath = $permit->store($temporaryDirectory, 'local');
             $photos = [];
+
+            if ($request->hasFile('profile_photo')) {
+                $profilePhoto = $request->file('profile_photo');
+                $validated['profile_photo_temp_path'] = $profilePhoto->store($temporaryDirectory.'/profile', 'local');
+                $validated['profile_photo_original_name'] = $profilePhoto->getClientOriginalName();
+            }
 
             foreach ($request->file('photos', []) as $photo) {
                 $photos[] = [
@@ -167,7 +195,7 @@ class GoogleAuthController extends Controller
                 ];
             }
 
-            unset($validated['proof_of_ownership'], $validated['photos']);
+            unset($validated['profile_photo'], $validated['proof_of_ownership'], $validated['photos']);
             $validated['role'] = 'owner';
             $validated['permit_temp_path'] = $permitPath;
             $validated['permit_original_name'] = $permit->getClientOriginalName();
@@ -183,7 +211,7 @@ class GoogleAuthController extends Controller
             report($exception);
 
             return back()
-                ->withInput($request->except(['password', 'password_confirmation', 'photos', 'proof_of_ownership']))
+                ->withInput($request->except(['password', 'password_confirmation', 'profile_photo', 'photos', 'proof_of_ownership']))
                 ->withErrors(['registration' => 'The application files could not be prepared for Google registration. Please try again.']);
         }
     }
@@ -212,7 +240,7 @@ class GoogleAuthController extends Controller
         try {
             $googleUser = Socialite::driver('google')->user();
         } catch (Throwable) {
-            $this->deleteTemporaryOwnerUploads($registration);
+            $this->deleteTemporaryRegistrationUploads($registration);
 
             return redirect()->route($this->registrationRoute($registration))->withErrors([
                 'email' => 'Google authentication was cancelled or failed. Please try again.',
@@ -227,7 +255,7 @@ class GoogleAuthController extends Controller
         if (is_array($registration)
             && now()->timestamp - (int) ($registration['started_at'] ?? 0) > 1800) {
             $route = $this->registrationRoute($registration);
-            $this->deleteTemporaryOwnerUploads($registration);
+            $this->deleteTemporaryRegistrationUploads($registration);
 
             return redirect()->route($route)->withErrors([
                 'registration' => 'The Google registration session expired. Please review the form and upload the files again.',
@@ -236,7 +264,7 @@ class GoogleAuthController extends Controller
 
         if ($email === '' || $googleId === '') {
             $route = is_array($registration) ? $this->registrationRoute($registration) : 'login';
-            $this->deleteTemporaryOwnerUploads($registration);
+            $this->deleteTemporaryRegistrationUploads($registration);
 
             return redirect()->route($route)->withErrors([
                 'email' => 'Google did not provide a valid account email. Please use another Google account.',
@@ -246,7 +274,7 @@ class GoogleAuthController extends Controller
         if (is_array($registration)
             && strtolower((string) ($registration['email'] ?? '')) !== $email) {
             $route = $this->registrationRoute($registration);
-            $this->deleteTemporaryOwnerUploads($registration);
+            $this->deleteTemporaryRegistrationUploads($registration);
 
             return redirect()->route($route)
                 ->withInput($registration)
@@ -278,6 +306,13 @@ class GoogleAuthController extends Controller
                 }
                 if (Schema::hasColumn('users', 'username') && blank($user->username)) {
                     $updates['username'] = $this->uniqueUsernameFromEmail($email);
+                }
+                if ($avatar && blank($user->effective_photo_path)) {
+                    foreach (['photo_path', 'profile_photo', 'profile_image'] as $photoColumn) {
+                        if (Schema::hasColumn('users', $photoColumn)) {
+                            $updates[$photoColumn] = $avatar;
+                        }
+                    }
                 }
 
                 if ($updates !== []) {
@@ -322,19 +357,38 @@ class GoogleAuthController extends Controller
                 }
             }
 
-            $user = DB::transaction(fn (): User => $this->createGoogleUser(
-                $googleId,
-                $name,
-                $email,
-                $avatar,
-                $hasGoogleIdCol,
-                $registration
-            ));
+            $publishedPhoto = null;
+
+            try {
+                $publishedPhoto = $this->publishTemporaryProfilePhoto($registration);
+                $user = DB::transaction(fn (): User => $this->createGoogleUser(
+                    $googleId,
+                    $name,
+                    $email,
+                    $publishedPhoto ?: $avatar,
+                    $hasGoogleIdCol,
+                    $registration
+                ));
+                $this->deleteTemporaryRegistrationUploads($registration);
+            } catch (Throwable $exception) {
+                if ($publishedPhoto) {
+                    Storage::disk('public')->delete($publishedPhoto);
+                }
+                $this->deleteTemporaryRegistrationUploads($registration);
+                report($exception);
+
+                return redirect()->route('register')
+                    ->withInput($registration)
+                    ->withErrors([
+                        'registration' => 'Student registration could not be completed. Please select the profile photo again and retry.',
+                    ]);
+            }
+
             event(new Registered($user));
             $registeredWithGoogle = true;
         } elseif (is_array($registration)) {
             if (($registration['role'] ?? null) === 'owner') {
-                $this->deleteTemporaryOwnerUploads($registration);
+                $this->deleteTemporaryRegistrationUploads($registration);
 
                 return redirect()->route('register.owner')
                     ->withInput($registration)
@@ -344,27 +398,58 @@ class GoogleAuthController extends Controller
             }
 
             if (! $user->isUser()) {
+                $this->deleteTemporaryRegistrationUploads($registration);
+
                 return redirect()->route('login')->withErrors([
                     'email' => 'This Google email already belongs to a non-student account. Sign in from the login page instead.',
                 ]);
             }
 
-            DB::transaction(function () use ($user, $registration, $googleId, $hasGoogleIdCol): void {
-                $updates = [
-                    'name' => $registration['name'],
-                    'phone' => $registration['phone'],
-                    'phone_number' => $registration['phone'],
-                    'contact_number' => $registration['phone'],
-                    'email_verified_at' => now(),
-                ];
+            $publishedPhoto = null;
 
-                if ($hasGoogleIdCol) {
-                    $updates['google_id'] = $googleId;
+            try {
+                $publishedPhoto = $this->publishTemporaryProfilePhoto($registration);
+
+                DB::transaction(function () use ($user, $registration, $googleId, $hasGoogleIdCol, $publishedPhoto, $avatar): void {
+                    $updates = [
+                        'name' => $registration['name'],
+                        'phone' => $registration['phone'],
+                        'phone_number' => $registration['phone'],
+                        'contact_number' => $registration['phone'],
+                        'email_verified_at' => now(),
+                    ];
+
+                    if ($hasGoogleIdCol) {
+                        $updates['google_id'] = $googleId;
+                    }
+
+                    $profilePhoto = $publishedPhoto ?: (blank($user->effective_photo_path) ? $avatar : null);
+                    if ($profilePhoto) {
+                        foreach (['photo_path', 'profile_photo', 'profile_image'] as $photoColumn) {
+                            if (Schema::hasColumn('users', $photoColumn)) {
+                                $updates[$photoColumn] = $profilePhoto;
+                            }
+                        }
+                    }
+
+                    $user->forceFill($updates)->save();
+                    $this->saveTenantRegistration($user, $registration);
+                });
+
+                $this->deleteTemporaryRegistrationUploads($registration);
+            } catch (Throwable $exception) {
+                if ($publishedPhoto) {
+                    Storage::disk('public')->delete($publishedPhoto);
                 }
+                $this->deleteTemporaryRegistrationUploads($registration);
+                report($exception);
 
-                $user->forceFill($updates)->save();
-                $this->saveTenantRegistration($user, $registration);
-            });
+                return redirect()->route('register')
+                    ->withInput($registration)
+                    ->withErrors([
+                        'registration' => 'The Google-linked student profile could not be saved. Please retry.',
+                    ]);
+            }
         }
 
         if ($user->isUser() && ! $this->hasCompleteTenantRegistration($user)) {
@@ -418,11 +503,9 @@ class GoogleAuthController extends Controller
         }
 
         if ($user->isStrictOwner()) {
-            $profile = $user->ownerProfile;
-            $hasPermit = filled($profile?->proof_of_ownership) || filled($profile?->valid_id_file);
-            $isVerified = strtolower((string) $profile?->verification_status) === 'verified';
+            $user->loadMissing('ownerProfile');
 
-            if (! $hasPermit || ! $isVerified) {
+            if (! $user->hasApprovedOwnerAccess()) {
                 return 'This owner account cannot be used until an administrator verifies its business permit.';
             }
         }
@@ -457,9 +540,16 @@ class GoogleAuthController extends Controller
             $attrs['google_id'] = $googleId;
         }
 
-        // Store avatar URL as profile_image if column exists and Google provided one
+        // Keep the selected profile photo (or Google avatar) in both the
+        // canonical and legacy fields while older screens are phased out.
+        if ($avatar && Schema::hasColumn('users', 'photo_path')) {
+            $attrs['photo_path'] = $avatar;
+        }
         if ($avatar && Schema::hasColumn('users', 'profile_image')) {
             $attrs['profile_image'] = $avatar;
+        }
+        if ($avatar && Schema::hasColumn('users', 'profile_photo')) {
+            $attrs['profile_photo'] = $avatar;
         }
 
         if (Schema::hasColumn('users', 'password_hash')) {
@@ -541,6 +631,11 @@ class GoogleAuthController extends Controller
             );
             $publicPaths[] = $proofPath;
 
+            $profilePhotoPath = $this->publishTemporaryProfilePhoto($registration);
+            if ($profilePhotoPath) {
+                $publicPaths[] = $profilePhotoPath;
+            }
+
             $photos = [];
             foreach ($registration['photo_temp_files'] ?? [] as $photo) {
                 $photoPath = $this->publishTemporaryUpload((string) ($photo['path'] ?? ''), 'boarding-house-photos');
@@ -555,6 +650,7 @@ class GoogleAuthController extends Controller
                 $googleId,
                 $email,
                 $avatar,
+                $profilePhotoPath,
                 $hasGoogleIdCol,
                 $registration,
                 $proofPath,
@@ -579,8 +675,13 @@ class GoogleAuthController extends Controller
                 if ($hasGoogleIdCol) {
                     $userAttributes['google_id'] = $googleId;
                 }
-                if ($avatar && Schema::hasColumn('users', 'profile_image')) {
-                    $userAttributes['profile_image'] = $avatar;
+                $profilePhoto = $profilePhotoPath ?: $avatar;
+                if ($profilePhoto) {
+                    foreach (['photo_path', 'profile_photo', 'profile_image'] as $photoColumn) {
+                        if (Schema::hasColumn('users', $photoColumn)) {
+                            $userAttributes[$photoColumn] = $profilePhoto;
+                        }
+                    }
                 }
                 if (Schema::hasColumn('users', 'username')) {
                     $userAttributes['username'] = $registration['username'] ?? $this->uniqueUsernameFromEmail($email);
@@ -604,6 +705,7 @@ class GoogleAuthController extends Controller
                     'valid_id_number' => $registration['business_permit_number'] ?? 'uploaded',
                     'valid_id_file' => $proofPath,
                     'verification_status' => 'pending',
+                    'is_seeded_demo' => false,
                 ]));
 
                 $boardingHouse = BoardingHouse::create($this->attributesForTable('boarding_houses', [
@@ -659,7 +761,7 @@ class GoogleAuthController extends Controller
                 return $user;
             });
 
-            $this->deleteTemporaryOwnerUploads($registration);
+            $this->deleteTemporaryRegistrationUploads($registration);
 
             return $user;
         } catch (Throwable $exception) {
@@ -667,7 +769,7 @@ class GoogleAuthController extends Controller
                 Storage::disk('public')->delete($publicPaths);
             }
 
-            $this->deleteTemporaryOwnerUploads($registration);
+            $this->deleteTemporaryRegistrationUploads($registration);
 
             throw $exception;
         }
@@ -701,16 +803,31 @@ class GoogleAuthController extends Controller
     }
 
     /**
+     * @param  array<string, mixed>  $registration
+     */
+    private function publishTemporaryProfilePhoto(array $registration): ?string
+    {
+        $temporaryPath = (string) ($registration['profile_photo_temp_path'] ?? '');
+
+        return $temporaryPath !== ''
+            ? $this->publishTemporaryUpload($temporaryPath, 'profile-photos')
+            : null;
+    }
+
+    /**
      * @param  array<string, mixed>|mixed  $registration
      */
-    private function deleteTemporaryOwnerUploads(mixed $registration): void
+    private function deleteTemporaryRegistrationUploads(mixed $registration): void
     {
-        if (! is_array($registration) || ($registration['role'] ?? null) !== 'owner') {
+        if (! is_array($registration)) {
             return;
         }
 
         $directory = (string) ($registration['temp_directory'] ?? '');
-        if ($directory !== '' && Str::startsWith($directory, 'google-owner-registrations/')) {
+        if ($directory !== '' && Str::startsWith($directory, [
+            'google-owner-registrations/',
+            'google-tenant-registrations/',
+        ])) {
             Storage::disk('local')->deleteDirectory($directory);
         }
     }

@@ -124,11 +124,9 @@ class LoginRequest extends FormRequest
         }
 
         if ($user->isStrictOwner()) {
-            $profile = $user->ownerProfile;
-            $hasPermit = filled($profile?->proof_of_ownership) || filled($profile?->valid_id_file);
-            $isVerified = strtolower((string) $profile?->verification_status) === 'verified';
+            $user->loadMissing('ownerProfile');
 
-            if (! $hasPermit || ! $isVerified) {
+            if (! $user->hasApprovedOwnerAccess()) {
                 Auth::logout();
 
                 throw ValidationException::withMessages([

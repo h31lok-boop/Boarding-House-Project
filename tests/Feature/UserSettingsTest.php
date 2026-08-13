@@ -52,7 +52,8 @@ test('user can update personal information and profile photo', function () {
         ->and($user->name)->toBe('Hazel Reyes')
         ->and($user->gender)->toBe('Female')
         ->and($user->profile_photo)->toStartWith('profile-photos/')
-        ->and($user->profile_image)->toBe($user->profile_photo);
+        ->and($user->profile_image)->toBe($user->profile_photo)
+        ->and($user->photo_path)->toBe($user->profile_photo);
 
     Storage::disk('public')->assertExists($user->profile_photo);
 });

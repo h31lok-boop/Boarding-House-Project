@@ -51,10 +51,14 @@ class UserSettingsController extends Controller
             'profile_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,gif', 'max:2048'],
         ]);
 
-        $photoPath = $tenant->profile_photo ?: $tenant->profile_image;
+        $photoPath = $tenant->effective_photo_path;
 
         if ($request->hasFile('profile_photo')) {
             $this->deletePublicFile($tenant->profile_photo);
+
+            if ($tenant->photo_path !== $tenant->profile_photo && $tenant->photo_path !== $tenant->profile_image) {
+                $this->deletePublicFile($tenant->photo_path);
+            }
 
             if ($tenant->profile_image !== $tenant->profile_photo) {
                 $this->deletePublicFile($tenant->profile_image);
@@ -71,6 +75,7 @@ class UserSettingsController extends Controller
             'gender' => $validated['gender'] ?? null,
             'profile_photo' => $photoPath,
             'profile_image' => $photoPath,
+            'photo_path' => $photoPath,
         ])->save();
 
         return redirect()
@@ -290,7 +295,7 @@ class UserSettingsController extends Controller
     {
         [$firstName, $lastName] = $this->nameParts($tenant);
         $phone = $tenant->phone_number ?: $tenant->phone ?: $tenant->contact_number;
-        $photo = $tenant->profile_photo ?: $tenant->profile_image;
+        $photo = $tenant->effective_photo_path;
         $tenantProfile = $tenant->tenantProfile;
 
         return [

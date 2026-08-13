@@ -6,6 +6,7 @@ use App\Models\OwnerProfile;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -57,7 +58,7 @@ class UserFactory extends Factory
             'is_active' => true,
             'email_verified_at' => now(),
         ])->afterCreating(function ($user) {
-            OwnerProfile::firstOrCreate(
+            $profile = OwnerProfile::firstOrCreate(
                 ['user_id' => $user->id],
                 [
                     'company_name' => $user->name.' Boarding House',
@@ -69,6 +70,10 @@ class UserFactory extends Factory
                     'verified_at' => now(),
                 ]
             );
+
+            if (! Storage::disk('public')->exists($profile->proof_of_ownership)) {
+                Storage::disk('public')->put($profile->proof_of_ownership, 'Verified test business permit');
+            }
         });
     }
 }

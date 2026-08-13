@@ -18,7 +18,7 @@
         @method('patch')
 
         @php
-            $profileImageUrl = $user->profile_image ? \Illuminate\Support\Facades\Storage::url($user->profile_image) : '';
+            $profileImageUrl = $user->photo_url ?: '';
         @endphp
 
         <x-profile-image-uploader

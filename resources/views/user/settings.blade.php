@@ -1,12 +1,7 @@
 <x-layouts.dashboard>
 <x-user.shell>
 @php
-    $rawImg = $tenant->profile_photo ?: $tenant->profile_image;
-    $profileImageUrl = filled($rawImg)
-        ? (\Illuminate\Support\Str::startsWith($rawImg, ['http://', 'https://', '/'])
-            ? $rawImg
-            : \Illuminate\Support\Facades\Storage::url($rawImg))
-        : null;
+    $profileImageUrl = $tenant->photo_url;
 
     $displayName = trim((string) $tenant->name) ?: 'Tenant';
     $nameParts = explode(' ', $displayName, 2);

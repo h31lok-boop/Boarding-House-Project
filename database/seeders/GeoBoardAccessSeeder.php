@@ -212,22 +212,28 @@ class GeoBoardAccessSeeder extends Seeder
 
     private function ensureOwnerProfile(int $userId, int $verifiedBy, string $companyName): void
     {
+        $attributes = [
+            'company_name' => $companyName,
+            'business_permit_number' => 'BPN-'.$userId,
+            'valid_id_type' => 'other',
+            'valid_id_number' => 'OWN-'.$userId,
+            'valid_id_file' => 'auto-owner-id.txt',
+            'verification_status' => 'verified',
+            'verified_by' => $verifiedBy,
+            'verified_at' => now(),
+            'paymongo_enabled' => filled(config('services.paymongo.public_key'))
+                && filled(config('services.paymongo.secret_key')),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+
+        if (Schema::hasColumn('owner_profiles', 'is_seeded_demo')) {
+            $attributes['is_seeded_demo'] = true;
+        }
+
         DB::table('owner_profiles')->updateOrInsert(
             ['user_id' => $userId],
-            [
-                'company_name' => $companyName,
-                'business_permit_number' => 'BPN-'.$userId,
-                'valid_id_type' => 'other',
-                'valid_id_number' => 'OWN-'.$userId,
-                'valid_id_file' => 'auto-owner-id.txt',
-                'verification_status' => 'verified',
-                'verified_by' => $verifiedBy,
-                'verified_at' => now(),
-                'paymongo_enabled' => filled(config('services.paymongo.public_key'))
-                    && filled(config('services.paymongo.secret_key')),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]
+            $attributes
         );
     }
 

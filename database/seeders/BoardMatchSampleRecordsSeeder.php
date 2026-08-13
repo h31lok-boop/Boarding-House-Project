@@ -100,6 +100,7 @@ class BoardMatchSampleRecordsSeeder extends Seeder
                 'status' => $status,
                 'profile_image' => $profile['profile_path'] ?? null,
                 'profile_photo' => $profile['profile_path'] ?? null,
+                'photo_path' => $profile['profile_path'] ?? null,
                 'institution_name' => $profile['institution_name'] ?? null,
                 'date_of_birth' => $profile['date_of_birth'],
                 'gender' => $profile['gender'],
@@ -163,6 +164,7 @@ class BoardMatchSampleRecordsSeeder extends Seeder
                 'valid_id_number' => $owner['valid_id_number'],
                 'valid_id_file' => $owner['valid_id_file'],
                 'verification_status' => $owner['verification_status'],
+                'is_seeded_demo' => true,
                 'verified_by' => null,
                 'verified_at' => $owner['verification_status'] === 'approved'
                     ? $createdAt->copy()->addDays(6)

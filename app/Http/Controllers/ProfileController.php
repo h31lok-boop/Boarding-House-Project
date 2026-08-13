@@ -39,16 +39,24 @@ class ProfileController extends Controller
             $user->email_verified_at = null;
         }
 
-        if ($request->boolean('profile_image_remove') && $user->profile_image) {
-            Storage::disk('public')->delete($user->profile_image);
-            $user->profile_image = null;
+        if (($request->boolean('profile_image_remove') || $request->hasFile('profile_image')) && $user->effective_photo_path) {
+            collect([$user->photo_path, $user->profile_photo, $user->profile_image])
+                ->filter()->unique()
+                ->reject(fn ($path) => str_starts_with((string) $path, 'http://') || str_starts_with((string) $path, 'https://') || str_starts_with((string) $path, '/'))
+                ->each(fn ($path) => Storage::disk('public')->delete((string) $path));
+
+            if ($request->boolean('profile_image_remove')) {
+                $user->photo_path = null;
+                $user->profile_photo = null;
+                $user->profile_image = null;
+            }
         }
 
         if ($request->hasFile('profile_image')) {
-            if ($user->profile_image) {
-                Storage::disk('public')->delete($user->profile_image);
-            }
-            $user->profile_image = $request->file('profile_image')->store('profile-images', 'public');
+            $photoPath = $request->file('profile_image')->store('profile-images', 'public');
+            $user->photo_path = $photoPath;
+            $user->profile_photo = $photoPath;
+            $user->profile_image = $photoPath;
         }
 
         $user->save();
@@ -68,6 +76,12 @@ class ProfileController extends Controller
         $user = $request->user();
 
         Auth::logout();
+
+        collect([$user->photo_path, $user->profile_photo, $user->profile_image])
+            ->filter()
+            ->unique()
+            ->reject(fn ($path) => str_starts_with((string) $path, 'http://') || str_starts_with((string) $path, 'https://') || str_starts_with((string) $path, '/'))
+            ->each(fn ($path) => Storage::disk('public')->delete((string) $path));
 
         $user->delete();
 

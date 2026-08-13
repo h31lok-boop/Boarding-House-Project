@@ -61,17 +61,24 @@ class AccountController extends Controller
             $tenant->notify_ticket_updates = $request->boolean('notify_ticket_updates');
         }
 
-        if ($request->boolean('profile_image_remove') && $tenant->profile_image) {
-            Storage::disk('public')->delete($tenant->profile_image);
-            $tenant->profile_image = null;
+        if (($request->boolean('profile_image_remove') || $request->hasFile('profile_image')) && $tenant->effective_photo_path) {
+            collect([$tenant->photo_path, $tenant->profile_photo, $tenant->profile_image])
+                ->filter()->unique()
+                ->reject(fn ($path) => str_starts_with((string) $path, 'http://') || str_starts_with((string) $path, 'https://') || str_starts_with((string) $path, '/'))
+                ->each(fn ($path) => Storage::disk('public')->delete((string) $path));
+
+            if ($request->boolean('profile_image_remove')) {
+                $tenant->photo_path = null;
+                $tenant->profile_photo = null;
+                $tenant->profile_image = null;
+            }
         }
 
         if ($request->hasFile('profile_image')) {
-            if ($tenant->profile_image) {
-                Storage::disk('public')->delete($tenant->profile_image);
-            }
-
-            $tenant->profile_image = $request->file('profile_image')->store('profile-images', 'public');
+            $photoPath = $request->file('profile_image')->store('profile-images', 'public');
+            $tenant->photo_path = $photoPath;
+            $tenant->profile_photo = $photoPath;
+            $tenant->profile_image = $photoPath;
         }
 
         $tenant->save();

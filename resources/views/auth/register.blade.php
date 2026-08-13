@@ -336,6 +336,19 @@
             </div>
 
             {{-- Password --}}
+            <div class="field">
+                <label class="field-label">Profile Photo <span style="font-weight:500;color:var(--muted)">(optional)</span></label>
+                <div class="file-zone" id="profilePhotoZone">
+                    <input type="file" name="profile_photo" id="profilePhotoInput" accept=".jpg,.jpeg,.png,.webp" onchange="handleFiles(this, 'profilePhotoPreview', 'profilePhotoCount')">
+                    <svg class="file-zone-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path stroke-linecap="round" d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg>
+                    <p class="file-zone-title">Add a profile photo</p>
+                    <p class="file-zone-sub">Optional · used for email or Google registration · JPG, PNG, or WEBP · maximum 2 MB</p>
+                    <div class="file-preview" id="profilePhotoPreview"></div>
+                </div>
+                <p id="profilePhotoCount" class="field-hint" style="margin-top:6px"></p>
+                @error('profile_photo')<p class="field-error" style="margin-top:5px"><span>{{ $message }}</span></p>@enderror
+            </div>
+
             <div class="password-method-note"><strong>Password option:</strong> Complete these two password fields only when using “Create account with email.” They are not required when using “Register with Google.”</div>
             <div class="field">
                 <label class="field-label" for="password">Password<span class="req">*</span></label>

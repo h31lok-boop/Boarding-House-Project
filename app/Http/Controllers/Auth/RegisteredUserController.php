@@ -91,6 +91,12 @@ class RegisteredUserController extends Controller
         try {
             DB::beginTransaction();
 
+            if ($request->hasFile('profile_photo')) {
+                $profilePhotoPath = $request->file('profile_photo')->store('profile-photos', 'public');
+                $uploadedPaths[] = $profilePhotoPath;
+                $validated['profile_photo_path'] = $profilePhotoPath;
+            }
+
             $hashedPassword = Hash::make($validated['password']);
             $user = $this->createUser($validated, $role, $hashedPassword, $isOwnerRegistration);
 
@@ -160,7 +166,7 @@ class RegisteredUserController extends Controller
             report($e);
 
             return back()
-                ->withInput($request->except(['password', 'password_confirmation', 'photos', 'proof_of_ownership']))
+                ->withInput($request->except(['password', 'password_confirmation', 'profile_photo', 'photos', 'proof_of_ownership']))
                 ->withErrors([
                     'registration' => 'Registration failed. Please review your details and try again.',
                 ]);
@@ -177,6 +183,7 @@ class RegisteredUserController extends Controller
             'name' => ['required', 'string', 'max:100'],
             'email' => ['required', 'string', 'email:rfc', 'max:255', 'unique:users,email'],
             'phone' => ['required', 'string', 'max:20'],
+            'profile_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'password' => $this->passwordRules(),
             'terms' => ['required', 'accepted'],
         ];
@@ -233,6 +240,9 @@ class RegisteredUserController extends Controller
             'username.alpha_dash' => 'Username may only contain letters, numbers, dashes, and underscores.',
             'phone.required' => 'Phone number is required.',
             'phone.max' => 'Phone number may not exceed 20 characters.',
+            'profile_photo.image' => 'The profile photo must be an image.',
+            'profile_photo.mimes' => 'The profile photo must be a JPG, PNG, or WEBP image.',
+            'profile_photo.max' => 'The profile photo may not exceed 2 MB.',
             'password.required' => 'Password is required.',
             'password.confirmed' => 'Password confirmation does not match.',
             'password.min' => 'Password must be at least 8 characters.',
@@ -318,6 +328,9 @@ class RegisteredUserController extends Controller
             'status' => $status,
             'account_status' => $status === 'active' ? 'Active' : 'Pending',
             'email_verified_at' => now(),
+            'photo_path' => $validated['profile_photo_path'] ?? null,
+            'profile_photo' => $validated['profile_photo_path'] ?? null,
+            'profile_image' => $validated['profile_photo_path'] ?? null,
         ]);
 
         if (Schema::hasColumn('users', 'username')) {
@@ -393,6 +406,7 @@ class RegisteredUserController extends Controller
             'valid_id_number' => $validated['business_permit_number'] ?? 'uploaded',
             'valid_id_file' => $proofPath,
             'verification_status' => 'pending',
+            'is_seeded_demo' => false,
         ]));
     }
 

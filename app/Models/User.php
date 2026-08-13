@@ -29,6 +29,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'status',
         'profile_image',
         'profile_photo',
+        'photo_path',
         'notify_payment_reminders',
         'notify_booking_updates',
         'notify_ticket_updates',
@@ -72,6 +73,26 @@ class User extends Authenticatable implements MustVerifyEmail
         'archived_at' => 'datetime',
     ];
 
+    public function getEffectivePhotoPathAttribute(): ?string
+    {
+        return $this->photo_path ?: ($this->profile_photo ?: $this->profile_image);
+    }
+
+    public function getPhotoUrlAttribute(): ?string
+    {
+        $path = trim((string) $this->effective_photo_path);
+
+        if ($path === '') {
+            return null;
+        }
+
+        return str_starts_with($path, 'http://')
+            || str_starts_with($path, 'https://')
+            || str_starts_with($path, '/')
+                ? $path
+                : \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+    }
+
     public function isAdmin(): bool
     {
         return $this->isSuperAdmin();
@@ -108,6 +129,19 @@ class User extends Authenticatable implements MustVerifyEmail
     public function isManager(): bool
     {
         return $this->isSuperAdmin() || $this->isStrictOwner();
+    }
+
+    public function hasApprovedOwnerAccess(bool $requireStoredPermit = true): bool
+    {
+        if (! $this->isStrictOwner()) {
+            return false;
+        }
+
+        $status = strtolower((string) ($this->status ?: $this->account_status));
+
+        return $status === 'active'
+            && (bool) $this->is_active
+            && (bool) $this->ownerProfile?->isApprovedForAccess($requireStoredPermit);
     }
 
     /**
