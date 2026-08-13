@@ -54,7 +54,8 @@
 >
     <div>
         <main class="min-w-0 space-y-3">
-            <header class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            @if ($workspace !== 'admin')
+            <header data-inquiries-toolbar class="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h1 class="text-base font-bold text-slate-900">Property Inquiries</h1>
@@ -82,6 +83,7 @@
                     </form>
                 </div>
             </header>
+            @endif
 
             <section class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                 <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
