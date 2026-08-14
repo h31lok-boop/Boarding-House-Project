@@ -98,8 +98,8 @@ class UserPreferenceController extends Controller
             $lifestyleNotes,
             $noiseTolerance
         ): void {
-            $preference = UserPreference::updateOrCreate(
-                ['user_id' => $user->id],
+            $preference = $user->preference()->updateOrCreate(
+                [],
                 [
                     'family_monthly_income' => $validated['family_monthly_income'] ?? $validated['family_income'] ?? null,
                     'monthly_allowance' => $validated['monthly_allowance'] ?? null,
@@ -142,7 +142,7 @@ class UserPreferenceController extends Controller
 
         return redirect()
             ->route('user.preferences.index')
-            ->with('success', 'Preferences saved successfully. Your recommendations have been refreshed.')
+            ->with('success', 'Preferences saved to your tenant account. They will be here when you return.')
             ->with('status', 'tenant-match-profile-updated');
     }
 
