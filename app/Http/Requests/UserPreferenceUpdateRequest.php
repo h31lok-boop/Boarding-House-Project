@@ -7,6 +7,34 @@ use Illuminate\Validation\Rule;
 
 class UserPreferenceUpdateRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $arrayFields = [
+            'preferred_locations',
+            'safety_preferences',
+            'amenities',
+            'preferred_amenities',
+            'preferred_amenity_ids',
+            'hobbies',
+        ];
+
+        $normalized = collect($arrayFields)
+            ->filter(fn (string $field) => is_array($this->input($field)))
+            ->mapWithKeys(function (string $field): array {
+                $values = collect($this->input($field))
+                    ->map(fn (mixed $value) => is_string($value) ? trim($value) : $value)
+                    ->filter(fn (mixed $value) => $value !== null && $value !== '')
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                return [$field => $values === [] ? null : $values];
+            })
+            ->all();
+
+        $this->merge($normalized);
+    }
+
     public function authorize(): bool
     {
         return (bool) $this->user()?->isUser();
