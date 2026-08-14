@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 
@@ -23,8 +24,14 @@ test('user can view the profile settings page', function () {
         ->get(route('user.settings.index'))
         ->assertOk()
         ->assertSee('Profile Settings')
+        ->assertSee('Manage your personal information, security, and contact details.')
         ->assertSee('Personal Information')
+        ->assertSee('Account Security')
         ->assertSee('Contact Information')
+        ->assertSee('Change Photo')
+        ->assertSee('Country Code')
+        ->assertSee('x-on:submit="saving = true"', false)
+        ->assertDontSee('Additional Security')
         ->assertSee('Save Changes');
 });
 
@@ -43,7 +50,7 @@ test('user can update personal information and profile photo', function () {
 
     $response
         ->assertRedirect(route('user.settings.index'))
-        ->assertSessionHas('success', 'Personal information updated successfully.');
+        ->assertSessionHas('success', 'Profile updated successfully.');
 
     $user->refresh();
 
@@ -58,13 +65,57 @@ test('user can update personal information and profile photo', function () {
     Storage::disk('public')->assertExists($user->profile_photo);
 });
 
+test('uploading a new profile photo safely removes all previous local photo variants', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('profile-photos/old-primary.png', 'old primary');
+    Storage::disk('public')->put('profile-photos/old-legacy.png', 'old legacy');
+
+    $user = settingsUser([
+        'photo_path' => 'profile-photos/old-primary.png',
+        'profile_photo' => 'profile-photos/old-legacy.png',
+        'profile_image' => 'https://example.com/external-avatar.png',
+    ]);
+
+    $this->actingAs($user)->put(route('user.settings.personal.update'), [
+        'first_name' => 'Hazel',
+        'last_name' => 'Reyes',
+        'profile_photo' => testImageUpload('new-avatar.png'),
+    ])->assertRedirect(route('user.settings.index'));
+
+    $user->refresh();
+
+    Storage::disk('public')->assertMissing('profile-photos/old-primary.png');
+    Storage::disk('public')->assertMissing('profile-photos/old-legacy.png');
+    Storage::disk('public')->assertExists($user->photo_path);
+
+    expect($user->profile_photo)->toBe($user->photo_path)
+        ->and($user->profile_image)->toBe($user->photo_path);
+});
+
+test('profile photo accepts only supported images up to two megabytes', function () {
+    $user = settingsUser();
+
+    $this->actingAs($user)->put(route('user.settings.personal.update'), [
+        'first_name' => 'Hazel',
+        'last_name' => 'Reyes',
+        'profile_photo' => UploadedFile::fake()->create('avatar.svg', 10, 'image/svg+xml'),
+    ])->assertSessionHasErrors('profile_photo');
+
+    $this->actingAs($user)->put(route('user.settings.personal.update'), [
+        'first_name' => 'Hazel',
+        'last_name' => 'Reyes',
+        'profile_photo' => UploadedFile::fake()->create('avatar.jpg', 2049, 'image/jpeg'),
+    ])->assertSessionHasErrors('profile_photo');
+});
+
 test('user can update contact information', function () {
     $user = settingsUser(['email' => 'old@example.com']);
     settingsUser(['email' => 'taken@example.com']);
 
     $response = $this->actingAs($user)->put(route('user.settings.contact.update'), [
         'email' => 'new@example.com',
-        'phone_number' => '+63 912 345 6789',
+        'country_code' => '+63',
+        'phone_number' => '912 345 6789',
         'current_address' => 'Cebu City, Philippines',
     ]);
 
@@ -124,6 +175,26 @@ test('password update rejects incorrect current password', function () {
             'password_confirmation' => 'BetterPass1!',
         ])
         ->assertSessionHasErrors(['current_password' => 'Current password is incorrect.']);
+});
+
+test('password fields are never repopulated after validation fails', function () {
+    $user = settingsUser(['password' => Hash::make('OldPass1!')]);
+
+    $this->actingAs($user)
+        ->from(route('user.settings.index'))
+        ->put(route('user.settings.password.update'), [
+            'current_password' => 'OldPass1!',
+            'password' => 'BetterPass1!',
+            'password_confirmation' => 'DoesNotMatch1!',
+        ])
+        ->assertRedirect(route('user.settings.index'));
+
+    $this->actingAs($user)
+        ->get(route('user.settings.index'))
+        ->assertOk()
+        ->assertDontSee('value="OldPass1!"', false)
+        ->assertDontSee('value="BetterPass1!"', false)
+        ->assertDontSee('value="DoesNotMatch1!"', false);
 });
 
 test('notification preference updates through json request', function () {

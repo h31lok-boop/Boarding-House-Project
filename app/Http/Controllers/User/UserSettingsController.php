@@ -51,36 +51,42 @@ class UserSettingsController extends Controller
             'profile_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,gif', 'max:2048'],
         ]);
 
+        $previousPhotoPaths = collect([$tenant->photo_path, $tenant->profile_photo, $tenant->profile_image])
+            ->filter()
+            ->unique()
+            ->values();
         $photoPath = $tenant->effective_photo_path;
+        $newPhotoPath = null;
 
         if ($request->hasFile('profile_photo')) {
-            $this->deletePublicFile($tenant->profile_photo);
-
-            if ($tenant->photo_path !== $tenant->profile_photo && $tenant->photo_path !== $tenant->profile_image) {
-                $this->deletePublicFile($tenant->photo_path);
-            }
-
-            if ($tenant->profile_image !== $tenant->profile_photo) {
-                $this->deletePublicFile($tenant->profile_image);
-            }
-
-            $photoPath = $request->file('profile_photo')->store('profile-photos', 'public');
+            $newPhotoPath = $request->file('profile_photo')->store('profile-photos', 'public');
+            $photoPath = $newPhotoPath;
         }
 
-        $tenant->forceFill([
-            'first_name' => $validated['first_name'],
-            'last_name' => $validated['last_name'],
-            'name' => trim($validated['first_name'].' '.$validated['last_name']),
-            'date_of_birth' => $validated['date_of_birth'] ?? null,
-            'gender' => $validated['gender'] ?? null,
-            'profile_photo' => $photoPath,
-            'profile_image' => $photoPath,
-            'photo_path' => $photoPath,
-        ])->save();
+        try {
+            $tenant->forceFill([
+                'first_name' => $validated['first_name'],
+                'last_name' => $validated['last_name'],
+                'name' => trim($validated['first_name'].' '.$validated['last_name']),
+                'date_of_birth' => $validated['date_of_birth'] ?? null,
+                'gender' => $validated['gender'] ?? null,
+                'profile_photo' => $photoPath,
+                'profile_image' => $photoPath,
+                'photo_path' => $photoPath,
+            ])->save();
+        } catch (\Throwable $exception) {
+            $this->deletePublicFile($newPhotoPath);
+
+            throw $exception;
+        }
+
+        if ($newPhotoPath) {
+            $previousPhotoPaths->each(fn (string $path) => $this->deletePublicFile($path));
+        }
 
         return redirect()
             ->route('user.settings.index')
-            ->with('success', 'Personal information updated successfully.');
+            ->with('success', 'Profile updated successfully.');
     }
 
     public function updateContactInfo(Request $request): RedirectResponse
@@ -90,16 +96,24 @@ class UserSettingsController extends Controller
         $validated = $request->validate([
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($tenant->id)],
             'phone_number' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+\-\s().]{7,20}$/'],
+            'country_code' => ['nullable', Rule::in(['+63'])],
             'current_address' => ['nullable', 'string', 'max:255'],
         ], [
             'phone_number.regex' => 'Please enter a valid phone number.',
         ]);
 
+        $phoneNumber = trim((string) ($validated['phone_number'] ?? ''));
+
+        if ($phoneNumber !== '' && filled($validated['country_code'] ?? null)) {
+            $localNumber = preg_replace('/^\+?63[\s-]?/', '', $phoneNumber);
+            $phoneNumber = $validated['country_code'].' '.$localNumber;
+        }
+
         $tenant->forceFill([
             'email' => $validated['email'],
-            'phone_number' => $validated['phone_number'] ?? null,
-            'phone' => $validated['phone_number'] ?? null,
-            'contact_number' => $validated['phone_number'] ?? null,
+            'phone_number' => $phoneNumber ?: null,
+            'phone' => $phoneNumber ?: null,
+            'contact_number' => $phoneNumber ?: null,
             'current_address' => $validated['current_address'] ?? null,
         ]);
 
