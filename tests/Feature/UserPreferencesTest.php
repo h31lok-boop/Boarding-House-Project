@@ -83,6 +83,93 @@ test('user preferences are saved and used to refresh boarding house matches', fu
     ]);
 });
 
+test('saved preferences are restored when the same tenant reopens the page', function () {
+    $wifi = Amenity::create(['name' => 'Wi-Fi']);
+    $tenant = User::factory()->create([
+        'role' => 'user',
+        'is_active' => true,
+        'email_verified_at' => now(),
+    ]);
+    $otherTenant = User::factory()->create([
+        'role' => 'user',
+        'is_active' => true,
+        'email_verified_at' => now(),
+    ]);
+
+    $this->actingAs($tenant)
+        ->put(route('user.preferences.update'), [
+            'budget_min' => 2600,
+            'budget_max' => 4800,
+            'preferred_locations' => ['Matti'],
+            'preferred_landmark' => 'DSSC Main Campus',
+            'distance_from_school' => 3,
+            'room_type' => 'private',
+            'gender_preference' => 'female',
+            'study_habits' => 'quiet_focus',
+            'sleeping_schedule' => 'early_bird',
+            'cleanliness_level' => 5,
+            'noise_tolerance' => 20,
+            'amenities' => [$wifi->name],
+            'lifestyle_notes' => 'Quiet study space near campus.',
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('user.preferences.index'));
+
+    $this->actingAs($tenant)
+        ->get(route('user.preferences.index'))
+        ->assertOk()
+        ->assertViewHas('preference', function (UserPreference $preference) use ($tenant, $wifi): bool {
+            return $preference->user_id === $tenant->id
+                && $preference->preferred_rental_budget_min === '2600.00'
+                && $preference->preferred_rental_budget_max === '4800.00'
+                && $preference->preferred_locations === ['Matti']
+                && $preference->preferred_landmark === 'DSSC Main Campus'
+                && $preference->room_type === 'private'
+                && $preference->amenities === [$wifi->name];
+        })
+        ->assertSee('value="2600.00"', false)
+        ->assertSee('value="4800.00"', false)
+        ->assertSee('<option value="Matti" selected>Matti</option>', false)
+        ->assertSee('<option value="private" selected>Private room</option>', false);
+
+    $this->actingAs($otherTenant)
+        ->get(route('user.preferences.index'))
+        ->assertOk()
+        ->assertViewHas('preference', function (UserPreference $preference) use ($otherTenant): bool {
+            return $preference->user_id === $otherTenant->id
+                && ! $preference->exists
+                && $preference->preferred_rental_budget_min === null
+                && $preference->preferred_locations === null;
+        });
+});
+
+test('a tenant can save partial preferences while optional selects are blank', function () {
+    $tenant = User::factory()->create([
+        'role' => 'user',
+        'is_active' => true,
+        'email_verified_at' => now(),
+    ]);
+
+    $this->actingAs($tenant)
+        ->put(route('user.preferences.update'), [
+            'budget_min' => 2500,
+            'budget_max' => 5000,
+            'preferred_locations' => [''],
+            'amenities' => [''],
+        ])
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('user.preferences.index'));
+
+    $this->assertDatabaseHas('user_preferences', [
+        'user_id' => $tenant->id,
+        'preferred_rental_budget_min' => 2500,
+        'preferred_rental_budget_max' => 5000,
+    ]);
+
+    expect($tenant->fresh()->preference->preferred_locations)->toBe([])
+        ->and($tenant->fresh()->preference->amenities)->toBe([]);
+});
+
 test('dashboard prompts users without saved preferences to complete them', function () {
     $user = User::factory()->create([
         'role' => 'user',
