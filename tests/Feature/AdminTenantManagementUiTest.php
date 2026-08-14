@@ -77,6 +77,54 @@ test('admin user management separates tenants owners and administrators', functi
         ->assertDontSee($owner->name);
 });
 
+test('admin owner applications keep the list compact and show linked houses in the review modal', function () {
+    $admin = User::factory()->create([
+        'role' => 'admin',
+        'status' => 'active',
+        'is_active' => true,
+    ]);
+    $owner = User::factory()->create([
+        'name' => 'Multi Property Owner',
+        'role' => 'owner',
+        'status' => 'active',
+        'is_active' => true,
+    ]);
+    $profile = OwnerProfile::create([
+        'user_id' => $owner->id,
+        'verification_status' => 'verified',
+        'is_seeded_demo' => true,
+    ]);
+
+    BoardingHouse::create([
+        'owner_id' => $owner->id,
+        'owner_profile_id' => $profile->id,
+        'name' => 'First Linked House',
+        'address' => 'First Address',
+        'is_active' => true,
+        'status' => 'approved',
+        'approval_status' => 'approved',
+    ]);
+    BoardingHouse::create([
+        'owner_id' => $owner->id,
+        'owner_profile_id' => $profile->id,
+        'name' => 'Casa Digos Boarding Stay',
+        'address' => 'Casa Digos Address',
+        'is_active' => true,
+        'status' => 'approved',
+        'approval_status' => 'approved',
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('admin.user-management', ['account_type' => 'owner']))
+        ->assertOk()
+        ->assertSee($owner->name)
+        ->assertSee('data-owner-property-summary="2"', false)
+        ->assertSee('2 boarding houses')
+        ->assertSee('Open the application to view all properties.')
+        ->assertSee('First Linked House')
+        ->assertSee('Casa Digos Boarding Stay');
+});
+
 test('seeded owners are visibly approved without a permit while real owners remain locked for review', function () {
     Storage::fake('public');
 

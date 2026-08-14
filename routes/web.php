@@ -9,6 +9,7 @@ use App\Http\Controllers\AiAssistantController;
 use App\Http\Controllers\BoardingHouseController;
 use App\Http\Controllers\BoardingHouseServiceController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\LandingPageController;
 use App\Http\Controllers\Map\BoardingHouseMapController;
 use App\Http\Controllers\Owner\OwnerController;
 use App\Http\Controllers\PaymongoCheckoutController;
@@ -30,7 +31,7 @@ use App\Http\Controllers\User\UserSettingsController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => view('welcome'));
+Route::get('/', LandingPageController::class)->name('home');
 
 Route::post('/webhooks/paymongo', [PaymongoCheckoutController::class, 'webhook'])->name('paymongo.webhook');
 
@@ -158,6 +159,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/inquiries/{inquiry}', [AdminOwnerController::class, 'updateInquiry'])->name('inquiries.update');
         Route::get('/messages', [AdminOwnerController::class, 'messages'])->name('messages');
         Route::get('/messages/inbox', [AdminOwnerController::class, 'messages'])->name('messages.index');
+        Route::post('/messages/{inquiry}/read', [AdminOwnerController::class, 'markConversationRead'])->name('messages.read');
 
         // Notifications (admin's own)
         Route::get('/notifications', [AdminOwnerController::class, 'notifications'])->name('notifications.index');
@@ -251,6 +253,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Messages
         Route::get('/messages', [OwnerController::class, 'messages'])->name('messages');
         Route::get('/messages/inbox', [OwnerController::class, 'messages'])->name('messages.index');
+        Route::post('/messages/{inquiry}/read', [OwnerController::class, 'markConversationRead'])->name('messages.read');
 
         // Feedback and reviews (restricted to the owner's boarding houses)
         Route::get('/reviews', [OwnerController::class, 'reviews'])->name('reviews');

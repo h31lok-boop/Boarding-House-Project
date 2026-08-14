@@ -720,6 +720,8 @@ class AdminOwnerController extends Controller
             'accountType' => $accountType,
             'tenantCount' => User::query()->whereIn('role', $tenantRoles)->count(),
             'ownerCount' => User::query()->where('role', 'owner')->count(),
+            'linkedOwnerPropertyCount' => BoardingHouse::query()->whereNotNull('owner_id')->count(),
+            'unassignedPropertyCount' => BoardingHouse::query()->whereNull('owner_id')->count(),
             'pendingOwnerCount' => $pendingOwners,
             'verifiedOwnerCount' => User::query()
                 ->where('role', 'owner')
@@ -1659,11 +1661,18 @@ class AdminOwnerController extends Controller
 
         // Owners only ever see message threads tied to their own boarding houses.
         $isOwner = (bool) $request->user()?->isStrictOwner();
+        $readColumn = $isOwner ? 'owner_read_at' : 'admin_read_at';
         $ownerHouseIds = $isOwner ? $this->ownerHouseIds($request) : collect();
         $ownerScope = fn ($query) => $query->whereIn('boarding_house_id', $ownerHouseIds);
 
-        $threadQuery = Inquiry::with(['user', 'boardingHouse'])
-            ->when($isOwner, $ownerScope)
+        $baseThreadQuery = Inquiry::with(['user', 'boardingHouse'])
+            ->when($isOwner, $ownerScope);
+
+        $allConversationThreads = $this->groupInquiryConversations(
+            (clone $baseThreadQuery)->get()
+        );
+
+        $threadQuery = (clone $baseThreadQuery)
             ->when($searchTerm !== '', function ($query) use ($searchTerm) {
                 $term = '%'.$searchTerm.'%';
                 $query->where(function ($search) use ($term) {
@@ -1676,32 +1685,38 @@ class AdminOwnerController extends Controller
                             ->orWhere('address', 'like', $term)
                             ->orWhere('full_address', 'like', $term));
                 });
-            })
-            ->when(in_array($effectiveFilter, ['unread', 'awaiting'], true), function ($query) {
-                $query->where(function ($statusQuery) {
-                    $statusQuery->whereIn('status', ['new', 'pending', 'open'])
-                        ->orWhereNull('status')
-                        ->orWhere('status', '');
-                });
-            })
-            ->when($effectiveFilter === 'active', function ($query) use ($resolvedStatuses) {
-                $query->where(function ($statusQuery) use ($resolvedStatuses) {
-                    $statusQuery->whereNull('status')
-                        ->orWhereNotIn(DB::raw('LOWER(status)'), $resolvedStatuses);
-                });
-            })
-            ->when($effectiveFilter === 'resolved', fn ($query) => $query->whereIn(DB::raw('LOWER(status)'), $resolvedStatuses))
-            ->latest();
+            });
 
-        $insightThreads = (clone $threadQuery)->get();
+        $insightThreads = $this->groupInquiryConversations($threadQuery->get());
+        $filteredThreads = $insightThreads->filter(function (Inquiry $thread) use ($effectiveFilter, $resolvedStatuses, $readColumn) {
+            $status = strtolower((string) ($thread->status ?? ''));
+            $isResolved = in_array($status, $resolvedStatuses, true);
+            $hasUnread = $thread->getRelation('conversationInquiries')->contains(fn (Inquiry $item) => $item->{$readColumn} === null);
 
-        $threads = (clone $threadQuery)
-            ->latest()
-            ->paginate(8)
-            ->withQueryString();
+            return match ($effectiveFilter) {
+                'unread', 'awaiting' => $hasUnread,
+                'active' => ! $isResolved,
+                'resolved' => $isResolved,
+                default => true,
+            };
+        })->values();
+
+        $page = max((int) $request->query('page', 1), 1);
+        $perPage = 8;
+        $threads = new LengthAwarePaginator(
+            $filteredThreads->forPage($page, $perPage)->values(),
+            $filteredThreads->count(),
+            $perPage,
+            $page,
+            [
+                'path' => $this->wsRoute('messages'),
+                'query' => $request->query(),
+            ]
+        );
 
         $referenceIds = $threads->getCollection()
-            ->pluck('id')
+            ->flatMap(fn (Inquiry $thread) => $thread->getRelation('conversationInquiries')->pluck('id'))
+            ->unique()
             ->map(fn ($id) => 'inquiry:'.$id)
             ->values();
         $threadTenantIds = $threads->getCollection()
@@ -1719,22 +1734,21 @@ class AdminOwnerController extends Controller
                 ->keyBy('reference_id')
             : collect();
 
-        $totalConversations = Inquiry::query()->when($isOwner, $ownerScope)->count();
-        $awaitingReply = Inquiry::query()
-            ->when($isOwner, $ownerScope)
-            ->where(function ($query) {
-                $query->whereIn('status', ['new', 'pending', 'open'])
-                    ->orWhereNull('status')
-                    ->orWhere('status', '');
-            })
-            ->count();
-        $resolvedConversations = Inquiry::query()
-            ->when($isOwner, $ownerScope)
-            ->whereIn(DB::raw('LOWER(status)'), $resolvedStatuses)
-            ->count();
-        $unreadMessages = $this->unreadMessagesCount($request->user());
+        $totalConversations = $allConversationThreads->count();
+        $awaitingReply = $allConversationThreads->filter(function (Inquiry $thread) use ($resolvedStatuses) {
+            $status = strtolower((string) ($thread->status ?? ''));
 
-        $activeConversationCount = $insightThreads->filter(function ($thread) use ($resolvedStatuses) {
+            return ! in_array($status, $resolvedStatuses, true)
+                && in_array($status, ['new', 'pending', 'open', ''], true);
+        })->count();
+        $resolvedConversations = $allConversationThreads
+            ->filter(fn (Inquiry $thread) => in_array(strtolower((string) ($thread->status ?? '')), $resolvedStatuses, true))
+            ->count();
+        $unreadMessages = $allConversationThreads
+            ->filter(fn (Inquiry $thread) => $thread->getRelation('conversationInquiries')->contains(fn (Inquiry $item) => $item->{$readColumn} === null))
+            ->count();
+
+        $activeConversationCount = $allConversationThreads->filter(function ($thread) use ($resolvedStatuses) {
             $status = strtolower((string) ($thread->status ?? ''));
 
             return ! in_array($status, $resolvedStatuses, true);
@@ -1794,6 +1808,81 @@ class AdminOwnerController extends Controller
             'unreadNotificationsCount' => $this->unreadNotificationsCount($request->user()?->id),
             'activeFilter' => $filter,
         ]);
+    }
+
+    public function markConversationRead(Request $request, Inquiry $inquiry)
+    {
+        $this->authorizeAdmin($request);
+        $actor = $request->user();
+        $isOwner = (bool) $actor?->isStrictOwner();
+
+        if ($isOwner) {
+            abort_unless($this->ownerHouseIds($request)->contains((int) $inquiry->boarding_house_id), 403);
+        }
+
+        $conversation = Inquiry::query()
+            ->where('user_id', $inquiry->user_id)
+            ->where('boarding_house_id', $inquiry->boarding_house_id);
+        $inquiryIds = (clone $conversation)->pluck('id');
+        $conversation->whereNull($isOwner ? 'owner_read_at' : 'admin_read_at')->update([
+            $isOwner ? 'owner_read_at' : 'admin_read_at' => now(),
+        ]);
+
+        if ($isOwner && Schema::hasTable('notifications') && $inquiryIds->isNotEmpty()) {
+            DB::table('notifications')
+                ->where('user_id', $actor->id)
+                ->where('type', 'inquiry')
+                ->whereIn('reference_id', $inquiryIds->map(fn ($id) => 'inquiry:'.$id.':owner'))
+                ->update([
+                    'is_read' => true,
+                    'read_at' => now(),
+                    'updated_at' => now(),
+                ]);
+        }
+
+        return response()->json(['message' => 'Conversation marked as read.']);
+    }
+
+    /**
+     * Collapse repeated inquiry rows into one inbox conversation per tenant and
+     * boarding house. The newest inquiry represents the tab/action target while
+     * the complete ordered collection is retained for the message history.
+     */
+    private function groupInquiryConversations(Collection $inquiries): Collection
+    {
+        return $inquiries
+            ->groupBy(function (Inquiry $inquiry): string {
+                $tenantKey = $inquiry->user_id !== null ? 'user:'.$inquiry->user_id : 'inquiry:'.$inquiry->id;
+                $houseKey = $inquiry->boarding_house_id !== null ? 'house:'.$inquiry->boarding_house_id : 'inquiry:'.$inquiry->id;
+
+                return $tenantKey.'|'.$houseKey;
+            })
+            ->map(function (Collection $conversation): Inquiry {
+                $ordered = $conversation
+                    ->sortBy(fn (Inquiry $inquiry) => sprintf(
+                        '%020d-%020d',
+                        optional($inquiry->created_at)->getTimestamp() ?? 0,
+                        $inquiry->id
+                    ))
+                    ->values();
+                $representative = $ordered
+                    ->sortByDesc(fn (Inquiry $inquiry) => sprintf(
+                        '%020d-%020d',
+                        optional($inquiry->updated_at ?: $inquiry->created_at)->getTimestamp() ?? 0,
+                        $inquiry->id
+                    ))
+                    ->first();
+
+                $representative->setRelation('conversationInquiries', $ordered);
+
+                return $representative;
+            })
+            ->sortByDesc(fn (Inquiry $thread) => sprintf(
+                '%020d-%020d',
+                optional($thread->updated_at ?: $thread->created_at)->getTimestamp() ?? 0,
+                $thread->id
+            ))
+            ->values();
     }
 
     public function reservations(Request $request)
@@ -3830,11 +3919,7 @@ class AdminOwnerController extends Controller
 
         if (Schema::hasTable('inquiries')) {
             $query = Inquiry::query()
-                ->where(function ($statusQuery) {
-                    $statusQuery->whereIn(DB::raw('LOWER(status)'), ['new', 'pending', 'open'])
-                        ->orWhereNull('status')
-                        ->orWhere('status', '');
-                });
+                ->whereNull($user?->isStrictOwner() ? 'owner_read_at' : 'admin_read_at');
 
             if ($user?->isStrictOwner()) {
                 $houseIds = BoardingHouse::query()

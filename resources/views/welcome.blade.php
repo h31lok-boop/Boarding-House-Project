@@ -514,6 +514,31 @@
             transform: translateY(-3px);
         }
 
+        .empty-listings {
+            align-items: center;
+            background: var(--soft);
+            border: 1px dashed var(--line);
+            border-radius: var(--radius);
+            color: var(--muted);
+            display: flex;
+            gap: 14px;
+            justify-content: center;
+            min-height: 180px;
+            padding: 28px;
+            text-align: left;
+        }
+
+        .empty-listings > i {
+            color: var(--teal);
+            font-size: 1.8rem;
+        }
+
+        .empty-listings h3 {
+            color: var(--ink);
+            font-size: 1rem;
+            margin-bottom: 4px;
+        }
+
         .listing-media {
             aspect-ratio: 16 / 10;
             overflow: hidden;
@@ -1257,76 +1282,70 @@
                     <a class="btn btn-secondary" href="{{ route('register', ['role' => 'tenant']) }}"><i class="fas fa-user-graduate"></i> Create Student Profile</a>
                 </div>
 
-                <div class="listing-grid">
-                    <article class="listing-card">
-                        <div class="listing-media">
-                            <img src="https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=900&q=80" alt="Clean solo boarding room" loading="lazy">
-                            <div class="badge-row">
-                                <span class="badge"><i class="fas fa-check"></i> Available</span>
-                                <span class="badge match">92% match</span>
-                            </div>
+                @if($featuredBoardingHouses->isNotEmpty())
+                    <div class="listing-grid">
+                        @foreach($featuredBoardingHouses as $house)
+                            @php
+                                $availableRooms = max(
+                                    (int) ($house->available_rooms ?? 0),
+                                    (int) ($house->available_rooms_count ?? 0),
+                                    (int) ($house->room_categories_available_rooms_sum ?? 0),
+                                );
+                                $price = $house->effective_price;
+                                $location = $house->distance_from_dssc !== null
+                                    ? number_format((float) $house->distance_from_dssc, 2).' km from DSSC Main Campus'
+                                    : ($house->full_address ?: ($house->address ?: ($house->display_barangay ?: 'Digos City')));
+                                $highlights = $house->amenities
+                                    ->take(3)
+                                    ->map(fn ($amenity) => ['icon' => 'fa-circle-check', 'label' => $amenity->name]);
+                                $roomType = $house->roomCategories->first()?->name
+                                    ?: $house->rooms->first()?->room_type;
+                                if ($roomType && $highlights->count() < 3) {
+                                    $highlights->prepend(['icon' => 'fa-bed', 'label' => $roomType]);
+                                }
+                                $highlights->push([
+                                    'icon' => 'fa-door-open',
+                                    'label' => $availableRooms.' '.\Illuminate\Support\Str::plural('room', $availableRooms).' open',
+                                ]);
+                            @endphp
+                            <article class="listing-card">
+                                <div class="listing-media">
+                                    <img src="{{ $house->cover_image_url }}" alt="{{ $house->name }}" loading="lazy">
+                                    <div class="badge-row">
+                                        <span class="badge"><i class="fas fa-check"></i> {{ $availableRooms }} available</span>
+                                        <span class="badge match">
+                                            @if((int) $house->reviews_count > 0)
+                                                <i class="fas fa-star"></i> {{ number_format((float) $house->reviews_avg_rating, 1) }} rating
+                                            @else
+                                                <i class="fas fa-building"></i> Verified listing
+                                            @endif
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="listing-body">
+                                    <div class="listing-head">
+                                        <h3>{{ $house->name }}</h3>
+                                        <span class="price">{{ $price !== null ? '₱'.number_format($price, 0).'/mo' : 'Rate on request' }}</span>
+                                    </div>
+                                    <p class="location"><i class="fas fa-location-dot"></i> {{ $location }}</p>
+                                    <div class="meta-grid">
+                                        @foreach($highlights->take(4) as $highlight)
+                                            <span class="meta"><i class="fas {{ $highlight['icon'] }}"></i> {{ $highlight['label'] }}</span>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </article>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="empty-listings" role="status">
+                        <i class="fas fa-building-circle-check"></i>
+                        <div>
+                            <h3>No available boarding houses yet</h3>
+                            <p>Approved listings will appear here as soon as owners publish available rooms.</p>
                         </div>
-                        <div class="listing-body">
-                            <div class="listing-head">
-                                <h3>Rizal Avenue Solo Room</h3>
-                                <span class="price">&#8369;4,500/mo</span>
-                            </div>
-                            <p class="location"><i class="fas fa-location-dot"></i> Near DSSC Main Campus</p>
-                            <div class="meta-grid">
-                                <span class="meta"><i class="fas fa-bed"></i> Solo room</span>
-                                <span class="meta"><i class="fas fa-wifi"></i> WiFi included</span>
-                                <span class="meta"><i class="fas fa-shield-halved"></i> Verified owner</span>
-                                <span class="meta"><i class="fas fa-clock"></i> Quiet hours</span>
-                            </div>
-                        </div>
-                    </article>
-
-                    <article class="listing-card">
-                        <div class="listing-media">
-                            <img src="https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=900&q=80" alt="Shared student boarding room" loading="lazy">
-                            <div class="badge-row">
-                                <span class="badge"><i class="fas fa-users"></i> Shared</span>
-                                <span class="badge match">87% match</span>
-                            </div>
-                        </div>
-                        <div class="listing-body">
-                            <div class="listing-head">
-                                <h3>Centro Shared Study House</h3>
-                                <span class="price">&#8369;3,200/mo</span>
-                            </div>
-                            <p class="location"><i class="fas fa-location-dot"></i> Digos Centro</p>
-                            <div class="meta-grid">
-                                <span class="meta"><i class="fas fa-book-open"></i> Study area</span>
-                                <span class="meta"><i class="fas fa-kitchen-set"></i> Kitchen use</span>
-                                <span class="meta"><i class="fas fa-shirt"></i> Laundry area</span>
-                                <span class="meta"><i class="fas fa-calendar-check"></i> 2 slots open</span>
-                            </div>
-                        </div>
-                    </article>
-
-                    <article class="listing-card">
-                        <div class="listing-media">
-                            <img src="https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&w=900&q=80" alt="Compact boarding house bedspace" loading="lazy">
-                            <div class="badge-row">
-                                <span class="badge"><i class="fas fa-bolt"></i> New</span>
-                                <span class="badge match">83% match</span>
-                            </div>
-                        </div>
-                        <div class="listing-body">
-                            <div class="listing-head">
-                                <h3>Aplaya Bedspace with WiFi</h3>
-                                <span class="price">&#8369;2,800/mo</span>
-                            </div>
-                            <p class="location"><i class="fas fa-location-dot"></i> Aplaya, Digos City</p>
-                            <div class="meta-grid">
-                                <span class="meta"><i class="fas fa-bed"></i> Bedspace</span>
-                                <span class="meta"><i class="fas fa-wifi"></i> Fiber internet</span>
-                                <span class="meta"><i class="fas fa-person-walking"></i> Near transit</span>
-                                <span class="meta"><i class="fas fa-peso-sign"></i> Low deposit</span>
-                            </div>
-                        </div>
-                    </article>
-                </div>
+                    </div>
+                @endif
             </div>
         </section>
 

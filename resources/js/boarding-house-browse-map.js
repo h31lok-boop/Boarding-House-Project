@@ -108,6 +108,146 @@ const initializeMap = async (root) => {
     }
 };
 
+let quickRouteMap = null;
+let quickRouteCanvas = null;
+let quickRouteLayers = [];
+let quickRouteRequest = 0;
+
+const formatRouteDistance = (meters) => {
+    if (!Number.isFinite(meters)) return 'Unavailable';
+
+    return meters < 1000
+        ? `${Math.max(1, Math.round(meters))} m`
+        : `${(meters / 1000).toFixed(2)} km`;
+};
+
+const formatRouteDuration = (seconds) => {
+    if (!Number.isFinite(seconds)) return 'Unavailable';
+
+    const minutes = Math.max(1, Math.round(seconds / 60));
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+
+    return hours > 0
+        ? `${hours} hr${remainingMinutes ? ` ${remainingMinutes} min` : ''}`
+        : `${minutes} min`;
+};
+
+const clearQuickRouteLayers = () => {
+    quickRouteLayers.forEach((layer) => layer.remove());
+    quickRouteLayers = [];
+};
+
+const initializeQuickRouteMap = (canvas) => {
+    if (quickRouteMap && quickRouteCanvas === canvas) return quickRouteMap;
+
+    quickRouteMap?.remove();
+    quickRouteCanvas = canvas;
+    quickRouteMap = L.map(canvas, { scrollWheelZoom: false, zoomControl: true });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors',
+    }).addTo(quickRouteMap);
+
+    return quickRouteMap;
+};
+
+const renderQuickRoute = async (listing = {}) => {
+    const canvas = document.querySelector('[data-boardmatch-quick-route-map]');
+    if (!canvas) return;
+
+    const section = canvas.closest('[data-renter-quick-location-map]');
+    const status = section?.querySelector('[data-quick-route-status]');
+    const distanceOutput = section?.querySelector('[data-quick-route-distance]');
+    const durationOutput = section?.querySelector('[data-quick-route-duration]');
+    const campusLat = numberOrNull(listing.dssc_latitude);
+    const campusLng = numberOrNull(listing.dssc_longitude);
+    const houseLat = numberOrNull(listing.latitude);
+    const houseLng = numberOrNull(listing.longitude);
+
+    if ([campusLat, campusLng, houseLat, houseLng].includes(null)) {
+        if (status) status.textContent = 'Route unavailable because one location has no saved coordinates.';
+        return;
+    }
+
+    const requestId = ++quickRouteRequest;
+    const map = initializeQuickRouteMap(canvas);
+    clearQuickRouteLayers();
+
+    const campusPoint = [campusLat, campusLng];
+    const housePoint = [houseLat, houseLng];
+    const campusMarker = L.marker(campusPoint, {
+        icon: markerIcon(L, 'campus', 'D'),
+        title: listing.dssc_name || 'DSSC Main Campus',
+    }).addTo(map).bindPopup(
+        `<strong>${escapeHtml(listing.dssc_name || 'DSSC Main Campus')}</strong><br>${escapeHtml(listing.dssc_address || 'Matti, Digos City')}`
+    );
+    const houseMarker = L.marker(housePoint, {
+        icon: markerIcon(L, 'house', 'B'),
+        title: listing.name || 'Boarding House',
+    }).addTo(map).bindPopup(
+        `<strong>${escapeHtml(listing.name || 'Boarding House')}</strong><br>${escapeHtml(listing.address || '')}`
+    );
+    const directLine = L.polyline([campusPoint, housePoint], {
+        color: '#64748b',
+        weight: 3,
+        opacity: 0.7,
+        dashArray: '7 8',
+    }).addTo(map);
+    quickRouteLayers.push(campusMarker, houseMarker, directLine);
+    map.fitBounds(L.latLngBounds([campusPoint, housePoint]).pad(0.2), { maxZoom: 15 });
+    window.setTimeout(() => map.invalidateSize(), 80);
+
+    if (status) status.textContent = 'Calculating the road route...';
+    if (durationOutput) durationOutput.textContent = 'Calculating...';
+
+    try {
+        const coordinates = `${campusLng},${campusLat};${houseLng},${houseLat}`;
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 12000);
+        const response = await fetch(
+            `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=false`,
+            { headers: { Accept: 'application/json' }, signal: controller.signal },
+        );
+        window.clearTimeout(timeout);
+        if (!response.ok) throw new Error(`Routing service responded with ${response.status}.`);
+
+        const payload = await response.json();
+        const route = payload.routes?.[0];
+        if (payload.code !== 'Ok' || !route?.geometry?.coordinates?.length) {
+            throw new Error('No road route was returned.');
+        }
+        if (requestId !== quickRouteRequest) return;
+
+        directLine.remove();
+        quickRouteLayers = quickRouteLayers.filter((layer) => layer !== directLine);
+        const routePoints = route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
+        const routeOutline = L.polyline(routePoints, { color: '#ffffff', weight: 8, opacity: 0.9 }).addTo(map);
+        const routeLine = L.polyline(routePoints, { color: '#2563eb', weight: 5, opacity: 0.95 }).addTo(map);
+        quickRouteLayers.push(routeOutline, routeLine);
+        map.fitBounds(routeLine.getBounds().pad(0.12), { maxZoom: 16 });
+
+        if (distanceOutput) distanceOutput.textContent = formatRouteDistance(Number(route.distance));
+        if (durationOutput) durationOutput.textContent = formatRouteDuration(Number(route.duration));
+        if (status) status.textContent = 'Road route loaded between DSSC and the property.';
+    } catch (error) {
+        if (requestId !== quickRouteRequest) return;
+
+        const fallbackDistance = numberOrNull(listing.distance_km);
+        if (distanceOutput) {
+            distanceOutput.textContent = fallbackDistance !== null
+                ? `${fallbackDistance.toFixed(2)} km straight-line`
+                : 'Unavailable';
+        }
+        if (durationOutput) durationOutput.textContent = 'Route unavailable';
+        if (status) status.textContent = 'Road routing is unavailable; showing the direct connection.';
+    }
+};
+
+window.addEventListener('boardmatch:quick-route', (event) => {
+    renderQuickRoute(event.detail || {}).catch(() => {});
+});
+
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll(ROOT_SELECTOR).forEach((root) => {
         initializeMap(root).catch(() => {

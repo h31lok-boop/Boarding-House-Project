@@ -200,3 +200,34 @@ test('manual search uses normal filters without unrelated fallback results', fun
         ->assertDontSee('Preferred Poblacion House')
         ->assertDontSee('Aplaya Search Result');
 });
+
+test('tenant quick view displays the property owner and contact information', function () {
+    $tenant = createBrowseUser();
+    $owner = User::factory()->verifiedOwner()->create([
+        'name' => 'Maria Greenleaf',
+        'email' => 'maria.greenleaf@example.test',
+        'phone' => '09171234567',
+    ]);
+    createAvailableBrowseHouse([
+        'owner_id' => $owner->id,
+        'name' => 'Greenleaf Bedspace and Dorm',
+        'contact_name' => 'Maria G. Santos',
+        'contact_phone' => '09981234567',
+    ]);
+
+    $this->actingAs($tenant)
+        ->get(route('user.boarding-houses.index', ['tab' => 'all']))
+        ->assertOk()
+        ->assertSee('data-renter-owner-contact', false)
+        ->assertSee('data-boardmatch-quick-route-map', false)
+        ->assertSee('Route from DSSC Main Campus')
+        ->assertSee('Road distance')
+        ->assertSee('Estimated drive')
+        ->assertSee('Open turn-by-turn directions')
+        ->assertSee('selectedListing.directions_url', false)
+        ->assertSee('Owner &amp; contact', false)
+        ->assertSee('Maria Greenleaf')
+        ->assertSee('Maria G. Santos')
+        ->assertSee('09981234567')
+        ->assertSee('maria.greenleaf@example.test');
+});

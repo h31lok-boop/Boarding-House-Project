@@ -1,7 +1,9 @@
 <?php
 
 use App\Models\BoardingHouse;
+use App\Models\BoardingHouseImage;
 use App\Models\User;
+use Illuminate\Support\Facades\Storage;
 
 test('tenant boarding house details renders the interactive route planner and map fallbacks', function () {
     $tenant = User::factory()->create([
@@ -31,6 +33,7 @@ test('tenant boarding house details renders the interactive route planner and ma
         ->assertSee('data-route-current', false)
         ->assertSee('data-route-dssc', false)
         ->assertSee('Use My Current Location')
+        ->assertSee('data-default-route-origin="dssc"', false)
         ->assertSee('Route From DSSC Main Campus')
         ->assertSee('Open in OpenStreetMap')
         ->assertSee('Reset Map')
@@ -76,4 +79,44 @@ test('details page keeps a map unavailable state when coordinates are missing', 
         ->assertSee('Map route is unavailable because this boarding house has no saved coordinates.')
         ->assertSee('"latitude":null', false)
         ->assertSee('"longitude":null', false);
+});
+
+test('similar boarding house card displays only its designated primary image', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('boarding-houses/non-primary.jpg', 'first');
+    Storage::disk('public')->put('boarding-houses/primary-cover.jpg', 'cover');
+
+    $tenant = User::factory()->create(['role' => 'user', 'email_verified_at' => now()]);
+    $house = BoardingHouse::factory()->create([
+        'price' => 3000,
+        'is_active' => true,
+        'status' => 'approved',
+        'approval_status' => 'approved',
+    ]);
+    $similar = BoardingHouse::factory()->create([
+        'name' => 'One Image Similar House',
+        'price' => 3200,
+        'is_active' => true,
+        'status' => 'approved',
+        'approval_status' => 'approved',
+    ]);
+    BoardingHouseImage::query()->create([
+        'boarding_house_id' => $similar->id,
+        'image_path' => 'boarding-houses/non-primary.jpg',
+        'is_primary' => false,
+        'sort_order' => 0,
+    ]);
+    BoardingHouseImage::query()->create([
+        'boarding_house_id' => $similar->id,
+        'image_path' => 'boarding-houses/primary-cover.jpg',
+        'is_primary' => true,
+        'sort_order' => 1,
+    ]);
+
+    $this->actingAs($tenant)
+        ->get(route('user.boarding-houses.show', $house))
+        ->assertOk()
+        ->assertSee('One Image Similar House')
+        ->assertSee('primary-cover.jpg')
+        ->assertDontSee('non-primary.jpg');
 });

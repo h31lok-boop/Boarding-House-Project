@@ -53,6 +53,13 @@
                     'icon' => 'boarding-house',
                     'active' => $isPath($workspacePath.'/boarding-houses*') || $isPath($workspacePath.'/my-boarding-house*'),
                 ],
+                ...($sidebarUserIsOwner ? [[
+                    'key' => 'rooms',
+                    'label' => 'Rooms',
+                    'href' => $r('owner.rooms', ['owner' => 'mine']),
+                    'icon' => 'rooms',
+                    'active' => request()->routeIs('owner.rooms', 'owner.rooms.*'),
+                ]] : []),
                 [
                     'key' => 'reservations',
                     'label' => 'Reservations',

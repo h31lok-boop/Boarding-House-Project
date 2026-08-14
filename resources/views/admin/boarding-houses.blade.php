@@ -2,6 +2,7 @@
 <x-admin.shell :show-header="false">
     @php
         $workspace = request()->routeIs('owner.*') ? 'owner' : 'admin';
+        $isOwnerWorkspace = $workspace === 'owner';
         $route = fn (string $name, $params = []) => route($workspace.'.'.$name, $params);
         $isMineView = request('owner') === 'mine';
         $pageTitle = $isMineView ? 'My Properties' : 'Boarding Houses';
@@ -47,7 +48,7 @@
         $showingTo = method_exists($houses, 'lastItem') ? ($houses->lastItem() ?? 0) : $houseCollection->count();
         $hasPagination = method_exists($houses, 'hasPages') && $houses->hasPages();
 
-        $listingRows = $houseCollection->map(function ($house) use ($statusLabel, $statusBadge, $occupancyTone, $isMineView, $route) {
+        $listingRows = $houseCollection->map(function ($house) use ($statusLabel, $statusBadge, $occupancyTone, $isMineView, $isOwnerWorkspace, $route) {
             $asString = fn ($value): ?string => is_scalar($value) || $value === null ? ($value !== null ? (string) $value : null) : null;
             $visibleStatus = $statusLabel($house);
             $approval = $house->approval_status ?: ($house->status ?: 'pending');
@@ -137,7 +138,7 @@
                 'update_url' => $route('listings.update', $house),
                 'destroy_url' => $route('listings.destroy', array_filter([
                     'boarding_house' => $house,
-                    'return_to_my_boarding_house' => $isMineView ? 1 : null,
+                    'return_to_my_boarding_house' => $isMineView && ! $isOwnerWorkspace ? 1 : null,
                 ])),
             ];
 
@@ -162,7 +163,7 @@
                 'payload' => $payload,
                 'destroy_url' => $route('listings.destroy', array_filter([
                     'boarding_house' => $house,
-                    'return_to_my_boarding_house' => $isMineView ? 1 : null,
+                    'return_to_my_boarding_house' => $isMineView && ! $isOwnerWorkspace ? 1 : null,
                 ])),
             ];
         })->values();
@@ -188,11 +189,6 @@
                 return window.boardingHousePhotoFiles;
             },
             showDetails(house) {
-                if (@js($isMineView)) {
-                    this.editDetails(house);
-                    return;
-                }
-
                 this.selected = house;
                 this.viewPhotoCursor = 0;
                 this.viewOpen = true;
@@ -407,6 +403,7 @@
                 </div>
             </div>
 
+            @unless ($isMineView)
             <div class="space-y-4 px-5 py-5 sm:px-6">
                 <form method="GET" autocomplete="off" data-form-type="other" data-lpignore="true" data-1p-ignore data-bwignore class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-200/50">
                     @if (filled(request('owner')))
@@ -465,6 +462,7 @@
                     </div>
                 @endif
             </div>
+            @endunless
         </section>
         @endif
 
@@ -548,7 +546,7 @@
             </section>
         @endif
 
-        @if ($isMineView && $listingRows->count() === 1)
+        @if ($isMineView && $listingRows->count() === 1 && ! $isOwnerWorkspace)
             @php
                 $property = $listingRows->first();
                 $bhId = $property['payload']['id'] ?? null;
@@ -557,15 +555,23 @@
             @endphp
             <section class="overflow-hidden rounded-[1.45rem] border border-slate-200/80 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
                 <div class="border-b border-slate-200/80 bg-gradient-to-r from-blue-50/50 to-transparent px-5 py-4">
-                    <div class="flex items-center justify-between gap-3">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div class="min-w-0">
                             <h2 class="text-base font-semibold tracking-[-0.02em] text-slate-950">{{ $property['name'] }}</h2>
                             <p class="mt-0.5 text-[13px] text-slate-500">{{ $property['full_location'] }}</p>
                         </div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex shrink-0 flex-wrap items-center gap-2">
                             <span class="inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-medium {{ $property['status_classes'] }}">
                                 {{ $property['visible_status'] }}
                             </span>
+                            <button
+                                type="button"
+                                @click="editDetails({{ \Illuminate\Support\Js::from($property['payload']) }})"
+                                class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3.5 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100"
+                            >
+                                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16.862 3.487a2.25 2.25 0 0 1 3.182 3.182L8.25 18.463 3.75 19.5l1.037-4.5L16.862 3.487Z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m14.625 5.625 3.75 3.75"/></svg>
+                                Edit Property
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -634,7 +640,7 @@
                 </div>
             </section>
         @else
-        <section class="overflow-hidden rounded-[1.45rem] border border-slate-200/80 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
+        <section data-property-list-view class="overflow-hidden rounded-[1.45rem] border border-slate-200/80 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.05)]">
             <div class="border-b border-slate-200/80 px-5 py-4">
                 <div class="flex items-center justify-between gap-3">
                     <h2 class="text-base font-semibold tracking-[-0.02em] text-slate-950">{{ $isMineView ? 'Your Properties' : 'Listings' }}</h2>
@@ -886,7 +892,7 @@
         <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak x-transition.opacity @keydown.escape.window="addOpen = false" class="bm-modal-overlay" style="display: none;">
             <form method="POST" action="{{ $route('listings.store') }}" enctype="multipart/form-data" autocomplete="off" data-form-type="other" data-lpignore="true" data-1p-ignore data-bwignore class="bm-modal bm-modal--xl">
                 @csrf
-                @if ($isMineView)
+                @if ($isMineView && ! $isOwnerWorkspace)
                     <input type="hidden" name="return_to_my_boarding_house" value="1">
                 @endif
                 <div class="bm-modal__header">
@@ -993,9 +999,8 @@
         </div>
         </template>
 
-        @unless ($isMineView)
         <template x-teleport="body">
-        <div data-modal-root role="dialog" aria-modal="true" x-show="viewOpen" x-cloak x-transition.opacity @keydown.escape.window="viewOpen = false" class="bm-modal-overlay" style="display: none;">
+        <div data-modal-root data-property-details-modal role="dialog" aria-modal="true" x-show="viewOpen" x-cloak x-transition.opacity @keydown.escape.window="viewOpen = false" class="bm-modal-overlay" style="display: none;">
             <div class="bm-modal bm-modal--xl">
                 <div class="bm-modal__header">
                     <div>
@@ -1106,13 +1111,12 @@
             </div>
         </div>
         </template>
-        @endunless
 
         <template x-teleport="body">
         <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak x-transition.opacity @keydown.escape.window="editOpen = false" @click.self="editOpen = false" class="bm-modal-overlay" style="display: none;">
             <form method="POST" :action="selected.update_url" enctype="multipart/form-data" autocomplete="off" data-form-type="other" data-lpignore="true" data-1p-ignore data-bwignore class="bm-modal bm-modal--property-editor" @if ($isMineView) data-owner-direct-editor @endif>
                 @csrf @method('PUT')
-                @if ($isMineView)
+                @if ($isMineView && ! $isOwnerWorkspace)
                     <input type="hidden" name="return_to_my_boarding_house" value="1">
                 @endif
                 <div class="bm-modal__header">
@@ -1121,9 +1125,7 @@
                         <h2 class="bm-modal__title" x-text="selected.name || 'Edit Boarding House'"></h2>
                         <p class="bm-modal__subtitle">Manage the photos and information tenants see on your listing.</p>
                     </div>
-                    @unless ($isMineView)
                     <button type="button" @click="editOpen = false" class="bm-modal__close" aria-label="Close edit boarding house modal">x</button>
-                    @endunless
                 </div>
                 <div class="bm-modal__body !p-0">
                     <div class="grid min-w-0 xl:grid-cols-[minmax(0,1.15fr)_minmax(24rem,0.85fr)]">
@@ -1276,7 +1278,10 @@
                 @if ($isMineView)
                 <div class="bm-modal__footer items-center justify-between gap-4">
                     <p class="hidden text-xs text-slate-500 dark:text-slate-400 sm:block">Saving updates the property information shown to tenants.</p>
-                    <button class="bm-modal__button bm-modal__button--primary sm:min-w-36">Save changes</button>
+                    <div class="flex items-center gap-2">
+                        <button type="button" @click="editOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button>
+                        <button class="bm-modal__button bm-modal__button--primary sm:min-w-36">Save changes</button>
+                    </div>
                 </div>
                 @else
                 <div class="bm-modal__footer"><button type="button" @click="editOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button><button class="bm-modal__button bm-modal__button--primary">Save changes</button></div>

@@ -208,6 +208,7 @@ class BoardingHouseLocationMap {
         this.busy = false;
         this.routeRequestId = 0;
         this.map = null;
+        this.routeRenderer = null;
         this.houseMarker = null;
         this.campusMarker = null;
         this.userMarker = null;
@@ -359,6 +360,14 @@ class BoardingHouseLocationMap {
             attribution: '&copy; OpenStreetMap contributors',
         }).addTo(this.map);
 
+        // Keep route geometry in its own canvas pane above map tiles. This
+        // avoids global SVG styles hiding Leaflet paths and keeps the road line
+        // visible while property/campus markers remain on top.
+        const routePane = this.map.createPane('boardmatchRoutes');
+        routePane.style.zIndex = '550';
+        routePane.style.pointerEvents = 'auto';
+        this.routeRenderer = L.canvas({ pane: 'boardmatchRoutes', padding: 0.5 });
+
         this.houseMarker = L.marker([this.destination.lat, this.destination.lng], {
             icon: markerIcon('house'),
             title: this.config.house?.name || 'Boarding House',
@@ -466,8 +475,9 @@ class BoardingHouseLocationMap {
             });
         });
 
+        const usesDsscByDefault = this.root.dataset.defaultRouteOrigin === 'dssc';
         const reservationPanel = document.getElementById('reservation-panel');
-        if (reservationPanel && 'IntersectionObserver' in window) {
+        if (!usesDsscByDefault && reservationPanel && 'IntersectionObserver' in window) {
             const observer = new IntersectionObserver((entries) => {
                 entries.forEach((entry) => {
                     if (entry.isIntersecting) {
@@ -480,6 +490,7 @@ class BoardingHouseLocationMap {
         }
 
         window.addEventListener('hashchange', () => {
+            if (usesDsscByDefault) return;
             if (window.location.hash === '#reservation-panel') {
                 this.autoLocateFromReservationFlow();
             }
@@ -715,13 +726,19 @@ class BoardingHouseLocationMap {
         this.routeLayers = routes.map((route, index) => {
             const outline = L.polyline(route.coordinates, {
                 color: '#ffffff',
-                opacity: 0.85,
-                weight: 9,
+                opacity: 0.98,
+                weight: 12,
+                pane: 'boardmatchRoutes',
+                renderer: this.routeRenderer,
             }).addTo(this.map);
             const line = L.polyline(route.coordinates, {
                 color: index === 0 ? '#2563eb' : '#94a3b8',
-                opacity: index === 0 ? 0.96 : 0.72,
-                weight: index === 0 ? 5 : 4,
+                opacity: index === 0 ? 1 : 0.76,
+                weight: index === 0 ? 7 : 5,
+                pane: 'boardmatchRoutes',
+                renderer: this.routeRenderer,
+                lineCap: 'round',
+                lineJoin: 'round',
             }).addTo(this.map);
 
             // OSRM snaps routes to the road network, so the polyline can stop
@@ -792,6 +809,10 @@ class BoardingHouseLocationMap {
                 opacity: active ? 0.98 : 0.72,
                 weight: active ? 5.5 : 4,
             });
+            if (active) {
+                layer.outline.bringToFront();
+                layer.line.bringToFront();
+            }
             (layer.connectors || []).forEach((connector) => connector.setStyle({
                 color: active ? '#2563eb' : '#94a3b8',
                 opacity: active ? 0.85 : 0.5,
@@ -1036,7 +1057,9 @@ class BoardingHouseLocationMap {
             window.setTimeout(() => this.autoLocateFromReservationFlow(), 220);
         }
 
-        if (window.location.hash === '#reservation-panel') {
+        if (this.root.dataset.defaultRouteOrigin === 'dssc') {
+            window.setTimeout(() => this.routeFromDssc(), 220);
+        } else if (window.location.hash === '#reservation-panel') {
             window.setTimeout(() => this.autoLocateFromReservationFlow(), 240);
         }
     }

@@ -62,8 +62,17 @@
         </section>
 
         @if ($accountType === 'owner')
-            <section class="grid gap-3 sm:grid-cols-3">
+            <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                 <div class="ui-card p-4"><p class="text-xs font-semibold ui-muted">Owner Applications</p><p class="mt-1 text-xl font-bold">{{ number_format($ownerCount ?? 0) }}</p></div>
+                <div class="ui-card border-blue-200 p-4">
+                    <p class="text-xs font-semibold text-blue-600">Linked Properties</p>
+                    <p class="mt-1 text-xl font-bold text-blue-600">{{ number_format($linkedOwnerPropertyCount ?? 0) }}</p>
+                    @if (($unassignedPropertyCount ?? 0) > 0)
+                        <p class="mt-1 text-[11px] font-semibold text-amber-600">{{ number_format($unassignedPropertyCount) }} unassigned</p>
+                    @else
+                        <p class="mt-1 text-[11px] ui-muted">All properties have owners</p>
+                    @endif
+                </div>
                 <div class="ui-card border-amber-200 p-4"><p class="text-xs font-semibold text-amber-600">Awaiting Review</p><p class="mt-1 text-xl font-bold text-amber-600">{{ number_format($pendingOwnerCount ?? 0) }}</p></div>
                 <div class="ui-card border-emerald-200 p-4"><p class="text-xs font-semibold text-emerald-600">Verified Owners</p><p class="mt-1 text-xl font-bold text-emerald-600">{{ number_format($verifiedOwnerCount ?? 0) }}</p></div>
             </section>
@@ -102,7 +111,7 @@
                         <tr>
                             <th class="px-5 py-3 text-left">Account</th>
                             @if ($accountType === 'owner')
-                                <th class="px-5 py-3 text-left">Boarding House</th>
+                                <th class="px-5 py-3 text-left">Boarding Houses</th>
                                 <th class="px-5 py-3 text-left">Submitted Files</th>
                                 <th class="px-5 py-3 text-left">Review Status</th>
                             @else
@@ -122,7 +131,9 @@
                                 $isOwner = $user->role === 'owner';
                                 $roleLabel = $isAdmin ? 'Administrator' : ($isOwner ? 'Property Owner' : 'Student / Tenant');
                                 $ownerProfile = $user->ownerProfile;
-                                $house = $user->ownedBoardingHouses->first();
+                                $houses = $user->ownedBoardingHouses->sortBy('id')->values();
+                                $house = $houses->first();
+                                $submittedHouseCount = $houses->count() ?: (filled($ownerProfile?->boarding_house_name) ? 1 : 0);
                                 $permitPath = $ownerProfile?->proof_of_ownership ?: $ownerProfile?->valid_id_file;
                                 $permitExists = filled($permitPath) && Illuminate\Support\Facades\Storage::disk('public')->exists($permitPath);
                                 $permitUrl = $permitExists ? Illuminate\Support\Facades\Storage::disk('public')->url($permitPath) : null;
@@ -133,9 +144,9 @@
                                 $approvalRecordInvalid = in_array($verificationStatus, ['verified', 'approved', 'rejected'], true);
                                 $approvalState = $ownerApproved ? 'approved' : ($approvalRecordInvalid ? 'not_approved' : 'pending');
                                 $approvalLabel = $ownerApproved ? 'Approved' : ($approvalRecordInvalid ? 'Not approved' : 'Pending approval');
-                                $photoPaths = collect($house?->images ?? [])->pluck('image_path')
-                                    ->merge(collect($house?->photos ?? [])->pluck('photo_path'))
-                                    ->merge(collect([$house?->featured_image, $house?->exterior_image, $house?->room_image, $house?->cr_image, $house?->kitchen_image]))
+                                $photoPaths = $houses->flatMap(fn ($ownedHouse) => collect($ownedHouse->images ?? [])->pluck('image_path')
+                                    ->merge(collect($ownedHouse->photos ?? [])->pluck('photo_path'))
+                                    ->merge(collect([$ownedHouse->featured_image, $ownedHouse->exterior_image, $ownedHouse->room_image, $ownedHouse->cr_image, $ownedHouse->kitchen_image])))
                                     ->filter()->unique()->values();
                                 $photoUrls = $photoPaths->map(fn ($path) => \Illuminate\Support\Facades\Storage::disk('public')->url($path))->values()->all();
                                 $permissions = $isAdmin
@@ -170,6 +181,12 @@
                                     'permit_url' => $permitUrl,
                                     'permit_type' => $permitType,
                                     'permit_number' => $ownerProfile?->business_permit_number ?: $ownerProfile?->valid_id_number,
+                                    'houses' => $houses->map(fn ($ownedHouse) => [
+                                        'id' => $ownedHouse->id,
+                                        'name' => $ownedHouse->name,
+                                        'address' => $ownedHouse->address ?: $ownedHouse->full_address,
+                                        'status' => strtolower((string) ($ownedHouse->approval_status ?: $ownedHouse->status ?: 'pending')),
+                                    ])->values()->all(),
                                     'house_name' => $house?->name ?: $ownerProfile?->boarding_house_name,
                                     'house_address' => $house?->address ?: $ownerProfile?->boarding_house_address,
                                     'house_status' => strtolower((string) ($house?->approval_status ?: $house?->status ?: 'pending')),
@@ -201,7 +218,17 @@
                                     </div>
                                 </td>
                                 @if ($accountType === 'owner')
-                                    <td class="px-5 py-4"><p class="font-semibold">{{ $house?->name ?: $ownerProfile?->boarding_house_name ?: 'No application found' }}</p><p class="mt-0.5 max-w-xs truncate text-xs ui-muted">{{ $house?->address ?: $ownerProfile?->boarding_house_address }}</p></td>
+                                    <td class="px-5 py-4" data-owner-property-summary="{{ $submittedHouseCount }}">
+                                        @if ($submittedHouseCount > 0)
+                                            <p class="font-semibold">
+                                                {{ $submittedHouseCount }} boarding {{ \Illuminate\Support\Str::plural('house', $submittedHouseCount) }}
+                                            </p>
+                                            <p class="mt-0.5 text-xs ui-muted">Open the application to view all properties.</p>
+                                        @else
+                                            <p class="font-semibold text-amber-700">No boarding house submitted</p>
+                                            <p class="mt-0.5 text-xs ui-muted">The application has no linked property.</p>
+                                        @endif
+                                    </td>
                                     <td class="px-5 py-4">
                                         <span class="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold {{ $isSeededDemo || $permitUrl ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700' }}">
                                             <span aria-hidden="true">{{ $isSeededDemo || $permitUrl ? '✓' : '✕' }}</span>
@@ -264,8 +291,24 @@
                         <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800" x-show="selected.owner_approved"><strong>&#10003; Approved:</strong> <span x-text="selected.seeded_demo ? 'this seeded demonstration owner is enabled under the demo-only permit exemption.' : 'the permit and boarding house application were verified, and owner access is enabled.'"></span></div>
                         <div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800" x-show="selected.approval_state === 'pending'"><strong>Access locked:</strong> this owner cannot sign in or commercialize the property until an administrator approves the submitted permit and application.</div>
                         <div class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800" x-show="selected.approval_state === 'not_approved'"><strong>&#10005; Not approved:</strong> account login and listing publication remain disabled.</div>
-                        <dl class="bm-modal__details bm-modal__details--two-col"><div class="bm-modal__detail"><dt>Boarding House</dt><dd x-text="selected.house_name || 'Not submitted'"></dd></div><div class="bm-modal__detail"><dt>Owner Approval</dt><dd class="font-bold" :class="selected.owner_approved ? 'text-emerald-700' : (selected.approval_state === 'not_approved' ? 'text-rose-700' : 'text-amber-700')" x-text="selected.approval_label"></dd></div><div class="bm-modal__detail sm:col-span-2"><dt>Address</dt><dd x-text="selected.house_address || 'Not submitted'"></dd></div><div class="bm-modal__detail"><dt>Rent Range</dt><dd x-text="selected.monthly_rent || 'Not set'"></dd></div><div class="bm-modal__detail"><dt>Permit Number</dt><dd x-text="selected.seeded_demo ? 'Demo exemption (seeded record)' : (selected.permit_number || 'Not provided')"></dd></div></dl>
-                        <section class="bm-modal__section"><h3 class="bm-modal__section-title">Review checklist</h3><div class="mt-3 grid gap-2 sm:grid-cols-3"><span class="rounded-lg border px-3 py-2 text-xs font-bold" :class="selected.seeded_demo || selected.permit_url ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'" x-text="selected.seeded_demo ? '\u2713 Seeded permit exemption' : (selected.permit_url ? '\u2713 Permit uploaded' : '\u2715 Permit missing')"></span><span class="rounded-lg border px-3 py-2 text-xs font-bold" :class="selected.house_name ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'" x-text="selected.house_name ? '\u2713 Property submitted' : '\u2715 Property missing'"></span><span class="rounded-lg border px-3 py-2 text-xs font-bold" :class="selected.photos?.length ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'" x-text="selected.photos?.length ? '\u2713 ' + selected.photos.length + ' photo(s)' : 'No property photos'"></span></div></section>
+                        <div class="bm-modal__details bm-modal__details--two-col">
+                            <div class="bm-modal__detail sm:col-span-2">
+                                <dt>Boarding Houses</dt>
+                                <dd class="mt-2 space-y-2">
+                                    <template x-for="house in (selected.houses || [])" :key="house.id">
+                                        <div class="rounded-lg border ui-border px-3 py-2">
+                                            <p class="font-semibold" x-text="house.name"></p>
+                                            <p class="mt-0.5 text-xs ui-muted" x-text="house.address || 'Address not provided'"></p>
+                                        </div>
+                                    </template>
+                                    <span x-show="!selected.houses?.length" x-text="selected.house_name || 'Not submitted'"></span>
+                                </dd>
+                            </div>
+                            <div class="bm-modal__detail"><dt>Owner Approval</dt><dd class="font-bold" :class="selected.owner_approved ? 'text-emerald-700' : (selected.approval_state === 'not_approved' ? 'text-rose-700' : 'text-amber-700')" x-text="selected.approval_label"></dd></div>
+                            <div class="bm-modal__detail"><dt>Rent Range</dt><dd x-text="selected.monthly_rent || 'Not set'"></dd></div>
+                            <div class="bm-modal__detail"><dt>Permit Number</dt><dd x-text="selected.seeded_demo ? 'Demo exemption (seeded record)' : (selected.permit_number || 'Not provided')"></dd></div>
+                        </div>
+                        <section class="bm-modal__section"><h3 class="bm-modal__section-title">Review checklist</h3><div class="mt-3 grid gap-2 sm:grid-cols-3"><span class="rounded-lg border px-3 py-2 text-xs font-bold" :class="selected.seeded_demo || selected.permit_url ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'" x-text="selected.seeded_demo ? '\u2713 Seeded permit exemption' : (selected.permit_url ? '\u2713 Permit uploaded' : '\u2715 Permit missing')"></span><span class="rounded-lg border px-3 py-2 text-xs font-bold" :class="selected.houses?.length || selected.house_name ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'" x-text="selected.houses?.length ? '\u2713 ' + selected.houses.length + ' properties linked' : (selected.house_name ? '\u2713 Property submitted' : '\u2715 Property missing')"></span><span class="rounded-lg border px-3 py-2 text-xs font-bold" :class="selected.photos?.length ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-700'" x-text="selected.photos?.length ? '\u2713 ' + selected.photos.length + ' photo(s)' : 'No property photos'"></span></div></section>
                         <label x-show="selected.reject_url" class="block text-sm font-bold">Reason if rejected<textarea name="rejection_reason" form="reject-owner-form" rows="3" class="ui-input mt-2 w-full" placeholder="Explain which permit or property detail must be corrected."></textarea></label>
                     </div>
 

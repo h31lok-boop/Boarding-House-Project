@@ -658,6 +658,33 @@ body.modal-open .bm-native-dialog[data-modal-active='true'] {
     resize: vertical;
 }
 
+/* The service description owns the unused height in the fixed-size creation
+   dialog instead of leaving an empty block above the footer. */
+.bm-modal__body.bm-service-create-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.bm-service-create-grid {
+    flex: 1 1 auto;
+}
+
+.bm-modal .bm-service-description {
+    display: flex;
+    flex-direction: column;
+}
+
+.bm-modal .bm-service-description textarea {
+    flex: 1 1 auto;
+    min-height: 12rem;
+}
+
+@media (min-width: 640px) {
+    .bm-service-create-grid {
+        grid-template-rows: auto auto minmax(12rem, 1fr);
+    }
+}
+
 .bm-modal input:focus,
 .bm-modal select:focus,
 .bm-modal textarea:focus {

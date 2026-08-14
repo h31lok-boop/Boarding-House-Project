@@ -325,7 +325,7 @@
                         </ul>
                     </section>
 
-                    <section class="bm-location-map ui-card overflow-hidden" data-boardmatch-location-map>
+                    <section class="bm-location-map ui-card overflow-hidden" data-boardmatch-location-map data-default-route-origin="dssc">
                         <script type="application/json" data-map-config>{!! json_encode($mapConfig, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
 
                         <div class="border-b border-slate-100 bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.16),_transparent_42%),linear-gradient(135deg,_#eff6ff_0%,_#ffffff_42%,_#f8fafc_100%)] px-5 py-5 dark:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.18),_transparent_42%),linear-gradient(135deg,_#1e293b_0%,_#0f172a_42%,_#111827_100%)] sm:px-6">
@@ -717,7 +717,7 @@
                         <div class="mt-4 grid gap-4 md:grid-cols-3">
                             @forelse($similarHouses as $similar)
                                 <a href="{{ $similar['url'] }}" class="group overflow-hidden rounded-lg border border-gray-200 bg-white hover:border-blue-200">
-                                    <img src="{{ $similar['image_url'] }}" alt="{{ $similar['name'] }}" class="h-32 w-full object-cover">
+                                    <img src="{{ $similar['image_url'] }}" alt="{{ $similar['name'] }}" class="h-32 w-full object-cover" loading="lazy" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}'">
                                     <div class="p-3">
                                         <p class="line-clamp-1 text-sm font-bold text-gray-900 group-hover:text-blue-700">{{ $similar['name'] }}</p>
                                         <p class="mt-1 line-clamp-1 text-xs text-gray-500">{{ $similar['location'] ?: 'Location unavailable' }}</p>

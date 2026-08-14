@@ -17,6 +17,7 @@ use App\Services\PaymongoService;
 use App\Services\ReservationLifecycleService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -470,35 +471,49 @@ class TenantAreaController extends Controller
         $activeFilter = strtolower(trim((string) $request->query('filter', '')));
         $activeFilter = in_array($activeFilter, ['unread', 'active', 'archived'], true) ? $activeFilter : '';
 
-        $tenantInquiryIds = Inquiry::query()
-            ->where('user_id', $tenant->id)
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id);
-        $unreadInquiryIds = $this->unreadInquiryIds($tenant->id, $tenantInquiryIds);
-
-        $messages = Inquiry::with([
+        $inquiries = Inquiry::with([
             'boardingHouse.images',
             'boardingHouse.owner',
         ])
             ->where('user_id', $tenant->id)
-            ->when($activeFilter === 'unread', fn ($query) => $query->whereIn('id', $unreadInquiryIds))
-            ->when($activeFilter === 'archived', fn ($query) => $query->whereIn(DB::raw('LOWER(status)'), ['closed', 'declined']))
-            ->when($activeFilter === 'active', function ($query) {
-                $query->where(function ($statusQuery) {
-                    $statusQuery->whereNull('status')
-                        ->orWhereNotIn(DB::raw('LOWER(status)'), ['closed', 'declined']);
-                });
-            })
-            ->when($request->filled('q'), function ($query) use ($request) {
-                $term = '%'.$request->query('q').'%';
-                $query->where(function ($search) use ($term) {
-                    $search->where('message', 'like', $term)
-                        ->orWhereHas('boardingHouse', fn ($house) => $house->where('name', 'like', $term));
-                });
-            })
             ->latest()
-            ->paginate(12)
-            ->withQueryString();
+            ->get();
+
+        // Build complete person-to-person timelines before filtering and
+        // pagination so another message never creates a duplicate contact.
+        $allThreads = $this->buildInquiryThreads($tenant->id, $inquiries);
+        $visibleThreads = $allThreads;
+
+        if ($request->filled('q')) {
+            $term = Str::lower(trim((string) $request->query('q')));
+            $visibleThreads = $visibleThreads->filter(function (array $thread) use ($term) {
+                $searchable = collect([
+                    $thread['owner_name'],
+                    $thread['property'],
+                    $thread['location'],
+                    $thread['message'],
+                    ...collect($thread['timeline'])->pluck('body')->all(),
+                ])->filter()->implode(' ');
+
+                return str_contains(Str::lower($searchable), $term);
+            });
+        }
+
+        $visibleThreads = $visibleThreads
+            ->when($activeFilter === 'unread', fn (Collection $threads) => $threads->filter(fn (array $thread) => $thread['unread'] > 0))
+            ->when($activeFilter === 'archived', fn (Collection $threads) => $threads->where('archived', true))
+            ->when($activeFilter === 'active', fn (Collection $threads) => $threads->where('archived', false))
+            ->values();
+
+        $perPage = 12;
+        $currentPage = max(LengthAwarePaginator::resolveCurrentPage(), 1);
+        $messages = new LengthAwarePaginator(
+            $visibleThreads->forPage($currentPage, $perPage)->values(),
+            $visibleThreads->count(),
+            $perPage,
+            $currentPage,
+            ['path' => $request->url(), 'query' => $request->query()]
+        );
 
         // Keep every name rendered in the inbox tied to this tenant's own
         // conversation history. New property conversations start from the
@@ -512,17 +527,11 @@ class TenantAreaController extends Controller
         $houses = $this->approvedHouses()
             ->whereIn('id', $contactedHouseIds)
             ->values();
-        $threads = $this->buildInquiryThreads($tenant->id, $messages->getCollection());
-        $messages->setCollection($threads);
-
-        $totalConversations = $tenantInquiryIds->count();
-        $archivedConversations = Inquiry::query()
-            ->where('user_id', $tenant->id)
-            ->whereIn(DB::raw('LOWER(status)'), ['closed', 'declined'])
-            ->count();
+        $totalConversations = $allThreads->count();
+        $archivedConversations = $allThreads->where('archived', true)->count();
         $conversationTabs = collect([
             ['key' => '', 'label' => 'All', 'count' => $totalConversations],
-            ['key' => 'unread', 'label' => 'Unread', 'count' => $unreadInquiryIds->count()],
+            ['key' => 'unread', 'label' => 'Unread', 'count' => $allThreads->filter(fn (array $thread) => $thread['unread'] > 0)->count()],
             ['key' => 'active', 'label' => 'Active', 'count' => max($totalConversations - $archivedConversations, 0)],
             ['key' => 'archived', 'label' => 'Archived', 'count' => $archivedConversations],
         ]);
@@ -1015,35 +1024,64 @@ class TenantAreaController extends Controller
     {
         $replyNotifications = $this->inquiryReplyNotifications($tenantId, $messages->pluck('id'));
 
-        return $messages->map(function (Inquiry $message, int $index) use ($replyNotifications) {
+        return $messages
+            ->groupBy(function (Inquiry $message) {
+                $ownerId = $message->boardingHouse?->owner?->id;
+
+                return $ownerId ? 'owner:'.$ownerId : 'support';
+            })
+            ->map(function (Collection $conversation) use ($replyNotifications) {
+            $conversation = $conversation
+                ->sortBy(fn (Inquiry $item) => sprintf('%020d-%020d', $item->created_at?->getTimestamp() ?? 0, $item->id))
+                ->values();
+            $message = $conversation->last();
             $house = $message->boardingHouse;
             $ownerName = trim((string) ($house?->owner?->name ?? 'Property Owner'));
-            $reply = $replyNotifications->get('inquiry:'.$message->id);
+            $conversationReplies = $conversation
+                ->mapWithKeys(fn (Inquiry $item) => [$item->id => $replyNotifications->get('inquiry:'.$item->id)])
+                ->filter();
+            $reply = $conversationReplies->sortByDesc('updated_at')->first();
             $replyData = (array) ($reply?->data ?? []);
-            $replySenderName = trim((string) ($replyData['sender_name'] ?? $ownerName));
             $replySenderRole = trim((string) ($replyData['sender_role'] ?? ($house?->owner ? 'Property Owner' : 'BoardMatch Support')));
             $statusKey = strtolower(trim((string) ($message->status ?? 'pending')));
-            $messageCreatedAt = $message->created_at ? Carbon::parse($message->created_at) : null;
-            $replyCreatedAt = $reply?->updated_at ? Carbon::parse($reply->updated_at) : null;
-            $timeline = collect([
-                [
+            $timeline = $conversation->flatMap(function (Inquiry $item) use ($replyNotifications, $ownerName) {
+                $itemCreatedAt = $item->created_at ? Carbon::parse($item->created_at) : null;
+                $itemReply = $replyNotifications->get('inquiry:'.$item->id);
+                $events = collect([[
                     'sender' => 'tenant',
                     'label' => 'You',
-                    'body' => $message->message,
-                    'time' => $messageCreatedAt?->format('M d, Y h:i A') ?? 'Recently',
-                ],
-            ]);
+                    'body' => $item->message,
+                    'time' => $itemCreatedAt?->format('M d, Y h:i A') ?? 'Recently',
+                    '_sort' => $itemCreatedAt?->getTimestamp() ?? 0,
+                ]]);
 
-            if ($reply) {
-                $timeline->push([
-                    'sender' => 'owner',
-                    'label' => $replySenderName.' · '.$replySenderRole,
-                    'body' => $reply->message,
-                    'time' => $replyCreatedAt?->format('M d, Y h:i A') ?? 'Recently',
-                ]);
-            }
+                if ($itemReply) {
+                    $itemReplyData = (array) ($itemReply->data ?? []);
+                    $itemReplyAt = $itemReply->updated_at ? Carbon::parse($itemReply->updated_at) : null;
+                    $events->push([
+                        'sender' => 'owner',
+                        'label' => trim((string) ($itemReplyData['sender_name'] ?? $ownerName)).' / '.trim((string) ($itemReplyData['sender_role'] ?? 'Property Owner')),
+                        'body' => $itemReply->message,
+                        'time' => $itemReplyAt?->format('M d, Y h:i A') ?? 'Recently',
+                        '_sort' => $itemReplyAt?->getTimestamp() ?? 0,
+                    ]);
+                }
 
-            $unread = $reply && ! $reply->read_at ? 1 : 0;
+                return $events;
+            })->sortBy('_sort')->values();
+            $latestEvent = $timeline->last();
+            $latestTimestamp = (int) ($latestEvent['_sort'] ?? 0);
+            $timeline = $timeline->map(function (array $event) {
+                unset($event['_sort']);
+
+                return $event;
+            });
+            $unreadReplies = $conversationReplies->filter(fn (UserNotification $notification) => ! $notification->read_at);
+            $unread = $unreadReplies->count();
+            $propertyNames = $conversation->pluck('boardingHouse.name')->filter()->unique()->values();
+            $propertyLabel = $propertyNames->count() > 1
+                ? $propertyNames->first().' +'.($propertyNames->count() - 1).' more'
+                : ($propertyNames->first() ?? 'General Inquiry');
             $category = match (true) {
                 str_contains($statusKey, 'payment') => 'payments',
                 str_contains($statusKey, 'support'), str_contains($statusKey, 'ticket') => 'support',
@@ -1058,7 +1096,7 @@ class TenantAreaController extends Controller
                 'owner_role' => $house?->owner ? 'Property Owner' : 'BoardMatch Support',
                 'owner_email' => $house?->owner?->email,
                 'owner_phone' => $house?->owner?->contact_number ?: $house?->owner?->phone,
-                'property' => $house?->name ?? 'General Inquiry',
+                'property' => $propertyLabel,
                 'location' => trim((string) ($house?->full_address ?? $house?->address ?? 'BoardMatch Support Desk')),
                 'room_type' => $message->boardingHouse?->property_type
                     ? str((string) $message->boardingHouse->property_type)->replace('_', ' ')->title()->toString()
@@ -1067,14 +1105,15 @@ class TenantAreaController extends Controller
                     ? 'PHP '.number_format((float) $house->effective_price, 2).' / month'
                     : 'Rate shared on inquiry',
                 'booking_status' => str($statusKey !== '' ? $statusKey : 'pending')->replace(['_', '-'], ' ')->title()->toString(),
-                'archived' => in_array($statusKey, ['closed', 'declined'], true),
-                'message' => trim((string) ($reply?->message ?: $message->message)),
-                'time' => $replyCreatedAt?->diffForHumans() ?? ($messageCreatedAt?->diffForHumans() ?? 'Recently'),
-                'time_full' => ($replyCreatedAt ?? $messageCreatedAt)?->format('M d, Y h:i A') ?? 'Recently',
+                'archived' => $conversation->every(fn (Inquiry $item) => in_array(strtolower(trim((string) $item->status)), ['closed', 'declined'], true)),
+                'message' => trim((string) ($latestEvent['body'] ?? $message->message)),
+                'time' => $latestTimestamp > 0 ? Carbon::createFromTimestamp($latestTimestamp)->diffForHumans() : 'Recently',
+                'time_full' => $latestTimestamp > 0 ? Carbon::createFromTimestamp($latestTimestamp)->format('M d, Y h:i A') : 'Recently',
                 'avatar' => $house?->owner?->photo_url ?: asset('images/avatar-placeholder.svg'),
                 'house_image' => $house?->cover_image_url ?? asset('images/boarding-house-placeholder.svg'),
                 'unread' => $unread,
-                'mark_read_url' => $reply ? route('user.notifications.read', ['id' => $reply->id]) : null,
+                'mark_read_url' => $unreadReplies->isNotEmpty() ? route('user.notifications.read', ['id' => $unreadReplies->first()->id]) : null,
+                'mark_read_urls' => $unreadReplies->map(fn (UserNotification $notification) => route('user.notifications.read', ['id' => $notification->id]))->values()->all(),
                 'online' => false,
                 'response_time' => $reply ? 'Latest '.$replySenderRole.' response saved' : 'Awaiting reply',
                 'details_url' => $house ? route('user.boarding-houses.show', $house) : route('user.messages.index'),
@@ -1101,7 +1140,7 @@ class TenantAreaController extends Controller
                 ],
                 'timeline' => $timeline->values()->all(),
             ];
-        })->values();
+        })->sortByDesc(fn (array $thread) => Carbon::parse($thread['time_full'])->getTimestamp())->values();
     }
 
     private function inquiryReplyNotifications(int $tenantId, Collection $messageIds): Collection

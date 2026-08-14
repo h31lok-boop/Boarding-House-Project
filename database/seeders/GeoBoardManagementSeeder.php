@@ -17,6 +17,7 @@ class GeoBoardManagementSeeder extends Seeder
     {
         $this->call(AmenitySeeder::class);
         $imagePaths = $this->ensureSampleImages();
+        $this->removeRetiredSampleProperties();
 
         $ownerProfiles = OwnerProfile::query()->with('user:id,name,phone,contact_number')->get();
         if ($ownerProfiles->isEmpty()) {
@@ -51,9 +52,6 @@ class GeoBoardManagementSeeder extends Seeder
         $houseTemplates = [
             ['name' => 'Sunrise Student Boarding House', 'price' => 2800, 'available_rooms' => 6, 'description' => 'Budget-friendly, near schools, with quiet study zones and stable internet.'],
             ['name' => 'Greenleaf Bedspace and Dorm', 'price' => 3200, 'available_rooms' => 5, 'description' => 'Affordable dorm setup with shared kitchen, laundry access, and CCTV security.'],
-            ['name' => 'CityWalk Boarding Suites', 'price' => 4500, 'available_rooms' => 4, 'description' => 'Mid-range rooms close to transport routes and commercial establishments.'],
-            ['name' => 'Haven Point Boarding Residence', 'price' => 5200, 'available_rooms' => 3, 'description' => 'Modern boarding space with curated amenities and strong safety policies.'],
-            ['name' => 'MetroNest Boarding Hub', 'price' => 6000, 'available_rooms' => 4, 'description' => 'Premium room options with semi-furnished setup and co-working corner.'],
             ['name' => 'Casa Digos Boarding Stay', 'price' => 3500, 'available_rooms' => 7, 'description' => 'Accessible location with practical facilities for students and workers.'],
         ];
 
@@ -116,6 +114,21 @@ class GeoBoardManagementSeeder extends Seeder
             $this->syncRoomCategoriesAndRooms($boardingHouse, (float) $template['price'], (int) $template['available_rooms']);
             $this->syncApprovalLog($boardingHouse, $approverId, $now);
         }
+    }
+
+    private function removeRetiredSampleProperties(): void
+    {
+        BoardingHouse::query()
+            ->whereIn('name', [
+                'CityWalk Boarding Suites',
+                'Haven Point Boarding Residence',
+                'MetroNest Boarding Hub',
+            ])
+            ->get()
+            ->each(function (BoardingHouse $house): void {
+                $house->rooms()->delete();
+                $house->delete();
+            });
     }
 
     /**

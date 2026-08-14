@@ -37,18 +37,24 @@
             this.moreOpen = false;
         },
         markRead(thread) {
-            if (!thread.mark_read_url || Number(thread.unread || 0) === 0) return;
+            const urls = Array.isArray(thread.mark_read_urls) && thread.mark_read_urls.length
+                ? thread.mark_read_urls
+                : (thread.mark_read_url ? [thread.mark_read_url] : []);
+            if (!urls.length || Number(thread.unread || 0) === 0) return;
             thread.unread = 0;
-            fetch(thread.mark_read_url, {
+            Promise.all(urls.map(url => fetch(url, {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': this.csrf,
                     'Accept': 'application/json'
                 }
-            }).catch(() => {});
+            }))).catch(() => {});
         }
     }"
-    x-init="$nextTick(() => { if ($refs.messageHistory) $refs.messageHistory.scrollTop = $refs.messageHistory.scrollHeight })"
+    x-init="$nextTick(() => {
+        if (selected.id) markRead(selected);
+        if ($refs.messageHistory) $refs.messageHistory.scrollTop = $refs.messageHistory.scrollHeight;
+    })"
     data-messaging-interaction
     data-tenant-message-center
     class="h-[calc(100dvh-7.25rem)] min-h-[620px] overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white text-slate-950 shadow-[0_20px_55px_rgba(15,23,42,0.12)] dark:border-slate-700 dark:bg-slate-900 dark:text-white"
@@ -106,7 +112,7 @@
 
             <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
                 @forelse ($threads as $thread)
-                    <button type="button" @click="openThread({{ \Illuminate\Support\Js::from($thread) }})" class="group mb-1 block w-full rounded-xl px-3 py-3 text-left transition" :class="selected.id === {{ $thread['id'] }} ? 'bg-blue-50 dark:bg-blue-500/15' : 'hover:bg-slate-100 dark:hover:bg-slate-800/80'">
+                    <button type="button" data-tenant-conversation-thread @click="openThread({{ \Illuminate\Support\Js::from($thread) }})" class="group mb-1 block w-full rounded-xl px-3 py-3 text-left transition" :class="selected.id === {{ $thread['id'] }} ? 'bg-blue-50 dark:bg-blue-500/15' : 'hover:bg-slate-100 dark:hover:bg-slate-800/80'">
                         <span class="flex items-center gap-3">
                             <span class="relative flex h-[3.25rem] w-[3.25rem] shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-sm font-black text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
                                 <img src="{{ $thread['avatar'] }}" alt="{{ $thread['owner_name'] }}" class="h-full w-full object-cover" loading="lazy">
@@ -120,9 +126,7 @@
                                 <span class="mt-0.5 block truncate text-xs font-semibold text-slate-600 dark:text-slate-300">{{ $thread['property'] }}</span>
                                 <span class="mt-1 flex items-center gap-2">
                                     <span class="min-w-0 flex-1 truncate text-xs {{ $thread['unread'] ? 'font-bold text-slate-800 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400' }}">{{ $thread['message'] }}</span>
-                                    @if ((int) $thread['unread'] > 0)
-                                        <span class="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-blue-600 px-1.5 text-[10px] font-bold text-white">{{ $thread['unread'] }}</span>
-                                    @endif
+                                    <span x-show="Number(selected.id === {{ $thread['id'] }} ? selected.unread : {{ (int) $thread['unread'] }}) > 0" x-text="selected.id === {{ $thread['id'] }} ? selected.unread : {{ (int) $thread['unread'] }}" class="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-blue-600 px-1.5 text-[10px] font-bold text-white"></span>
                                 </span>
                             </span>
                         </span>

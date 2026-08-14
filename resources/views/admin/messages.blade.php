@@ -47,14 +47,23 @@
         'bg-rose-100 text-rose-700',
     ];
 
-    $threadPayloadFor = function ($thread) use ($route, $replyNotifications, $openStatuses, $resolvedStatuses, $initialsFor, $shortDateFor, $dateTimeFor, $locationFor, $avatarTones, $workspaceActorName, $workspaceActorRole) {
+    $threadPayloadFor = function ($thread) use ($route, $replyNotifications, $openStatuses, $resolvedStatuses, $initialsFor, $shortDateFor, $dateTimeFor, $locationFor, $avatarTones, $workspaceActorName, $workspaceActorRole, $isOwnerWorkspace) {
         $tenant = $thread->user;
         $house = $thread->boardingHouse;
         $status = strtolower((string) ($thread->status ?? 'pending'));
         $isResolved = in_array($status, $resolvedStatuses, true);
         $isAwaiting = in_array($status, array_filter($openStatuses, fn ($item) => $item !== null && $item !== ''), true)
             || $status === '';
-        $replyNotification = $replyNotifications->get('inquiry:'.$thread->id);
+        $conversationInquiries = $thread->relationLoaded('conversationInquiries')
+            ? $thread->getRelation('conversationInquiries')
+            : collect([$thread]);
+        $readColumn = $isOwnerWorkspace ? 'owner_read_at' : 'admin_read_at';
+        $unreadCount = $conversationInquiries->whereNull($readColumn)->count();
+        $replyNotification = $conversationInquiries
+            ->map(fn ($conversationInquiry) => $replyNotifications->get('inquiry:'.$conversationInquiry->id))
+            ->filter()
+            ->sortByDesc(fn ($notification) => optional($notification->updated_at)->getTimestamp() ?? 0)
+            ->first();
         $replyData = $replyNotification?->data;
         $replyData = is_string($replyData) ? (json_decode($replyData, true) ?: []) : (array) $replyData;
         $replySenderName = trim((string) ($replyData['sender_name'] ?? $workspaceActorName));
@@ -63,15 +72,17 @@
             ? \Illuminate\Support\Carbon::parse($replyNotification->updated_at)
             : $thread->replied_at;
         $lastTouch = $replyDate ?: ($thread->updated_at ?: $thread->created_at);
-        $messages = [
-            [
+        $messages = $conversationInquiries
+            ->sortBy(fn ($conversationInquiry) => optional($conversationInquiry->created_at)->getTimestamp() ?? 0)
+            ->map(fn ($conversationInquiry) => [
                 'sender' => 'tenant',
                 'initials' => $initialsFor($tenant?->name ?: 'Tenant'),
                 'photo_url' => $tenant?->photo_url,
-                'body' => $thread->message ?: 'No message provided.',
-                'stamp' => $dateTimeFor($thread->created_at),
-            ],
-        ];
+                'body' => $conversationInquiry->message ?: 'No message provided.',
+                'stamp' => $dateTimeFor($conversationInquiry->created_at),
+            ])
+            ->values()
+            ->all();
 
         if ($replyNotification?->message) {
             $messages[] = [
@@ -83,6 +94,44 @@
             ];
         }
 
+        $messageEntries = $conversationInquiries->flatMap(function ($conversationInquiry) use ($replyNotifications, $initialsFor, $tenant, $dateTimeFor, $workspaceActorName, $workspaceActorRole) {
+            $entries = collect([[
+                'sender' => 'tenant',
+                'initials' => $initialsFor($tenant?->name ?: 'Tenant'),
+                'photo_url' => $tenant?->photo_url,
+                'body' => $conversationInquiry->message ?: 'No message provided.',
+                'stamp' => $dateTimeFor($conversationInquiry->created_at),
+                '_at' => $conversationInquiry->created_at,
+            ]]);
+            $conversationReply = $replyNotifications->get('inquiry:'.$conversationInquiry->id);
+
+            if ($conversationReply?->message) {
+                $replyData = is_string($conversationReply->data)
+                    ? (json_decode($conversationReply->data, true) ?: [])
+                    : (array) $conversationReply->data;
+                $replySenderName = trim((string) ($replyData['sender_name'] ?? $workspaceActorName));
+                $replySenderRole = trim((string) ($replyData['sender_role'] ?? $workspaceActorRole));
+                $conversationReplyDate = $conversationReply->updated_at
+                    ? \Illuminate\Support\Carbon::parse($conversationReply->updated_at)
+                    : $conversationInquiry->replied_at;
+                $entries->push([
+                    'sender' => 'staff',
+                    'initials' => $initialsFor($replySenderName),
+                    'label' => $replySenderName.' - '.$replySenderRole,
+                    'body' => $conversationReply->message,
+                    'stamp' => $dateTimeFor($conversationReplyDate),
+                    '_at' => $conversationReplyDate,
+                ]);
+            }
+
+            return $entries;
+        })->sortBy(fn ($message) => optional($message['_at'])->getTimestamp() ?? 0)->values();
+        $latestMessage = $messageEntries->last();
+        $lastTouch = $latestMessage['_at'] ?? ($thread->updated_at ?: $thread->created_at);
+        $messages = $messageEntries
+            ->map(fn ($message) => collect($message)->except('_at')->all())
+            ->all();
+
         return [
             'id' => $thread->id,
             'tenant' => $tenant?->name ?: 'Tenant',
@@ -92,7 +141,7 @@
             'avatar_tone' => $avatarTones[((int) $thread->id) % count($avatarTones)],
             'house' => $house?->name ?: 'Boarding house',
             'location' => $locationFor($house),
-            'preview' => \Illuminate\Support\Str::limit($replyNotification?->message ?: ($thread->message ?: 'No message provided.'), 96),
+            'preview' => \Illuminate\Support\Str::limit($latestMessage['body'] ?? ($thread->message ?: 'No message provided.'), 96),
             'time' => $shortDateFor($lastTouch),
             'full_time' => $dateTimeFor($lastTouch),
             'role_label' => 'Tenant',
@@ -102,8 +151,9 @@
             'status_dot' => $isResolved ? 'bg-slate-400' : ($isAwaiting ? 'bg-amber-500' : 'bg-emerald-500'),
             'is_resolved' => $isResolved,
             'is_awaiting' => $isAwaiting,
-            'unread_count' => $isAwaiting ? 1 : 0,
-            'message_status' => $replyNotification?->message ? 'Delivered' : 'Awaiting reply',
+            'unread_count' => $unreadCount,
+            'mark_read_url' => $route('messages.read', $thread),
+            'message_status' => ($latestMessage['sender'] ?? 'tenant') === 'staff' ? 'Delivered' : 'Awaiting reply',
             'messages' => $messages,
             'update_url' => $route('inquiries.update', $thread),
         ];
@@ -125,11 +175,13 @@
         mobileThreadOpen: false,
         moreOpen: false,
         replyBody: '',
+        csrf: @js(csrf_token()),
         openThread(thread) {
             this.selected = thread;
             this.mobileThreadOpen = true;
             this.moreOpen = false;
             this.replyBody = '';
+            this.markRead(thread);
             this.$nextTick(() => {
                 const panel = this.$refs.messageHistory;
                 if (panel) panel.scrollTop = panel.scrollHeight;
@@ -138,9 +190,23 @@
         closeThread() {
             this.mobileThreadOpen = false;
             this.moreOpen = false;
+        },
+        markRead(thread) {
+            if (!thread.mark_read_url || Number(thread.unread_count || 0) === 0) return;
+            thread.unread_count = 0;
+            fetch(thread.mark_read_url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': this.csrf,
+                    'Accept': 'application/json'
+                }
+            }).catch(() => {});
         }
     }"
-    x-init="$nextTick(() => { if ($refs.messageHistory) $refs.messageHistory.scrollTop = $refs.messageHistory.scrollHeight })"
+    x-init="$nextTick(() => {
+        if (selected.id) markRead(selected);
+        if ($refs.messageHistory) $refs.messageHistory.scrollTop = $refs.messageHistory.scrollHeight;
+    })"
     data-messaging-interaction
     class="h-[calc(100dvh-7.25rem)] min-h-[620px] overflow-hidden rounded-[1.35rem] border border-slate-200 bg-white text-slate-950 shadow-[0_20px_55px_rgba(15,23,42,0.12)] dark:border-slate-700 dark:bg-slate-900 dark:text-white"
 >
@@ -198,7 +264,7 @@
             <div class="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
                 @forelse ($threads as $thread)
                     @php($payload = $threadPayloadFor($thread))
-                    <button type="button" @click="openThread({{ \Illuminate\Support\Js::from($payload) }})" class="group mb-1 block w-full rounded-xl px-3 py-3 text-left transition" :class="selected.id === {{ $thread->id }} ? 'bg-blue-50 dark:bg-blue-500/15' : 'hover:bg-slate-100 dark:hover:bg-slate-800/80'">
+                    <button type="button" data-conversation-thread @click="openThread({{ \Illuminate\Support\Js::from($payload) }})" class="group mb-1 block w-full rounded-xl px-3 py-3 text-left transition" :class="selected.id === {{ $thread->id }} ? 'bg-blue-50 dark:bg-blue-500/15' : 'hover:bg-slate-100 dark:hover:bg-slate-800/80'">
                         <span class="flex items-center gap-3">
                             <span class="relative flex h-[3.25rem] w-[3.25rem] shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-black {{ $payload['avatar_tone'] }}">
                                 @if ($payload['photo_url'])<img src="{{ $payload['photo_url'] }}" alt="{{ $payload['tenant'] }}" class="h-full w-full object-cover" loading="lazy">@else{{ $payload['initials'] }}@endif
@@ -212,9 +278,7 @@
                                 <span class="mt-0.5 block truncate text-xs font-semibold text-slate-600 dark:text-slate-300">{{ $payload['house'] }}</span>
                                 <span class="mt-1 flex items-center gap-2">
                                     <span class="min-w-0 flex-1 truncate text-xs {{ $payload['unread_count'] ? 'font-bold text-slate-800 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400' }}">{{ $payload['preview'] }}</span>
-                                    @if ((int) $payload['unread_count'] > 0)
-                                        <span class="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-blue-600 px-1.5 text-[10px] font-bold text-white">{{ $payload['unread_count'] }}</span>
-                                    @endif
+                                    <span x-show="Number(selected.id === {{ $thread->id }} ? selected.unread_count : {{ (int) $payload['unread_count'] }}) > 0" x-text="selected.id === {{ $thread->id }} ? selected.unread_count : {{ (int) $payload['unread_count'] }}" class="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-blue-600 px-1.5 text-[10px] font-bold text-white"></span>
                                 </span>
                             </span>
                         </span>

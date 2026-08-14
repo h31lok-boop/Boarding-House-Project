@@ -71,13 +71,6 @@
                 <p class="mt-1 text-sm text-gray-500">Monitor room capacity, slots, rental fees, and availability.</p>
             </div>
             <div class="flex items-center gap-2">
-                <select id="bhSelector" onchange="location.href='{{ $route('rooms') }}?boarding_house_id='+this.value"
-                        class="px-3 py-2 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300">
-                    <option value="">All Boarding Houses</option>
-                    @foreach ($boardingHouses as $bh)
-                        <option value="{{ $bh->id }}" @selected((string) request('boarding_house_id') === (string) $bh->id)>{{ $bh->name }}</option>
-                    @endforeach
-                </select>
                 <button type="button" @click="addOpen = true"
                         class="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white text-sm font-medium rounded-lg hover:bg-orange-600 transition-colors shadow-sm">
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
@@ -113,9 +106,22 @@
 
         {{-- Filters --}}
         <form method="GET" class="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm flex flex-wrap gap-3 items-center">
-            @if (request('boarding_house_id'))
-                <input type="hidden" name="boarding_house_id" value="{{ request('boarding_house_id') }}">
-            @endif
+            <div class="min-w-[230px] sm:min-w-[270px]">
+                <label for="boarding-house-category" class="sr-only">Boarding House</label>
+                <select
+                    id="boarding-house-category"
+                    name="boarding_house_id"
+                    onchange="this.form.requestSubmit()"
+                    class="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-300"
+                >
+                    <option value="">{{ $workspace === 'owner' ? 'All My Boarding Houses' : 'All Boarding Houses' }}</option>
+                    @foreach ($boardingHouses as $house)
+                        <option value="{{ $house->id }}" @selected((string) request('boarding_house_id') === (string) $house->id)>
+                            {{ $house->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
             <div class="relative flex-1 min-w-[200px]">
                 <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -141,6 +147,7 @@
                     <thead class="bg-gray-50 text-xs text-gray-500 uppercase border-b border-gray-100">
                         <tr>
                             <th class="px-5 py-3 text-left">Room Number</th>
+                            <th class="px-5 py-3 text-left">Boarding House</th>
                             <th class="px-5 py-3 text-left">Room Type</th>
                             <th class="px-5 py-3 text-left">Floor</th>
                             <th class="px-5 py-3 text-left">Capacity</th>
@@ -157,7 +164,7 @@
                                 $payload = [
                                     'room_no' => $roomNo,
                                     'boarding_house_id' => $room->boarding_house_id,
-                                    'boarding_house' => $room->boardingHouse->name ?? 'Unassigned',
+                                    'boarding_house' => $room->boardingHouse?->name ?? 'Unassigned',
                                     'price' => $room->price,
                                     'capacity' => $room->capacity,
                                     'available_slots' => $room->available_slots,
@@ -176,6 +183,9 @@
                                 @keydown.space.prevent="selected = {{ \Illuminate\Support\Js::from($payload) }}; viewOpen = true"
                             >
                                 <td class="px-5 py-3 font-medium text-gray-800">{{ $roomNo }}</td>
+                                <td class="px-5 py-3 font-medium text-gray-700">
+                                    {{ $room->boardingHouse?->name ?? 'Unassigned' }}
+                                </td>
                                 <td class="px-5 py-3 text-gray-600">{{ $roomType }}</td>
                                 <td class="px-5 py-3 text-gray-500">{{ $floor }}</td>
                                 <td class="px-5 py-3 text-gray-600">{{ $room->capacity ?? 1 }}</td>
@@ -207,7 +217,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="6" class="px-5 py-10 text-center text-gray-400">No rooms found.</td></tr>
+                            <tr><td colspan="7" class="px-5 py-10 text-center text-gray-400">No rooms found.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

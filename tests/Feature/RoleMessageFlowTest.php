@@ -208,3 +208,128 @@ test('tenant with no threads is guided to approved listings without exposing unr
         ->assertSee('Find boarding houses')
         ->assertSee('No conversations found');
 });
+
+test('tenant inbox keeps every message to the same owner in one contact conversation', function () {
+    $owner = User::factory()->verifiedOwner()->create(['name' => 'Single Contact Owner']);
+    $tenant = User::factory()->create(['name' => 'Conversation Tenant', 'role' => 'user']);
+    $firstHouse = BoardingHouse::factory()->create([
+        'owner_id' => $owner->id,
+        'name' => 'First Contact Property',
+        'approval_status' => 'approved',
+        'is_active' => true,
+    ]);
+    $secondHouse = BoardingHouse::factory()->create([
+        'owner_id' => $owner->id,
+        'name' => 'Second Contact Property',
+        'approval_status' => 'approved',
+        'is_active' => true,
+    ]);
+
+    Inquiry::create([
+        'user_id' => $tenant->id,
+        'boarding_house_id' => $firstHouse->id,
+        'message' => 'Original message to this owner.',
+        'status' => 'pending',
+    ]);
+
+    $this->actingAs($tenant)
+        ->post(route('user.messages.store'), [
+            'boarding_house_id' => $firstHouse->id,
+            'message' => 'Follow-up in the existing conversation.',
+        ])
+        ->assertRedirect();
+
+    $this->actingAs($tenant)
+        ->post(route('user.messages.store'), [
+            'boarding_house_id' => $secondHouse->id,
+            'message' => 'Question about the same owner second property.',
+        ])
+        ->assertRedirect();
+
+    $response = $this->actingAs($tenant)->get(route('user.messages.index'));
+
+    $response->assertOk()
+        ->assertSee('Original message to this owner.')
+        ->assertSee('Follow-up in the existing conversation.')
+        ->assertSee('Question about the same owner second property.')
+        ->assertSee('First Contact Property +1 more')
+        ->assertSee('if (selected.id) markRead(selected);', false);
+
+    expect(substr_count($response->getContent(), 'data-tenant-conversation-thread'))->toBe(1);
+});
+
+test('owner inbox renders one navigation tab per tenant and property conversation', function () {
+    $owner = User::factory()->verifiedOwner()->create();
+    $tenant = User::factory()->create(['name' => 'Grouped Tenant', 'role' => 'user']);
+    $firstHouse = BoardingHouse::factory()->create([
+        'owner_id' => $owner->id,
+        'name' => 'Grouped House One',
+    ]);
+    $secondHouse = BoardingHouse::factory()->create([
+        'owner_id' => $owner->id,
+        'name' => 'Grouped House Two',
+    ]);
+
+    Inquiry::create([
+        'user_id' => $tenant->id,
+        'boarding_house_id' => $firstHouse->id,
+        'message' => 'First message in the shared conversation.',
+        'status' => 'pending',
+    ]);
+    Inquiry::create([
+        'user_id' => $tenant->id,
+        'boarding_house_id' => $firstHouse->id,
+        'message' => 'Second message in the shared conversation.',
+        'status' => 'open',
+    ]);
+    Inquiry::create([
+        'user_id' => $tenant->id,
+        'boarding_house_id' => $secondHouse->id,
+        'message' => 'A separate property conversation.',
+        'status' => 'pending',
+    ]);
+
+    $response = $this->actingAs($owner)->get(route('owner.messages'));
+
+    $response->assertOk()
+        ->assertSee('First message in the shared conversation.')
+        ->assertSee('Second message in the shared conversation.')
+        ->assertSee('A separate property conversation.');
+
+    expect(substr_count($response->getContent(), 'data-conversation-thread'))->toBe(2);
+});
+
+test('owner and admin keep independent read state for an open conversation', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $owner = User::factory()->verifiedOwner()->create();
+    $tenant = User::factory()->create(['role' => 'user']);
+    $house = BoardingHouse::factory()->create(['owner_id' => $owner->id]);
+    $first = Inquiry::create([
+        'user_id' => $tenant->id,
+        'boarding_house_id' => $house->id,
+        'message' => 'First unread message.',
+        'status' => 'pending',
+    ]);
+    $second = Inquiry::create([
+        'user_id' => $tenant->id,
+        'boarding_house_id' => $house->id,
+        'message' => 'Second unread message.',
+        'status' => 'pending',
+    ]);
+
+    $this->actingAs($owner)
+        ->postJson(route('owner.messages.read', $second))
+        ->assertOk();
+
+    expect($first->fresh()->owner_read_at)->not->toBeNull()
+        ->and($second->fresh()->owner_read_at)->not->toBeNull()
+        ->and($first->fresh()->admin_read_at)->toBeNull()
+        ->and($second->fresh()->admin_read_at)->toBeNull();
+
+    $this->actingAs($admin)
+        ->postJson(route('admin.messages.read', $first))
+        ->assertOk();
+
+    expect($first->fresh()->admin_read_at)->not->toBeNull()
+        ->and($second->fresh()->admin_read_at)->not->toBeNull();
+});

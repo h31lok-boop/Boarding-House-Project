@@ -29,6 +29,15 @@ class BoardingHouseServiceController extends Controller
 
     public function store(Request $request)
     {
+        if ($request->user()?->isStrictOwner()) {
+            $ownedHouseId = BoardingHouse::query()
+                ->where('owner_id', $request->user()->id)
+                ->orderBy('id')
+                ->value('id');
+
+            $request->merge(['boarding_house_id' => $ownedHouseId]);
+        }
+
         $data = $request->validate([
             'boarding_house_id' => ['required', 'integer', 'exists:boarding_houses,id'],
             'name' => ['required', 'string', 'max:120'],

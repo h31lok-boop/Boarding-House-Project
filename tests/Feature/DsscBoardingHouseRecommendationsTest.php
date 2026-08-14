@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\BoardingHouse;
+use App\Models\OwnerProfile;
 use App\Models\User;
 use App\Models\UserPreference;
 use App\Services\BoardingHouseRecommendationService;
@@ -27,9 +28,8 @@ test('DSSC location fields and sample listings are available', function () {
             'DSSC Ladies Boarding House',
             'Mahayahay Student Home',
             'Tres de Mayo Boarding House',
-            'City Proper Student Dorm',
         ])
-        ->count())->toBe(6);
+        ->count())->toBe(5);
 
     $this->assertDatabaseHas('boarding_houses', [
         'name' => 'Matti Student Boarding House',
@@ -40,6 +40,38 @@ test('DSSC location fields and sample listings are available', function () {
         'approval_status' => 'approved',
         'location_status' => 'approximate',
     ]);
+});
+
+test('DSSC sample listings are linked to existing owner accounts', function () {
+    $owner = User::factory()->create([
+        'role' => 'owner',
+        'name' => 'DSSC Sample Owner',
+        'phone' => '09171234567',
+    ]);
+    $profile = OwnerProfile::query()->create([
+        'user_id' => $owner->id,
+        'company_name' => 'DSSC Sample Homes',
+        'contact_number' => $owner->phone,
+        'verification_status' => 'verified',
+        'is_seeded_demo' => true,
+    ]);
+
+    $this->seed(DsscBoardingHouseSeeder::class);
+
+    $houses = BoardingHouse::query()
+        ->whereIn('name', [
+            'Matti Student Boarding House',
+            'Purok 3 Boarding House',
+            'DSSC Ladies Boarding House',
+            'Mahayahay Student Home',
+            'Tres de Mayo Boarding House',
+        ])
+        ->get();
+
+    expect($houses)->toHaveCount(5)
+        ->and($houses->every(fn (BoardingHouse $house) => $house->owner_id === $owner->id))->toBeTrue()
+        ->and($houses->every(fn (BoardingHouse $house) => $house->owner_profile_id === $profile->id))->toBeTrue()
+        ->and($houses->every(fn (BoardingHouse $house) => filled($house->contact_phone)))->toBeTrue();
 });
 
 test('location service calculates DSSC distance labels and returns only nearby available listings', function () {

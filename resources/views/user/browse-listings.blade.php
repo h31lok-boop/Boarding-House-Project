@@ -80,6 +80,22 @@
                 'marker' => $latitude.','.$longitude,
             ], '', '&', PHP_QUERY_RFC3986)
             : null;
+        $dsscLatitude = (float) config('dssc.latitude', 6.75874);
+        $dsscLongitude = (float) config('dssc.longitude', 125.30909);
+        $directionsUrl = $hasCoordinates
+            ? 'https://www.google.com/maps/dir/?api=1&'.http_build_query([
+                'origin' => $dsscLatitude.','.$dsscLongitude,
+                'destination' => $latitude.','.$longitude,
+                'travelmode' => 'driving',
+            ], '', '&', PHP_QUERY_RFC3986)
+            : $mapUrl;
+        $ownerName = $house->owner?->name ?: ($house->landlord_info ?: 'Property Owner');
+        $ownerProfile = $house->ownerProfile ?: $house->owner?->ownerProfile;
+        $contactName = $house->contact_name ?: ($house->contact_person ?: $ownerName);
+        $contactPhone = $house->contact_phone
+            ?: ($house->contact_number
+                ?: ($ownerProfile?->contact_number
+                    ?: ($house->owner?->contact_number ?: ($house->owner?->phone_number ?: $house->owner?->phone))));
 
         return [
             'id' => (int) $house->id,
@@ -102,8 +118,19 @@
             'has_coordinates' => $hasCoordinates,
             'map_embed_url' => $mapEmbedUrl,
             'map_url' => $mapUrl,
+            'directions_url' => $directionsUrl,
+            'distance_km' => $distance !== null ? (float) $distance : null,
+            'dssc_name' => (string) config('dssc.landmark', 'DSSC Main Campus'),
+            'dssc_address' => (string) config('dssc.address', 'Matti, Digos City, Davao del Sur'),
+            'dssc_latitude' => $dsscLatitude,
+            'dssc_longitude' => $dsscLongitude,
             'description' => $house->description,
             'house_rules' => $house->house_rules,
+            'owner_name' => $ownerName,
+            'owner_company' => $ownerProfile?->company_name,
+            'contact_name' => $contactName,
+            'contact_phone' => $contactPhone,
+            'contact_email' => $house->owner?->email,
             'amenities' => $house->amenities->pluck('name')->values(),
             'available_rooms' => $availableRooms,
             'url' => route('user.boarding-houses.show', $house),
@@ -397,7 +424,7 @@
                 </div>
                 <div class="bm-modal__body">
                     <div class="grid gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(21rem,0.85fr)]">
-                        <section data-renter-quick-photo-carousel class="relative min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                        <section data-renter-quick-photo-carousel class="relative min-w-0 self-start overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm dark:border-slate-700 dark:bg-slate-900 lg:sticky lg:top-0">
                             <img :src="currentPhoto()" alt="Property photo" class="h-[300px] w-full object-cover sm:h-[390px]" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}';">
 
                             <button
@@ -437,13 +464,11 @@
 
                             <section data-renter-quick-location-map class="overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-900">
                                 <div class="flex items-center justify-between gap-2 border-b border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950">
-                                    <p class="text-xs font-bold text-slate-700 dark:text-slate-200">Map preview</p>
+                                    <div>
+                                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200">Route from DSSC Main Campus</p>
+                                        <p data-quick-route-status class="mt-0.5 text-[10px] font-semibold text-slate-500 dark:text-slate-400">Loading route...</p>
+                                    </div>
                                     <div class="flex items-center gap-1.5">
-                                        <div x-show="selectedListing.has_coordinates && !mapMinimized" class="flex items-center overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
-                                            <button type="button" @click="zoomMapOut()" :disabled="mapZoom <= 12" class="grid h-7 w-8 place-items-center bg-white text-base font-bold text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800" aria-label="Zoom out map" title="Zoom out">−</button>
-                                            <span class="h-7 w-px bg-slate-200 dark:bg-slate-700"></span>
-                                            <button type="button" @click="zoomMapIn()" :disabled="mapZoom >= 19" class="grid h-7 w-8 place-items-center bg-white text-base font-bold text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800" aria-label="Zoom in map" title="Zoom in">+</button>
-                                        </div>
                                         <button type="button" @click="mapMinimized = !mapMinimized" class="inline-flex h-7 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-[11px] font-bold text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800" :aria-expanded="String(!mapMinimized)">
                                             <span x-text="mapMinimized ? 'Show map' : 'Minimize map'"></span>
                                             <svg class="h-3.5 w-3.5 transition-transform" :class="mapMinimized ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 15 6-6 6 6"/></svg>
@@ -451,14 +476,8 @@
                                     </div>
                                 </div>
                                 <div x-show="!mapMinimized" x-transition.opacity>
-                                    <template x-if="selectedListing.has_coordinates && selectedListing.map_embed_url">
-                                        <iframe
-                                            :src="quickMapEmbedUrl()"
-                                            title="Boarding house location map"
-                                            class="relative z-10 h-44 w-full border-0 pointer-events-auto sm:h-48"
-                                            loading="lazy"
-                                            referrerpolicy="no-referrer-when-downgrade"
-                                        ></iframe>
+                                    <template x-if="selectedListing.has_coordinates">
+                                        <div data-boardmatch-quick-route-map class="relative z-10 h-52 w-full sm:h-60" aria-label="Route map between DSSC Main Campus and the boarding house"></div>
                                     </template>
                                     <template x-if="!selectedListing.has_coordinates">
                                         <div class="flex h-44 flex-col items-center justify-center px-5 text-center sm:h-48">
@@ -468,8 +487,18 @@
                                             <p class="mt-2 text-xs font-semibold text-slate-600 dark:text-slate-300">The owner has not pinned this property on the map yet.</p>
                                         </div>
                                     </template>
-                                    <a :href="selectedListing.map_url" target="_blank" rel="noopener noreferrer" class="flex h-10 items-center justify-center gap-2 border-t border-slate-200 bg-white text-xs font-bold text-blue-600 transition hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-950 dark:text-blue-300 dark:hover:bg-slate-800">
-                                        Open larger map
+                                    <div class="grid grid-cols-2 border-t border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-950">
+                                        <div class="border-r border-slate-200 px-3 py-2 text-center dark:border-slate-700">
+                                            <p class="text-[9px] font-bold uppercase tracking-wide text-slate-400">Road distance</p>
+                                            <p data-quick-route-distance class="mt-0.5 text-xs font-black text-slate-800 dark:text-slate-100" x-text="selectedListing.distance_km ? `${Number(selectedListing.distance_km).toFixed(2)} km` : 'Calculating...'"></p>
+                                        </div>
+                                        <div class="px-3 py-2 text-center">
+                                            <p class="text-[9px] font-bold uppercase tracking-wide text-slate-400">Estimated drive</p>
+                                            <p data-quick-route-duration class="mt-0.5 text-xs font-black text-slate-800 dark:text-slate-100">Calculating...</p>
+                                        </div>
+                                    </div>
+                                    <a :href="selectedListing.directions_url" target="_blank" rel="noopener noreferrer" class="flex h-10 items-center justify-center gap-2 border-t border-slate-200 bg-white text-xs font-bold text-blue-600 transition hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-950 dark:text-blue-300 dark:hover:bg-slate-800">
+                                        Open turn-by-turn directions
                                         <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13.5 4.5H19.5V10.5M19 5 11 13M19.5 13.5V18A1.5 1.5 0 0 1 18 19.5H6A1.5 1.5 0 0 1 4.5 18V6A1.5 1.5 0 0 1 6 4.5H10.5"/></svg>
                                     </a>
                                 </div>
@@ -485,6 +514,36 @@
                                     <p class="mt-1 text-sm font-bold text-emerald-600" x-text="selectedListing.availability_label"></p>
                                 </div>
                             </div>
+                            <section data-renter-owner-contact class="rounded-2xl border border-blue-100 bg-blue-50/50 p-3.5 dark:border-blue-400/20 dark:bg-blue-400/5">
+                                <div class="flex items-start gap-3">
+                                    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-600 text-sm font-black text-white shadow-sm shadow-blue-600/20" x-text="(selectedListing.owner_name || 'O').trim().charAt(0).toUpperCase()"></span>
+                                    <div class="min-w-0">
+                                        <p class="text-[10px] font-bold uppercase tracking-[0.14em] text-blue-600 dark:text-blue-300">Owner &amp; contact</p>
+                                        <p class="mt-1 truncate text-sm font-bold text-slate-950 dark:text-white" x-text="selectedListing.owner_name || 'Property Owner'"></p>
+                                        <p x-show="selectedListing.owner_company" class="mt-0.5 text-xs text-slate-500 dark:text-slate-400" x-text="selectedListing.owner_company"></p>
+                                    </div>
+                                </div>
+                                <dl class="mt-3 grid gap-2 text-xs sm:grid-cols-2">
+                                    <div class="rounded-xl border border-blue-100 bg-white px-3 py-2 dark:border-blue-400/20 dark:bg-slate-900">
+                                        <dt class="font-semibold text-slate-500 dark:text-slate-400">Contact person</dt>
+                                        <dd class="mt-1 font-bold text-slate-800 dark:text-slate-100" x-text="selectedListing.contact_name || selectedListing.owner_name || 'Not provided'"></dd>
+                                    </div>
+                                    <div class="rounded-xl border border-blue-100 bg-white px-3 py-2 dark:border-blue-400/20 dark:bg-slate-900">
+                                        <dt class="font-semibold text-slate-500 dark:text-slate-400">Phone number</dt>
+                                        <dd class="mt-1">
+                                            <a x-show="selectedListing.contact_phone" :href="`tel:${selectedListing.contact_phone}`" class="font-bold text-blue-600 hover:underline dark:text-blue-300" x-text="selectedListing.contact_phone"></a>
+                                            <span x-show="!selectedListing.contact_phone" class="font-semibold text-slate-500">Not provided</span>
+                                        </dd>
+                                    </div>
+                                    <div class="rounded-xl border border-blue-100 bg-white px-3 py-2 dark:border-blue-400/20 dark:bg-slate-900 sm:col-span-2">
+                                        <dt class="font-semibold text-slate-500 dark:text-slate-400">Email address</dt>
+                                        <dd class="mt-1 min-w-0">
+                                            <a x-show="selectedListing.contact_email" :href="`mailto:${selectedListing.contact_email}`" class="break-all font-bold text-blue-600 hover:underline dark:text-blue-300" x-text="selectedListing.contact_email"></a>
+                                            <span x-show="!selectedListing.contact_email" class="font-semibold text-slate-500">Not provided</span>
+                                        </dd>
+                                    </div>
+                                </dl>
+                            </section>
                             <p class="text-sm leading-6 text-slate-600 dark:text-slate-300" x-text="selectedListing.description || 'No description provided yet.'"></p>
                         </div>
                     </div>
@@ -519,7 +578,6 @@
             selectedListing: {},
             photoIndex: 0,
             mapMinimized: false,
-            mapZoom: 17,
             detailOpen: false,
             init() {
                 // Reset the loading state when returning via browser back/forward cache.
@@ -539,8 +597,12 @@
                 this.selectedListing = listing || {};
                 this.photoIndex = 0;
                 this.mapMinimized = false;
-                this.mapZoom = 17;
                 this.detailOpen = true;
+                this.$nextTick(() => {
+                    window.setTimeout(() => window.dispatchEvent(new CustomEvent('boardmatch:quick-route', {
+                        detail: this.selectedListing,
+                    })), 120);
+                });
             },
             selectedPhotos() {
                 const photos = Array.isArray(this.selectedListing.photos)
@@ -567,35 +629,6 @@
             nextPhoto() {
                 const count = this.photoCount();
                 this.photoIndex = count > 1 ? (this.photoIndex + 1) % count : 0;
-            },
-            quickMapEmbedUrl() {
-                const latitude = Number(this.selectedListing.latitude);
-                const longitude = Number(this.selectedListing.longitude);
-
-                if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-                    return this.selectedListing.map_embed_url || 'about:blank';
-                }
-
-                const horizontalSpan = 0.003 * (2 ** (17 - this.mapZoom));
-                const verticalSpan = horizontalSpan * 0.67;
-                const parameters = new URLSearchParams({
-                    bbox: [
-                        longitude - horizontalSpan,
-                        latitude - verticalSpan,
-                        longitude + horizontalSpan,
-                        latitude + verticalSpan,
-                    ].join(','),
-                    layer: 'mapnik',
-                    marker: `${latitude},${longitude}`,
-                });
-
-                return `https://www.openstreetmap.org/export/embed.html?${parameters.toString()}`;
-            },
-            zoomMapOut() {
-                this.mapZoom = Math.max(12, this.mapZoom - 1);
-            },
-            zoomMapIn() {
-                this.mapZoom = Math.min(19, this.mapZoom + 1);
             },
         };
     }

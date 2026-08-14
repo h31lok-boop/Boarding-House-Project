@@ -78,6 +78,12 @@
                         && request()->query('tab', 'recommended') !== 'matchmaking',
                 ],
                 [
+                    'label' => 'My Preferences',
+                    'href' => $r('user.preferences.index'),
+                    'icon' => 'preferences',
+                    'active' => $isUserPath('user/preferences') || request()->routeIs('user.profile*'),
+                ],
+                [
                     'label' => 'Matchmaking',
                     'href' => $r('user.boarding-houses.index', ['tab' => 'matchmaking']),
                     'icon' => 'matchmaking',
@@ -85,12 +91,6 @@
                         || $isUserPath('user/recommendations')
                         || request()->query('tab') === 'matchmaking'
                         || request()->routeIs('user.recommendations*', 'user.matchmaking*', 'user.match-requests*'),
-                ],
-                [
-                    'label' => 'My Preferences',
-                    'href' => $r('user.preferences.index'),
-                    'icon' => 'preferences',
-                    'active' => $isUserPath('user/preferences') || request()->routeIs('user.profile*'),
                 ],
             ],
         ],

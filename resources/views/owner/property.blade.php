@@ -130,9 +130,9 @@
                             <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M16.862 4.487a2.1 2.1 0 0 1 2.97 2.97L8.416 18.873l-4.5.5.5-4.5 12.446-10.386Z"/></svg>
                             Edit
                         </button>
-                        <button type="button" title="Delete" @click="deleteOpen = true"
+                        <button type="button" data-property-delete-trigger @click="deleteOpen = true"
                             class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3.5 text-xs font-semibold text-rose-600 transition hover:bg-rose-100"
-                            @if ($hasActiveTenants || $hasPendingReservations) disabled title="Cannot delete while property has active tenants or pending reservations" @endif>
+                            title="{{ $hasActiveTenants || $hasPendingReservations ? 'Deletion unavailable - click to see why' : 'Delete property' }}">
                             <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16"/></svg>
                             Delete
                         </button>

@@ -2,6 +2,8 @@
 
 use App\Models\BoardingHouse;
 use App\Models\BoardingHouseImage;
+use App\Models\Reservation;
+use App\Models\Room;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -50,6 +52,16 @@ it('lets an owner upload property photos that are displayed to tenants', functio
     $this->actingAs($owner)
         ->get(route('owner.boarding-houses'))
         ->assertOk()
+        ->assertSee('data-property-list-view', false)
+        ->assertSee('data-property-details-modal', false)
+        ->assertSee('Boarding House Details')
+        ->assertSee('Edit')
+        ->assertSee('Delete')
+        ->assertDontSee('Search boarding houses or locations')
+        ->assertDontSee('All Status')
+        ->assertDontSee('All Locations')
+        ->assertDontSee('Apply')
+        ->assertDontSee('name="return_to_my_boarding_house"', false)
         ->assertSee('data-owner-direct-editor', false)
         ->assertSee('data-property-photo-workspace', false)
         ->assertSee('data-property-photo-carousel', false)
@@ -58,7 +70,7 @@ it('lets an owner upload property photos that are displayed to tenants', functio
         ->assertSee('Previous property photo')
         ->assertSee('Next property photo')
         ->assertSee('Tag the property on the map')
-        ->assertDontSee('Boarding House Details');
+        ->assertSee('Boarding House Details');
 
     $imageUrl = $images->firstWhere('is_primary', true)->url;
     $this->actingAs($tenant)
@@ -71,12 +83,14 @@ it('lets an owner upload property photos that are displayed to tenants', functio
         ->assertSee('Next property photo')
         ->assertSee('data-renter-quick-location-map', false)
         ->assertSee('Property location')
-        ->assertSee('Boarding house location map')
-        ->assertSee('Zoom out map')
-        ->assertSee('Zoom in map')
+        ->assertSee('data-boardmatch-quick-route-map', false)
+        ->assertSee('data-renter-quick-photo-carousel class="relative min-w-0 self-start', false)
+        ->assertSee('lg:sticky lg:top-0', false)
+        ->assertSee('Route map between DSSC Main Campus and the boarding house')
+        ->assertSee('Road distance')
+        ->assertSee('Estimated drive')
         ->assertSee('Minimize map')
-        ->assertSee('quickMapEmbedUrl()', false)
-        ->assertSee('openstreetmap.org', false);
+        ->assertSee('Open turn-by-turn directions');
     $this->actingAs($tenant)
         ->get(route('user.boarding-houses.show', $house))
         ->assertOk()
@@ -111,7 +125,7 @@ it('uses the first ordered photo as the listing background and safely promotes t
             'image_order' => [$second->id, $first->id],
             'is_active' => '1',
         ])
-        ->assertRedirect()
+        ->assertRedirect(route('owner.boarding-houses'))
         ->assertSessionHas('success');
 
     expect($first->refresh()->is_primary)->toBeFalse()
@@ -143,4 +157,64 @@ it('prevents an owner from changing another owners property photos', function ()
         ->assertForbidden();
 
     expect($house->images()->count())->toBe(0);
+});
+
+it('explains why a property with a pending reservation cannot be deleted', function () {
+    $owner = User::factory()->verifiedOwner()->create();
+    $tenant = User::factory()->create([
+        'role' => 'user',
+        'is_active' => true,
+        'email_verified_at' => now(),
+    ]);
+    $house = BoardingHouse::factory()->create([
+        'owner_id' => $owner->id,
+        'approval_status' => 'approved',
+        'status' => 'approved',
+        'is_active' => true,
+    ]);
+    $room = Room::create([
+        'boarding_house_id' => $house->id,
+        'room_no' => 'P-101',
+        'status' => 'Reserved',
+        'price' => 3500,
+        'capacity' => 1,
+        'available_slots' => 0,
+    ]);
+    Reservation::create([
+        'user_id' => $tenant->id,
+        'boarding_house_id' => $house->id,
+        'room_id' => $room->id,
+        'status' => 'pending',
+        'check_in_date' => now()->addWeek(),
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('owner.my-boarding-house'))
+        ->assertOk()
+        ->assertSee('data-property-delete-trigger', false)
+        ->assertSee('Deletion unavailable - click to see why')
+        ->assertSee('Resolve them before deleting.')
+        ->assertSee('Cannot Delete');
+
+    $this->actingAs($owner)
+        ->delete(route('owner.listings.destroy', $house))
+        ->assertRedirect(route('owner.boarding-houses'))
+        ->assertSessionHas('error');
+
+    $this->assertDatabaseHas('boarding_houses', ['id' => $house->id]);
+});
+
+it('lets an owner delete their property when it has no active occupancy', function () {
+    $owner = User::factory()->verifiedOwner()->create();
+    $house = BoardingHouse::factory()->create(['owner_id' => $owner->id]);
+
+    $this->actingAs($owner)
+        ->delete(route('owner.listings.destroy', [
+            'boarding_house' => $house,
+            'return_to_my_boarding_house' => 1,
+        ]))
+        ->assertRedirect(route('owner.my-boarding-house'))
+        ->assertSessionHas('success');
+
+    $this->assertDatabaseMissing('boarding_houses', ['id' => $house->id]);
 });

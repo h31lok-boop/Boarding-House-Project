@@ -20,10 +20,14 @@ class Inquiry extends Model
         'status',
         'priority',
         'replied_at',
+        'owner_read_at',
+        'admin_read_at',
     ];
 
     protected $casts = [
         'replied_at' => 'datetime',
+        'owner_read_at' => 'datetime',
+        'admin_read_at' => 'datetime',
     ];
 
     public function user()

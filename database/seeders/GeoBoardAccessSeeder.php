@@ -87,7 +87,7 @@ class GeoBoardAccessSeeder extends Seeder
         $this->removeOtherAccounts($accounts->all(), $admin, $owners->first());
         $this->assertAccountRoster();
 
-        $this->command?->info('Seeded exactly 1 administrator, 5 owners, and 5 tenants.');
+        $this->command?->info('Seeded exactly 1 administrator, 2 owners, and 5 tenants.');
     }
 
     /**
@@ -109,27 +109,6 @@ class GeoBoardAccessSeeder extends Seeder
                 'username' => 'owner2',
                 'phone' => '09170000003',
                 'company' => 'Santos Student Homes',
-            ],
-            [
-                'name' => 'Roberto Cruz',
-                'email' => 'owner3@boardmatch.test',
-                'username' => 'owner3',
-                'phone' => '09170000004',
-                'company' => 'Cruz Boarding Services',
-            ],
-            [
-                'name' => 'Elena Villanueva',
-                'email' => 'owner4@boardmatch.test',
-                'username' => 'owner4',
-                'phone' => '09170000005',
-                'company' => 'Villanueva Residences',
-            ],
-            [
-                'name' => 'Daniel Reyes',
-                'email' => 'owner5@boardmatch.test',
-                'username' => 'owner5',
-                'phone' => '09170000006',
-                'company' => 'Reyes Dormitory Management',
             ],
         ];
     }
@@ -354,7 +333,7 @@ class GeoBoardAccessSeeder extends Seeder
             'total' => User::query()->count(),
         ];
 
-        if ($actual !== ['admin' => 1, 'owner' => 5, 'tenant' => 5, 'total' => 11]) {
+        if ($actual !== ['admin' => 1, 'owner' => 2, 'tenant' => 5, 'total' => 8]) {
             throw new \RuntimeException('Unexpected seeded account roster: '.json_encode($actual));
         }
     }

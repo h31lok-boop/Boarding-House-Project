@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Amenity;
 use App\Models\BoardingHouse;
+use App\Models\OwnerProfile;
 use App\Models\RoomCategory;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -33,8 +34,17 @@ class DsscBoardingHouseSeeder extends Seeder
             ->value('id');
 
         $amenityIds = Amenity::query()->pluck('id', 'name');
+        $ownerProfiles = OwnerProfile::query()
+            ->with('user:id,name,phone,contact_number')
+            ->whereNotNull('user_id')
+            ->orderBy('id')
+            ->get();
 
-        foreach ($this->samples() as $sample) {
+        foreach ($this->samples() as $index => $sample) {
+            $ownerProfile = $ownerProfiles->isNotEmpty()
+                ? $ownerProfiles[$index % $ownerProfiles->count()]
+                : null;
+            $owner = $ownerProfile?->user;
             $barangayId = (int) DB::table('barangays')
                 ->where('city_id', $cityId)
                 ->where('barangay_name', $sample['barangay'])
@@ -43,6 +53,9 @@ class DsscBoardingHouseSeeder extends Seeder
             $house = BoardingHouse::query()->updateOrCreate(
                 ['name' => $sample['name']],
                 [
+                    'owner_profile_id' => $ownerProfile?->id,
+                    'owner_id' => $owner?->id,
+                    'user_id' => $owner?->id,
                     'slug' => Str::slug($sample['name']),
                     'address' => $sample['address'],
                     'full_address' => $sample['address'].', Davao del Sur',
@@ -59,6 +72,11 @@ class DsscBoardingHouseSeeder extends Seeder
                     'location_status' => 'approximate',
                     'description' => 'Sample student listing near DSSC Main Campus. Coordinates are approximate and intended for testing only.',
                     'house_rules' => 'Observe quiet study hours. Keep shared spaces clean. No smoking indoors.',
+                    'landlord_info' => $owner?->name,
+                    'contact_name' => $owner?->name,
+                    'contact_person' => $owner?->name,
+                    'contact_number' => $owner?->contact_number ?: $owner?->phone,
+                    'contact_phone' => $owner?->contact_number ?: $owner?->phone,
                     'monthly_payment' => (string) $sample['min_rent'],
                     'price' => $sample['min_rent'],
                     'capacity' => $sample['available_slots'] * 2,
@@ -166,19 +184,6 @@ class DsscBoardingHouseSeeder extends Seeder
                 'room_types' => ['Bed Space', 'Shared Room'],
                 'amenities' => ['Wi-Fi', 'Kitchen', 'Laundry Area'],
                 'available_slots' => 4,
-            ],
-            [
-                'name' => 'City Proper Student Dorm',
-                'barangay' => 'Poblacion / City Proper',
-                'address' => 'Digos City Proper',
-                'distance' => 4.00,
-                'latitude' => 6.74850000,
-                'longitude' => 125.34450000,
-                'min_rent' => 2500,
-                'max_rent' => 4000,
-                'room_types' => ['Solo Room', 'Shared Room'],
-                'amenities' => ['Wi-Fi', 'Kitchen', 'Study Area', 'CCTV'],
-                'available_slots' => 3,
             ],
         ];
     }

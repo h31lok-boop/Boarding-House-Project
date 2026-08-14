@@ -246,8 +246,8 @@ class BoardingHouse extends Model
     public function getCoverImagePathAttribute(): ?string
     {
         $image = $this->relationLoaded('images')
-            ? $this->images->first()
-            : $this->coverImage()->first();
+            ? ($this->images->firstWhere('is_primary', true) ?: $this->images->first())
+            : ($this->images()->where('is_primary', true)->first() ?: $this->coverImage()->first());
 
         if ($image?->image_path) {
             return $image->image_path;

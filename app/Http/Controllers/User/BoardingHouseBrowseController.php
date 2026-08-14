@@ -446,6 +446,16 @@ class BoardingHouseBrowseController extends Controller
             'other' => 'Transient / Resort',
             default => 'Boarding House',
         };
+        $dsscLatitude = (float) config('dssc.latitude', self::DEFAULT_LAT);
+        $dsscLongitude = (float) config('dssc.longitude', self::DEFAULT_LNG);
+        $hasCoordinates = $house->latitude !== null && $house->longitude !== null;
+        $directionsUrl = $hasCoordinates
+            ? 'https://www.google.com/maps/dir/?api=1&'.http_build_query([
+                'origin' => $dsscLatitude.','.$dsscLongitude,
+                'destination' => $house->latitude.','.$house->longitude,
+                'travelmode' => 'driving',
+            ], '', '&', PHP_QUERY_RFC3986)
+            : null;
 
         return [
             'id' => $house->id,
@@ -468,6 +478,20 @@ class BoardingHouseBrowseController extends Controller
             'image_url' => $this->resolveImageUrl($house),
             'latitude' => $house->latitude !== null ? (float) $house->latitude : null,
             'longitude' => $house->longitude !== null ? (float) $house->longitude : null,
+            'owner_name' => $house->owner?->name ?: ($house->landlord_info ?: 'Property Owner'),
+            'owner_company' => $house->ownerProfile?->company_name ?: $house->owner?->ownerProfile?->company_name,
+            'contact_name' => $house->contact_name ?: ($house->contact_person ?: ($house->owner?->name ?: 'Property Owner')),
+            'contact_phone' => $house->contact_phone
+                ?: ($house->contact_number
+                    ?: ($house->ownerProfile?->contact_number
+                        ?: ($house->owner?->ownerProfile?->contact_number
+                            ?: ($house->owner?->contact_number ?: ($house->owner?->phone_number ?: $house->owner?->phone))))),
+            'contact_email' => $house->owner?->email,
+            'directions_url' => $directionsUrl,
+            'dssc_name' => (string) config('dssc.landmark', 'DSSC Main Campus'),
+            'dssc_address' => (string) config('dssc.address', 'Matti, Digos City, Davao del Sur'),
+            'dssc_latitude' => $dsscLatitude,
+            'dssc_longitude' => $dsscLongitude,
             'url' => route('user.boarding-houses.show', $house),
             'rating' => round((float) ($house->reviews_avg_rating ?? 0), 1),
             'reviews_count' => (int) ($house->reviews_count ?? 0),
@@ -798,6 +822,12 @@ class BoardingHouseBrowseController extends Controller
 
         return $query->map(function (BoardingHouse $relatedHouse) {
             $price = $this->displayPrice($relatedHouse);
+            $primaryImage = $relatedHouse->images->firstWhere('is_primary', true)
+                ?: $relatedHouse->images->first();
+            $singleImageUrl = $primaryImage?->url
+                ?: $this->imageUrlFromPath($relatedHouse->featured_image)
+                ?: $this->imageUrlFromPath($relatedHouse->exterior_image)
+                ?: asset('images/boarding-house-placeholder.svg');
 
             return [
                 'id' => $relatedHouse->id,
@@ -806,7 +836,9 @@ class BoardingHouseBrowseController extends Controller
                 'price' => $price,
                 'price_label' => $price !== null ? '₱'.number_format($price).'/month' : 'Price TBD',
                 'rating' => $relatedHouse->reviews_avg_rating ? number_format((float) $relatedHouse->reviews_avg_rating, 1) : 'N/A',
-                'image_url' => $this->resolveImageUrl($relatedHouse) ?: asset('images/boarding-house-placeholder.svg'),
+                // Similar-property cards intentionally show one designated
+                // cover photo rather than loading the complete gallery.
+                'image_url' => $singleImageUrl,
                 'url' => route('user.boarding-houses.show', $relatedHouse),
             ];
         });
@@ -926,6 +958,9 @@ class BoardingHouseBrowseController extends Controller
                 'city:id,city_name',
                 'barangayReference:id,barangay_name',
                 'province:id,province_name',
+                'owner:id,name,email,phone,phone_number,contact_number',
+                'owner.ownerProfile:id,user_id,company_name,contact_number',
+                'ownerProfile:id,user_id,company_name,contact_number',
             ])
             ->withCount([
                 'rooms',

@@ -113,7 +113,7 @@
                         <x-header-notification-link :href="$r('user.notifications.index')" :count="$notificationsCount" />
                         <x-theme-icon-toggle />
 
-                        <div class="relative z-[70]" x-data="{ open: false, confirm: false }">
+                        <div class="relative z-[70]" x-data="{ open: false }">
                             <button type="button" @click="open = !open" class="flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white p-1 shadow-sm transition hover:border-blue-200 hover:bg-blue-50/60 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 sm:h-11 sm:min-w-[10.5rem] sm:rounded-2xl sm:px-2" aria-haspopup="menu" :aria-expanded="open">
                                 <span class="h-7 w-7 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-blue-50 shadow-sm dark:border-slate-700 sm:h-9 sm:w-9">
                                     <img src="{{ $accountImageUrl }}" alt="{{ $currentUser?->name ?? 'Tenant account' }}" class="h-full w-full object-cover">
@@ -131,17 +131,12 @@
                                 </div>
                                 <div class="p-2 text-sm">
                                     <a href="{{ $r('user.settings.index') }}" class="flex rounded-xl px-3 py-2.5 font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700 dark:text-slate-200 dark:hover:bg-blue-500/10 dark:hover:text-blue-300" role="menuitem">Profile</a>
-                                    <button type="button" @click="confirm = true; open = false" class="flex w-full rounded-xl px-3 py-2.5 text-left font-semibold text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-500/10" role="menuitem">Log out</button>
+                                    <form method="POST" action="{{ route('logout') }}">
+                                        @csrf
+                                        <button type="submit" class="flex w-full rounded-xl px-3 py-2.5 text-left font-semibold text-rose-600 transition hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-500/10" role="menuitem">Log out</button>
+                                    </form>
                                 </div>
                             </div>
-                            <template x-teleport="body">
-                                <div data-modal-root role="dialog" aria-modal="true" x-show="confirm" x-cloak x-transition @click.self="confirm = false" class="bm-modal-overlay">
-                                    <section class="bm-modal w-full max-w-sm" @click.stop>
-                                        <header class="bm-modal__header"><div><h2 class="text-base font-black text-slate-950 dark:text-white">Confirm logout</h2><p class="mt-1 text-xs text-slate-500 dark:text-slate-400">End your current BoardMatch session?</p></div></header>
-                                        <footer class="bm-modal__footer"><button type="button" @click="confirm = false" class="btn-secondary">Cancel</button><form method="POST" action="{{ route('logout') }}">@csrf<button class="btn-danger">Log out</button></form></footer>
-                                    </section>
-                                </div>
-                            </template>
                         </div>
                     </div>
                 </div>
