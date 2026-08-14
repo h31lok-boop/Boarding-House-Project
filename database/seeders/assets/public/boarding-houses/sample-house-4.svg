@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <rect width="1280" height="720" fill="#7c3aed"/>
+  <rect x="90" y="90" width="1100" height="540" rx="24" fill="#ffffff" opacity="0.12"/>
+  <text x="640" y="360" font-family="Arial, sans-serif" font-size="54" fill="#ffffff" text-anchor="middle">GeoBoard Sample Boarding House</text>
+  <text x="640" y="420" font-family="Arial, sans-serif" font-size="28" fill="#ffffff" text-anchor="middle">Geotagged Listing Image</text>
+</svg>

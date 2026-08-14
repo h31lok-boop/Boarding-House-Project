@@ -33,8 +33,8 @@ Boarding House Project is a Laravel web application for managing boarding-house 
 3. Create a `.env` file from `.env.example`.
 4. Configure the application and database values in `.env`.
 5. Run `php artisan key:generate`.
-6. Run `php artisan migrate`.
-7. Run `php artisan db:seed`.
+6. Run `php artisan migrate --seed`.
+7. If the seeder could not create it automatically, run `php artisan storage:link`.
 8. Run `npm install`.
 9. Run `npm run dev`.
 10. Start the application with `php artisan serve`.
@@ -52,3 +52,29 @@ The owner account is stored with the canonical `owner` role, and the tenant acco
 
 - This project includes multiple user-facing flows, so role setup and seeded data may be useful during local testing.
 - Check map-related controllers if external location or geocoding services are required.
+
+## Portable Database Snapshot
+
+The default database seeder restores the repository snapshot in
+`database/seeders/data/boarding-housemanagement.json`. It preserves the current
+application records and their IDs, while the matching files under
+`database/seeders/assets/public` are copied into `storage/app/public` during
+seeding. Framework runtime tables such as migrations, cache, sessions, queues,
+and password-reset tokens are intentionally rebuilt by Laravel instead of being
+copied.
+
+On another computer, configure an empty MySQL database in `.env`, then run:
+
+```bash
+php artisan migrate --seed
+```
+
+To replace the repository snapshot later with the current configured database
+and public-storage files, run:
+
+```bash
+composer snapshot:export
+```
+
+The snapshot contains account and transaction-related application records. Keep
+the repository private unless that data has been reviewed and sanitized.

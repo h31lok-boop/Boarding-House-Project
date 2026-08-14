@@ -55,6 +55,7 @@
             "@php artisan config:clear --ansi",
             "@php artisan test"
         ],
+        "snapshot:export": "@php scripts/export_database_snapshot.php",
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"
