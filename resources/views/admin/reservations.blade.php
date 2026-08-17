@@ -198,6 +198,7 @@
                 filtering: false,
                 submitting: false,
                 confirmOpen: false,
+                confirmError: '',
                 confirmAction: { url: '', method: 'PATCH', status: '', title: '', message: '', label: '', tone: 'emerald' },
                 csrfToken: config.csrfToken,
 
@@ -460,9 +461,50 @@
                 askConfirm(action) {
                     if (this.submitting) return;
                     this.confirmAction = action;
+                    this.confirmError = '';
                     this.menuOpen = null;
                     this.editOpen = false;
                     this.confirmOpen = true;
+                },
+
+                async submitConfirmAction() {
+                    if (this.submitting || !this.confirmAction.url) return;
+
+                    this.submitting = true;
+                    this.confirmError = '';
+
+                    const formData = new FormData();
+                    formData.append('_token', this.csrfToken);
+                    formData.append('_method', this.confirmAction.method || 'PATCH');
+                    if (this.confirmAction.status) {
+                        formData.append('status', this.confirmAction.status);
+                    }
+
+                    try {
+                        const response = await fetch(this.confirmAction.url, {
+                            method: 'POST',
+                            credentials: 'same-origin',
+                            headers: {
+                                'X-CSRF-TOKEN': this.csrfToken,
+                                'X-Requested-With': 'XMLHttpRequest',
+                                Accept: 'application/json',
+                            },
+                            body: formData,
+                        });
+
+                        if (!response.ok) {
+                            const payload = await response.json().catch(() => ({}));
+                            const validationMessage = Object.values(payload.errors || {}).flat()[0];
+                            throw new Error(validationMessage || payload.message || 'The reservation could not be updated.');
+                        }
+
+                        window.location.reload();
+                    } catch (error) {
+                        this.confirmError = error instanceof Error
+                            ? error.message
+                            : 'The reservation could not be updated. Please try again.';
+                        this.submitting = false;
+                    }
                 },
             };
         };
@@ -1340,55 +1382,72 @@
             </div>
         </div>
 
-        <div
-            data-modal-root
-            role="dialog"
-            aria-modal="true"
-            x-show="confirmOpen"
-            x-cloak
-            x-transition
-            class="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-3 backdrop-blur-sm"
-        >
-            <div class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-900/15">
-                <div class="flex items-start gap-3.5">
-                    <div
-                        class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
-                        :class="confirmAction.tone === 'rose' ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'"
-                    >
-                        <svg x-show="confirmAction.tone !== 'rose'" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/>
-                        </svg>
-                        <svg x-show="confirmAction.tone === 'rose'" x-cloak class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                        </svg>
+        <template x-teleport="body">
+            <div
+                data-modal-root
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="reservation-confirm-title"
+                x-show="confirmOpen"
+                x-cloak
+                x-transition.opacity
+                @click.self="if (!submitting) confirmOpen = false"
+                class="bm-modal-overlay"
+            >
+                <div class="bm-modal bm-modal--sm">
+                    <div class="bm-modal__header">
+                        <div>
+                            <p class="bm-modal__eyebrow">Reservation decision</p>
+                            <h2 id="reservation-confirm-title" class="bm-modal__title" x-text="confirmAction.title"></h2>
+                        </div>
+                        <button type="button" @click="confirmOpen = false" :disabled="submitting" class="bm-modal__close" aria-label="Close confirmation dialog">&times;</button>
                     </div>
-                    <div class="min-w-0">
-                        <h2 class="text-[15px] font-bold tracking-[-0.01em] text-slate-950" x-text="confirmAction.title"></h2>
-                        <p class="mt-1.5 text-[13px] leading-5 text-slate-500" x-text="confirmAction.message"></p>
-                    </div>
-                </div>
 
-                <form method="POST" :action="confirmAction.url" @submit="submitting = true" class="mt-5 flex justify-end gap-2">
-                    @csrf
-                    <input type="hidden" name="_method" :value="confirmAction.method">
-                    <template x-if="confirmAction.status">
-                        <input type="hidden" name="status" :value="confirmAction.status">
-                    </template>
-                    <button type="button" @click="confirmOpen = false" :disabled="submitting" class="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60">Go Back</button>
-                    <button
-                        :disabled="submitting"
-                        class="inline-flex h-9 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-70"
-                        :class="confirmAction.tone === 'rose' ? 'bg-rose-600 hover:bg-rose-700 shadow-rose-600/20' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'"
-                    >
-                        <svg x-show="submitting" x-cloak class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"/>
-                        </svg>
-                        <span x-text="submitting ? 'Working…' : (confirmAction.label || 'Confirm')"></span>
-                    </button>
-                </form>
+                    <div class="bm-modal__body bm-modal__body--compact">
+                        <section class="bm-modal__section">
+                            <div class="flex items-start gap-3.5">
+                                <div
+                                    class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+                                    :class="confirmAction.tone === 'rose' ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'"
+                                >
+                                    <svg x-show="confirmAction.tone !== 'rose'" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/>
+                                    </svg>
+                                    <svg x-show="confirmAction.tone === 'rose'" x-cloak class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                                    </svg>
+                                </div>
+                                <p class="min-w-0 pt-1 text-[13px] leading-6 text-slate-600" x-text="confirmAction.message"></p>
+                            </div>
+                        </section>
+
+                        <p
+                            x-show="confirmError"
+                            x-cloak
+                            class="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] font-semibold text-rose-700"
+                            role="alert"
+                            x-text="confirmError"
+                        ></p>
+                    </div>
+
+                    <form @submit.prevent="submitConfirmAction()" class="bm-modal__footer">
+                        <button type="button" @click="confirmOpen = false" :disabled="submitting" class="bm-modal__button bm-modal__button--secondary disabled:cursor-not-allowed disabled:opacity-60">Go Back</button>
+                        <button
+                            type="submit"
+                            :disabled="submitting"
+                            class="bm-modal__button disabled:cursor-not-allowed disabled:opacity-70"
+                            :class="confirmAction.tone === 'rose' ? 'bm-modal__button--danger' : 'bm-modal__button--primary'"
+                        >
+                            <svg x-show="submitting" x-cloak class="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"/>
+                            </svg>
+                            <span x-text="submitting ? 'Working…' : (confirmAction.label || 'Confirm')"></span>
+                        </button>
+                    </form>
+                </div>
             </div>
-        </div>
+        </template>
 
         {{-- Toast Notification --}}
         <div
