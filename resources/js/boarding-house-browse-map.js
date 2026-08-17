@@ -1,5 +1,13 @@
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+import {
+    boardMatchMapConfig,
+    circlePolygon,
+    createHtmlMarker,
+    createOpenStreetMap,
+    fitMapToLngLats,
+    lineFeature,
+    removeMapLayerAndSource,
+    whenMapLoaded,
+} from './openstreetmap';
 
 const ROOT_SELECTOR = '[data-boardmatch-browse-map]';
 
@@ -25,13 +33,36 @@ const priceLabel = (value) => {
         : 'Ask owner';
 };
 
-const markerIcon = (L, type, label = '') => L.divIcon({
-    className: '',
-    html: `<span class="bm-browse-map-pin bm-browse-map-pin--${type}">${escapeHtml(label)}</span>`,
-    iconSize: type === 'campus' ? [34, 34] : [30, 30],
-    iconAnchor: type === 'campus' ? [17, 17] : [15, 15],
-    popupAnchor: [0, -18],
+const browseMarkerHtml = (type, label = '') => (
+    `<span class="bm-browse-map-pin bm-browse-map-pin--${type}">${escapeHtml(label)}</span>`
+);
+
+const addBrowseMarker = (map, { lng, lat, type, label = '', title, popupHtml }) => createHtmlMarker({
+    map,
+    lngLat: [lng, lat],
+    html: browseMarkerHtml(type, label),
+    title,
+    anchor: 'center',
+    popupHtml,
+    popupOffset: type === 'campus' ? 22 : 20,
 });
+
+const addLineLayer = (map, id, coordinates, paint = {}) => {
+    map.addSource(id, {
+        type: 'geojson',
+        data: lineFeature(coordinates),
+    });
+    map.addLayer({
+        id,
+        type: 'line',
+        source: id,
+        layout: {
+            'line-cap': 'round',
+            'line-join': 'round',
+        },
+        paint,
+    });
+};
 
 const initializeMap = async (root) => {
     const configNode = root.parentElement?.querySelector('[data-boardmatch-browse-map-config]');
@@ -48,36 +79,51 @@ const initializeMap = async (root) => {
     const campusLng = numberOrNull(settings.dssc?.longitude);
     if (campusLat === null || campusLng === null) return;
 
-    const map = L.map(root, { scrollWheelZoom: false }).setView([campusLat, campusLng], 14);
+    const map = createOpenStreetMap(root, {
+        center: [campusLng, campusLat],
+        zoom: 14,
+        scrollZoom: false,
+        openStreetMap: settings.openStreetMap,
+    });
+    await whenMapLoaded(map);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors',
-    }).addTo(map);
+    map.addSource('dssc-five-kilometer-radius', {
+        type: 'geojson',
+        data: circlePolygon([campusLng, campusLat], 5000),
+    });
+    map.addLayer({
+        id: 'dssc-five-kilometer-radius-fill',
+        type: 'fill',
+        source: 'dssc-five-kilometer-radius',
+        paint: { 'fill-color': '#60a5fa', 'fill-opacity': 0.05 },
+    });
+    map.addLayer({
+        id: 'dssc-five-kilometer-radius-line',
+        type: 'line',
+        source: 'dssc-five-kilometer-radius',
+        paint: { 'line-color': '#2563eb', 'line-width': 1.5 },
+    });
 
-    const bounds = L.latLngBounds([[campusLat, campusLng]]);
-    L.circle([campusLat, campusLng], {
-        radius: 5000,
-        color: '#2563eb',
-        fillColor: '#60a5fa',
-        fillOpacity: 0.05,
-        weight: 1.5,
-    }).addTo(map);
-
-    L.marker([campusLat, campusLng], {
-        icon: markerIcon(L, 'campus', 'D'),
+    addBrowseMarker(map, {
+        lat: campusLat,
+        lng: campusLng,
+        type: 'campus',
+        label: 'D',
         title: settings.dssc?.name || 'DSSC Main Campus',
-    }).addTo(map).bindPopup(
-        `<strong>${escapeHtml(settings.dssc?.name || 'DSSC Main Campus')}</strong>`
-        + `<br>${escapeHtml(settings.dssc?.address || 'Matti, Digos City')}`
-    );
+        popupHtml: `<strong>${escapeHtml(settings.dssc?.name || 'DSSC Main Campus')}</strong>`
+            + `<br>${escapeHtml(settings.dssc?.address || 'Matti, Digos City')}`,
+    });
+
+    const points = [[campusLng, campusLat]];
+    let validHouseCount = 0;
 
     (settings.houses || []).forEach((house) => {
         const latitude = numberOrNull(house.latitude);
         const longitude = numberOrNull(house.longitude);
         if (latitude === null || longitude === null) return;
 
-        bounds.extend([latitude, longitude]);
+        validHouseCount += 1;
+        points.push([longitude, latitude]);
         const matchScore = numberOrNull(house.match_score);
         const markerLabel = settings.showMatchScores && matchScore !== null
             ? `${Math.round(matchScore)}`
@@ -97,20 +143,25 @@ const initializeMap = async (root) => {
             `<a class="bm-browse-map-popup-link" href="${escapeHtml(house.url || '#')}">View Details</a>`,
         ].join('<br>');
 
-        L.marker([latitude, longitude], {
-            icon: markerIcon(L, markerType, markerLabel),
+        addBrowseMarker(map, {
+            lat: latitude,
+            lng: longitude,
+            type: markerType,
+            label: markerLabel,
             title: house.name || 'Boarding House',
-        }).addTo(map).bindPopup(popup);
+            popupHtml: popup,
+        });
     });
 
-    if (bounds.isValid() && (settings.houses || []).length > 0) {
-        map.fitBounds(bounds.pad(0.12), { maxZoom: 15 });
+    if (validHouseCount > 0) {
+        fitMapToLngLats(map, points, { padding: 50, maxZoom: 15 });
     }
 };
 
 let quickRouteMap = null;
 let quickRouteCanvas = null;
-let quickRouteLayers = [];
+let quickRouteMarkers = [];
+let quickRouteLayerIds = [];
 let quickRouteRequest = 0;
 
 const formatRouteDistance = (meters) => {
@@ -134,22 +185,37 @@ const formatRouteDuration = (seconds) => {
 };
 
 const clearQuickRouteLayers = () => {
-    quickRouteLayers.forEach((layer) => layer.remove());
-    quickRouteLayers = [];
+    quickRouteMarkers.forEach((marker) => marker.remove());
+    quickRouteMarkers = [];
+
+    quickRouteLayerIds.slice().reverse().forEach((id) => {
+        removeMapLayerAndSource(quickRouteMap, id);
+    });
+    quickRouteLayerIds = [];
 };
 
-const initializeQuickRouteMap = (canvas) => {
+const initializeQuickRouteMap = async (canvas) => {
     if (quickRouteMap && quickRouteCanvas === canvas) return quickRouteMap;
 
     quickRouteMap?.remove();
     quickRouteCanvas = canvas;
-    quickRouteMap = L.map(canvas, { scrollWheelZoom: false, zoomControl: true });
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors',
-    }).addTo(quickRouteMap);
+    quickRouteMap = createOpenStreetMap(canvas, {
+        center: [125.30909, 6.75874],
+        zoom: 14,
+        scrollZoom: false,
+    });
+    await whenMapLoaded(quickRouteMap);
 
     return quickRouteMap;
+};
+
+const drivingRouteUrl = (coordinates) => {
+    const configured = String(
+        boardMatchMapConfig().routing?.drivingUrl
+        || 'https://routing.openstreetmap.de/routed-car',
+    ).replace(/\/$/, '');
+
+    return `${configured}/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=false`;
 };
 
 const renderQuickRoute = async (listing = {}) => {
@@ -171,32 +237,39 @@ const renderQuickRoute = async (listing = {}) => {
     }
 
     const requestId = ++quickRouteRequest;
-    const map = initializeQuickRouteMap(canvas);
+    const map = await initializeQuickRouteMap(canvas);
     clearQuickRouteLayers();
 
-    const campusPoint = [campusLat, campusLng];
-    const housePoint = [houseLat, houseLng];
-    const campusMarker = L.marker(campusPoint, {
-        icon: markerIcon(L, 'campus', 'D'),
-        title: listing.dssc_name || 'DSSC Main Campus',
-    }).addTo(map).bindPopup(
-        `<strong>${escapeHtml(listing.dssc_name || 'DSSC Main Campus')}</strong><br>${escapeHtml(listing.dssc_address || 'Matti, Digos City')}`
+    const campusPoint = [campusLng, campusLat];
+    const housePoint = [houseLng, houseLat];
+    quickRouteMarkers.push(
+        addBrowseMarker(map, {
+            lat: campusLat,
+            lng: campusLng,
+            type: 'campus',
+            label: 'D',
+            title: listing.dssc_name || 'DSSC Main Campus',
+            popupHtml: `<strong>${escapeHtml(listing.dssc_name || 'DSSC Main Campus')}</strong><br>${escapeHtml(listing.dssc_address || 'Matti, Digos City')}`,
+        }),
+        addBrowseMarker(map, {
+            lat: houseLat,
+            lng: houseLng,
+            type: 'house',
+            label: 'B',
+            title: listing.name || 'Boarding House',
+            popupHtml: `<strong>${escapeHtml(listing.name || 'Boarding House')}</strong><br>${escapeHtml(listing.address || '')}`,
+        }),
     );
-    const houseMarker = L.marker(housePoint, {
-        icon: markerIcon(L, 'house', 'B'),
-        title: listing.name || 'Boarding House',
-    }).addTo(map).bindPopup(
-        `<strong>${escapeHtml(listing.name || 'Boarding House')}</strong><br>${escapeHtml(listing.address || '')}`
-    );
-    const directLine = L.polyline([campusPoint, housePoint], {
-        color: '#64748b',
-        weight: 3,
-        opacity: 0.7,
-        dashArray: '7 8',
-    }).addTo(map);
-    quickRouteLayers.push(campusMarker, houseMarker, directLine);
-    map.fitBounds(L.latLngBounds([campusPoint, housePoint]).pad(0.2), { maxZoom: 15 });
-    window.setTimeout(() => map.invalidateSize(), 80);
+
+    addLineLayer(map, 'quick-route-direct', [campusPoint, housePoint], {
+        'line-color': '#64748b',
+        'line-width': 3,
+        'line-opacity': 0.7,
+        'line-dasharray': [2, 2],
+    });
+    quickRouteLayerIds.push('quick-route-direct');
+    fitMapToLngLats(map, [campusPoint, housePoint], { padding: 54, maxZoom: 15 });
+    window.setTimeout(() => map.resize(), 80);
 
     if (status) status.textContent = 'Calculating the road route...';
     if (durationOutput) durationOutput.textContent = 'Calculating...';
@@ -205,10 +278,10 @@ const renderQuickRoute = async (listing = {}) => {
         const coordinates = `${campusLng},${campusLat};${houseLng},${houseLat}`;
         const controller = new AbortController();
         const timeout = window.setTimeout(() => controller.abort(), 12000);
-        const response = await fetch(
-            `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=false`,
-            { headers: { Accept: 'application/json' }, signal: controller.signal },
-        );
+        const response = await fetch(drivingRouteUrl(coordinates), {
+            headers: { Accept: 'application/json' },
+            signal: controller.signal,
+        });
         window.clearTimeout(timeout);
         if (!response.ok) throw new Error(`Routing service responded with ${response.status}.`);
 
@@ -219,13 +292,20 @@ const renderQuickRoute = async (listing = {}) => {
         }
         if (requestId !== quickRouteRequest) return;
 
-        directLine.remove();
-        quickRouteLayers = quickRouteLayers.filter((layer) => layer !== directLine);
-        const routePoints = route.geometry.coordinates.map(([lng, lat]) => [lat, lng]);
-        const routeOutline = L.polyline(routePoints, { color: '#ffffff', weight: 8, opacity: 0.9 }).addTo(map);
-        const routeLine = L.polyline(routePoints, { color: '#2563eb', weight: 5, opacity: 0.95 }).addTo(map);
-        quickRouteLayers.push(routeOutline, routeLine);
-        map.fitBounds(routeLine.getBounds().pad(0.12), { maxZoom: 16 });
+        removeMapLayerAndSource(map, 'quick-route-direct');
+        quickRouteLayerIds = quickRouteLayerIds.filter((id) => id !== 'quick-route-direct');
+        addLineLayer(map, 'quick-route-outline', route.geometry.coordinates, {
+            'line-color': '#ffffff',
+            'line-width': 8,
+            'line-opacity': 0.9,
+        });
+        addLineLayer(map, 'quick-route-road', route.geometry.coordinates, {
+            'line-color': '#2563eb',
+            'line-width': 5,
+            'line-opacity': 0.95,
+        });
+        quickRouteLayerIds.push('quick-route-outline', 'quick-route-road');
+        fitMapToLngLats(map, route.geometry.coordinates, { padding: 50, maxZoom: 16 });
 
         if (distanceOutput) distanceOutput.textContent = formatRouteDistance(Number(route.distance));
         if (durationOutput) durationOutput.textContent = formatRouteDuration(Number(route.duration));
