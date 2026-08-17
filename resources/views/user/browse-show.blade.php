@@ -87,7 +87,7 @@
             $availabilityRouteLabel = $availabilityLabel.' · '.$availableCount.' '.\Illuminate\Support\Str::plural('room', $availableCount);
             $mapConfig = [
                 'routing' => [
-                    'serviceUrl' => 'https://router.project-osrm.org/route/v1',
+                    'serviceUrl' => config('services.openstreetmap.fallback_routing_url'),
                     'profiles' => [
                         'DRIVING' => 'driving',
                         'WALKING' => 'walking',
