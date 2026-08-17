@@ -6,6 +6,8 @@ use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 
 test('tenant boarding house details renders the interactive route planner and map fallbacks', function () {
+    config()->set('services.openstreetmap.tile_url', 'https://tiles.example.test/{z}/{x}/{y}.png');
+
     $tenant = User::factory()->create([
         'role' => 'user',
         'is_active' => true,
@@ -45,10 +47,15 @@ test('tenant boarding house details renders the interactive route planner and ma
         ->assertSee('data-travel-mode="TRANSIT"', false)
         ->assertSee('Turn-by-Turn Directions')
         ->assertSee('data-route-steps', false)
+        ->assertSee('id="boardmatch-map-config"', false)
+        ->assertSee('tiles.example.test', false)
         ->assertSee('https://www.openstreetmap.org/', false);
 
     $mapScript = file_get_contents(resource_path('js/boarding-house-map.js'));
     expect($mapScript)
+        ->toContain("from './openstreetmap'")
+        ->toContain('createOpenStreetMap')
+        ->not->toContain('leaflet')
         ->toContain('Enable location services to see live routes from your current location. The map is centered on the boarding house for now.')
         ->toContain('Route could not be generated right now. Please try again in a moment.')
         ->toContain('Map reset. Open the reservation panel or tap Reserve Room to route again.')
