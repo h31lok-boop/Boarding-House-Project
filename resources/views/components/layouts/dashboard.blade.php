@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <x-map-config />
     <title>{{ config('app.name', 'Boarding House Match Making System') }}</title>
     <link rel="icon" type="image/png" href="{{ asset('images/boardmatch-final-logo.png') }}">
     <script>
