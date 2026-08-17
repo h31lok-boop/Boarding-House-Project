@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-GeoBoard / BoardMatch is a Laravel 12 (PHP 8.2+) web app for boarding-house management with three role-based workspaces (admin, owner, tenant/user), location-aware browsing via Leaflet maps, and an AI-assisted roommate/boarding-house matchmaking system. Frontend is Blade + Alpine.js + Tailwind CSS, bundled by Vite.
+GeoBoard / BoardMatch is a Laravel 12 (PHP 8.2+) web app for boarding-house management with three role-based workspaces (admin, owner, tenant/user), location-aware browsing via MapLibre GL JS and OpenStreetMap, and an AI-assisted roommate/boarding-house matchmaking system. Frontend is Blade + Alpine.js + Tailwind CSS, bundled by Vite.
 
 The final academic scope and objective-to-feature mapping are defined in `docs/STUDY_OBJECTIVES_TRACEABILITY.md`. Treat that document as the requirements baseline. The weighted compatibility algorithm remains authoritative for ranking; predictive analytics are a separate role-scoped decision-support module.
 
@@ -75,7 +75,7 @@ Tuning matchmaking behavior means editing `config/matchmaking.php`, not the serv
 Rich Eloquent domain (~40 models). Central: `User`, `BoardingHouse` (owned via `owner_id`), `Room`, `Reservation`, `Payment`/`PaymentReceipt`, `Review`, `Inquiry`. Matchmaking: `TenantMatchProfile`, `TenantPreference`/`UserPreference`, `RoommateMatchRequest`, `BoardingHouseMatch`, `Favorite`. Geo hierarchy: `Region` → `Province` → `CityMunicipality` → `Barangay` → `Location`. Validation/compliance: `Accreditation`, `ValidationRecord`/`Task`/`Finding`/`Evidence`, `Incident`.
 
 ### Frontend
-Vite entry points: `resources/css/app.css` and `resources/js/app.js` (`vite.config.js`). Map behavior lives in standalone JS modules `resources/js/boarding-house-map.js` and `boarding-house-browse-map.js` (Leaflet). Blade views under `resources/views` are split by workspace (`admin/`, `user/`, `auth/`) with shared `components/` (including `components/admin/shell.blade.php`, `components/payments`, `components/sidebar`). UI is orange-themed.
+Vite entry points: `resources/css/app.css` and `resources/js/app.js` (`vite.config.js`). Map behavior lives in `resources/js/openstreetmap.js`, `boarding-house-map.js`, `boarding-house-browse-map.js`, and `admin-boarding-house-maps.js` (MapLibre GL JS with OpenStreetMap tiles). Blade views under `resources/views` are split by workspace (`admin/`, `user/`, `auth/`) with shared `components/` (including `components/admin/shell.blade.php`, `components/payments`, `components/sidebar`). UI is orange-themed.
 
 ## Tests
 Pest with `tests/Feature` and `tests/Unit` suites. Feature tests are UI/behavior-focused (many `*UiTest.php` asserting rendered admin pages) plus service tests (`CompatibilityServiceTest`, `BoardingHouseRecommendationServiceTest`, `OpenAIMatchExplanationTest`). Tests boot against SQLite `:memory:`.
