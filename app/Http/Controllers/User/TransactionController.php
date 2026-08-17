@@ -27,7 +27,7 @@ class TransactionController extends Controller
         $filters = $request->validate([
             'q' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', Rule::in(['paid', 'pending_review', 'rejected'])],
-            'payment_method' => ['nullable', Rule::in(['GCash', 'Maya', 'Bank Transfer', 'Cash Payment'])],
+            'payment_method' => ['nullable', Rule::in(['Cash Payment'])],
             'date_from' => ['nullable', 'date'],
             'date_to' => $dateToRules,
         ]);
@@ -109,7 +109,7 @@ class TransactionController extends Controller
             'transaction_id' => $this->transactionId($transaction),
             'date' => $date?->format('M d, Y') ?? 'N/A',
             'description' => $description,
-            'payment_method' => $transaction->payment_method,
+            'payment_method' => 'Cash Payment',
             'reference_number' => $reference,
             'amount' => $this->money($transaction->amount),
             'amount_raw' => (float) $transaction->amount,
@@ -117,7 +117,7 @@ class TransactionController extends Controller
             'status_key' => $transaction->status,
             'receipt' => [
                 'has_file' => $hasReceipt,
-                'required' => $transaction->payment_method !== 'Cash Payment',
+                'required' => false,
                 'exists' => $receiptExists,
                 'url' => $hasReceipt ? route('payment-receipts.show', $transaction) : null,
                 'download_url' => $hasReceipt ? route('payment-receipts.download', $transaction) : null,
@@ -144,7 +144,7 @@ class TransactionController extends Controller
 
         $date = $transaction->payment_date ?: $transaction->created_at;
 
-        if ($transaction->payment_method === 'Cash Payment' && ! $transaction->receipt_path) {
+        if (! $transaction->receipt_path) {
             return 'Deposit';
         }
 

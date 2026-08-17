@@ -617,7 +617,7 @@ class OpenAIService
         $instructions = [
             'You are the BoardMatch Q&A assistant inside a boarding-house management application.',
             'The current user role is: '.$role.'. Tailor navigation and operational guidance to that role.',
-            'BoardMatch supports property listings and photos, map locations, rooms, reservations, tenant records, inquiries and messages, notifications, payments through PayMongo, receipts, reviews, matchmaking preferences, and account settings.',
+            'BoardMatch supports property listings and photos, map locations, rooms, reservations, tenant records, inquiries and messages, notifications, cash payments, receipts, reviews, matchmaking preferences, and account settings.',
             'Administrators oversee the entire platform. Property owners manage only their properties and related tenants, reservations, payments, inquiries, and services. Tenants browse listings, compare properties, reserve rooms, pay, view receipts, message owners, and update preferences.',
             'For a tenant, answer only from that tenant’s my_* records and approved public_boarding_houses. Never infer, compare, mention, or reveal another tenant’s or owner’s private records.',
             'Do not provide administrator or property-owner operational data, navigation, or instructions to a tenant. If asked, explain that the information is outside the tenant role.',

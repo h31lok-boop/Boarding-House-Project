@@ -55,7 +55,6 @@ it('exposes every active integration area in one admin view', function () {
         ->toContain('Remove saved override and use .env')
         ->and($service)
         ->toContain("'title' => 'AI providers'")
-        ->toContain("'title' => 'PayMongo'")
         ->toContain("'title' => 'Google services'")
         ->toContain("'title' => 'Email delivery'");
 });
@@ -64,15 +63,10 @@ it('marks the configured provider and integrations that are used by the system',
     config()->set('services.ai_evaluation.provider', 'groq');
     config()->set('services.groq.enabled', true);
     config()->set('services.groq.api_key', 'test-groq-key');
-    config()->set('services.paymongo.public_key', 'pk_test_system');
-    config()->set('services.paymongo.secret_key', 'sk_test_system');
-
     $groups = collect(app(IntegrationSettingsService::class)->groupsForAdmin())->keyBy('key');
 
     expect($groups['ai']['runtime_status'])
-        ->toMatchArray(['active' => true, 'label' => 'Groq in use'])
-        ->and($groups['payments']['runtime_status'])
-        ->toMatchArray(['active' => true, 'label' => 'In use by system']);
+        ->toMatchArray(['active' => true, 'label' => 'Groq in use']);
 
     $view = file_get_contents(dirname(__DIR__, 2).'/resources/views/admin/api-settings.blade.php');
 

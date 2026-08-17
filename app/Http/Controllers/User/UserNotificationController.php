@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
+use App\Models\Reservation;
 use App\Models\UserNotification;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
@@ -45,6 +47,7 @@ class UserNotificationController extends Controller
         $this->applySort($query, $sort);
 
         $notifications = $query->paginate(12)->withQueryString();
+        $this->attachReservationContexts($notifications->getCollection());
         $summaryCards = $this->summaryCards($user->id);
         $actionRequiredNotifications = $this->actionRequiredNotifications($user->id, $filter, $search);
 
@@ -347,5 +350,81 @@ class UserNotificationController extends Controller
             ->whereNull('reference_id')
             ->where('title', $notification->title)
             ->where('message', $notification->message);
+    }
+
+    private function attachReservationContexts(Collection $notifications): void
+    {
+        $reservationIds = $notifications
+            ->map(fn (UserNotification $notification) => $this->reservationIdFor($notification))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($reservationIds->isEmpty() || ! Schema::hasTable('reservations')) {
+            return;
+        }
+
+        $reservations = Reservation::query()
+            ->with([
+                'boardingHouse.owner.ownerProfile',
+                'boardingHouse.ownerProfile',
+                'room',
+            ])
+            ->whereIn('id', $reservationIds)
+            ->get()
+            ->keyBy('id');
+
+        foreach ($notifications as $notification) {
+            $reservationId = $this->reservationIdFor($notification);
+            $reservation = $reservationId ? $reservations->get($reservationId) : null;
+
+            if (! $reservation) {
+                continue;
+            }
+
+            $house = $reservation->boardingHouse;
+            $owner = $house?->owner;
+            $ownerProfile = $house?->ownerProfile ?: $owner?->ownerProfile;
+            $houseName = $house?->name ?? 'Boarding house';
+            $ownerName = $owner?->name ?? $house?->contact_name ?? $house?->contact_person ?? 'Property owner';
+            $context = [
+                'reservation_id' => $reservation->id,
+                'boarding_house_name' => $houseName,
+                'boarding_house_address' => $house?->full_address ?: $house?->address,
+                'owner_name' => $ownerName,
+                'owner_email' => $owner?->email,
+                'owner_contact' => $owner?->contact_number
+                    ?: $owner?->phone_number
+                    ?: $owner?->phone
+                    ?: $ownerProfile?->contact_number
+                    ?: $house?->effective_contact,
+                'room' => $reservation->room?->effective_room_number,
+            ];
+
+            $notification->setAttribute('reservation_context', $context);
+            if (
+                str_ends_with((string) $notification->reference_id, ':submitted')
+                || strtolower(trim((string) $notification->title)) === 'reservation submitted'
+            ) {
+                $notification->setAttribute(
+                    'display_message',
+                    "Your reservation request for {$houseName} was submitted successfully. Property owner: {$ownerName}."
+                );
+            }
+        }
+    }
+
+    private function reservationIdFor(UserNotification $notification): ?int
+    {
+        $dataId = data_get($notification->data, 'reservation.reservation_id')
+            ?: data_get($notification->data, 'reservation_id');
+
+        if (is_numeric($dataId)) {
+            return (int) $dataId;
+        }
+
+        return preg_match('/^reservation:(\d+):/', (string) $notification->reference_id, $matches) === 1
+            ? (int) $matches[1]
+            : null;
     }
 }

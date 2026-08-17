@@ -263,7 +263,7 @@ class BoardMatchAiContextService
                 'Browse and compare approved listings: /user/boarding-houses',
                 'Preferences and weighted compatibility matches: /user/preferences and /user/matchmaking',
                 'Reservations: /user/reservations',
-                'Payments, PayMongo checkout, and receipts: /user/payments and /user/transactions',
+                'Cash payments and receipts: /user/payments and /user/transactions',
                 'Messages, reviews, and notifications: /user/messages, /user/reviews, and /user/notifications',
                 'Profile and privacy settings: /user/settings',
             ],

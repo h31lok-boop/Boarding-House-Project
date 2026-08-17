@@ -186,10 +186,13 @@
                                 $type = $normalizeType($notification->type);
                                 $meta = $typeMeta[$type];
                                 $isUnread = $notification->read_at === null;
+                                $reservationContext = $notification->reservation_context
+                                    ?? data_get($notification->data, 'reservation', []);
+                                $displayMessage = $notification->display_message ?? $notification->message;
                                 $detailPayload = [
                                     'id' => $notification->id,
                                     'title' => $notification->title,
-                                    'message' => $notification->message,
+                                    'message' => $displayMessage,
                                     'type' => $meta['singular'],
                                     'typeClass' => $meta['pill'],
                                     'icon' => '<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">'.$notificationIcon($iconFor($type)).'</svg>',
@@ -200,6 +203,12 @@
                                     'statusClass' => $isUnread ? 'bg-blue-50 text-blue-700' : 'bg-emerald-50 text-emerald-700',
                                     'statusDot' => $isUnread ? 'bg-blue-600' : 'bg-emerald-500',
                                     'readAt' => $notification->read_at ? \Illuminate\Support\Carbon::parse($notification->read_at)->format('M d, Y — h:i A') : null,
+                                    'boardingHouse' => data_get($reservationContext, 'boarding_house_name'),
+                                    'boardingHouseAddress' => data_get($reservationContext, 'boarding_house_address'),
+                                    'ownerName' => data_get($reservationContext, 'owner_name'),
+                                    'ownerEmail' => data_get($reservationContext, 'owner_email'),
+                                    'ownerContact' => data_get($reservationContext, 'owner_contact'),
+                                    'room' => data_get($reservationContext, 'room'),
                                     'read_url' => route('user.notifications.read', $notification->id),
                                     'delete_url' => route('user.notifications.destroy', $notification->id),
                                 ];
@@ -235,8 +244,19 @@
                                         </div>
 
                                         <p class="mt-1 text-[13px] leading-5 {{ $isUnread ? 'text-slate-600' : 'text-slate-500' }}">
-                                            {{ \Illuminate\Support\Str::limit($notification->message, 160) }}
+                                            {{ \Illuminate\Support\Str::limit($displayMessage, 200) }}
                                         </p>
+
+                                        @if (filled(data_get($reservationContext, 'boarding_house_name')) || filled(data_get($reservationContext, 'owner_name')))
+                                            <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500">
+                                                @if (filled(data_get($reservationContext, 'boarding_house_name')))
+                                                    <span><strong class="font-semibold text-slate-700">Boarding house:</strong> {{ data_get($reservationContext, 'boarding_house_name') }}</span>
+                                                @endif
+                                                @if (filled(data_get($reservationContext, 'owner_name')))
+                                                    <span><strong class="font-semibold text-slate-700">Owner:</strong> {{ data_get($reservationContext, 'owner_name') }}</span>
+                                                @endif
+                                            </div>
+                                        @endif
 
                                         <div class="hidden">
                                             <span class="rounded-full px-2.5 py-0.5 text-[10px] font-bold {{ $meta['pill'] }}">{{ $meta['singular'] }}</span>
@@ -355,6 +375,24 @@
                 <p class="whitespace-pre-line text-sm leading-7 text-slate-600" x-text="selected.message"></p>
 
                 <dl class="mt-5 divide-y divide-slate-100 rounded-2xl border border-slate-100 bg-slate-50/60">
+                    <div class="flex items-start justify-between gap-4 px-4 py-3" x-show="selected.ownerName">
+                        <dt class="text-xs font-semibold text-slate-500">Property owner</dt>
+                        <dd class="text-right text-xs text-slate-700">
+                            <span class="block font-semibold" x-text="selected.ownerName || '—'"></span>
+                            <span class="mt-0.5 block text-slate-500" x-show="selected.ownerContact" x-text="selected.ownerContact"></span>
+                            <span class="mt-0.5 block text-slate-500" x-show="selected.ownerEmail" x-text="selected.ownerEmail"></span>
+                        </dd>
+                    </div>
+
+                    <div class="flex items-start justify-between gap-4 px-4 py-3" x-show="selected.boardingHouse">
+                        <dt class="text-xs font-semibold text-slate-500">Boarding house reserved</dt>
+                        <dd class="max-w-sm text-right text-xs text-slate-700">
+                            <span class="block font-semibold" x-text="selected.boardingHouse || '—'"></span>
+                            <span class="mt-0.5 block text-slate-500" x-show="selected.boardingHouseAddress" x-text="selected.boardingHouseAddress"></span>
+                            <span class="mt-0.5 block text-slate-500" x-show="selected.room" x-text="'Room: ' + selected.room"></span>
+                        </dd>
+                    </div>
+
                     <div class="flex items-center justify-between gap-4 px-4 py-3">
                         <dt class="flex items-center gap-2 text-xs font-semibold text-slate-500">
                             <svg class="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">

@@ -8,5 +8,8 @@ test('owner applications summarize properties in the table and render full detai
         ->toContain('data-owner-property-summary="{{ $submittedHouseCount }}"')
         ->toContain('Open the application to view all properties.')
         ->toContain('template x-for="house in (selected.houses || [])"')
-        ->toContain('<dt>Boarding Houses</dt>');
+        ->toContain('<dt>Boarding Houses</dt>')
+        ->toContain("route('admin.owners.verify', \$user)")
+        ->toContain('Approve this owner application')
+        ->toContain('A stored permit and linked boarding house are required before approval');
 });

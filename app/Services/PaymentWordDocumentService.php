@@ -28,7 +28,7 @@ class PaymentWordDocumentService
         $houseAddress = $house?->getRawOriginal('full_address')
             ?: ($house?->getRawOriginal('address') ?: 'Address not provided');
         $status = Str::headline((string) ($payment->status ?: 'pending'));
-        $method = Str::headline((string) ($payment->payment_method ?: 'cash'));
+        $method = 'Cash';
         $reference = $payment->reference_number ?: ($payment->reference_no ?: 'Not provided');
         $recordedAt = $payment->getRawOriginal('paid_at') ?: $payment->getRawOriginal('created_at');
         $dateLabel = $isPaid ? 'Payment date' : 'Recorded date';

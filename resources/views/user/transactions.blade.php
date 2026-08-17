@@ -58,10 +58,6 @@
                 Payment Method
                 <select name="payment_method" class="mt-1 h-9 w-full rounded-lg border-slate-200 bg-white text-xs shadow-sm focus:border-[#2563eb] focus:ring-[#2563eb]/30 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
                     <option value="">All Methods</option>
-                    <option value="PayMongo" @selected(($filters['payment_method'] ?? '') === 'PayMongo')>PayMongo</option>
-                    <option value="GCash" @selected(($filters['payment_method'] ?? '') === 'GCash')>GCash</option>
-                    <option value="Maya" @selected(($filters['payment_method'] ?? '') === 'Maya')>Maya</option>
-                    <option value="Bank Transfer" @selected(($filters['payment_method'] ?? '') === 'Bank Transfer')>Bank Transfer</option>
                     <option value="Cash Payment" @selected(($filters['payment_method'] ?? '') === 'Cash Payment')>Cash</option>
                 </select>
             </label>

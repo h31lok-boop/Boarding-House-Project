@@ -45,6 +45,11 @@ class PaymentReceipt extends Model
         'reviewed_at' => 'datetime',
     ];
 
+    public function setPaymentMethodAttribute(mixed $value): void
+    {
+        $this->attributes['payment_method'] = 'Cash Payment';
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

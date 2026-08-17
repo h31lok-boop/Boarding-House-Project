@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     notes TEXT NULL,
     total_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     payment_status VARCHAR(50) NULL,
-    payment_method VARCHAR(50) NULL,
+    payment_method VARCHAR(50) NOT NULL DEFAULT 'cash',
     confirmed_at TIMESTAMP NULL,
     cancelled_at TIMESTAMP NULL,
     cancellation_reason TEXT NULL,

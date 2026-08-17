@@ -293,7 +293,7 @@ CREATE TABLE payments (
     payment_date DATE NOT NULL,
     due_date DATE NULL,
     payment_type ENUM('rent', 'deposit', 'advance', 'electricity', 'water', 'penalty', 'other') DEFAULT 'rent',
-    payment_method ENUM('cash', 'bank_transfer', 'gcash', 'maya', 'paymaya', 'credit_card', 'debit_card', 'check', 'other') DEFAULT 'cash',
+    payment_method ENUM('cash') DEFAULT 'cash',
     reference_number VARCHAR(100) NULL,
     status ENUM('pending', 'confirmed', 'failed', 'refunded') DEFAULT 'pending',
     confirmed_by BIGINT UNSIGNED NULL,

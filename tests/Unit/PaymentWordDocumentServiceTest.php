@@ -24,7 +24,7 @@ test('payment service creates a valid printable word document', function () {
         'id' => 1,
         'amount' => 3500,
         'status' => 'paid',
-        'payment_method' => 'paymongo',
+        'payment_method' => 'cash',
         'reference_number' => 'PM-TEST-001',
         'receipt_number' => 'RCT-TEST-001',
         'due_date' => '2026-08-15',

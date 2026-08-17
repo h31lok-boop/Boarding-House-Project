@@ -38,7 +38,7 @@ test('it uses the FreeModel Responses API when selected', function () {
     Http::fake([
         'api.freemodel.dev/v1/responses' => Http::response([
             'model' => 'gpt-5.4',
-            'output_text' => 'Use the Payments page to review the receipt and continue to PayMongo.',
+            'output_text' => 'Use the Payments page to review the bill, then pay the owner in cash.',
         ], 200, ['x-request-id' => 'fm_req_test']),
     ]);
 
@@ -71,7 +71,7 @@ test('it uses the DeepSeek chat completions API when selected', function () {
                 'finish_reason' => 'stop',
                 'message' => [
                     'role' => 'assistant',
-                    'content' => 'Open Payments, review the receipt, and continue to PayMongo.',
+                    'content' => 'Open Payments, review the bill, then pay the owner in cash.',
                 ],
             ]],
         ], 200, ['x-request-id' => 'ds_req_test']),
@@ -145,7 +145,7 @@ test('it uses the Groq chat completions API when selected', function () {
                 'finish_reason' => 'stop',
                 'message' => [
                     'role' => 'assistant',
-                    'content' => 'Open Payments, review the receipt, and continue to PayMongo.',
+                    'content' => 'Open Payments, review the bill, then pay the owner in cash.',
                 ],
             ]],
         ], 200, ['x-request-id' => 'groq_req_test']),
@@ -292,7 +292,7 @@ test('it sends role-aware Q and A messages with a privacy-safe identifier', func
     Http::fake([
         'api.openai.com/v1/responses' => Http::response([
             'model' => 'gpt-5.6-luna',
-            'output_text' => 'Open Payments, choose an unpaid charge, review the receipt, and continue to PayMongo.',
+            'output_text' => 'Open Payments, review the unpaid charge, then pay the owner in cash.',
         ]),
     ]);
 
@@ -308,7 +308,7 @@ test('it sends role-aware Q and A messages with a privacy-safe identifier', func
 
     expect($result)
         ->success->toBeTrue()
-        ->content->toContain('PayMongo');
+        ->content->toContain('cash');
 
     Http::assertSent(function ($request) {
         $input = $request['input'];

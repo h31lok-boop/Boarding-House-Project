@@ -79,7 +79,7 @@
                                             'status' => strtolower((string) ($payment->status ?? 'pending')),
                                             'status_label' => $statusLabel($payment->status),
                                             'reference_no' => $payment->reference_no,
-                                            'payment_method' => $payment->payment_method ?: 'cash',
+                                            'payment_method' => 'cash',
                                             'notes' => $payment->notes,
                                             'update_url' => $route('payments.update', $payment),
                                             'document_url' => $route('payments.document', $payment),
@@ -210,7 +210,8 @@
                     </label>
                     <label class="text-xs font-semibold text-slate-700">
                         Payment Method
-                        <select name="payment_method" class="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white"><option value="cash">Cash</option><option value="paymongo">PayMongo</option></select>
+                        <input type="hidden" name="payment_method" value="cash">
+                        <input value="Cash" readonly class="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-100 px-2.5 text-xs font-semibold text-slate-700">
                     </label>
                     <label class="text-xs font-semibold text-slate-700">
                         Reference No.
@@ -295,7 +296,8 @@
                 </label>
                 <label class="mt-3 block text-xs font-semibold text-slate-700">
                     Payment Method
-                    <select name="payment_method" x-model="selected.payment_method" class="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-900 outline-none focus:border-blue-500 focus:bg-white"><option value="cash">Cash</option><option value="paymongo">PayMongo</option></select>
+                    <input type="hidden" name="payment_method" value="cash">
+                    <input value="Cash" readonly class="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-100 px-2.5 text-xs font-semibold text-slate-700">
                 </label>
                 <label class="mt-3 block text-xs font-semibold text-slate-700">
                     Notes

@@ -90,7 +90,7 @@
                     'label' => 'Payments',
                     'href' => $r('admin.payments'),
                     'icon' => 'payments',
-                    'active' => $isPath($workspacePath.'/payments*', $workspacePath.'/payment-verification*'),
+                    'active' => $isPath($workspacePath.'/payments*'),
                 ],
                 [
                     'key' => 'services',
@@ -160,13 +160,6 @@
                     'icon' => 'settings',
                     'active' => $isPath('admin/api-settings*'),
                     'admin_only' => true,
-                ],
-                [
-                    'key' => 'payment-settings',
-                    'label' => 'PayMongo Settings',
-                    'href' => $r($workspace.'.payment-settings'),
-                    'icon' => 'payments',
-                    'active' => $isPath($workspacePath.'/payment-settings*'),
                 ],
             ],
         ],

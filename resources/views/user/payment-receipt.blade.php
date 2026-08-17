@@ -16,7 +16,7 @@
         <div class="row"><span class="label">Receipt number</span><span class="value">{{ $receipt->receipt_number ?: 'RCT-'.$receipt->id }}</span></div>
         <div class="row"><span class="label">Tenant</span><span class="value">{{ $receipt->user?->name ?: 'Tenant' }}</span></div>
         <div class="row"><span class="label">Payment date</span><span class="value">{{ $receipt->payment_date?->format('M d, Y') ?: '—' }}</span></div>
-        <div class="row"><span class="label">Payment method</span><span class="value">{{ $receipt->payment_method }}</span></div>
+        <div class="row"><span class="label">Payment method</span><span class="value">Cash Payment</span></div>
         <div class="row"><span class="label">Reference</span><span class="value">{{ $receipt->reference_number ?: '—' }}</span></div>
         <div class="row total"><span>Total paid</span><span>₱{{ number_format((float) $receipt->amount, 2) }}</span></div>
         <p style="color:#64748b;font-size:12px;margin-top:24px">Status: {{ $receipt->status_label }}. Keep this receipt for your records.</p>

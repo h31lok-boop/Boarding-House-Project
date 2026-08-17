@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\Admin\AdminHelpCenterController;
 use App\Http\Controllers\Admin\ApiSettingsController;
-use App\Http\Controllers\Admin\PaymentReceiptVerificationController;
 use App\Http\Controllers\AdminListingController;
 use App\Http\Controllers\AdminOwnerController;
 use App\Http\Controllers\AiAssistantController;
@@ -12,7 +11,6 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LandingPageController;
 use App\Http\Controllers\Map\BoardingHouseMapController;
 use App\Http\Controllers\Owner\OwnerController;
-use App\Http\Controllers\PaymongoCheckoutController;
 use App\Http\Controllers\PredictiveInsightsController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoomController;
@@ -32,8 +30,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', LandingPageController::class)->name('home');
-
-Route::post('/webhooks/paymongo', [PaymongoCheckoutController::class, 'webhook'])->name('paymongo.webhook');
 
 Route::middleware('guest')->get('/auth', fn () => redirect()->route('login'))->name('auth.choice');
 
@@ -118,8 +114,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('/reservations/{reservation}', [AdminOwnerController::class, 'destroyReservation'])->name('reservations.destroy');
         Route::get('/api/boarding-houses/{boardingHouse}/available-rooms', [AdminOwnerController::class, 'availableRooms'])->name('api.boarding-houses.available-rooms');
         Route::get('/payments', [AdminOwnerController::class, 'payments'])->name('payments');
-        Route::get('/payment-settings', [AdminOwnerController::class, 'paymentSettings'])->name('payment-settings');
-        Route::put('/payment-settings', [AdminOwnerController::class, 'updatePaymentSettings'])->name('payment-settings.update');
         Route::get('/transactions', [AdminOwnerController::class, 'payments'])->name('transactions.index');
         Route::post('/payments', [AdminOwnerController::class, 'storePayment'])->name('payments.store');
         Route::get('/payments/{payment}/document', [AdminOwnerController::class, 'paymentDocument'])->name('payments.document');
@@ -141,11 +135,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/reports/export', [AdminOwnerController::class, 'exportReports'])->name('reports.export');
         Route::get('/reports', [AdminOwnerController::class, 'reports'])->name('reports.index');
         Route::get('/predictive-insights', [PredictiveInsightsController::class, 'index'])->name('insights.index');
-
-        // Payment-receipt verification
-        Route::get('/payment-verification', [PaymentReceiptVerificationController::class, 'index'])->name('payment-receipts.index');
-        Route::patch('/payment-verification/{receipt}/approve', [PaymentReceiptVerificationController::class, 'approve'])->name('payment-receipts.approve');
-        Route::patch('/payment-verification/{receipt}/reject', [PaymentReceiptVerificationController::class, 'reject'])->name('payment-receipts.reject');
 
         // Tenant profiles
         Route::get('/tenants', [AdminOwnerController::class, 'users'])->defaults('account_type', 'tenant')->name('tenants.index');
@@ -229,11 +218,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Payments
         Route::get('/payments', [OwnerController::class, 'payments'])->name('payments');
-        Route::get('/payment-verification', [PaymentReceiptVerificationController::class, 'index'])->name('payment-receipts.index');
-        Route::patch('/payment-verification/{receipt}/approve', [PaymentReceiptVerificationController::class, 'approve'])->name('payment-receipts.approve');
-        Route::patch('/payment-verification/{receipt}/reject', [PaymentReceiptVerificationController::class, 'reject'])->name('payment-receipts.reject');
-        Route::get('/payment-settings', [OwnerController::class, 'paymentSettings'])->name('payment-settings');
-        Route::put('/payment-settings', [OwnerController::class, 'updatePaymentSettings'])->name('payment-settings.update');
         Route::get('/transactions', [OwnerController::class, 'payments'])->name('transactions.index');
         Route::post('/payments', [OwnerController::class, 'storePayment'])->name('payments.store');
         Route::get('/payments/{payment}/document', [OwnerController::class, 'paymentDocument'])->name('payments.document');
@@ -308,15 +292,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/payments', [TenantAreaController::class, 'payments'])->name('payments.index');
         Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions');
         Route::get('/transactions', [TransactionController::class, 'index'])->name('transactions.index');
-        Route::post('/payment-methods', [TenantAreaController::class, 'storePaymentMethod'])->name('payment-methods.store');
-        Route::patch('/payment-methods/{method}/default', [TenantAreaController::class, 'setDefaultPaymentMethod'])->name('payment-methods.default');
-        Route::delete('/payment-methods/{method}', [TenantAreaController::class, 'destroyPaymentMethod'])->name('payment-methods.destroy');
-        Route::post('/payments/paymongo/checkout', [PaymongoCheckoutController::class, 'store'])->name('paymongo.checkout');
-        Route::post('/payments/confirm', [PaymongoCheckoutController::class, 'legacyConfirm'])->name('payments.confirm');
-        Route::get('/payments/paymongo/{checkout}/return', [PaymongoCheckoutController::class, 'returned'])->middleware('signed')->name('paymongo.return');
-        Route::get('/payments/paymongo/{checkout}/cancel', [PaymongoCheckoutController::class, 'cancel'])->name('paymongo.cancel');
-        Route::post('/payment-receipts', [PaymentReceiptController::class, 'store'])->name('payment-receipts.store');
-        Route::delete('/payment-receipts/{receipt}', [PaymentReceiptController::class, 'destroy'])->name('payment-receipts.destroy');
         Route::get('/messages', [TenantAreaController::class, 'messages'])->name('messages');
         Route::get('/messages/inbox', [TenantAreaController::class, 'messages'])->name('messages.index');
         Route::post('/messages', [TenantAreaController::class, 'storeMessage'])->middleware('throttle:10,1')->name('messages.store');

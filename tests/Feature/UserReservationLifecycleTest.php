@@ -3,7 +3,6 @@
 use App\Models\BoardingHouse;
 use App\Models\Reservation;
 use App\Models\Room;
-use App\Models\TenantPaymentMethod;
 use App\Models\User;
 use App\Models\UserNotification;
 use App\Services\ReservationLifecycleService;
@@ -128,22 +127,6 @@ test('expiration command expires stale reservations, releases rooms, and blocks 
     expect(strtolower((string) $reservation->payment_status))->toBe('expired');
     expect((int) $room->available_slots)->toBe(1);
     expect(strtolower((string) $room->status))->toBe('available');
-
-    $method = TenantPaymentMethod::query()->create([
-        'user_id' => $tenant->id,
-        'type' => 'gcash',
-        'account_number' => '09123456789',
-        'account_name' => 'Hazel Tenant',
-        'is_default' => true,
-    ]);
-
-    $this->actingAs($tenant)
-        ->post(route('user.payments.confirm'), [
-            'payment_method_id' => $method->id,
-            'payment_amount' => 4200,
-        ])
-        ->assertRedirect(route('user.reservations.index'))
-        ->assertSessionHas('error');
 
     if (Schema::hasTable('notifications')) {
         $tenantNotified = UserNotification::query()

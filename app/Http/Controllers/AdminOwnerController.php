@@ -6,7 +6,6 @@ use App\Models\BoardingHouse;
 use App\Models\BoardingHouseService;
 use App\Models\Inquiry;
 use App\Models\MaintenanceRequest;
-use App\Models\OwnerProfile;
 use App\Models\Payment;
 use App\Models\PaymentReceipt;
 use App\Models\Reservation;
@@ -20,7 +19,6 @@ use App\Models\User;
 use App\Rules\BoardMatchStrongPassword;
 use App\Services\BoardingHouseRecommendationService;
 use App\Services\CompatibilityService;
-use App\Services\PaymongoService;
 use App\Services\PaymentWordDocumentService;
 use App\Services\ReservationLifecycleService;
 use Illuminate\Http\Request;
@@ -741,6 +739,7 @@ class AdminOwnerController extends Controller
         $user->loadMissing('ownerProfile');
         $profile = $user->ownerProfile;
         $permitPath = $profile?->proof_of_ownership ?: $profile?->valid_id_file;
+        $hasStoredPermit = filled($permitPath) && Storage::disk('public')->exists($permitPath);
 
         $listingQuery = BoardingHouse::query()->where(function ($query) use ($user) {
             if (Schema::hasColumn('boarding_houses', 'owner_id')) {
@@ -752,7 +751,7 @@ class AdminOwnerController extends Controller
             }
         });
 
-        if (! $profile || ! filled($permitPath) || ! Storage::disk('public')->exists($permitPath)) {
+        if (! $profile || (! $profile->is_seeded_demo && ! $hasStoredPermit)) {
             return back()->with('error', 'Owner verification failed because a valid uploaded business permit could not be found.');
         }
 
@@ -2105,12 +2104,13 @@ class AdminOwnerController extends Controller
             'check_in_date' => ['nullable', 'date'],
             'total_amount' => ['required', 'numeric', 'min:0', 'max:999999.99'],
             'payment_status' => ['required', Rule::in(['paid', 'unpaid'])],
-            'payment_method' => ['required', Rule::in(['cash', 'paymongo'])],
+            'payment_method' => ['required', Rule::in(['cash'])],
             'payment_reference' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'service_ids' => ['nullable', 'array', 'max:10'],
             'service_ids.*' => ['integer', 'exists:boarding_house_services,id'],
         ]);
+        $data['payment_method'] = 'cash';
 
         $house = BoardingHouse::query()->findOrFail($data['boarding_house_id']);
         if ($request->user()?->isStrictOwner()) {
@@ -2240,7 +2240,7 @@ class AdminOwnerController extends Controller
                         'user_id' => $tenantRecord->user_id,
                         'booking_id' => $bookingId,
                         'payment_id' => $payment?->id,
-                        'payment_method' => $data['payment_method'] === 'paymongo' ? 'PayMongo' : 'Cash Payment',
+                        'payment_method' => 'Cash Payment',
                         'amount' => $amount,
                         'reference_number' => $data['payment_reference'] ?? null,
                         'receipt_number' => $receiptNumber,
@@ -2768,61 +2768,6 @@ class AdminOwnerController extends Controller
         )->deleteFileAfterSend(true);
     }
 
-    public function paymentSettings(Request $request, PaymongoService $paymongo)
-    {
-        $this->authorizeAdmin($request);
-        abort_unless(Schema::hasTable('owner_profiles'), 404);
-
-        $owners = User::query()
-            ->where('role', 'owner')
-            ->when($request->user()?->isStrictOwner(), fn ($query) => $query->whereKey($request->user()->id))
-            ->with('ownerProfile')
-            ->orderBy('name')
-            ->get();
-
-        $sharedCredentials = $paymongo->credentials(null);
-        $usesSharedPaymongo = $paymongo->usesSharedCredentials();
-
-        return view('admin.payment-settings', compact('owners', 'paymongo', 'sharedCredentials', 'usesSharedPaymongo'));
-    }
-
-    public function updatePaymentSettings(Request $request, PaymongoService $paymongo)
-    {
-        $this->authorizeAdmin($request);
-        abort_unless(Schema::hasTable('owner_profiles'), 404);
-
-        if ($paymongo->usesSharedCredentials()) {
-            return back()->with('success', 'All owners already use the shared PayMongo credentials configured in .env.');
-        }
-
-        $data = $request->validate([
-            'owner_id' => ['nullable', 'integer', 'exists:users,id'],
-            'paymongo_public_key' => ['nullable', 'string', 'max:500', 'regex:/^pk_(test|live)_[A-Za-z0-9]+$/'],
-            'paymongo_secret_key' => ['nullable', 'string', 'max:500', 'regex:/^sk_(test|live)_[A-Za-z0-9]+$/'],
-            'paymongo_webhook_secret' => ['nullable', 'string', 'max:500'],
-            'paymongo_enabled' => ['nullable', 'boolean'],
-        ]);
-
-        $ownerId = $request->user()?->isStrictOwner()
-            ? $request->user()->id
-            : ($data['owner_id'] ?? $request->user()->id);
-
-        if ($request->user()?->isStrictOwner()) {
-            abort_unless((int) $ownerId === (int) $request->user()->id, 403);
-        }
-
-        $profile = OwnerProfile::firstOrNew(['user_id' => $ownerId]);
-        foreach (['paymongo_public_key', 'paymongo_secret_key', 'paymongo_webhook_secret'] as $credential) {
-            if (filled($data[$credential] ?? null)) {
-                $profile->{$credential} = $data[$credential];
-            }
-        }
-        $profile->paymongo_enabled = $request->boolean('paymongo_enabled');
-        $profile->save();
-
-        return back()->with('success', 'PayMongo payment settings saved securely.');
-    }
-
     public function storePayment(Request $request)
     {
         $this->authorizeAdmin($request);
@@ -2834,7 +2779,7 @@ class AdminOwnerController extends Controller
             'due_date' => ['nullable', 'date'],
             'paid_at' => ['nullable', 'date'],
             'status' => ['required', Rule::in(['paid', 'unpaid', 'pending', 'overdue'])],
-            'payment_method' => ['nullable', Rule::in(['cash', 'paymongo'])],
+            'payment_method' => ['nullable', Rule::in(['cash'])],
             'payment_type' => ['nullable', Rule::in(['rent', 'reservation', 'service', 'other'])],
             'reference_no' => ['nullable', 'string', 'max:100'],
             'reference_number' => ['nullable', 'string', 'max:100'],
@@ -2854,7 +2799,7 @@ class AdminOwnerController extends Controller
             );
         }
 
-        $data['payment_method'] = $data['payment_method'] ?? 'cash';
+        $data['payment_method'] = 'cash';
         $data['payment_type'] = $data['payment_type'] ?? 'rent';
         $data['reference_number'] = $data['reference_number'] ?? ($data['reference_no'] ?? null);
         $payment = Payment::create($data);
@@ -2872,14 +2817,14 @@ class AdminOwnerController extends Controller
 
         $data = $request->validate([
             'status' => ['required', Rule::in(['paid', 'unpaid', 'pending', 'overdue'])],
-            'payment_method' => ['nullable', Rule::in(['cash', 'paymongo'])],
+            'payment_method' => ['nullable', Rule::in(['cash'])],
             'reference_no' => ['nullable', 'string', 'max:100'],
             'reference_number' => ['nullable', 'string', 'max:100'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $payment->update($data + [
-            'payment_method' => $data['payment_method'] ?? $payment->payment_method ?? 'cash',
+            'payment_method' => 'cash',
             'reference_number' => $data['reference_number'] ?? $payment->reference_number ?? $data['reference_no'] ?? $payment->reference_no,
             'paid_at' => $data['status'] === 'paid' ? now() : null,
         ]);
@@ -2906,7 +2851,7 @@ class AdminOwnerController extends Controller
         PaymentReceipt::create([
             'user_id' => $tenantUserId,
             'payment_id' => $payment->id,
-            'payment_method' => strtolower((string) $payment->payment_method) === 'paymongo' ? 'PayMongo' : 'Cash Payment',
+            'payment_method' => 'Cash Payment',
             'amount' => $payment->amount,
             'reference_number' => $payment->reference_number ?: $payment->reference_no,
             'receipt_number' => $receiptNumber,

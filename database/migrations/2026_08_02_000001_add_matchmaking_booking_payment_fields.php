@@ -44,7 +44,7 @@ return new class extends Migration
                     $table->unsignedTinyInteger('priority_rank')->default(2)->index();
                 }
                 if (! Schema::hasColumn('reservations', 'payment_method')) {
-                    $table->string('payment_method', 30)->nullable();
+                    $table->string('payment_method', 30)->default('cash');
                 }
                 if (! Schema::hasColumn('reservations', 'payment_reference')) {
                     $table->string('payment_reference', 100)->nullable();
@@ -76,7 +76,7 @@ return new class extends Migration
                     $table->string('payment_status', 30)->default('unpaid');
                 }
                 if (! Schema::hasColumn('bookings', 'payment_method')) {
-                    $table->string('payment_method', 30)->nullable();
+                    $table->string('payment_method', 30)->default('cash');
                 }
                 if (! Schema::hasColumn('bookings', 'total_amount')) {
                     $table->decimal('total_amount', 10, 2)->default(0);
@@ -96,7 +96,7 @@ return new class extends Migration
         if (Schema::hasTable('payments')) {
             Schema::table('payments', function (Blueprint $table) {
                 if (! Schema::hasColumn('payments', 'payment_method')) {
-                    $table->string('payment_method', 30)->nullable();
+                    $table->string('payment_method', 30)->default('cash');
                 }
                 if (! Schema::hasColumn('payments', 'payment_type')) {
                     $table->string('payment_type', 30)->default('rent');
@@ -121,19 +121,6 @@ return new class extends Migration
             });
         }
 
-        if (Schema::hasTable('owner_profiles')) {
-            Schema::table('owner_profiles', function (Blueprint $table) {
-                if (! Schema::hasColumn('owner_profiles', 'gcash_account_name')) {
-                    $table->string('gcash_account_name')->nullable();
-                }
-                if (! Schema::hasColumn('owner_profiles', 'gcash_number')) {
-                    $table->string('gcash_number', 30)->nullable();
-                }
-                if (! Schema::hasColumn('owner_profiles', 'gcash_api_key')) {
-                    $table->text('gcash_api_key')->nullable();
-                }
-            });
-        }
     }
 
     public function down(): void
@@ -144,7 +131,6 @@ return new class extends Migration
             'bookings' => ['boarding_house_id', 'reservation_id', 'booking_type', 'payment_status', 'payment_method', 'total_amount', 'receipt_number'],
             'payments' => ['payment_method', 'payment_type', 'reference_number', 'receipt_number'],
             'payment_receipts' => ['payment_id', 'receipt_number'],
-            'owner_profiles' => ['gcash_account_name', 'gcash_number', 'gcash_api_key'],
         ] as $tableName => $columns) {
             if (! Schema::hasTable($tableName)) {
                 continue;

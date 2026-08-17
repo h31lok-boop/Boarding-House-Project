@@ -35,7 +35,7 @@ test('payments page no longer contains recent transactions history', function ()
     $this->actingAs($user)
         ->get(route('user.payments.index'))
         ->assertOk()
-        ->assertSee('PayMongo checkout')
+        ->assertSee('Cash payment only')
         ->assertSee('Amount due')
         ->assertSee('Payment Schedule')
         ->assertDontSee('Payment Status Guide')
@@ -57,31 +57,31 @@ test('transactions page lists payment receipts and filters by status', function 
 
     PaymentReceipt::create([
         'user_id' => $user->id,
-        'payment_method' => 'GCash',
+        'payment_method' => 'Cash Payment',
         'amount' => 3000,
         'reference_number' => 'GC123456789',
         'payment_date' => '2026-06-05',
-        'receipt_path' => 'payment-receipts/gcash-june.jpg',
-        'original_filename' => 'gcash-june.jpg',
+        'receipt_path' => 'payment-receipts/cash-june.jpg',
+        'original_filename' => 'cash-june.jpg',
         'mime_type' => 'image/jpeg',
         'status' => PaymentReceipt::STATUS_APPROVED,
     ]);
 
     PaymentReceipt::create([
         'user_id' => $user->id,
-        'payment_method' => 'Maya',
+        'payment_method' => 'Cash Payment',
         'amount' => 3000,
         'reference_number' => 'MYA987654321',
         'payment_date' => '2026-05-05',
-        'receipt_path' => 'payment-receipts/maya-may.pdf',
-        'original_filename' => 'maya-may.pdf',
+        'receipt_path' => 'payment-receipts/cash-may.pdf',
+        'original_filename' => 'cash-may.pdf',
         'mime_type' => 'application/pdf',
         'status' => PaymentReceipt::STATUS_PENDING_REVIEW,
     ]);
 
     PaymentReceipt::create([
         'user_id' => $other->id,
-        'payment_method' => 'GCash',
+        'payment_method' => 'Cash Payment',
         'amount' => 3000,
         'reference_number' => 'OTHER123',
         'payment_date' => '2026-04-05',

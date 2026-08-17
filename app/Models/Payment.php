@@ -30,6 +30,11 @@ class Payment extends Model
         'amount' => 'decimal:2',
     ];
 
+    public function setPaymentMethodAttribute(mixed $value): void
+    {
+        $this->attributes['payment_method'] = 'cash';
+    }
+
     public function tenant()
     {
         return $this->belongsTo(Tenant::class);

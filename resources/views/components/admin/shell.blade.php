@@ -180,11 +180,6 @@
             'title' => 'Revenue Tracking',
             'description' => 'Record payments, monitor outstanding balances, and review collection status.',
         ],
-        request()->is($workspacePath.'/payment-verification*') => [
-            'label' => 'Receipt Review',
-            'title' => 'Payment Receipt Verification',
-            'description' => 'Approve or reject submitted receipts and keep payment records accurate.',
-        ],
         request()->is($workspacePath.'/notifications*') => [
             'label' => 'Notifications',
             'title' => 'Owner Alerts',

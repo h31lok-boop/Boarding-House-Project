@@ -27,7 +27,6 @@ test('profile photos are shown in account lists and profile dialogs', function (
         'resources/views/admin/inquiries.blade.php',
         'resources/views/admin/messages.blade.php',
         'resources/views/admin/reviews.blade.php',
-        'resources/views/admin/payment-settings.blade.php',
     ];
 
     foreach ($views as $viewPath) {

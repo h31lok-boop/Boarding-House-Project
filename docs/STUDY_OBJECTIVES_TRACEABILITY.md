@@ -26,7 +26,7 @@ Develop an intelligent boarding-house management system using a weighted compati
 | Manage boarding-house information | My Properties, professional photo gallery, amenities, geotagged map location, description, and contact data |
 | Manage rooms and availability | Room inventory, rates, capacity, and room status workflows |
 | Manage reservations | Owner-scoped reservation queue, walk-in reservation, approval/update workflows |
-| Manage online payment records | Owner-scoped payments, PayMongo settings, receipt review, and verified transaction records |
+| Manage cash payment records | Owner-scoped cash payments, official receipts, and transaction records |
 | View ML prediction results | Owner **ML Insights** workspace at `owner/predictive-insights`, restricted to owned properties |
 | Manage feedback and reviews | Owner-scoped reviews and tenant feedback records |
 
@@ -40,7 +40,7 @@ Develop an intelligent boarding-house management system using a weighted compati
 | View compatibility scores and personalized recommendations | Weighted Compatibility Algorithm and recommendation explanation views |
 | View ranked matches | Matchmaking workspace ranked by verified weighted scores |
 | Reserve rooms | Listing detail and reservation lifecycle workflows |
-| Process GCash, Maya, debit-card, and credit-card payments | PayMongo Hosted Checkout with `gcash`, `paymaya`, and `card`; QR Ph is also available when enabled for the merchant |
+| Process rent and reservation payments | Cash-only collection by the property owner or authorized front desk staff, followed by an official system receipt |
 | View payment history, status, and receipts | Payments, Transactions, receipt modal/print/download, and webhook-verified statuses |
 | View ML demand, reservation, occupancy, and payment-risk insights | Tenant **ML Insights** workspace at `user/predictive-insights`; payment risk is scoped to the signed-in tenant |
 
@@ -49,7 +49,7 @@ Develop an intelligent boarding-house management system using a weighted compati
 - The weighted compatibility algorithm is authoritative for compatibility scores and ranking.
 - OpenAI may explain a verified score or answer system-usage questions, but it must not modify scores or invent live availability, payment, or reservation facts.
 - Predictive insights use ordinary least-squares regression over role-scoped monthly observations. They are decision support, not transaction truth.
-- PayMongo webhooks and verified Checkout Session state remain the source of truth for online payments.
+- Owner/admin-recorded cash payments remain the source of truth for settled balances and official receipts.
 
 ## Evaluation baseline
 

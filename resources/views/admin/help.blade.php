@@ -59,7 +59,7 @@
                 'category' => 'Payments',
                 'question' => 'Where should I review payment concerns and receipt verification?',
                 'answer' => 'Use Payments for transaction history and the payment verification workspace for receipt review. That gives you the fastest path for unresolved balances or proof-of-payment issues.',
-                'search' => 'payment receipt verification balance transaction proof of payment',
+                'search' => 'cash payment official receipt balance transaction',
             ],
             [
                 'category' => 'Tenants',
@@ -132,9 +132,9 @@
                 'icon' => 'tenants',
             ],
             [
-                'title' => 'Payment Verification',
-                'description' => 'Review submitted receipts and approval decisions.',
-                'href' => route('admin.payment-receipts.index'),
+                'title' => 'Record Cash Payments',
+                'description' => 'Record tenant cash collections and issue official receipts.',
+                'href' => route('admin.payments'),
                 'icon' => 'payments',
             ],
             [

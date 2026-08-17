@@ -11,7 +11,7 @@
         $houseName = $payment->boardingHouse?->name ?: 'Boarding house';
         $houseAddress = $payment->boardingHouse?->full_address ?: $payment->boardingHouse?->address;
         $statusLabel = str($payment->status ?: 'pending')->headline();
-        $methodLabel = str($payment->payment_method ?: 'cash')->headline();
+        $methodLabel = 'Cash';
         $reference = $payment->reference_number ?: $payment->reference_no;
         $recordedAt = $payment->paid_at ?: $payment->created_at;
     @endphp

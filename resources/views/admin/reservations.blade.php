@@ -662,7 +662,8 @@
                                 <select name="payment_status" required><option value="paid" @selected(old('payment_status', 'paid') === 'paid')>Paid</option><option value="unpaid" @selected(old('payment_status') === 'unpaid')>Unpaid</option></select>
                             </label>
                             <label>Payment Method
-                                <select name="payment_method" required><option value="cash" @selected(old('payment_method', 'cash') === 'cash')>Cash</option><option value="paymongo" @selected(old('payment_method') === 'paymongo')>PayMongo</option></select>
+                                <input type="hidden" name="payment_method" value="cash">
+                                <input value="Cash" readonly>
                             </label>
                             <label>Payment Reference <span class="font-normal text-slate-400">(optional)</span>
                                 <input name="payment_reference" value="{{ old('payment_reference') }}" placeholder="Reference number">

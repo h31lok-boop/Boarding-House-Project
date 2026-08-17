@@ -49,6 +49,11 @@ class Reservation extends Model
         'priority_rank' => 'integer',
     ];
 
+    public function setPaymentMethodAttribute(mixed $value): void
+    {
+        $this->attributes['payment_method'] = 'cash';
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);

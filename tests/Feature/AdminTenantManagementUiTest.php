@@ -63,6 +63,8 @@ test('admin user management separates tenants owners and administrators', functi
         ->assertSee('Owner Applications')
         ->assertSee('Awaiting Review')
         ->assertSee('Review application')
+        ->assertSee('Approve')
+        ->assertSee('Approve this owner application')
         ->assertSee('Business Permit')
         ->assertSee('Property Photos')
         ->assertSee('Access locked:')

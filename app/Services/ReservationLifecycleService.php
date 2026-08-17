@@ -150,11 +150,55 @@ class ReservationLifecycleService
 
     public function notifyReservationSubmitted(Reservation $reservation): void
     {
-        $title = 'Reservation submitted';
-        $message = 'A new room reservation request was submitted for '.($reservation->boardingHouse?->name ?? 'your boarding house').'.';
+        $reservation->loadMissing([
+            'boardingHouse.owner.ownerProfile',
+            'boardingHouse.ownerProfile',
+            'room',
+        ]);
 
-        $this->notify($reservation->user_id, 'reservation', 'reservation:'.$reservation->id.':submitted', $title, 'Your reservation request was submitted successfully.');
-        $this->notify($reservation->boardingHouse?->owner_id, 'reservation', 'reservation:'.$reservation->id.':owner-submitted', $title, $message);
+        $house = $reservation->boardingHouse;
+        $owner = $house?->owner;
+        $ownerProfile = $house?->ownerProfile ?: $owner?->ownerProfile;
+        $houseName = $house?->name ?? 'the selected boarding house';
+        $ownerName = $owner?->name ?? $house?->contact_name ?? $house?->contact_person ?? 'Property owner';
+        $ownerContact = $owner?->contact_number
+            ?: $owner?->phone_number
+            ?: $owner?->phone
+            ?: $ownerProfile?->contact_number
+            ?: $house?->effective_contact;
+
+        $reservationContext = [
+            'reservation_id' => $reservation->id,
+            'boarding_house_id' => $house?->id,
+            'boarding_house_name' => $houseName,
+            'boarding_house_address' => $house?->full_address ?: $house?->address,
+            'owner_id' => $owner?->id,
+            'owner_name' => $ownerName,
+            'owner_email' => $owner?->email,
+            'owner_contact' => $ownerContact,
+            'room' => $reservation->room?->effective_room_number,
+        ];
+
+        $title = 'Reservation submitted';
+        $tenantMessage = "Your reservation request for {$houseName} was submitted successfully. Property owner: {$ownerName}.";
+        $ownerMessage = 'A new room reservation request was submitted for '.$houseName.'.';
+
+        $this->notify(
+            $reservation->user_id,
+            'reservation',
+            'reservation:'.$reservation->id.':submitted',
+            $title,
+            $tenantMessage,
+            ['reservation' => $reservationContext],
+        );
+        $this->notify(
+            $house?->owner_id,
+            'reservation',
+            'reservation:'.$reservation->id.':owner-submitted',
+            $title,
+            $ownerMessage,
+            ['reservation' => $reservationContext],
+        );
     }
 
     public function notifyReservationExpired(Reservation $reservation): void
@@ -178,8 +222,14 @@ class ReservationLifecycleService
         );
     }
 
-    private function notify(?int $userId, string $type, string $referenceId, string $title, string $message): void
-    {
+    private function notify(
+        ?int $userId,
+        string $type,
+        string $referenceId,
+        string $title,
+        string $message,
+        array $data = [],
+    ): void {
         if (! $userId || ! Schema::hasTable('notifications')) {
             return;
         }
@@ -200,7 +250,7 @@ class ReservationLifecycleService
         $values = [
             'title' => $title,
             'message' => $message,
-            'data' => json_encode(['reference_id' => $referenceId]),
+            'data' => json_encode(['reference_id' => $referenceId] + $data),
             'updated_at' => $now,
         ];
 

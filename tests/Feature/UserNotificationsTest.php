@@ -1,7 +1,10 @@
 <?php
 
+use App\Models\BoardingHouse;
+use App\Models\Reservation;
 use App\Models\User;
 use App\Models\UserNotification;
+use App\Services\ReservationLifecycleService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -54,6 +57,46 @@ test('notifications page renders notification content instead of profile setting
         ->assertSee('Newest First')
         ->assertSee('Payment confirmed')
         ->assertDontSee('Manage your account information, security, notifications, and privacy preferences.');
+});
+
+test('reservation notifications show the reserved boarding house and owner information', function () {
+    $tenant = notificationUser();
+    $owner = User::factory()->create([
+        'role' => 'owner',
+        'name' => 'Maria Santos',
+        'email' => 'maria@example.test',
+        'contact_number' => '09171234567',
+    ]);
+    $house = BoardingHouse::factory()->create([
+        'owner_id' => $owner->id,
+        'name' => 'Santos Student Homes',
+        'full_address' => 'Rizal Avenue, Digos City',
+    ]);
+    $reservation = Reservation::query()->create([
+        'user_id' => $tenant->id,
+        'boarding_house_id' => $house->id,
+        'status' => 'pending',
+    ]);
+
+    app(ReservationLifecycleService::class)->notifyReservationSubmitted($reservation);
+
+    $notification = UserNotification::query()
+        ->where('user_id', $tenant->id)
+        ->where('reference_id', 'reservation:'.$reservation->id.':submitted')
+        ->firstOrFail();
+
+    expect($notification->message)
+        ->toContain('Santos Student Homes')
+        ->toContain('Maria Santos')
+        ->and(data_get($notification->data, 'reservation.owner_contact'))->toBe('09171234567');
+
+    $this->actingAs($tenant)
+        ->get(route('user.notifications.index'))
+        ->assertOk()
+        ->assertSee('Santos Student Homes')
+        ->assertSee('Maria Santos')
+        ->assertSee('09171234567')
+        ->assertSee('Rizal Avenue, Digos City');
 });
 
 test('notifications page shows empty state', function () {

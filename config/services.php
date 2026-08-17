@@ -101,15 +101,4 @@ return [
         'fallback_routing_url' => env('BOARDMATCH_FALLBACK_ROUTING_URL', 'https://router.project-osrm.org/route/v1'),
     ],
 
-    'paymongo' => [
-        'base_url' => env('PAYMONGO_BASE_URL', 'https://api.paymongo.com'),
-        'public_key' => env('PAYMONGO_PUBLIC_KEY'),
-        'secret_key' => env('PAYMONGO_SECRET_KEY'),
-        'webhook_secret' => env('PAYMONGO_WEBHOOK_SECRET'),
-        'payment_methods' => array_values(array_filter(array_map(
-            'trim',
-            explode(',', env('PAYMONGO_PAYMENT_METHODS', 'card,gcash,paymaya,qrph'))
-        ))),
-    ],
-
 ];

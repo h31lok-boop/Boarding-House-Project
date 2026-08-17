@@ -152,7 +152,7 @@ class ReservationController extends Controller
 
             $this->createBooking($reservation, $tenant->id, $boardingHouse->id, $selectedRoom?->id);
 
-            $this->reservationLifecycleService->notifyReservationSubmitted($reservation->loadMissing('boardingHouse'));
+            $this->reservationLifecycleService->notifyReservationSubmitted($reservation);
 
             return $reservation;
         });

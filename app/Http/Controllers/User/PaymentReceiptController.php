@@ -3,12 +3,9 @@
 namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
-use App\Models\Booking;
 use App\Models\PaymentReceipt;
 use App\Services\ReservationLifecycleService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -17,13 +14,6 @@ class PaymentReceiptController extends Controller
     public function __construct(
         private readonly ReservationLifecycleService $reservationLifecycleService,
     ) {}
-
-    public function store(Request $request)
-    {
-        return redirect()
-            ->route('user.payments.index')
-            ->with('error', 'Manual payment proof submissions are disabled. Please use PayMongo secure checkout.');
-    }
 
     public function show(Request $request, PaymentReceipt $receipt)
     {
@@ -60,32 +50,6 @@ class PaymentReceiptController extends Controller
         );
     }
 
-    public function destroy(Request $request, PaymentReceipt $receipt)
-    {
-        abort_unless((int) $receipt->user_id === (int) $request->user()->id, 403);
-
-        if ($receipt->status !== PaymentReceipt::STATUS_PENDING_REVIEW) {
-            return back()->with('error', 'Only receipts pending review can be deleted.');
-        }
-
-        if ($receipt->receipt_path) {
-            Storage::disk('public')->delete($receipt->receipt_path);
-        }
-
-        $receipt->delete();
-
-        return back()->with('success', 'Payment receipt deleted.');
-    }
-
-    private function latestBookingIdFor(int $userId): ?int
-    {
-        if (! Schema::hasTable('bookings') || ! Schema::hasColumn('bookings', 'user_id')) {
-            return null;
-        }
-
-        return Booking::where('user_id', $userId)->latest()->value('id');
-    }
-
     private function authorizeReceiptAccess(Request $request, PaymentReceipt $receipt): void
     {
         $user = $request->user();
@@ -101,38 +65,4 @@ class PaymentReceiptController extends Controller
         );
     }
 
-    private function notifyAdmins(PaymentReceipt $receipt): void
-    {
-        if (! Schema::hasTable('notifications')) {
-            return;
-        }
-
-        $receipt->loadMissing('booking.boardingHouse', 'booking.room.boardingHouse', 'payment.boardingHouse');
-        $propertyOwnerId = $receipt->booking?->room?->boardingHouse?->owner_id
-            ?? $receipt->booking?->boardingHouse?->owner_id
-            ?? $receipt->payment?->boardingHouse?->owner_id;
-
-        $admins = DB::table('users')
-            ->whereRaw('LOWER(role) = ?', ['admin'])
-            ->when($propertyOwnerId, fn ($query) => $query->orWhere('id', $propertyOwnerId))
-            ->get(['id']);
-
-        foreach ($admins as $admin) {
-            DB::table('notifications')->updateOrInsert(
-                [
-                    'user_id' => $admin->id,
-                    'type' => 'payments',
-                    'reference_id' => 'payment-receipt-'.$receipt->id,
-                ],
-                [
-                    'title' => 'Payment proof submitted',
-                    'message' => 'A student submitted a payment proof for verification.',
-                    'data' => json_encode(['payment_receipt_id' => $receipt->id]),
-                    'is_read' => false,
-                    'read_at' => null,
-                    'updated_at' => now(),
-                ],
-            );
-        }
-    }
 }

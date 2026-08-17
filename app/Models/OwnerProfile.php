@@ -28,21 +28,9 @@ class OwnerProfile extends Model
         'is_seeded_demo',
         'verified_by',
         'verified_at',
-        'gcash_account_name',
-        'gcash_number',
-        'gcash_api_key',
-        'paymongo_public_key',
-        'paymongo_secret_key',
-        'paymongo_webhook_secret',
-        'paymongo_enabled',
     ];
 
     protected $casts = [
-        'gcash_api_key' => 'encrypted',
-        'paymongo_public_key' => 'encrypted',
-        'paymongo_secret_key' => 'encrypted',
-        'paymongo_webhook_secret' => 'encrypted',
-        'paymongo_enabled' => 'boolean',
         'is_seeded_demo' => 'boolean',
         'verified_at' => 'datetime',
     ];

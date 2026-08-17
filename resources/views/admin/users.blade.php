@@ -141,9 +141,9 @@
                                 $verificationStatus = strtolower((string) ($ownerProfile?->verification_status ?: ($isOwner ? 'pending' : 'not applicable')));
                                 $isSeededDemo = (bool) ($ownerProfile?->is_seeded_demo ?? false);
                                 $ownerApproved = $isOwner && $user->hasApprovedOwnerAccess();
-                                $approvalRecordInvalid = in_array($verificationStatus, ['verified', 'approved', 'rejected'], true);
-                                $approvalState = $ownerApproved ? 'approved' : ($approvalRecordInvalid ? 'not_approved' : 'pending');
-                                $approvalLabel = $ownerApproved ? 'Approved' : ($approvalRecordInvalid ? 'Not approved' : 'Pending approval');
+                                $wasRejected = $verificationStatus === 'rejected';
+                                $approvalState = $ownerApproved ? 'approved' : ($wasRejected ? 'not_approved' : 'pending');
+                                $approvalLabel = $ownerApproved ? 'Approved' : ($wasRejected ? 'Rejected' : 'Pending approval');
                                 $photoPaths = $houses->flatMap(fn ($ownedHouse) => collect($ownedHouse->images ?? [])->pluck('image_path')
                                     ->merge(collect($ownedHouse->photos ?? [])->pluck('photo_path'))
                                     ->merge(collect([$ownedHouse->featured_image, $ownedHouse->exterior_image, $ownedHouse->room_image, $ownedHouse->cr_image, $ownedHouse->kitchen_image])))
@@ -155,10 +155,12 @@
                                         ? ($ownerApproved
                                             ? ['Approved owner account', 'Manage approved boarding houses', 'Manage rooms and reservations', 'Receive verified payments']
                                             : ['Access remains locked before approval', 'Submitted permit requires administrator review', 'Boarding house remains unpublished', 'Login is disabled'])
-                                        : ['Browse approved listings', 'Reserve rooms', 'Pay through PayMongo', 'Message property owners']);
+                                        : ['Browse approved listings', 'Reserve rooms', 'Pay rent in cash', 'Message property owners']);
                                 $initials = collect(preg_split('/\s+/', trim((string) $user->name)))
                                     ->filter()->map(fn ($word) => strtoupper(substr($word, 0, 1)))->take(2)->implode('') ?: 'U';
                                 $userPhotoUrl = $user->photo_url;
+                                $reviewReady = (bool) (($isSeededDemo || $permitUrl) && $house);
+                                $verifyUrl = $isOwner && ! $ownerApproved ? route('admin.owners.verify', $user) : null;
                                 $payload = [
                                     'name' => $user->name,
                                     'email' => $user->email,
@@ -194,8 +196,8 @@
                                     'house_rules' => $house?->house_rules ?: $ownerProfile?->house_rules,
                                     'monthly_rent' => $ownerProfile?->monthly_rent_range ?: ($house?->monthly_payment ? 'PHP '.number_format((float) $house->monthly_payment) : null),
                                     'photos' => $photoUrls,
-                                    'review_ready' => (bool) (($isSeededDemo || $permitUrl) && $house),
-                                    'verify_url' => $isOwner && ! $ownerApproved && ! in_array($verificationStatus, ['verified', 'approved'], true) ? route('admin.owners.verify', $user) : null,
+                                    'review_ready' => $reviewReady,
+                                    'verify_url' => $verifyUrl,
                                     'reject_url' => $isOwner && ! $ownerApproved && $verificationStatus !== 'rejected' ? route('admin.owners.reject', $user) : null,
                                     'update_url' => route('admin.users.update', $user),
                                     'delete_url' => auth()->id() === $user->id ? null : route('admin.users.destroy', $user),
@@ -248,7 +250,28 @@
                                     <td class="px-5 py-4 ui-muted">{{ $user->phone ?? $user->contact_number ?? 'Not set' }}</td>
                                     <td class="px-5 py-4"><span class="inline-flex rounded-full border px-2.5 py-1 text-xs font-bold {{ $badge($active) }}">{{ $active ? 'Active' : ucfirst($accountStatus) }}</span></td>
                                 @endif
-                                <td class="px-5 py-4 text-right"><span class="text-xs font-bold text-blue-600">{{ $isOwner ? 'Review application' : 'Open account' }}</span></td>
+                                <td class="px-5 py-4 text-right">
+                                    <div class="flex items-center justify-end gap-2">
+                                        @if ($isOwner && $verifyUrl)
+                                            <form method="POST" action="{{ $verifyUrl }}" @submit.stop onsubmit="return confirm('Approve the submitted permit and boarding house, then enable owner access?')">
+                                                @csrf
+                                                @method('PATCH')
+                                                <button
+                                                    type="submit"
+                                                    @click.stop
+                                                    @disabled(! $reviewReady)
+                                                    title="{{ $reviewReady ? 'Approve this owner application' : 'A stored permit and linked boarding house are required before approval' }}"
+                                                    class="inline-flex h-9 items-center justify-center rounded-lg bg-emerald-600 px-3 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
+                                                >
+                                                    Approve
+                                                </button>
+                                            </form>
+                                        @endif
+                                        <button type="button" @click.stop="openView({{ \Illuminate\Support\Js::from($payload) }})" class="inline-flex h-9 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-bold text-blue-700 transition hover:bg-blue-100">
+                                            {{ $isOwner ? 'Review' : 'Open account' }}
+                                        </button>
+                                    </div>
+                                </td>
                             </tr>
                         @empty
                             <tr><td colspan="5" class="px-5 py-12 text-center"><p class="font-semibold">No {{ strtolower($activeTypeLabel) }} found</p><p class="mt-1 text-xs ui-muted">Try changing the filters or search term.</p></td></tr>

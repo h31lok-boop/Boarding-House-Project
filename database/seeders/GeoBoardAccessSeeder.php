@@ -200,8 +200,6 @@ class GeoBoardAccessSeeder extends Seeder
             'verification_status' => 'verified',
             'verified_by' => $verifiedBy,
             'verified_at' => now(),
-            'paymongo_enabled' => filled(config('services.paymongo.public_key'))
-                && filled(config('services.paymongo.secret_key')),
             'created_at' => now(),
             'updated_at' => now(),
         ];
@@ -291,7 +289,6 @@ class GeoBoardAccessSeeder extends Seeder
                 ['reservations', 'user_id'],
                 ['reviews', 'user_id'],
                 ['support_requests', 'user_id'],
-                ['tenant_payment_methods', 'user_id'],
                 ['tenant_match_profiles', 'user_id'],
                 ['tenant_profiles', 'user_id'],
                 ['user_preferences', 'user_id'],

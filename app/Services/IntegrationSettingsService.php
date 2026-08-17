@@ -55,18 +55,6 @@ class IntegrationSettingsService
             ],
         ],
         [
-            'key' => 'payments',
-            'title' => 'PayMongo',
-            'description' => 'Shared Hosted Checkout credentials used when an owner does not have a separate configuration.',
-            'fields' => [
-                ['key' => 'paymongo_base_url', 'config' => 'services.paymongo.base_url', 'label' => 'API base URL', 'type' => 'url', 'rules' => ['nullable', 'url:http,https', 'max:2048']],
-                ['key' => 'paymongo_public_key', 'config' => 'services.paymongo.public_key', 'label' => 'Public key', 'type' => 'secret', 'secret' => true, 'rules' => ['nullable', 'string', 'max:2048']],
-                ['key' => 'paymongo_secret_key', 'config' => 'services.paymongo.secret_key', 'label' => 'Secret key', 'type' => 'secret', 'secret' => true, 'rules' => ['nullable', 'string', 'max:2048']],
-                ['key' => 'paymongo_webhook_secret', 'config' => 'services.paymongo.webhook_secret', 'label' => 'Webhook signing secret', 'type' => 'secret', 'secret' => true, 'rules' => ['nullable', 'string', 'max:2048']],
-                ['key' => 'paymongo_payment_methods', 'config' => 'services.paymongo.payment_methods', 'label' => 'Payment methods', 'type' => 'text', 'cast' => 'csv', 'help' => 'Comma-separated, for example: card, gcash, paymaya, qrph', 'rules' => ['nullable', 'string', 'max:500']],
-            ],
-        ],
-        [
             'key' => 'google',
             'title' => 'Google services',
             'description' => 'Google sign-in, map rendering, and the routing endpoints used by property location features.',
@@ -266,19 +254,6 @@ class IntegrationSettingsService
                 'detail' => $active
                     ? "$providerLabel is the active system AI provider."
                     : "$providerLabel is selected but cannot be used until it is enabled and has an API key.",
-            ];
-        }
-
-        if ($group === 'payments') {
-            $active = filled(config('services.paymongo.public_key'))
-                && filled(config('services.paymongo.secret_key'));
-
-            return [
-                'active' => $active,
-                'label' => $active ? 'In use by system' : 'Not configured',
-                'detail' => $active
-                    ? 'Shared PayMongo checkout is available across the payment workflow.'
-                    : 'PayMongo needs both a public key and secret key.',
             ];
         }
 

@@ -17,10 +17,6 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->append(ForceUtf8ResponseHeaders::class);
 
-        $middleware->validateCsrfTokens(except: [
-            'webhooks/paymongo',
-        ]);
-
         $middleware->alias([
             'admin' => AdminMiddleware::class,
             'owner' => OwnerMiddleware::class,

@@ -2076,7 +2076,7 @@
                 "reservation_id": null,
                 "booking_type": "reservation",
                 "payment_status": "unpaid",
-                "payment_method": null,
+                "payment_method": "cash",
                 "total_amount": "0.00",
                 "receipt_number": null
             }
@@ -2522,14 +2522,7 @@
                 "verified_by": 1,
                 "verified_at": "2026-08-13 21:02:09",
                 "created_at": "2026-08-13 21:02:09",
-                "updated_at": "2026-08-13 21:02:09",
-                "gcash_account_name": null,
-                "gcash_number": null,
-                "gcash_api_key": null,
-                "paymongo_public_key": null,
-                "paymongo_secret_key": null,
-                "paymongo_webhook_secret": null,
-                "paymongo_enabled": 1
+                "updated_at": "2026-08-13 21:02:09"
             },
             {
                 "id": 2,
@@ -2552,14 +2545,7 @@
                 "verified_by": 1,
                 "verified_at": "2026-08-13 21:02:09",
                 "created_at": "2026-08-13 21:02:09",
-                "updated_at": "2026-08-13 21:02:09",
-                "gcash_account_name": null,
-                "gcash_number": null,
-                "gcash_api_key": null,
-                "paymongo_public_key": null,
-                "paymongo_secret_key": null,
-                "paymongo_webhook_secret": null,
-                "paymongo_enabled": 1
+                "updated_at": "2026-08-13 21:02:09"
             }
         ],
         "payment_receipts": [],
@@ -2576,7 +2562,7 @@
                 "notes": "Sample overdue monthly rent.",
                 "created_at": "2026-08-13 21:02:11",
                 "updated_at": "2026-08-13 21:02:11",
-                "payment_method": "gcash",
+                "payment_method": "cash",
                 "payment_type": "rent",
                 "reference_number": "PAY-HAZEL-001",
                 "receipt_number": null
@@ -2593,7 +2579,7 @@
                 "notes": "Sample current billing record.",
                 "created_at": "2026-08-13 21:02:11",
                 "updated_at": "2026-08-13 21:02:11",
-                "payment_method": "gcash",
+                "payment_method": "cash",
                 "payment_type": "rent",
                 "reference_number": "PAY-HAZEL-002",
                 "receipt_number": null
@@ -2614,28 +2600,6 @@
                 "payment_type": "rent",
                 "reference_number": "PAY-HAZEL-003",
                 "receipt_number": null
-            }
-        ],
-        "paymongo_checkouts": [
-            {
-                "id": 1,
-                "user_id": 7,
-                "tenant_id": 1,
-                "owner_id": 2,
-                "boarding_house_id": 1,
-                "reservation_id": 1,
-                "payment_id": 1,
-                "checkout_session_id": "cs_49c2dee5358485b99f899d0d",
-                "paymongo_payment_id": null,
-                "reference_number": "BM-PM-BCG1V7UBONRW7NZDCTW9",
-                "amount": "3500.00",
-                "currency": "PHP",
-                "status": "pending",
-                "checkout_url": "https://checkout.paymongo.com/49c2dee5358485b99f899d0d",
-                "paid_at": null,
-                "raw_payload": "{\"id\": \"cs_49c2dee5358485b99f899d0d\", \"type\": \"checkout_session\", \"attributes\": {\"livemode\": true, \"created_at\": 1786663282, \"updated_at\": 1786663282, \"checkout_url\": \"https://checkout.paymongo.com/49c2dee5358485b99f899d0d\"}}",
-                "created_at": "2026-08-13 23:21:15",
-                "updated_at": "2026-08-13 23:21:18"
             }
         ],
         "permissions": [],
@@ -2796,7 +2760,7 @@
                 "updated_at": "2026-08-13 21:02:11",
                 "booking_type": "reservation",
                 "priority_rank": 2,
-                "payment_method": null,
+                "payment_method": "cash",
                 "payment_reference": null
             },
             {
@@ -2824,7 +2788,7 @@
                 "updated_at": "2026-08-13 21:02:11",
                 "booking_type": "reservation",
                 "priority_rank": 2,
-                "payment_method": null,
+                "payment_method": "cash",
                 "payment_reference": null
             }
         ],
@@ -3719,7 +3683,6 @@
                 "preferred_roommate_traits": "[\"balanced\", \"occasional_cooking\", \"flexible_schedule\", \"occasional_guests\", \"ask_first\"]"
             }
         ],
-        "tenant_payment_methods": [],
         "tenant_preferences": [],
         "tenant_profiles": [
             {

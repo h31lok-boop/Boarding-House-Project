@@ -16,6 +16,11 @@ class Booking extends Model
         'end_date' => 'date',
     ];
 
+    public function setPaymentMethodAttribute(mixed $value): void
+    {
+        $this->attributes['payment_method'] = 'cash';
+    }
+
     public function room()
     {
         return $this->belongsTo(Room::class);

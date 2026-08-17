@@ -11,9 +11,7 @@ use App\Models\PaymentReceipt;
 use App\Models\Reservation;
 use App\Models\Review;
 use App\Models\Tenant;
-use App\Models\TenantPaymentMethod;
 use App\Models\UserNotification;
-use App\Services\PaymongoService;
 use App\Services\ReservationLifecycleService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -119,352 +117,6 @@ class TenantAreaController extends Controller
 
         return view('user.payments', $this->paymentDashboardData($tenant->id));
     }
-
-    // ── Payment Methods CRUD ─────────────────────────────────────────────────
-
-    public function storePaymentMethod(Request $request)
-    {
-        $tenant = $this->tenant($request);
-        abort_unless(Schema::hasTable('tenant_payment_methods'), 404);
-
-        $type = $request->input('type', 'gcash');
-
-        $rules = [
-            'type' => ['required', 'in:gcash'],
-        ];
-
-        if (in_array($type, ['visa', 'mastercard', 'bank'])) {
-            $rules['last_four'] = ['required', 'digits:4'];
-            $rules['expiry'] = ['nullable', 'string', 'max:7'];
-            $rules['cardholder_name'] = ['nullable', 'string', 'max:100'];
-        }
-
-        if ($type === 'gcash') {
-            $rules['account_number'] = ['required', 'string', 'max:20'];
-            $rules['account_name'] = ['nullable', 'string', 'max:100'];
-        }
-
-        $data = $request->validate($rules);
-        $data['user_id'] = $tenant->id;
-
-        // First method becomes default automatically
-        $isFirst = TenantPaymentMethod::where('user_id', $tenant->id)->doesntExist();
-        $data['is_default'] = $isFirst;
-
-        TenantPaymentMethod::create($data);
-
-        return back()->with('success', 'Payment method added.');
-    }
-
-    public function setDefaultPaymentMethod(Request $request, TenantPaymentMethod $method)
-    {
-        $tenant = $this->tenant($request);
-        abort_unless((int) $method->user_id === (int) $tenant->id, 403);
-
-        // Clear old default then set new one
-        TenantPaymentMethod::where('user_id', $tenant->id)->update(['is_default' => false]);
-        $method->update(['is_default' => true]);
-
-        return back()->with('success', 'Default payment method updated.');
-    }
-
-    public function destroyPaymentMethod(Request $request, TenantPaymentMethod $method)
-    {
-        $tenant = $this->tenant($request);
-        abort_unless((int) $method->user_id === (int) $tenant->id, 403);
-
-        $wasDefault = $method->is_default;
-        $method->delete();
-
-        if ($wasDefault) {
-            $next = TenantPaymentMethod::where('user_id', $tenant->id)->first();
-            $next?->update(['is_default' => true]);
-        }
-
-        return back()->with('success', 'Payment method removed.');
-    }
-
-    public function confirmPayment(Request $request)
-    {
-        $this->reservationLifecycleService->expireStaleReservations();
-        $tenant = $this->tenant($request);
-        $relevantReservation = $this->reservationLifecycleService->relevantReservationForUser($tenant->id);
-
-        if ($relevantReservation && ! $this->reservationLifecycleService->canProcessPayment($relevantReservation)) {
-            return redirect()->route('user.reservations.index')
-                ->with('error', 'This reservation has already expired. Payment is no longer allowed.');
-        }
-
-        $validated = $request->validate([
-            'payment_method_id' => ['required', 'integer'],
-            'payment_amount' => ['nullable', 'numeric', 'min:0'],
-        ]);
-
-        $payMethod = TenantPaymentMethod::where('id', $validated['payment_method_id'])
-            ->where('user_id', $tenant->id)
-            ->firstOrFail();
-        abort_unless($payMethod->type === 'gcash', 422, 'Tenants may only pay online using GCash.');
-
-        $hasTenantCol = Schema::hasTable('tenants') && Schema::hasColumn('payments', 'tenant_id');
-        $hasUserCol = Schema::hasColumn('payments', 'user_id');
-        $hasTenancyCol = Schema::hasColumn('payments', 'tenancy_id');
-        $hasConfirmedAt = Schema::hasColumn('payments', 'confirmed_at');
-        $hasIsLate = Schema::hasColumn('payments', 'is_late');
-
-        $tenantRecord = $hasTenantCol
-            ? Tenant::where('user_id', $tenant->id)->first()
-            : null;
-
-        // Prefer the tenant record for boarding_house_id — most reliable
-        $boardingHouseId = $tenantRecord?->boarding_house_id
-            ?? Reservation::where('user_id', $tenant->id)
-                ->whereIn('status', ['confirmed', 'checked-in', 'checked_in', 'active'])
-                ->latest()
-                ->value('boarding_house_id');
-
-        // tenancy_id is NOT NULL with no default — borrow from an existing row
-        $tenancyId = ($hasTenancyCol && $tenantRecord)
-            ? Payment::where('tenant_id', $tenantRecord->id)->whereNotNull('tenancy_id')->value('tenancy_id')
-            : null;
-
-        // Build sequential reference number: PAY-HAZEL-004, 005 …
-        $nameSlug = strtoupper(substr(preg_replace('/[^A-Za-z]/', '', $tenant->name), 0, 5)) ?: 'PAY';
-        $refPrefix = 'PAY-'.$nameSlug.'-';
-        $lastRef = Payment::when($tenantRecord, fn ($q) => $q->where('tenant_id', $tenantRecord->id))
-            ->where('reference_no', 'like', $refPrefix.'%')
-            ->orderByDesc('id')
-            ->value('reference_no');
-        $nextSeq = 1;
-        if ($lastRef && preg_match('/(\d+)$/', $lastRef, $m)) {
-            $nextSeq = (int) $m[1] + 1;
-        }
-        $refNo = $refPrefix.str_pad($nextSeq, 3, '0', STR_PAD_LEFT);
-
-        // Capture exact payment datetime once so every column gets the identical timestamp
-        $paidAt = now();
-
-        // ── Transaction + row-lock — prevents paying the same record twice ──
-        $result = DB::transaction(function () use (
-            $hasTenantCol, $hasUserCol, $hasTenancyCol, $hasConfirmedAt, $hasIsLate,
-            $tenant, $tenantRecord, $boardingHouseId, $tenancyId,
-            $payMethod, $validated, $refNo, $refPrefix, $nextSeq, $paidAt
-        ) {
-            // SELECT FOR UPDATE: first concurrent request wins; second waits, then sees it paid
-            $pendingPayment = Payment::where(function ($q) use ($hasTenantCol, $hasUserCol, $tenant) {
-                if ($hasTenantCol) {
-                    $q->whereHas('tenant', fn ($tq) => $tq->where('user_id', $tenant->id));
-                }
-                if ($hasUserCol) {
-                    $q->orWhere('user_id', $tenant->id);
-                }
-            })
-                ->whereIn('status', ['pending', 'unpaid', 'overdue'])
-                ->orderBy('due_date')
-                ->lockForUpdate()
-                ->first();
-
-            $usedRefNo = false;
-            $usedRef = null;
-            $paidAmount = 0.0;
-            $lastDueDate = null;
-            $paymentType = 'rent';
-
-            if ($pendingPayment) {
-                // ── Update existing pending/overdue row ──
-                $isLate = $hasIsLate && $pendingPayment->due_date && $paidAt->gt($pendingPayment->due_date);
-
-                $updateAttrs = [
-                    'status' => 'paid',
-                    'paid_at' => $paidAt,
-                    'payment_method' => $payMethod->type,
-                    'reference_no' => $pendingPayment->reference_no ?: $refNo,
-                    'reference_number' => $pendingPayment->reference_number ?: ($pendingPayment->reference_no ?: $refNo),
-                ];
-                if ($hasConfirmedAt) {
-                    $updateAttrs['confirmed_at'] = $paidAt;
-                }
-                if ($hasIsLate) {
-                    $updateAttrs['is_late'] = $isLate ? 1 : 0;
-                }
-
-                $pendingPayment->forceFill($updateAttrs)->save();
-
-                $usedRef = $pendingPayment->reference_no;
-                $paidAmount = (float) $pendingPayment->amount;
-                $lastDueDate = $pendingPayment->due_date;
-                $paymentType = $pendingPayment->payment_type ?? 'rent';
-
-            } else {
-                // ── No pending row — create a brand-new paid record ──
-                $confirmedAmount = (float) ($validated['payment_amount'] ?? 0);
-
-                // Duplicate guard: if a paid record with the same amount was just saved
-                // (within the last 3 minutes), return its reference instead of inserting again
-                if ($tenantRecord) {
-                    $existing = Payment::where('tenant_id', $tenantRecord->id)
-                        ->where('status', 'paid')
-                        ->where('amount', $confirmedAmount)
-                        ->where('paid_at', '>=', $paidAt->copy()->subMinutes(3))
-                        ->value('reference_no');
-
-                    if ($existing) {
-                        return $existing;
-                    }
-                }
-
-                $attrs = [
-                    'status' => 'paid',
-                    'paid_at' => $paidAt,
-                    'due_date' => $paidAt->toDateString(),
-                    'payment_date' => $paidAt->toDateString(),
-                    'payment_method' => $payMethod->type,
-                    'payment_type' => 'rent',
-                    'reference_no' => $refNo,
-                    'reference_number' => $refNo,
-                    'amount' => $confirmedAmount,
-                ];
-                if ($boardingHouseId) {
-                    $attrs['boarding_house_id'] = $boardingHouseId;
-                }
-                if ($tenantRecord) {
-                    $attrs['tenant_id'] = $tenantRecord->id;
-                }
-                if ($hasUserCol) {
-                    $attrs['user_id'] = $tenant->id;
-                }
-                if ($hasTenancyCol && $tenancyId) {
-                    $attrs['tenancy_id'] = $tenancyId;
-                }
-                if ($hasConfirmedAt) {
-                    $attrs['confirmed_at'] = $paidAt;
-                }
-
-                (new Payment)->forceFill($attrs)->save();
-                $usedRef = $refNo;
-                $usedRefNo = true;
-                $paidAmount = $confirmedAmount;
-                $lastDueDate = $paidAt;
-                $paymentType = 'rent';
-            }
-
-            // ── Auto-generate next month's pending payment ──
-            if ($tenantRecord && $boardingHouseId && $paidAmount > 0) {
-                $parsedDue = $lastDueDate instanceof Carbon
-                    ? $lastDueDate
-                    : Carbon::parse($lastDueDate);
-                $nextDueDate = $parsedDue->copy()->addMonth();
-
-                // Guard: don't insert if ANY payment (any status) already covers that due date
-                $alreadyExists = Payment::where('tenant_id', $tenantRecord->id)
-                    ->whereDate('due_date', $nextDueDate->toDateString())
-                    ->exists();
-
-                if (! $alreadyExists) {
-                    $autoSeq = $usedRefNo ? $nextSeq + 1 : $nextSeq;
-                    $nextRefNo = $refPrefix.str_pad($autoSeq, 3, '0', STR_PAD_LEFT);
-
-                    $nextAttrs = [
-                        'amount' => $paidAmount,
-                        'due_date' => $nextDueDate->toDateString(),
-                        'payment_date' => $nextDueDate->toDateString(),
-                        'status' => 'pending',
-                        'payment_type' => $paymentType,
-                        'reference_no' => $nextRefNo,
-                        'reference_number' => $nextRefNo,
-                    ];
-                    if ($boardingHouseId) {
-                        $nextAttrs['boarding_house_id'] = $boardingHouseId;
-                    }
-                    if ($tenantRecord) {
-                        $nextAttrs['tenant_id'] = $tenantRecord->id;
-                    }
-                    if ($hasTenancyCol && $tenancyId) {
-                        $nextAttrs['tenancy_id'] = $tenancyId;
-                    }
-
-                    (new Payment)->forceFill($nextAttrs)->save();
-                }
-            }
-
-            return $usedRef;
-        });
-
-        if (! $result) {
-            return redirect()->route('user.payments.index')
-                ->with('error', 'Payment could not be processed. Please try again.');
-        }
-
-        if ($relevantReservation && Schema::hasColumn('reservations', 'payment_status')) {
-            $relevantReservation->forceFill([
-                'payment_status' => 'paid',
-                'notes' => trim(($relevantReservation->notes ? $relevantReservation->notes."\n" : '').'Payment confirmed on '.now()->format('M d, Y h:i A').'.'),
-            ])->save();
-        }
-
-        $this->issueTenantConfirmedReceipt($tenant->id, $result, $tenantRecord, $relevantReservation);
-
-        $methodLabel = ucfirst($payMethod->type)
-            .($payMethod->last_four ? ' ••••'.$payMethod->last_four : '')
-            .($payMethod->account_number ? ' '.$payMethod->account_number : '');
-
-        return redirect()->route('user.payments.index')
-            ->with('payment_confirmed', true)
-            ->with('payment_ref', $result)
-            ->with('payment_method_label', $methodLabel)
-            ->with('success', 'Payment confirmed successfully.');
-    }
-
-    private function issueTenantConfirmedReceipt(int $userId, string $reference, mixed $tenantRecord, ?Reservation $reservation): void
-    {
-        if (! Schema::hasTable('payment_receipts') || ! Schema::hasTable('payments')) {
-            return;
-        }
-
-        $paymentQuery = Payment::query()
-            ->where('status', 'paid')
-            ->where(function ($query) use ($reference) {
-                $query->where('reference_no', $reference)
-                    ->orWhere('reference_number', $reference);
-            });
-
-        if ($tenantRecord) {
-            $paymentQuery->where('tenant_id', $tenantRecord->id);
-        } elseif (Schema::hasColumn('payments', 'user_id')) {
-            $paymentQuery->where('user_id', $userId);
-        } else {
-            return;
-        }
-
-        $payment = $paymentQuery->latest('id')->first();
-        if (! $payment || PaymentReceipt::where('payment_id', $payment->id)->exists()) {
-            return;
-        }
-
-        $bookingId = null;
-        if (Schema::hasTable('bookings') && Schema::hasColumn('bookings', 'user_id')) {
-            $bookingId = $reservation && Schema::hasColumn('bookings', 'reservation_id')
-                ? Booking::where('user_id', $userId)->where('reservation_id', $reservation->id)->value('id')
-                : Booking::where('user_id', $userId)->latest('id')->value('id');
-        }
-
-        $receiptNumber = 'RCT-GCASH-'.now()->format('Y').'-'.str_pad((string) $payment->id, 6, '0', STR_PAD_LEFT);
-        PaymentReceipt::create([
-            'user_id' => $userId,
-            'booking_id' => $bookingId,
-            'payment_id' => $payment->id,
-            'payment_method' => 'GCash',
-            'amount' => $payment->amount,
-            'reference_number' => $payment->reference_number ?: $payment->reference_no,
-            'receipt_number' => $receiptNumber,
-            'payment_date' => $payment->paid_at?->toDateString() ?: today(),
-            'status' => PaymentReceipt::STATUS_APPROVED,
-            'reviewed_at' => now(),
-            'notes' => 'GCash payment confirmed in the tenant payment center.',
-        ]);
-
-        $payment->forceFill(['receipt_number' => $receiptNumber])->save();
-    }
-
     public function messages(Request $request)
     {
         $tenant = $this->tenant($request);
@@ -769,13 +421,6 @@ class TenantAreaController extends Controller
             : collect();
 
         $paymentRows = $this->tenantPayments($tenantId);
-        $paymentMethods = Schema::hasTable('tenant_payment_methods')
-            ? TenantPaymentMethod::query()
-                ->where('user_id', $tenantId)
-                ->orderByDesc('is_default')
-                ->latest('id')
-                ->get()
-            : collect();
 
         $approvedReceipts = Schema::hasTable('payment_receipts')
             ? PaymentReceipt::query()
@@ -881,39 +526,22 @@ class TenantAreaController extends Controller
             ];
         }
 
-        $paymongoConfigured = (bool) ($nextDue['paymongo_configured'] ?? false);
-
         return [
             'stats' => $stats,
             'latestReceipt' => $latestReceipt,
             'receipts' => $receipts,
-            'paymongoConfigured' => $paymongoConfigured,
             'bookings' => $bookings,
             'paymentSchedule' => $paymentSchedule,
-            'paymentMethodsList' => $paymentMethods,
-            'paymentMethodOptions' => [],
             'summaryItems' => $summaryItems,
             'summaryTotal' => $nextDue ? (float) $nextDue['amount'] : $pendingAmount,
             'statusGuide' => [
-                ['label' => 'Review receipt', 'description' => 'Confirm the property, bill, due date, and exact amount.'],
-                ['label' => 'Secure checkout', 'description' => 'Pay on the PayMongo hosted payment page.'],
-                ['label' => 'Gateway verification', 'description' => 'PayMongo signs and confirms the completed transaction.'],
-                ['label' => 'Receipt issued', 'description' => 'BoardMatch records the payment and creates your receipt.'],
-            ],
-            'confirmPayment' => [
-                'available' => (bool) ($paymongoConfigured && $nextDue),
-                'amount' => (float) ($nextDue['amount'] ?? 0),
-                'payment_id' => $nextDue['id'] ?? null,
-                'method_label' => 'PayMongo',
-                'due_date' => $nextDue['due_date_label'] ?? null,
-                'billing_type' => $nextDue['type'] ?? 'Rent',
-                'reference' => $nextDue['reference'] ?? null,
-                'property_name' => $nextDue['boarding_house_name'] ?? 'Boarding house',
-                'property_location' => $nextDue['boarding_house_location'] ?? 'Location not provided',
+                ['label' => 'Review your bill', 'description' => 'Confirm the property, due date, and exact amount due.'],
+                ['label' => 'Pay in cash', 'description' => 'Give the exact cash payment to the property owner or authorized front desk staff.'],
+                ['label' => 'Staff records payment', 'description' => 'The owner or administrator marks the bill as paid in BoardMatch.'],
+                ['label' => 'Receipt issued', 'description' => 'Collect or download the official cash-payment receipt.'],
             ],
             'paymentStatsMeta' => [
                 'approved_receipts' => $approvedReceipts->count(),
-                'paymongo_configured' => $paymongoConfigured,
             ],
         ];
     }
@@ -955,7 +583,7 @@ class TenantAreaController extends Controller
             return collect();
         }
 
-        $query = Payment::query()->with(['boardingHouse.ownerProfile', 'boardingHouse.owner.ownerProfile']);
+        $query = Payment::query()->with('boardingHouse');
         $hasUserColumn = Schema::hasColumn('payments', 'user_id');
         $hasTenantColumn = Schema::hasColumn('payments', 'tenant_id');
         $tenantRecordId = null;
@@ -1012,9 +640,6 @@ class TenantAreaController extends Controller
                     'boarding_house_location' => $payment->boardingHouse
                         ? ($payment->boardingHouse->full_address ?: ($payment->boardingHouse->address ?: 'Location not provided'))
                         : 'Location not provided',
-                    'paymongo_configured' => app(PaymongoService::class)->isConfigured(
-                        $payment->boardingHouse?->ownerProfile ?: $payment->boardingHouse?->owner?->ownerProfile
-                    ),
                 ];
             })
             ->values();
