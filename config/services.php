@@ -89,8 +89,16 @@ return [
         'map_id' => env('GOOGLE_MAPS_MAP_ID', 'DEMO_MAP_ID'),
         'language' => env('GOOGLE_MAPS_LANGUAGE', 'en'),
         'region' => env('GOOGLE_MAPS_REGION', 'PH'),
+    ],
+
+    'openstreetmap' => [
+        'tile_url' => env('OPENSTREETMAP_TILE_URL', 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'),
+        'attribution' => env('OPENSTREETMAP_ATTRIBUTION', '© OpenStreetMap contributors'),
+        'max_zoom' => (int) env('OPENSTREETMAP_MAX_ZOOM', 19),
+        'nominatim_url' => env('OPENSTREETMAP_NOMINATIM_URL', 'https://nominatim.openstreetmap.org'),
         'driving_routing_url' => env('BOARDMATCH_DRIVING_ROUTING_URL', 'https://routing.openstreetmap.de/routed-car'),
         'walking_routing_url' => env('BOARDMATCH_WALKING_ROUTING_URL', 'https://routing.openstreetmap.de/routed-foot'),
+        'fallback_routing_url' => env('BOARDMATCH_FALLBACK_ROUTING_URL', 'https://router.project-osrm.org/route/v1'),
     ],
 
     'paymongo' => [
