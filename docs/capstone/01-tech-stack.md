@@ -6,7 +6,7 @@
 - Database: `MySQL 8`
 - Auth: `Laravel Breeze` + `spatie/laravel-permission`
 - Storage: Laravel `public` disk for images
-- Maps: `Leaflet.js` + OpenStreetMap tiles
+- Maps: `MapLibre GL JS` + environment-configured OpenStreetMap tiles
 
 ## Why this stack
 - Already aligned with the current repository.
