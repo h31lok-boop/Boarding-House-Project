@@ -26,5 +26,5 @@
 
 ## Geotagging Module
 - Coordinates stored in `boarding_houses`.
-- Leaflet map renders pin(s) and supports quick visual comparison.
+- MapLibre GL JS renders OpenStreetMap tiles and property pins for quick visual comparison.
 - Distance uses Haversine formula from a fixed point or user-selected coordinates.
