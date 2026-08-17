@@ -471,7 +471,7 @@
     <div
         x-data="reservationsData({
             csrfToken: '{{ csrf_token() }}',
-            availableRoomsUrlTemplate: @json($route('api.boarding-houses.available-rooms', ['boardingHouse' => '__HOUSE__'])),
+            availableRoomsUrlTemplate: @js($route('api.boarding-houses.available-rooms', ['boardingHouse' => '__HOUSE__'])),
             walkInOpen: @js($errors->walkIn->any()),
             walkInTenants: @js($walkInTenantOptions),
             walkInHouses: @js($walkInHouseOptions),
@@ -818,6 +818,7 @@
 
                                         $rowStatus = strtolower((string) ($reservation->status ?? 'pending'));
                                         $isPendingRow = $rowStatus === 'pending';
+                                        $isAcceptedRow = in_array($rowStatus, ['approved', 'confirmed'], true);
 
                                         $confirmApprove = [
                                             'url' => $route('reservations.update', $reservation),
@@ -925,6 +926,25 @@
                                                         <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                                         Reject
                                                     </button>
+                                                @elseif ($isAcceptedRow)
+                                                    <span class="inline-flex h-9 items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-[12px] font-bold text-emerald-700">
+                                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12.75L11.25 15 15 9.75"/></svg>
+                                                        Accepted
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        @click.stop="askConfirm({{ \Illuminate\Support\Js::from($confirmReject) }})"
+                                                        class="inline-flex h-9 items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 text-[12px] font-bold text-rose-700 transition hover:-translate-y-0.5 hover:bg-rose-100"
+                                                        title="Reject reservation"
+                                                    >
+                                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                        Reject
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        @click.stop="openEdit({{ \Illuminate\Support\Js::from($payload) }})"
+                                                        class="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                                                    >View details</button>
                                                 @else
                                                     <button
                                                         type="button"
@@ -1281,7 +1301,7 @@
                     >{{ $acceptReservationLabel }}</button>
                     <button
                         type="button"
-                        x-show="selected.status_value === 'pending'"
+                        x-show="['pending', 'approved', 'confirmed'].includes(selected.status_value)"
                         @click="askConfirm(selected.actions.reject)"
                         class="inline-flex h-10 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-4 text-[13px] font-bold text-rose-700 transition hover:bg-rose-100"
                     >Reject</button>
