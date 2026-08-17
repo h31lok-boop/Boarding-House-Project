@@ -1,5 +1,13 @@
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
+import {
+    boardMatchMapConfig,
+    createHtmlMarker,
+    createOpenStreetMap,
+    distanceMeters,
+    fitMapToLngLats,
+    lineFeature,
+    removeMapLayerAndSource,
+    whenMapLoaded,
+} from './openstreetmap';
 
 const MAP_ROOT_SELECTOR = '[data-boardmatch-location-map]';
 
@@ -25,16 +33,20 @@ const MODE_META = {
     TRANSIT: { label: 'Transit', profile: 'driving', note: 'modeTransitNote' },
 };
 
-// The public router.project-osrm.org demo only hosts the car profile, so walking
-// requests silently return driving routes. Prefer the FOSSGIS OSRM instances,
-// which host real per-mode profiles, and fall back to the configured service.
-const MODE_ROUTING_SERVICES = {
-    driving: [
-        { baseUrl: 'https://routing.openstreetmap.de/routed-car/route/v1', profile: 'driving' },
-    ],
-    walking: [
-        { baseUrl: 'https://routing.openstreetmap.de/routed-foot/route/v1', profile: 'driving' },
-    ],
+const modeRoutingServices = (profile) => {
+    const routing = boardMatchMapConfig().routing || {};
+    const baseUrl = profile === 'walking'
+        ? routing.walkingUrl
+        : routing.drivingUrl;
+
+    if (!baseUrl) {
+        return [];
+    }
+
+    return [{
+        baseUrl: `${String(baseUrl).replace(/\/$/, '')}/route/v1`,
+        profile: 'driving',
+    }];
 };
 
 const numberOrNull = (value) => {
@@ -126,43 +138,25 @@ const stepInstruction = (step, index) => {
     }
 };
 
-const markerIcon = (type) => {
+const markerHtml = (type) => {
     if (type === 'campus') {
-        return L.divIcon({
-            className: '',
-            html: '<div class="bm-map-marker bm-map-marker-campus"><span class="bm-map-campus-core">D</span></div>',
-            iconSize: [38, 38],
-            iconAnchor: [19, 19],
-            popupAnchor: [0, -18],
-        });
+        return '<div class="bm-map-marker bm-map-marker-campus"><span class="bm-map-campus-core">D</span></div>';
     }
 
     if (type === 'user') {
-        return L.divIcon({
-            className: '',
-            html: '<div class="bm-map-marker bm-map-marker-user"><span class="bm-map-user-pulse"></span><span class="bm-map-user-dot"></span></div>',
-            iconSize: [36, 36],
-            iconAnchor: [18, 18],
-            popupAnchor: [0, -18],
-        });
+        return '<div class="bm-map-marker bm-map-marker-user"><span class="bm-map-user-pulse"></span><span class="bm-map-user-dot"></span></div>';
     }
 
-    return L.divIcon({
-        className: '',
-        html: `
-            <div class="bm-map-marker bm-map-marker-house">
-                <span class="bm-map-marker-core">
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M12 21s7-4.8 7-11a7 7 0 1 0-14 0c0 6.2 7 11 7 11Z"></path>
-                        <circle cx="12" cy="10" r="2.5"></circle>
-                    </svg>
-                </span>
-            </div>
-        `,
-        iconSize: [46, 46],
-        iconAnchor: [23, 38],
-        popupAnchor: [0, -30],
-    });
+    return `
+        <div class="bm-map-marker bm-map-marker-house">
+            <span class="bm-map-marker-core">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 21s7-4.8 7-11a7 7 0 1 0-14 0c0 6.2 7 11 7 11Z"></path>
+                    <circle cx="12" cy="10" r="2.5"></circle>
+                </svg>
+            </span>
+        </div>
+    `;
 };
 
 class BoardingHouseLocationMap {
@@ -208,7 +202,6 @@ class BoardingHouseLocationMap {
         this.busy = false;
         this.routeRequestId = 0;
         this.map = null;
-        this.routeRenderer = null;
         this.houseMarker = null;
         this.campusMarker = null;
         this.userMarker = null;
@@ -349,41 +342,41 @@ class BoardingHouseLocationMap {
         return `<div class="bm-map-info-window"><h3>${escapeHtml(title)}</h3>${paragraphs}</div>`;
     }
 
-    initMap() {
-        this.map = L.map(this.elements.canvas, {
-            scrollWheelZoom: false,
-            zoomControl: true,
+    async initMap() {
+        this.map = createOpenStreetMap(this.elements.canvas, {
+            center: [this.destination.lng, this.destination.lat],
+            zoom: 15,
+            scrollZoom: false,
+            openStreetMap: this.config.openStreetMap,
+        });
+        await whenMapLoaded(this.map);
+
+        this.houseMarker = createHtmlMarker({
+            map: this.map,
+            lngLat: [this.destination.lng, this.destination.lat],
+            html: markerHtml('house'),
+            title: this.config.house?.name || 'Boarding House',
+            anchor: 'bottom',
+            popupOffset: 30,
+            popupHtml: this.createPopupHtml(this.config.house?.name || 'Boarding House', [
+                this.config.house?.address,
+                this.config.house?.availabilityLabel,
+                this.config.house?.priceLabel,
+            ]),
         });
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '&copy; OpenStreetMap contributors',
-        }).addTo(this.map);
-
-        // Keep route geometry in its own canvas pane above map tiles. This
-        // avoids global SVG styles hiding Leaflet paths and keeps the road line
-        // visible while property/campus markers remain on top.
-        const routePane = this.map.createPane('boardmatchRoutes');
-        routePane.style.zIndex = '550';
-        routePane.style.pointerEvents = 'auto';
-        this.routeRenderer = L.canvas({ pane: 'boardmatchRoutes', padding: 0.5 });
-
-        this.houseMarker = L.marker([this.destination.lat, this.destination.lng], {
-            icon: markerIcon('house'),
-            title: this.config.house?.name || 'Boarding House',
-        }).addTo(this.map).bindPopup(this.createPopupHtml(this.config.house?.name || 'Boarding House', [
-            this.config.house?.address,
-            this.config.house?.availabilityLabel,
-            this.config.house?.priceLabel,
-        ]));
-
         if (this.campus) {
-            this.campusMarker = L.marker([this.campus.lat, this.campus.lng], {
-                icon: markerIcon('campus'),
+            this.campusMarker = createHtmlMarker({
+                map: this.map,
+                lngLat: [this.campus.lng, this.campus.lat],
+                html: markerHtml('campus'),
                 title: this.config.dssc?.name || 'DSSC Main Campus',
-            }).addTo(this.map).bindPopup(this.createPopupHtml(this.config.dssc?.name || 'DSSC Main Campus', [
-                this.config.dssc?.address,
-            ]));
+                anchor: 'center',
+                popupOffset: 22,
+                popupHtml: this.createPopupHtml(this.config.dssc?.name || 'DSSC Main Campus', [
+                    this.config.dssc?.address,
+                ]),
+            });
         }
 
         this.fitInitialView();
@@ -394,20 +387,19 @@ class BoardingHouseLocationMap {
             return;
         }
 
-        const bounds = L.latLngBounds([[this.destination.lat, this.destination.lng]]);
+        const points = [[this.destination.lng, this.destination.lat]];
         if (this.campus) {
-            bounds.extend([this.campus.lat, this.campus.lng]);
+            points.push([this.campus.lng, this.campus.lat]);
         }
 
         if (this.origin) {
-            bounds.extend([this.origin.lat, this.origin.lng]);
+            points.push([this.origin.lng, this.origin.lat]);
         }
 
-        if (bounds.isValid()) {
-            this.map.fitBounds(bounds.pad(0.18), { maxZoom: this.origin ? 16 : 15 });
-        } else {
-            this.map.setView([this.destination.lat, this.destination.lng], 15);
-        }
+        fitMapToLngLats(this.map, points, {
+            padding: 54,
+            maxZoom: this.origin ? 16 : 15,
+        });
     }
 
     ensureUserMarker() {
@@ -416,14 +408,19 @@ class BoardingHouseLocationMap {
         }
 
         if (!this.userMarker) {
-            this.userMarker = L.marker([this.origin.lat, this.origin.lng], {
-                icon: markerIcon('user'),
+            this.userMarker = createHtmlMarker({
+                map: this.map,
+                lngLat: [this.origin.lng, this.origin.lat],
+                html: markerHtml('user'),
                 title: 'Your current location',
-            }).addTo(this.map).bindPopup(this.createPopupHtml('Your current location'));
+                anchor: 'center',
+                popupOffset: 22,
+                popupHtml: this.createPopupHtml('Your current location'),
+            });
             return;
         }
 
-        this.userMarker.setLatLng([this.origin.lat, this.origin.lng]);
+        this.userMarker.setLngLat([this.origin.lng, this.origin.lat]);
     }
 
     removeUserMarker() {
@@ -639,12 +636,16 @@ class BoardingHouseLocationMap {
 
     async fetchRoutes() {
         const modeProfile = this.config.routing?.profiles?.[this.travelMode] || MODE_META[this.travelMode]?.profile || 'driving';
-        const configuredBase = String(this.config.routing?.serviceUrl || 'https://router.project-osrm.org/route/v1').replace(/\/$/, '');
+        const configuredBase = String(
+            this.config.routing?.serviceUrl
+            || boardMatchMapConfig().routing?.fallbackUrl
+            || 'https://router.project-osrm.org/route/v1',
+        ).replace(/\/$/, '');
 
         // Try mode-specific services first (real walking/driving profiles), then
         // the configured generic OSRM endpoint as a fallback.
         const services = [
-            ...(MODE_ROUTING_SERVICES[modeProfile] || []),
+            ...modeRoutingServices(modeProfile),
             { baseUrl: configuredBase, profile: modeProfile },
         ];
 
@@ -724,33 +725,80 @@ class BoardingHouseLocationMap {
         this.clearRoute();
 
         this.routeLayers = routes.map((route, index) => {
-            const outline = L.polyline(route.coordinates, {
-                color: '#ffffff',
-                opacity: 0.98,
-                weight: 12,
-                pane: 'boardmatchRoutes',
-                renderer: this.routeRenderer,
-            }).addTo(this.map);
-            const line = L.polyline(route.coordinates, {
-                color: index === 0 ? '#2563eb' : '#94a3b8',
-                opacity: index === 0 ? 1 : 0.76,
-                weight: index === 0 ? 7 : 5,
-                pane: 'boardmatchRoutes',
-                renderer: this.routeRenderer,
-                lineCap: 'round',
-                lineJoin: 'round',
-            }).addTo(this.map);
+            const sourceId = `boardmatch-route-${index}`;
+            const outlineId = `${sourceId}-outline`;
+            const lineId = `${sourceId}-line`;
+            const lngLatCoordinates = route.coordinates.map(([lat, lng]) => [lng, lat]);
+
+            this.map.addSource(sourceId, {
+                type: 'geojson',
+                data: lineFeature(lngLatCoordinates),
+            });
+            this.map.addLayer({
+                id: outlineId,
+                type: 'line',
+                source: sourceId,
+                layout: { 'line-cap': 'round', 'line-join': 'round' },
+                paint: {
+                    'line-color': '#ffffff',
+                    'line-opacity': 0.98,
+                    'line-width': 12,
+                },
+            });
+            this.map.addLayer({
+                id: lineId,
+                type: 'line',
+                source: sourceId,
+                layout: { 'line-cap': 'round', 'line-join': 'round' },
+                paint: {
+                    'line-color': index === 0 ? '#2563eb' : '#94a3b8',
+                    'line-opacity': index === 0 ? 1 : 0.76,
+                    'line-width': index === 0 ? 7 : 5,
+                },
+            });
 
             // OSRM snaps routes to the road network, so the polyline can stop
             // short of off-road origins/destinations. Bridge both gaps with
             // dashed connector lines so the route visually reaches the markers.
             const connectors = this.buildConnectors(route, index);
+            const connectorSourceId = `${sourceId}-connectors`;
+            const connectorId = `${connectorSourceId}-line`;
 
-            [outline, line, ...connectors].forEach((polyline) => {
-                polyline.on('click', () => this.selectRoute(index));
+            if (connectors.length) {
+                this.map.addSource(connectorSourceId, {
+                    type: 'geojson',
+                    data: {
+                        type: 'FeatureCollection',
+                        features: connectors.map((coordinates) => lineFeature(coordinates)),
+                    },
+                });
+                this.map.addLayer({
+                    id: connectorId,
+                    type: 'line',
+                    source: connectorSourceId,
+                    layout: { 'line-cap': 'round', 'line-join': 'round' },
+                    paint: {
+                        'line-color': index === 0 ? '#2563eb' : '#94a3b8',
+                        'line-opacity': index === 0 ? 0.85 : 0.6,
+                        'line-width': 3,
+                        'line-dasharray': [1, 2.5],
+                    },
+                });
+            }
+
+            const clickHandler = () => this.selectRoute(index);
+            [outlineId, lineId, ...(connectors.length ? [connectorId] : [])].forEach((layerId) => {
+                this.map.on('click', layerId, clickHandler);
             });
 
-            return { outline, line, connectors };
+            return {
+                sourceId,
+                outlineId,
+                lineId,
+                connectorSourceId: connectors.length ? connectorSourceId : null,
+                connectorId: connectors.length ? connectorId : null,
+                clickHandler,
+            };
         });
     }
 
@@ -759,14 +807,6 @@ class BoardingHouseLocationMap {
         if (!coords.length) {
             return [];
         }
-
-        const connectorStyle = {
-            color: index === 0 ? '#2563eb' : '#94a3b8',
-            opacity: index === 0 ? 0.85 : 0.6,
-            weight: 3,
-            dashArray: '2 7',
-            lineCap: 'round',
-        };
 
         const connectors = [];
         const endpoints = [
@@ -779,12 +819,13 @@ class BoardingHouseLocationMap {
                 return;
             }
 
-            const anchorLatLng = L.latLng(anchor.lat, anchor.lng);
-            const roadLatLng = L.latLng(roadPoint[0], roadPoint[1]);
-
             // Only draw a connector when the gap is visually meaningful (> 12 m).
-            if (anchorLatLng.distanceTo(roadLatLng) > 12) {
-                connectors.push(L.polyline([anchorLatLng, roadLatLng], connectorStyle).addTo(this.map));
+            const roadCoordinate = { lat: roadPoint[0], lng: roadPoint[1] };
+            if (distanceMeters(anchor, roadCoordinate) > 12) {
+                connectors.push([
+                    [anchor.lng, anchor.lat],
+                    [roadCoordinate.lng, roadCoordinate.lat],
+                ]);
             }
         });
 
@@ -800,23 +841,20 @@ class BoardingHouseLocationMap {
         this.activeRouteIndex = index;
         this.routeLayers.forEach((layer, routeIndex) => {
             const active = routeIndex === index;
-            layer.outline.setStyle({
-                opacity: active ? 0.92 : 0.5,
-                weight: active ? 9 : 8,
-            });
-            layer.line.setStyle({
-                color: active ? '#2563eb' : '#94a3b8',
-                opacity: active ? 0.98 : 0.72,
-                weight: active ? 5.5 : 4,
-            });
-            if (active) {
-                layer.outline.bringToFront();
-                layer.line.bringToFront();
+            this.map.setPaintProperty(layer.outlineId, 'line-opacity', active ? 0.92 : 0.5);
+            this.map.setPaintProperty(layer.outlineId, 'line-width', active ? 9 : 8);
+            this.map.setPaintProperty(layer.lineId, 'line-color', active ? '#2563eb' : '#94a3b8');
+            this.map.setPaintProperty(layer.lineId, 'line-opacity', active ? 0.98 : 0.72);
+            this.map.setPaintProperty(layer.lineId, 'line-width', active ? 5.5 : 4);
+            if (layer.connectorId) {
+                this.map.setPaintProperty(layer.connectorId, 'line-color', active ? '#2563eb' : '#94a3b8');
+                this.map.setPaintProperty(layer.connectorId, 'line-opacity', active ? 0.85 : 0.5);
             }
-            (layer.connectors || []).forEach((connector) => connector.setStyle({
-                color: active ? '#2563eb' : '#94a3b8',
-                opacity: active ? 0.85 : 0.5,
-            }));
+            if (active) {
+                this.map.moveLayer(layer.outlineId);
+                this.map.moveLayer(layer.lineId);
+                if (layer.connectorId) this.map.moveLayer(layer.connectorId);
+            }
         });
 
         this.routeOptionButtons.forEach((button, routeIndex) => {
@@ -835,7 +873,11 @@ class BoardingHouseLocationMap {
         this.renderSteps(route.steps);
 
         if (fit && route.coordinates.length) {
-            this.map.fitBounds(L.latLngBounds(route.coordinates).pad(0.16), { maxZoom: 16 });
+            fitMapToLngLats(
+                this.map,
+                route.coordinates.map(([lat, lng]) => [lng, lat]),
+                { padding: 54, maxZoom: 16 },
+            );
         }
     }
 
@@ -937,9 +979,14 @@ class BoardingHouseLocationMap {
 
     clearRoute() {
         this.routeLayers.forEach((layer) => {
-            layer.outline.remove();
-            layer.line.remove();
-            (layer.connectors || []).forEach((connector) => connector.remove());
+            [layer.outlineId, layer.lineId, layer.connectorId].filter(Boolean).forEach((layerId) => {
+                this.map.off('click', layerId, layer.clickHandler);
+            });
+            if (layer.connectorId) {
+                removeMapLayerAndSource(this.map, layer.connectorId, layer.connectorSourceId);
+            }
+            if (this.map.getLayer(layer.lineId)) this.map.removeLayer(layer.lineId);
+            removeMapLayerAndSource(this.map, layer.outlineId, layer.sourceId);
         });
         this.routeLayers = [];
     }
@@ -1049,9 +1096,9 @@ class BoardingHouseLocationMap {
         }
 
         this.hideUnavailable();
-        this.initMap();
+        await this.initMap();
         this.setRouteStatus(this.message('initial'));
-        window.setTimeout(() => this.map?.invalidateSize(), 140);
+        window.setTimeout(() => this.map?.resize(), 140);
 
         if (this.root.dataset.autoRouteOnLoad === 'true') {
             window.setTimeout(() => this.autoLocateFromReservationFlow(), 220);
