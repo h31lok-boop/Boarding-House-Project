@@ -132,7 +132,7 @@ test('owners can accept or reject reservations for their own properties only', f
         'boarding_house_id' => $data['house']->id,
         'room_id' => $rejectedRoom->id,
         'check_in_date' => now()->addWeeks(2)->toDateString(),
-        'status' => 'pending',
+        'status' => 'confirmed',
         'payment_status' => 'unpaid',
     ]);
     $foreignReservation = Reservation::create([
