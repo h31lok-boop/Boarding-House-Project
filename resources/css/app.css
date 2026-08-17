@@ -1442,28 +1442,27 @@ body.modal-open .bm-native-dialog[data-modal-active='true'] {
 }
 
 /* Boarding house details navigation map */
-.bm-location-map .leaflet-container {
+.bm-location-map .maplibregl-map {
     background: #e2e8f0;
     font-family: inherit;
     z-index: 0;
 }
 
-.bm-location-map .leaflet-bar {
+.bm-location-map .maplibregl-ctrl-group {
     border: 0;
     border-radius: 0.75rem;
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
     overflow: hidden;
 }
 
-.bm-location-map .leaflet-bar a {
+.bm-location-map .maplibregl-ctrl-group button {
     border-bottom-color: #e2e8f0;
     color: #0f172a;
     height: 2.25rem;
-    line-height: 2.25rem;
     width: 2.25rem;
 }
 
-.bm-location-map .leaflet-control-attribution {
+.bm-location-map .maplibregl-ctrl-attrib {
     background: rgba(255, 255, 255, 0.88);
     border-radius: 0.5rem 0 0 0;
     color: #475569;
@@ -1471,14 +1470,10 @@ body.modal-open .bm-native-dialog[data-modal-active='true'] {
     padding: 0.2rem 0.4rem;
 }
 
-.bm-location-map .leaflet-popup-content-wrapper {
+.bm-location-map .maplibregl-popup-content {
     border-radius: 1rem;
     box-shadow: 0 16px 36px rgba(15, 23, 42, 0.18);
-    padding: 0.25rem;
-}
-
-.bm-location-map .leaflet-popup-content {
-    margin: 0;
+    padding: 0.75rem;
 }
 
 .bm-map-marker {
@@ -2807,6 +2802,40 @@ body.sidebar-mobile-open {
     font-weight: 700;
 }
 
+.bm-admin-map-marker-wrap {
+    align-items: flex-start;
+    display: flex;
+    height: 36px;
+    justify-content: center;
+    width: 36px;
+}
+
+.bm-admin-map-marker {
+    background: #2563eb;
+    border: 3px solid #fff;
+    border-radius: 50% 50% 50% 12%;
+    box-shadow: 0 5px 14px rgb(15 23 42 / 32%);
+    display: block;
+    height: 30px;
+    transform: rotate(-45deg);
+    width: 30px;
+}
+
+.bm-admin-map-campus-marker {
+    align-items: center;
+    background: #dc2626;
+    border: 3px solid #fff;
+    border-radius: 9999px;
+    box-shadow: 0 5px 14px rgb(15 23 42 / 28%);
+    color: #fff;
+    display: flex;
+    font-size: 0.7rem;
+    font-weight: 900;
+    height: 30px;
+    justify-content: center;
+    width: 30px;
+}
+
 /* Final authenticated-theme overrides must follow the compact shell rules. */
 [data-theme='dark'] .bg-white\/50,
 [data-theme='dark'] .bg-white\/60,
@@ -3128,10 +3157,11 @@ body.sidebar-mobile-open {
 }
 
 /* Map chrome follows the selected theme while map imagery remains unchanged. */
-[data-theme='dark'] .bm-location-map .leaflet-bar a,
-[data-theme='dark'] .bm-location-map .leaflet-control-attribution,
-[data-theme='dark'] .bm-location-map .leaflet-popup-content-wrapper,
-[data-theme='dark'] .bm-location-map .leaflet-popup-tip {
+[data-theme='dark'] .bm-location-map .maplibregl-ctrl-group,
+[data-theme='dark'] .bm-location-map .maplibregl-ctrl-group button,
+[data-theme='dark'] .bm-location-map .maplibregl-ctrl-attrib,
+[data-theme='dark'] .bm-location-map .maplibregl-popup-content,
+[data-theme='dark'] .bm-location-map .maplibregl-popup-tip {
     background: #0f172a;
     border-color: #334155;
     color: #e2e8f0;
