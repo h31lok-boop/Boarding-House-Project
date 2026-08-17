@@ -8,9 +8,12 @@
             'checked-in', 'checked_in', 'checkedin' => 'Currently Staying',
             'checked-out', 'checked_out', 'checkedout' => 'Completed Stay',
             'approved' => 'Confirmed',
-            'rejected' => 'Cancelled',
+            'rejected' => 'Rejected',
             default => ucfirst((string) ($status ?: 'pending')),
         };
+
+        $acceptReservationLabel = $workspace === 'owner' ? 'Accept' : 'Approve';
+        $acceptReservationPastTense = $workspace === 'owner' ? 'accepted' : 'approved';
 
         $statusBadge = fn ($status) => match (strtolower((string) $status)) {
             'approved', 'confirmed' => 'border-emerald-200 bg-emerald-50 text-emerald-700',
@@ -751,7 +754,7 @@
                     </template>
 
                     <div class="overflow-x-auto transition-opacity duration-200" :class="filtering ? 'opacity-50' : ''">
-                        <table class="min-w-[1060px] w-full text-left text-[13px]">
+                        <table class="min-w-[1180px] w-full text-left text-[13px]">
                             <thead class="sticky top-0 z-10 bg-slate-50/95 text-[11px] font-bold uppercase tracking-wide text-slate-500 backdrop-blur">
                                 <tr>
                                     <th class="px-5 py-3.5">Reservation No.</th>
@@ -762,6 +765,7 @@
                                     <th class="px-5 py-3.5">Reservation Status</th>
                                     <th class="px-5 py-3.5">Payment Status</th>
                                     <th class="px-5 py-3.5">Amount</th>
+                                    <th class="px-5 py-3.5">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100">
@@ -814,16 +818,14 @@
 
                                         $rowStatus = strtolower((string) ($reservation->status ?? 'pending'));
                                         $isPendingRow = $rowStatus === 'pending';
-                                        $isConfirmedRow = in_array($rowStatus, ['confirmed', 'approved'], true);
-                                        $isClosedRow = in_array($rowStatus, ['cancelled', 'rejected', 'expired'], true);
 
                                         $confirmApprove = [
                                             'url' => $route('reservations.update', $reservation),
                                             'method' => 'PATCH',
                                             'status' => $isPendingRow ? 'approved' : 'confirmed',
-                                            'title' => $isPendingRow ? 'Approve this reservation?' : 'Confirm this reservation?',
-                                            'message' => $reservationNo.' for '.$tenantName.' will be '.($isPendingRow ? 'approved' : 'marked as Confirmed').'. The tenant will be notified and the payment status will be set for follow-up.',
-                                            'label' => $isPendingRow ? 'Yes, Approve' : 'Yes, Confirm Reservation',
+                                            'title' => $isPendingRow ? $acceptReservationLabel.' this reservation?' : 'Confirm this reservation?',
+                                            'message' => $reservationNo.' for '.$tenantName.' will be '.($isPendingRow ? $acceptReservationPastTense : 'marked as Confirmed').'. The tenant will be notified and the payment status will be set for follow-up.',
+                                            'label' => $isPendingRow ? 'Yes, '.$acceptReservationLabel : 'Yes, Confirm Reservation',
                                             'tone' => 'emerald',
                                         ];
                                         $confirmReject = [
@@ -902,49 +904,40 @@
                                             </span>
                                         </td>
                                         <td class="whitespace-nowrap px-5 py-4 text-[13px] font-semibold text-slate-900" data-cell="amount">{{ $amount > 0 ? 'PHP '.number_format($amount, 2) : 'PHP 0.00' }}</td>
-                                        <td class="hidden">
-                                            <div class="hidden">
-                                                <button
-                                                    type="button"
-                                                    class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
-                                                    title="Edit"
-                                                    @click="openEdit({{ \Illuminate\Support\Js::from($payload) }})"
-                                                >
-                                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16.862 4.487 19.5 7.125M6 18l3.5-.7 9-9a1.864 1.864 0 0 0-2.635-2.635l-9 9L6 18z"/>
-                                                    </svg>
-                                                </button>
+                                        <td class="whitespace-nowrap px-5 py-4" @click.stop>
+                                            <div class="flex items-center gap-2">
                                                 @if ($isPendingRow)
-                                                    <button type="button" @click="askConfirm({{ \Illuminate\Support\Js::from($confirmApprove) }})" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-emerald-600 transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50" title="Approve reservation">
+                                                    <button
+                                                        type="button"
+                                                        @click.stop="askConfirm({{ \Illuminate\Support\Js::from($confirmApprove) }})"
+                                                        class="inline-flex h-9 items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-[12px] font-bold text-emerald-700 transition hover:-translate-y-0.5 hover:bg-emerald-100"
+                                                        title="{{ $acceptReservationLabel }} reservation"
+                                                    >
                                                         <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                        {{ $acceptReservationLabel }}
                                                     </button>
-                                                    <button type="button" @click="askConfirm({{ \Illuminate\Support\Js::from($confirmReject) }})" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-rose-600 transition hover:-translate-y-0.5 hover:border-rose-200 hover:bg-rose-50" title="Reject reservation">
+                                                    <button
+                                                        type="button"
+                                                        @click.stop="askConfirm({{ \Illuminate\Support\Js::from($confirmReject) }})"
+                                                        class="inline-flex h-9 items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 text-[12px] font-bold text-rose-700 transition hover:-translate-y-0.5 hover:bg-rose-100"
+                                                        title="Reject reservation"
+                                                    >
                                                         <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                                        Reject
                                                     </button>
                                                 @else
-                                                    @unless ($isConfirmedRow)
-                                                        <button type="button" @click="askConfirm({{ \Illuminate\Support\Js::from($confirmApprove) }})" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-emerald-600 transition hover:-translate-y-0.5 hover:border-emerald-200 hover:bg-emerald-50" title="Mark confirmed">
-                                                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                                        </button>
-                                                    @endunless
+                                                    <button
+                                                        type="button"
+                                                        @click.stop="openEdit({{ \Illuminate\Support\Js::from($payload) }})"
+                                                        class="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                                                    >View details</button>
                                                 @endif
-                                                @unless ($isClosedRow)
-                                                    <button type="button" @click="askConfirm({{ \Illuminate\Support\Js::from($confirmCancel) }})" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-rose-600 transition hover:-translate-y-0.5 hover:border-rose-200 hover:bg-rose-50" title="Cancel reservation">
-                                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
-                                                    </button>
-                                                @endunless
-                                                <a href="{{ $route('transactions.index', ['q' => $tenantName]) }}" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" title="View payment">
-                                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"/></svg>
-                                                </a>
-                                                <button type="button" @click="askConfirm({{ \Illuminate\Support\Js::from($confirmDelete) }})" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-rose-600 transition hover:-translate-y-0.5 hover:border-rose-200 hover:bg-rose-50" title="Delete">
-                                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
-                                                </button>
                                             </div>
                                         </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="8" class="px-5 py-16">
+                                        <td colspan="9" class="px-5 py-16">
                                             <div class="mx-auto max-w-md text-center">
                                                 <div class="mx-auto flex h-24 w-24 items-center justify-center rounded-[2rem] bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.18),_transparent_62%),linear-gradient(180deg,#eff6ff_0%,#ffffff_100%)] text-blue-600 shadow-inner dark:bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.2),_transparent_62%),linear-gradient(180deg,#1e293b_0%,#0f172a_100%)]">
                                                     <svg class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1285,7 +1278,7 @@
                         x-show="selected.status_value === 'pending'"
                         @click="askConfirm(selected.actions.approve)"
                         class="inline-flex h-10 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-4 text-[13px] font-bold text-emerald-700 transition hover:bg-emerald-100"
-                    >Approve</button>
+                    >{{ $acceptReservationLabel }}</button>
                     <button
                         type="button"
                         x-show="selected.status_value === 'pending'"

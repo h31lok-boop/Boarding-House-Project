@@ -3,6 +3,7 @@
 use App\Models\BoardingHouse;
 use App\Models\Inquiry;
 use App\Models\Payment;
+use App\Models\Reservation;
 use App\Models\Review;
 use App\Models\Room;
 use App\Models\Tenant;
@@ -106,6 +107,72 @@ test('owners cannot update another owners payments inquiries or tenants', functi
     expect($foreignPayment->fresh()->status)->toBe('pending');
     expect($foreignInquiry->fresh()->status)->toBe('new');
     expect($data['otherTenantUser']->fresh()->name)->not->toBe('Changed by foreign owner');
+});
+
+test('owners can accept or reject reservations for their own properties only', function () {
+    $data = ownerIsolationFixture();
+    $rejectedRoom = Room::create([
+        'boarding_house_id' => $data['house']->id,
+        'room_no' => 'A-2',
+        'status' => 'Reserved',
+        'available_slots' => 0,
+        'price' => 3800,
+    ]);
+
+    $acceptedReservation = Reservation::create([
+        'user_id' => $data['tenantUser']->id,
+        'boarding_house_id' => $data['house']->id,
+        'room_id' => $data['room']->id,
+        'check_in_date' => now()->addWeek()->toDateString(),
+        'status' => 'pending',
+        'payment_status' => 'unpaid',
+    ]);
+    $rejectedReservation = Reservation::create([
+        'user_id' => $data['tenantUser']->id,
+        'boarding_house_id' => $data['house']->id,
+        'room_id' => $rejectedRoom->id,
+        'check_in_date' => now()->addWeeks(2)->toDateString(),
+        'status' => 'pending',
+        'payment_status' => 'unpaid',
+    ]);
+    $foreignReservation = Reservation::create([
+        'user_id' => $data['otherTenantUser']->id,
+        'boarding_house_id' => $data['otherHouse']->id,
+        'room_id' => $data['otherRoom']->id,
+        'check_in_date' => now()->addWeek()->toDateString(),
+        'status' => 'pending',
+        'payment_status' => 'unpaid',
+    ]);
+
+    $this->actingAs($data['owner'])
+        ->patch(route('owner.reservations.update', $acceptedReservation), ['status' => 'approved'])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $this->actingAs($data['owner'])
+        ->patch(route('owner.reservations.update', $rejectedReservation), ['status' => 'rejected'])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $this->actingAs($data['owner'])
+        ->patch(route('owner.reservations.update', $foreignReservation), ['status' => 'approved'])
+        ->assertForbidden();
+
+    expect($acceptedReservation->fresh()->status)->toBe('approved')
+        ->and($rejectedReservation->fresh()->status)->toBe('rejected')
+        ->and($rejectedReservation->fresh()->payment_status)->toBe('cancelled')
+        ->and($rejectedRoom->fresh()->available_slots)->toBe(1)
+        ->and(strtolower((string) $rejectedRoom->fresh()->status))->toBe('available')
+        ->and($foreignReservation->fresh()->status)->toBe('pending');
+
+    expect(DB::table('notifications')
+        ->where('user_id', $data['tenantUser']->id)
+        ->where('title', 'Reservation Approved')
+        ->exists())->toBeTrue()
+        ->and(DB::table('notifications')
+            ->where('user_id', $data['tenantUser']->id)
+            ->where('title', 'Reservation Rejected')
+            ->exists())->toBeTrue();
 });
 
 test('owner notification actions affect only the signed in owner', function () {
