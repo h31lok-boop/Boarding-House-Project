@@ -106,7 +106,7 @@ class AccountController extends Controller
     private function buildBookingDetails($tenant): array
     {
         $details = [
-            'boarding_house' => trim((string) ($tenant->institution_name ?? '')) ?: 'Not assigned',
+            'boarding_house' => 'Not assigned',
             'room_number' => trim((string) ($tenant->room_number ?? '')) ?: 'Not assigned',
             'address' => '',
             'booking_reference' => null,
@@ -114,9 +114,10 @@ class AccountController extends Controller
             'move_in_date' => $tenant->move_in_date ? Carbon::parse($tenant->move_in_date)->format('M d, Y') : null,
         ];
 
-        if ($details['boarding_house'] !== 'Not assigned') {
+        $institutionName = trim((string) ($tenant->institution_name ?? ''));
+        if ($institutionName !== '') {
             $boardingHouse = BoardingHouse::query()
-                ->whereRaw('LOWER(name) = ?', [strtolower($details['boarding_house'])])
+                ->whereRaw('LOWER(name) = ?', [strtolower($institutionName)])
                 ->first(['name', 'address']);
 
             if ($boardingHouse) {
@@ -147,7 +148,10 @@ class AccountController extends Controller
 
         $houseIdColumn = $this->firstAvailableColumn($columns, ['boarding_house_id']);
         if ($houseIdColumn && Schema::hasTable('boarding_houses')) {
-            $query->leftJoin('boarding_houses as booking_house', 'booking_item.'.$houseIdColumn, '=', 'booking_house.id');
+            $query->leftJoin('boarding_houses as booking_house', function ($join) use ($houseIdColumn) {
+                $join->on('booking_item.'.$houseIdColumn, '=', 'booking_house.id')
+                    ->whereIn('booking_house.id', BoardingHouse::query()->select('id'));
+            });
         }
 
         $roomIdColumn = $this->firstAvailableColumn($columns, ['room_id']);

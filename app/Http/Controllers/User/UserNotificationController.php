@@ -111,6 +111,34 @@ class UserNotificationController extends Controller
         return back()->with('success', 'All notifications marked as read.');
     }
 
+    public function markDisplayedNotificationsAsRead(Request $request)
+    {
+        $user = $request->user();
+        abort_unless($user && $user->isUser(), 403);
+
+        $ids = collect($request->input('ids', []))
+            ->filter(fn ($id) => is_numeric($id))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        if ($ids->isNotEmpty()) {
+            UserNotification::query()
+                ->where('user_id', $user->id)
+                ->whereIn('id', $ids)
+                ->unread()
+                ->update([
+                    'is_read' => true,
+                    'read_at' => now(),
+                    'updated_at' => now(),
+                ]);
+        }
+
+        return response()->json([
+            'unread_count' => $this->baseQueryForUser($user->id)->unread()->count(),
+        ]);
+    }
+
     public function destroy(Request $request, string $id): RedirectResponse
     {
         $notification = $this->notificationForUser($request, $id);

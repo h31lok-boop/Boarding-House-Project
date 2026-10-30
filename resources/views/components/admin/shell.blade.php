@@ -266,7 +266,7 @@
             </button>
         </div>
 
-        <div id="sidebarNav" class="flex min-h-0 flex-1 overflow-y-auto">
+        <div id="sidebarNav" class="flex min-h-0 flex-1 {{ $isOwnerWorkspace ? 'owner-sidebar-nav' : 'overflow-y-auto' }}">
             <x-sidebar.admin-panel />
         </div>
 
@@ -333,8 +333,7 @@
                                         <span class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-500 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{{ $messageCount > 99 ? '99+' : $messageCount }}</span>
                                     @endif
                                 </a>
-                                <div class="admin-header-ai inline-flex"><x-ai-assistant /></div>
-                                <div class="inline-flex"><x-header-notification-link :href="$r($workspaceRoute('notifications.index'))" :count="$notificationsCount" /></div>
+                                <div class="inline-flex"><x-header-notification-link :href="$r($workspaceRoute('notifications.index'))" :mark-read-url="$r($workspaceRoute('notifications.headerRead'))" :count="$notificationsCount" /></div>
                                 <div class="inline-flex"><x-theme-icon-toggle /></div>
 
                                 <div class="relative z-[70] shrink-0 sm:min-w-0 sm:flex-none">
@@ -388,6 +387,7 @@
                         </div>
                     </div>
                 </header>
+
             @endif
 
             <x-toast />
@@ -397,6 +397,10 @@
             </div>
         </div>
     </main>
+
+    @if ($showHeader)
+        <x-ai-assistant />
+    @endif
 </div>
 
 <script>

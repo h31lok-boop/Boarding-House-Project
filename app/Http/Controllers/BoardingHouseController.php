@@ -6,6 +6,7 @@ use App\Models\BoardingHouse;
 use App\Models\BoardingHouseImage;
 use App\Models\User;
 use App\Services\LocationService;
+use App\Services\MattiServiceArea;
 use App\Support\SystemActionLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,6 +44,20 @@ class BoardingHouseController extends Controller
         return $namespace === 'owner' ? 'owner.boarding-houses' : 'admin.listings';
     }
 
+    /**
+     * Boarding-house mutations belong exclusively to the owner workspace.
+     * The admin workspace is intentionally view-only, including direct
+     * requests that bypass the rendered controls.
+     */
+    private function authorizeOwnerMutation(Request $request): void
+    {
+        abort_unless(
+            $request->routeIs('owner.*') && $request->user()?->isStrictOwner(),
+            403,
+            'Administrators have read-only access to boarding houses.'
+        );
+    }
+
     public function index()
     {
         return redirect()->route('admin.listings');
@@ -55,6 +70,8 @@ class BoardingHouseController extends Controller
 
     public function store(Request $request)
     {
+        $this->authorizeOwnerMutation($request);
+
         $requiresDetails = $request->wantsJson();
         $ns = $this->routeNs($request);
         $redirectRoute = $this->listingRedirectRoute($ns, $request->boolean('return_to_my_boarding_house'));
@@ -120,6 +137,7 @@ class BoardingHouseController extends Controller
         }
         $data = $this->sanitizeBoardingHouseInput($data);
         $data = $this->locationService->enrichBoardingHouseData($data);
+        $this->validateServiceAreaCoordinates($data);
 
         // Owners can only create houses they own; super-admins may assign an owner.
         if ($request->user()?->isStrictOwner()) {
@@ -214,6 +232,7 @@ class BoardingHouseController extends Controller
 
     public function update(Request $request, BoardingHouse $boarding_house)
     {
+        $this->authorizeOwnerMutation($request);
         $this->authorize('update', $boarding_house);
 
         $requiresDetails = $request->wantsJson();
@@ -292,6 +311,7 @@ class BoardingHouseController extends Controller
         }
         $data = $this->sanitizeBoardingHouseInput($data);
         $data = $this->locationService->enrichBoardingHouseData($data);
+        $this->validateServiceAreaCoordinates($data);
 
         $removeMap = [
             'remove_exterior_image' => 'exterior_image',
@@ -445,6 +465,7 @@ class BoardingHouseController extends Controller
 
     public function destroy(Request $request, BoardingHouse $boarding_house)
     {
+        $this->authorizeOwnerMutation($request);
         $this->authorize('delete', $boarding_house);
 
         $ns = $this->routeNs($request);
@@ -499,6 +520,7 @@ class BoardingHouseController extends Controller
 
     public function storePhotos(Request $request, BoardingHouse $boarding_house)
     {
+        $this->authorizeOwnerMutation($request);
         $this->authorize('update', $boarding_house);
 
         $request->validate([
@@ -536,6 +558,7 @@ class BoardingHouseController extends Controller
 
     public function setCoverPhoto(Request $request, BoardingHouse $boarding_house, BoardingHouseImage $image)
     {
+        $this->authorizeOwnerMutation($request);
         $this->authorize('update', $boarding_house);
         abort_unless((int) $image->boarding_house_id === (int) $boarding_house->id, 404);
 
@@ -550,6 +573,7 @@ class BoardingHouseController extends Controller
 
     public function destroyPhoto(Request $request, BoardingHouse $boarding_house, BoardingHouseImage $image)
     {
+        $this->authorizeOwnerMutation($request);
         $this->authorize('update', $boarding_house);
         abort_unless((int) $image->boarding_house_id === (int) $boarding_house->id, 404);
 
@@ -581,6 +605,18 @@ class BoardingHouseController extends Controller
         $owner->loadMissing('ownerProfile');
 
         return $owner->hasApprovedOwnerAccess(requireStoredPermit: true);
+    }
+
+    private function validateServiceAreaCoordinates(array $data): void
+    {
+        $latitude = $data['latitude'] ?? null;
+        $longitude = $data['longitude'] ?? null;
+
+        if ($latitude === null && $longitude === null) {
+            return;
+        }
+
+        app(MattiServiceArea::class)->validate($latitude, $longitude, 'address');
     }
 
     private function sanitizeBoardingHouseInput(array $data): array

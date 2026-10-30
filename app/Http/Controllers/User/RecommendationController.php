@@ -577,6 +577,7 @@ class RecommendationController extends Controller
     {
         return [
             'boardingHouses' => BoardingHouse::query()
+                ->inServiceArea()
                 ->whereNotNull('name')
                 ->orderBy('name')
                 ->get(['id', 'name']),
@@ -602,6 +603,7 @@ class RecommendationController extends Controller
     private function boardingHouseCandidates()
     {
         return BoardingHouse::query()
+            ->inServiceArea()
             ->with([
                 'amenities:id,name',
                 'rooms:id,boarding_house_id,room_no,price,status,available_slots',

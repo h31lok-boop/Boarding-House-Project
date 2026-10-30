@@ -5,7 +5,7 @@ use App\Models\BoardingHouseImage;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 
-test('admin boarding houses page keeps review controls and the professional property editor', function () {
+test('admin boarding houses page is view-only while retaining property details', function () {
     $admin = User::factory()->create([
         'role' => 'admin',
         'is_active' => true,
@@ -16,18 +16,16 @@ test('admin boarding houses page keeps review controls and the professional prop
         ->get(route('admin.boarding-houses'))
         ->assertOk()
         ->assertSee('Boarding Houses')
-        ->assertSee('Add Boarding House')
         ->assertSee('Listings')
-        ->assertDontSee('Search boarding houses or locations')
-        ->assertDontSee('All Status')
-        ->assertDontSee('All Locations')
-        ->assertDontSee('Apply')
         ->assertSee('Boarding House Details')
-        ->assertSee('data-property-photo-workspace', false)
-        ->assertSee('data-property-photo-carousel', false)
-        ->assertSee('data-property-location-map', false)
-        ->assertSee('Add property photos')
-        ->assertDontSee('data-owner-direct-editor', false)
+        ->assertSee('data-admin-property-photo-carousel', false)
+        ->assertSee('Owner and contact')
+        ->assertSee('Room options')
+        ->assertDontSee('Add Boarding House')
+        ->assertDontSee('Add property photos')
+        ->assertDontSee('Edit Property')
+        ->assertDontSee('Save changes')
+        ->assertDontSee('Delete this boarding house?')
         ->assertDontSee('Registered properties in your portfolio')
         ->assertDontSee('Owner portal')
         ->assertDontSee('Portfolio Listings')

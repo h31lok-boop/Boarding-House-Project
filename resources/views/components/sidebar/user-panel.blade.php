@@ -1,7 +1,7 @@
 @php
     $r = fn($name, $params = []) => route($name, $params);
     $navBase = 'group/sidebar-item relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400/70';
-    $navActive = $navBase . ' bg-[#2563EB] text-white shadow-[0_10px_22px_rgba(37,99,235,0.3)]';
+    $navActive = $navBase . ' bg-[#0866FF] text-white shadow-[0_10px_22px_rgba(37,99,235,0.3)]';
     $navInactive = $navBase . ' text-[#CBD5E1] hover:bg-white/10 hover:text-white';
     $isSectionRoute = fn($route, $section) => request()->routeIs($route) && request('section') === $section;
     $isUserPath = fn(string $path) => request()->is($path) || request()->is($path.'/*');
@@ -70,12 +70,26 @@
                     'icon' => 'dashboard',
                     'active' => request()->routeIs('user.dashboard') || request()->is('user/dashboard'),
                 ],
+            ],
+        ],
+        [
+            'label' => 'DISCOVER',
+            'items' => [
                 [
-                    'label' => 'Find Boarding Houses',
+                    'label' => 'Browse Boarding Houses',
                     'href' => $r('user.boarding-houses.index', ['tab' => 'recommended']),
                     'icon' => 'search',
                     'active' => ($isUserPath('user/boarding-houses') || $isUserPath('user/browse-listings') || request()->routeIs('user.browse*'))
                         && request()->query('tab', 'recommended') !== 'matchmaking',
+                ],
+                [
+                    'label' => 'Smart Match',
+                    'href' => $r('user.boarding-houses.index', ['tab' => 'matchmaking']),
+                    'icon' => 'smart-match',
+                    'active' => $isUserPath('user/matchmaking')
+                        || $isUserPath('user/recommendations')
+                        || request()->query('tab') === 'matchmaking'
+                        || request()->routeIs('user.recommendations*', 'user.matchmaking*', 'user.match-requests*'),
                 ],
                 [
                     'label' => 'My Preferences',
@@ -83,19 +97,10 @@
                     'icon' => 'preferences',
                     'active' => $isUserPath('user/preferences') || request()->routeIs('user.profile*'),
                 ],
-                [
-                    'label' => 'Matchmaking',
-                    'href' => $r('user.boarding-houses.index', ['tab' => 'matchmaking']),
-                    'icon' => 'matchmaking',
-                    'active' => $isUserPath('user/matchmaking')
-                        || $isUserPath('user/recommendations')
-                        || request()->query('tab') === 'matchmaking'
-                        || request()->routeIs('user.recommendations*', 'user.matchmaking*', 'user.match-requests*'),
-                ],
             ],
         ],
         [
-            'label' => 'BOOKING',
+            'label' => 'BOOKINGS',
             'items' => [
                 [
                     'label' => 'Reservations',
@@ -115,19 +120,19 @@
                     'icon' => 'transactions',
                     'active' => $isUserPath('user/transactions') || request()->routeIs('user.transactions*') || $isSectionRoute('user.payments*', 'transactions'),
                 ],
+            ],
+        ],
+        [
+            'label' => 'COMMUNICATION',
+            'items' => [
                 [
                     'label' => 'Messages',
                     'href' => $r('user.messages.index'),
                     'icon' => 'messages',
                     'active' => $isUserPath('user/messages') || request()->routeIs('user.messages*'),
                     'badge' => $messageBadge,
-                    'badgeColor' => 'blue',
+                    'badgeColor' => 'red',
                 ],
-            ],
-        ],
-        [
-            'label' => 'ACCOUNT',
-            'items' => [
                 [
                     'label' => 'Notifications',
                     'href' => $r('user.notifications.index'),
@@ -136,6 +141,11 @@
                     'badge' => $notificationBadge,
                     'badgeColor' => 'red',
                 ],
+            ],
+        ],
+        [
+            'label' => 'ACCOUNT',
+            'items' => [
                 [
                     'label' => 'Profile Settings',
                     'href' => $r('user.settings.index'),
@@ -153,10 +163,10 @@
     ];
 @endphp
 
-<nav class="sidebar-nav user-sidebar-nav space-y-4 pr-1 text-sm" aria-label="Tenant navigation">
+<nav class="sidebar-nav user-sidebar-nav space-y-6 pr-1 text-sm" aria-label="Tenant navigation">
     @foreach ($sections as $section)
         <section class="space-y-1.5">
-            <p class="sidebar-group px-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-500">{{ $section['label'] }}</p>
+            <p class="sidebar-group px-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#80A7D1]">{{ $section['label'] }}</p>
             <div class="space-y-1">
                 @foreach ($section['items'] as $menu)
                     @php
@@ -182,5 +192,3 @@
         </section>
     @endforeach
 </nav>
-
-<p class="sidebar-footer mt-3 text-center text-[11px] leading-4 text-slate-500">&copy; 2026 BoardMatch<br>All rights reserved.</p>

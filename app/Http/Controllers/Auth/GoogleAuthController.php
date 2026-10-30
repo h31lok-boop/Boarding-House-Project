@@ -10,6 +10,7 @@ use App\Models\OwnerProfile;
 use App\Models\TenantMatchProfile;
 use App\Models\TenantProfile;
 use App\Models\User;
+use App\Services\MattiServiceArea;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -143,6 +144,8 @@ class GoogleAuthController extends Controller
             'profile_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'bh_name' => ['required', 'string', 'max:255'],
             'bh_address' => ['required', 'string', 'max:1000'],
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
             'bh_contact' => ['required', 'string', 'max:50'],
             'room_types' => ['required', 'array', 'min:1'],
             'room_types.*' => ['string', 'max:50'],
@@ -173,6 +176,8 @@ class GoogleAuthController extends Controller
             'proof_of_ownership.max' => 'The business permit may not exceed 2 MB.',
             'terms.accepted' => 'You must accept the verification terms.',
         ]);
+        $validated = array_merge($validated, app(\App\Services\OwnerPropertyLocation::class)->resolve(
+            $validated['bh_address'], $request->input('latitude'), $request->input('longitude')));
 
         $temporaryDirectory = 'google-owner-registrations/'.Str::uuid();
 
@@ -625,6 +630,12 @@ class GoogleAuthController extends Controller
         $publicPaths = [];
 
         try {
+            app(MattiServiceArea::class)->validate(
+                $registration['latitude'] ?? null,
+                $registration['longitude'] ?? null,
+                'bh_address',
+            );
+
             $proofPath = $this->publishTemporaryUpload(
                 (string) ($registration['permit_temp_path'] ?? ''),
                 'proof-of-ownership'
@@ -716,6 +727,12 @@ class GoogleAuthController extends Controller
                     'slug' => $this->uniqueBoardingHouseSlug($registration['bh_name']),
                     'address' => $registration['bh_address'],
                     'full_address' => $registration['bh_address'],
+                    // A Google registration is stored in the session before the
+                    // OAuth round-trip. Keep malformed/legacy sessions from
+                    // raising an undefined-key error; the model validation will
+                    // reject missing or out-of-area coordinates cleanly.
+                    'latitude' => $registration['latitude'] ?? null,
+                    'longitude' => $registration['longitude'] ?? null,
                     'proof_of_ownership' => $proofPath,
                     'description' => implode("\n", [
                         'Room Types: '.$this->listValue($registration['room_types'] ?? []),

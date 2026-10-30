@@ -172,8 +172,8 @@ class BoardingHouseBrowseController extends Controller
             ->values();
 
         $amenities = Amenity::orderBy('name')->get(['id', 'name']);
-        $cities = CityMunicipality::query()->orderBy('city_name')->get(['id', 'city_name']);
-        $barangays = Barangay::query()->orderBy('barangay_name')->get(['id', 'barangay_name', 'city_id']);
+        $cities = CityMunicipality::query()->where('city_name', 'Digos City')->orderBy('city_name')->get(['id', 'city_name']);
+        $barangays = Barangay::query()->where('barangay_name', 'Matti')->whereHas('city', fn ($query) => $query->where('city_name', 'Digos City'))->orderBy('barangay_name')->get(['id', 'barangay_name', 'city_id']);
 
         $nearestHouse = null;
         if ($nearMe && $providedLat !== null && $providedLng !== null && $houses->count() > 0) {
@@ -552,7 +552,14 @@ class BoardingHouseBrowseController extends Controller
 
     public function show(Request $request, $boardingHouse)
     {
-        $boardingHouse = BoardingHouse::query()->find($boardingHouse);
+        $boardingHouse = BoardingHouse::query()
+            ->where(function ($query) {
+                $query->inServiceArea()
+                    ->orWhere(function ($missingLocation) {
+                        $missingLocation->whereNull('latitude')->whereNull('longitude');
+                    });
+            })
+            ->find($boardingHouse);
 
         if (! $boardingHouse) {
             return response()->view('user.boarding-houses.show', [
@@ -721,7 +728,15 @@ class BoardingHouseBrowseController extends Controller
         $paths = collect();
 
         if ($house->relationLoaded('images')) {
-            $paths = $paths->merge($house->images->pluck('image_path'));
+            $paths = $paths->merge(
+                $house->images
+                    ->sortBy(fn ($image) => [
+                        $image->is_primary ? 0 : 1,
+                        (int) ($image->sort_order ?? 0),
+                        (int) $image->id,
+                    ])
+                    ->pluck('image_path')
+            );
         }
 
         if ($house->relationLoaded('photos')) {
@@ -777,6 +792,7 @@ class BoardingHouseBrowseController extends Controller
         $hasRelatedFilter = $house->barangay_id || $house->city_id || $house->property_type || $displayPrice !== null;
 
         $query = BoardingHouse::query()
+            ->inServiceArea()
             ->with([
                 'amenities:id,name',
                 'images:id,boarding_house_id,image_path,is_primary,sort_order',
@@ -822,12 +838,7 @@ class BoardingHouseBrowseController extends Controller
 
         return $query->map(function (BoardingHouse $relatedHouse) {
             $price = $this->displayPrice($relatedHouse);
-            $primaryImage = $relatedHouse->images->firstWhere('is_primary', true)
-                ?: $relatedHouse->images->first();
-            $singleImageUrl = $primaryImage?->url
-                ?: $this->imageUrlFromPath($relatedHouse->featured_image)
-                ?: $this->imageUrlFromPath($relatedHouse->exterior_image)
-                ?: asset('images/boarding-house-placeholder.svg');
+            $singleImageUrl = $relatedHouse->cover_image_url;
 
             return [
                 'id' => $relatedHouse->id,
@@ -862,6 +873,7 @@ class BoardingHouseBrowseController extends Controller
         $refLng = $this->normalizeCoordinate($request->query('lng'), -180, 180) ?? self::DEFAULT_LNG;
 
         $houses = BoardingHouse::query()
+            ->inServiceArea()
             ->with([
                 'amenities:id,name',
                 'rooms:id,boarding_house_id,room_no,price,status,available_slots',
@@ -949,6 +961,7 @@ class BoardingHouseBrowseController extends Controller
     private function buildBrowseQuery(array $filters, ?float $distanceLat, ?float $distanceLng, bool $nearMe): Builder
     {
         $query = BoardingHouse::query()
+            ->inServiceArea()
             ->with([
                 'amenities:id,name',
                 'rooms:id,boarding_house_id,room_no,price,status,available_slots',

@@ -1,17 +1,8 @@
 <x-layouts.dashboard>
 <x-user.shell>
 @php
-    $imageFor = function ($house, int $index): string {
-        $path = $house?->images?->first()?->image_path
-            ?? $house?->featured_image
-            ?? $house?->exterior_image
-            ?? null;
-        if ($path) {
-            return \Illuminate\Support\Str::startsWith($path, ['http://', 'https://', '/'])
-                ? $path
-                : \Illuminate\Support\Facades\Storage::url($path);
-        }
-        return 'https://placehold.co/48x48/f3f4f6/9ca3af?text=BH';
+    $imageFor = function ($house): string {
+        return $house?->cover_image_url ?: asset('images/boarding-house-placeholder.svg');
     };
 
     $totalReviews   = (int) ($totalReviewCount ?? $reviews->total());

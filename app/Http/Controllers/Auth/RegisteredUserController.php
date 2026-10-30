@@ -86,6 +86,11 @@ class RegisteredUserController extends Controller
             $this->messages()
         );
 
+        if ($isOwnerRegistration) {
+            $validated = array_merge($validated, app(\App\Services\OwnerPropertyLocation::class)->resolve(
+                $validated['bh_address'], $request->input('latitude'), $request->input('longitude')));
+        }
+
         $uploadedPaths = [];
 
         try {
@@ -205,6 +210,8 @@ class RegisteredUserController extends Controller
         if ($role === 'owner') {
             $rules['bh_name'] = ['required', 'string', 'max:255'];
             $rules['bh_address'] = ['required', 'string', 'max:1000'];
+            $rules['latitude'] = ['required', 'numeric', 'between:-90,90'];
+            $rules['longitude'] = ['required', 'numeric', 'between:-180,180'];
             $rules['bh_contact'] = ['required', 'string', 'max:50'];
             $rules['room_types'] = ['required', 'array', 'min:1'];
             $rules['room_types.*'] = ['string', 'max:50'];
@@ -427,6 +434,8 @@ class RegisteredUserController extends Controller
             'slug' => $this->uniqueBoardingHouseSlug($validated['bh_name']),
             'address' => $validated['bh_address'],
             'full_address' => $validated['bh_address'],
+            'latitude' => $validated['latitude'],
+            'longitude' => $validated['longitude'],
             'proof_of_ownership' => $proofPath,
             'description' => $description,
             'house_rules' => $validated['house_rules'],

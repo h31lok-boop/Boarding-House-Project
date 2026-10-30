@@ -24,6 +24,15 @@ class AdminListingController extends Controller
     {
         abort_unless($request->user()?->isManager(), 403);
 
+        // Administrators may inspect their own assigned listings, but the
+        // admin workspace is read-only. Owners continue through the existing
+        // single-property management view below.
+        if ($request->user()?->isSuperAdmin()) {
+            $request->query->set('owner', 'mine');
+
+            return app(AdminOwnerController::class)->boardingHouses($request);
+        }
+
         $house = BoardingHouse::where('owner_id', $request->user()->id)->first();
 
         if (! $house) {

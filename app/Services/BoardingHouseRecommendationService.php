@@ -47,6 +47,7 @@ class BoardingHouseRecommendationService
         $houses ??= $this->candidates();
 
         return $houses
+            ->filter(fn (BoardingHouse $house) => app(MattiServiceArea::class)->contains($house->latitude, $house->longitude))
             ->map(function (BoardingHouse $house) use ($tenant, $referenceLat, $referenceLng, $persist) {
                 return [
                     'house' => $house,
@@ -267,11 +268,13 @@ class BoardingHouseRecommendationService
         }
 
         $query = BoardingHouse::query()
+            ->inServiceArea()
             ->with([
                 'amenities:id,name',
                 'rooms:id,boarding_house_id,room_no,room_number,price,status,available_slots,capacity',
                 'roomCategories:id,boarding_house_id,name,monthly_rate,available_rooms,is_available',
                 'images:id,boarding_house_id,image_path,is_primary,sort_order',
+                'photos:id,boarding_house_id,photo_path',
                 'city:id,city_name',
                 'barangayReference:id,barangay_name',
                 'province:id,province_name',
@@ -446,6 +449,7 @@ class BoardingHouseRecommendationService
             'rooms:id,boarding_house_id,room_no,room_number,price,status,available_slots,capacity',
             'roomCategories:id,boarding_house_id,name,monthly_rate,available_rooms,is_available',
             'images:id,boarding_house_id,image_path,is_primary,sort_order',
+            'photos:id,boarding_house_id,photo_path',
             'city:id,city_name',
             'barangayReference:id,barangay_name',
             'province:id,province_name',

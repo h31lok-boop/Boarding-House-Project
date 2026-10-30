@@ -21,6 +21,7 @@
     $hasReservation = ($reservation && ! ($reservation['is_expired'] ?? false)) || $hasLegacyBooking;
     $houseName = $reservation['house_name'] ?? ($hasLegacyBooking ? $legacyHouse : 'No active reservation');
     $roomNumber = $reservation['room_no'] ?? ($booking['room_number'] ?? 'Not assigned');
+    $boardingHouseLocation = trim((string) ($reservation['address'] ?? ($booking['address'] ?? '')));
     $reservationStatus = $reservation['status_label'] ?? ($hasReservation ? 'Active' : 'Not started');
     $paymentLabel = \Illuminate\Support\Str::headline((string) ($paymentStatus['label'] ?? 'Not scheduled'));
     $outstanding = max((float) ($billing['outstanding_balance'] ?? 0), 0);
@@ -107,6 +108,7 @@
                     @if ($hasReservation)
                         <dl class="grid gap-4 sm:grid-cols-2">
                             <div><dt class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Boarding house</dt><dd class="mt-1 text-sm font-bold text-slate-900 dark:text-white">{{ $houseName }}</dd></div>
+                            <div><dt class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Location</dt><dd class="mt-1 text-sm font-bold leading-5 text-slate-900 dark:text-white">{{ $boardingHouseLocation ?: 'Location not provided' }}</dd></div>
                             <div><dt class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Room</dt><dd class="mt-1 text-sm font-bold text-slate-900 dark:text-white">{{ $roomNumber ?: 'Not assigned' }}</dd></div>
                             <div>
                                 <dt class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</dt>

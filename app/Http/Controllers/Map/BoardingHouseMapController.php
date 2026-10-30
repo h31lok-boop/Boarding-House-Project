@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\BoardingHouse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
 
 class BoardingHouseMapController extends Controller
@@ -15,20 +14,16 @@ class BoardingHouseMapController extends Controller
     {
         abort_unless($request->user() && $request->user()->isSuperAdmin(), 403);
 
-        $cacheKey = 'map:admin:'.md5(json_encode($request->query(), JSON_UNESCAPED_UNICODE));
-        $payload = Cache::remember($cacheKey, now()->addSeconds(45), fn () => $this->buildPayload($request, true));
-
-        return response()->json($payload);
+        return response()->json($this->buildPayload($request, true))
+            ->header('Cache-Control', 'no-store');
     }
 
     public function user(Request $request): JsonResponse
     {
         abort_unless($request->user(), 403);
 
-        $cacheKey = 'map:user:'.md5(json_encode($request->query(), JSON_UNESCAPED_UNICODE));
-        $payload = Cache::remember($cacheKey, now()->addSeconds(45), fn () => $this->buildPayload($request, false));
-
-        return response()->json($payload);
+        return response()->json($this->buildPayload($request, false))
+            ->header('Cache-Control', 'no-store');
     }
 
     private function buildPayload(Request $request, bool $adminView): array
@@ -45,6 +40,7 @@ class BoardingHouseMapController extends Controller
         }
 
         $query = BoardingHouse::query()
+            ->inServiceArea()
             ->select($selectColumns)
             ->whereNotNull('latitude')
             ->whereNotNull('longitude');
@@ -112,7 +108,8 @@ class BoardingHouseMapController extends Controller
             'data' => $records,
             'meta' => [
                 'count' => count($records),
-                'cached_until_seconds' => 45,
+                'cached_until_seconds' => 0,
+                'service_area' => config('service-area.name'),
             ],
         ];
     }

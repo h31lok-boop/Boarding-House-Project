@@ -23,8 +23,7 @@ function imageTenant(): User
     ]);
 }
 
-test('admin can upload multiple boarding house photos and select a cover', function () {
-    Storage::fake('public');
+test('admin cannot create a boarding house or upload photos through the admin routes', function () {
     $admin = imageAdmin();
 
     $response = $this->actingAs($admin)->post(route('admin.listings.store'), [
@@ -39,19 +38,11 @@ test('admin can upload multiple boarding house photos and select a cover', funct
         'cover_selection' => 'new:1',
     ]);
 
-    $response->assertRedirect(route('admin.listings'));
-
-    $house = BoardingHouse::where('name', 'Photo Ready Residence')->firstOrFail();
-    $images = $house->images()->get();
-
-    expect($images)->toHaveCount(2)
-        ->and($images->where('is_primary', true))->toHaveCount(1)
-        ->and($images->firstWhere('is_primary', true)?->image_label)->toBe('room');
-
-    $images->each(fn (BoardingHouseImage $image) => Storage::disk('public')->assertExists($image->image_path));
+    $response->assertForbidden();
+    expect(BoardingHouse::where('name', 'Photo Ready Residence')->exists())->toBeFalse();
 });
 
-test('admin can remove reorder and replace boarding house photos', function () {
+test('admin cannot modify boarding house photos through the admin update route', function () {
     Storage::fake('public');
     $admin = imageAdmin();
     $house = BoardingHouse::factory()->create([
@@ -88,23 +79,11 @@ test('admin can remove reorder and replace boarding house photos', function () {
         'cover_selection' => 'new:0',
     ]);
 
-    $response->assertRedirect(route('admin.listings'));
-
-    $house->refresh()->load('images');
-    $replacement = $house->images->firstWhere('image_label', 'replacement');
-
-    expect($house->images)->toHaveCount(2)
-        ->and($house->images->pluck('id'))->not->toContain($oldCover->id)
-        ->and($replacement)->not->toBeNull()
-        ->and($replacement->is_primary)->toBeTrue()
-        ->and($house->featured_image)->toBe($replacement->image_path);
-
-    Storage::disk('public')->assertMissing('boarding-houses/old-cover.jpg');
-    Storage::disk('public')->assertExists('boarding-houses/keep.jpg');
-    Storage::disk('public')->assertExists($replacement->image_path);
+    $response->assertForbidden();
+    expect($house->fresh()->images()->pluck('id'))->toContain($oldCover->id);
 });
 
-test('admin edit form can upload a new cover without landlord info validation errors', function () {
+test('admin cannot edit a boarding house through a direct update request', function () {
     Storage::fake('public');
     $admin = imageAdmin();
     $house = BoardingHouse::factory()->create([
@@ -130,17 +109,19 @@ test('admin edit form can upload a new cover without landlord info validation er
         'cover_selection' => 'new:0',
     ]);
 
-    $response->assertRedirect(route('admin.listings'));
+    $response->assertForbidden();
+    expect($house->fresh()->name)->toBe('Inline Upload House');
+});
 
-    $house->refresh()->load('images');
-    $cover = $house->images->firstWhere('is_primary', true);
+test('admin cannot delete a boarding house through a direct request', function () {
+    $admin = imageAdmin();
+    $house = BoardingHouse::factory()->create(['owner_id' => $admin->id]);
 
-    expect($cover)->not->toBeNull()
-        ->and($cover->image_label)->toBe('new-cover')
-        ->and($house->featured_image)->toBe($cover->image_path)
-        ->and($house->cover_image_url)->toContain($cover->image_path);
+    $this->actingAs($admin)
+        ->delete(route('admin.listings.destroy', $house))
+        ->assertForbidden();
 
-    Storage::disk('public')->assertExists($cover->image_path);
+    expect(BoardingHouse::query()->whereKey($house->id)->exists())->toBeTrue();
 });
 
 test('tenant details gallery uses uploaded photos and listings use the placeholder without photos', function () {

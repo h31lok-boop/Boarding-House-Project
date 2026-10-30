@@ -291,6 +291,193 @@ body.modal-open header:not([data-modal-active] header) {
     z-index: 2147483647 !important;
 }
 
+/* Compact owner Edit Reservation dialog. The header and footer stay fixed while only the form body scrolls. */
+.edit-reservation-modal {
+    overflow: hidden;
+    padding: 1rem;
+}
+
+.edit-reservation-modal .edit-reservation-dialog {
+    border-radius: 1rem;
+    max-height: 85dvh;
+    overflow: hidden;
+    width: min(900px, calc(100vw - 32px));
+}
+
+.edit-reservation-modal .edit-reservation-header,
+.edit-reservation-modal .edit-reservation-footer {
+    flex: 0 0 auto;
+}
+
+.edit-reservation-modal .edit-reservation-header {
+    padding: 1rem 1.5rem;
+}
+
+.edit-reservation-modal .edit-reservation-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 1.5rem;
+}
+
+.edit-reservation-modal .edit-reservation-body > .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 1.25rem;
+}
+
+.edit-reservation-modal .edit-reservation-body .edit-room-assignment,
+.edit-reservation-modal .edit-reservation-body .edit-rate-grid,
+.edit-reservation-modal .edit-reservation-body .edit-status-grid {
+    gap: 1rem;
+}
+
+.edit-reservation-modal .edit-room-assignment {
+    display: block;
+}
+
+.edit-reservation-modal .edit-room-details {
+    margin-top: 1rem;
+}
+
+.edit-reservation-modal .edit-house-summary {
+    padding: 0.7rem 0.875rem;
+}
+
+.edit-reservation-modal .edit-house-summary > div > span:first-child {
+    height: 2.25rem;
+    width: 2.25rem;
+}
+
+.edit-reservation-modal .edit-reservation-body input,
+.edit-reservation-modal .edit-reservation-body select {
+    font-size: 0.875rem;
+}
+
+.edit-reservation-modal .edit-reservation-body label {
+    font-size: 0.875rem;
+}
+
+.edit-reservation-modal .edit-reservation-body textarea {
+    font-size: 0.875rem;
+}
+
+.edit-reservation-modal .edit-reservation-body section textarea[x-model="editForm.house_rules"] {
+    min-height: 9rem;
+}
+
+.edit-reservation-modal .edit-reservation-body section textarea[x-model="editForm.notes"] {
+    min-height: 5.5rem;
+}
+
+.edit-reservation-modal .edit-reservation-footer {
+    gap: 0.625rem;
+    padding: 0.875rem 1.5rem 1rem;
+}
+
+@media (max-width: 639px) {
+    .edit-reservation-modal {
+        align-items: center;
+        padding: 1rem;
+    }
+
+    .edit-reservation-modal .edit-reservation-dialog {
+        max-height: 85dvh;
+        width: calc(100vw - 32px);
+    }
+
+    .edit-reservation-modal .edit-reservation-header,
+    .edit-reservation-modal .edit-reservation-body,
+    .edit-reservation-modal .edit-reservation-footer {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .edit-reservation-modal .edit-reservation-body {
+        padding-bottom: 1rem;
+        padding-top: 1rem;
+    }
+
+    .edit-reservation-modal .edit-rate-grid,
+    .edit-reservation-modal .edit-status-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .edit-reservation-modal .edit-reservation-footer {
+        align-items: stretch;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .edit-reservation-modal .edit-reservation-footer > * {
+        min-width: 0;
+        white-space: normal;
+    }
+}
+
+/* AI assistant floating action button */
+.ai-assistant-fab {
+    bottom: calc(1.75rem + env(safe-area-inset-bottom, 0px));
+    position: fixed;
+    right: clamp(1.25rem, 2vw, 1.75rem);
+    z-index: 1000;
+}
+
+.ai-assistant-fab__button {
+    align-items: center;
+    appearance: none;
+    background: #f4f0ff;
+    border: 1px solid rgba(139, 92, 246, 0.08);
+    border-radius: 0.875rem;
+    box-shadow:
+        0 10px 24px rgba(76, 29, 149, 0.14),
+        0 3px 8px rgba(15, 23, 42, 0.1);
+    color: #7c3aed;
+    cursor: pointer;
+    display: inline-flex;
+    height: 3.25rem;
+    justify-content: center;
+    padding: 0;
+    transition: background-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+    width: 3.25rem;
+}
+
+.ai-assistant-fab__button:hover {
+    background: #ede9fe;
+    box-shadow:
+        0 12px 28px rgba(76, 29, 149, 0.18),
+        0 4px 10px rgba(15, 23, 42, 0.11);
+    transform: translateY(-2px) scale(1.025);
+}
+
+.ai-assistant-fab__button:focus-visible {
+    outline: 3px solid rgba(139, 92, 246, 0.34);
+    outline-offset: 4px;
+}
+
+.ai-assistant-fab__button:active {
+    transform: translateY(0) scale(0.97);
+}
+
+.ai-assistant-fab__icon {
+    display: block;
+    height: 1.8125rem;
+    width: 1.8125rem;
+}
+
+@media (max-width: 639px) {
+    .ai-assistant-fab {
+        bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+        right: 1rem;
+    }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ai-assistant-fab__button {
+        transition: none;
+    }
+}
+
 /* Native dialogs are used for critical workspace modals. The browser places
    them in the top layer, so sticky headers and transformed dashboard shells
    can never cover either the panel or its backdrop. */
@@ -1442,6 +1629,16 @@ body.modal-open .bm-native-dialog[data-modal-active='true'] {
 }
 
 /* Boarding house details navigation map */
+.bm-location-map [data-map-canvas].maplibregl-map {
+    /* MapLibre applies `position: relative` to the container it receives.
+       Keep the map pinned to the explicitly sized frame instead of allowing
+       that rule to collapse this otherwise absolutely positioned host. */
+    height: 100%;
+    inset: 0;
+    position: absolute;
+    width: 100%;
+}
+
 .bm-location-map .maplibregl-map {
     background: #e2e8f0;
     font-family: inherit;
@@ -1836,6 +2033,7 @@ body.sidebar-mobile-open {
 }
 
 .user-shell .user-sidebar {
+    background: linear-gradient(160deg, #0D1C33 0%, #0B192E 100%);
     bottom: 0;
     color: #fff;
     display: flex;
@@ -1869,6 +2067,17 @@ body.sidebar-mobile-open {
 .user-shell .user-sidebar .sidebar-header {
     flex: 0 0 auto;
     margin-bottom: 1rem;
+}
+
+.user-shell .user-sidebar .sidebar-brand-icon {
+    border-radius: 50%;
+}
+
+.user-shell .user-sidebar .sidebar-header > button {
+    flex-shrink: 0;
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
 }
 
 .user-shell .sidebar-nav {
@@ -2132,6 +2341,16 @@ body.sidebar-mobile-open {
 .admin-shell .sidebar-nav::-webkit-scrollbar {
     width: 0;
     height: 0;
+}
+
+.admin-shell .owner-sidebar-nav {
+    overflow: hidden !important;
+    overflow-y: hidden !important;
+}
+
+.admin-shell .owner-sidebar-nav .sidebar-nav {
+    overflow: hidden !important;
+    overflow-y: hidden !important;
 }
 
 .admin-shell .sidebar-brand-icon svg,
@@ -2737,12 +2956,6 @@ body.sidebar-mobile-open {
     }
 }
 
-@media (max-width: 479px) {
-    .admin-shell .admin-header-ai {
-        display: none !important;
-    }
-}
-
 @media (max-width: 359px) {
     .admin-shell .admin-reservation-label {
         display: none;
@@ -2777,7 +2990,8 @@ body.sidebar-mobile-open {
 }
 
 .bm-browse-map-pin--house {
-    background: #059669;
+    background: #0f9488;
+    box-shadow: 0 0 0 3px rgb(255 255 255 / 72%), 0 5px 14px rgb(15 118 110 / 38%);
 }
 
 .bm-browse-map-pin--few {
@@ -2792,6 +3006,7 @@ body.sidebar-mobile-open {
     width: 34px;
     height: 34px;
     background: #dc2626;
+    box-shadow: 0 0 0 3px rgb(255 255 255 / 86%), 0 5px 14px rgb(220 38 38 / 38%);
     font-size: 12px;
 }
 

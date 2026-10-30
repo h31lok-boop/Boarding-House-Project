@@ -268,7 +268,7 @@
                                             </form>
                                         @endif
                                         <button type="button" @click.stop="openView({{ \Illuminate\Support\Js::from($payload) }})" class="inline-flex h-9 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 px-3 text-xs font-bold text-blue-700 transition hover:bg-blue-100">
-                                            {{ $isOwner ? 'Review' : 'Open account' }}
+                                            {{ $isOwner ? 'Review application' : 'Open account' }}
                                         </button>
                                     </div>
                                 </td>

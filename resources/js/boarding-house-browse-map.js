@@ -4,12 +4,14 @@ import {
     createHtmlMarker,
     createOpenStreetMap,
     fitMapToLngLats,
-    lineFeature,
-    removeMapLayerAndSource,
+    isInsideServiceArea,
+    serviceAreaMessage,
     whenMapLoaded,
 } from './openstreetmap';
 
 const ROOT_SELECTOR = '[data-boardmatch-browse-map]';
+const GOOGLE_ROUTE_BLUE = '#2563eb';
+const GOOGLE_ROUTE_OUTLINE = '#bfdbfe';
 
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
     '&': '&amp;',
@@ -20,6 +22,7 @@ const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character
 }[character]));
 
 const numberOrNull = (value) => {
+    if (value === null || value === undefined || String(value).trim() === '') return null;
     const parsed = Number(value);
 
     return Number.isFinite(parsed) ? parsed : null;
@@ -37,31 +40,109 @@ const browseMarkerHtml = (type, label = '') => (
     `<span class="bm-browse-map-pin bm-browse-map-pin--${type}">${escapeHtml(label)}</span>`
 );
 
-const addBrowseMarker = (map, { lng, lat, type, label = '', title, popupHtml }) => createHtmlMarker({
-    map,
-    lngLat: [lng, lat],
-    html: browseMarkerHtml(type, label),
-    title,
-    anchor: 'center',
-    popupHtml,
-    popupOffset: type === 'campus' ? 22 : 20,
-});
+const addBrowseMarker = (map, { lng, lat, type, label = '', title, popupHtml }) => {
+    const marker = createHtmlMarker({
+        map,
+        lngLat: [lng, lat],
+        html: browseMarkerHtml(type, label),
+        title,
+        anchor: 'center',
+        popupHtml,
+        popupOffset: type === 'campus' ? 22 : 20,
+    });
+    marker.getElement().style.zIndex = '3';
 
-const addLineLayer = (map, id, coordinates, paint = {}) => {
-    map.addSource(id, {
-        type: 'geojson',
-        data: lineFeature(coordinates),
+    return marker;
+};
+
+const createQuickRouteOverlay = (map, coordinates) => {
+    const namespace = 'http://www.w3.org/2000/svg';
+    const overlay = document.createElementNS(namespace, 'svg');
+    const outline = document.createElementNS(namespace, 'path');
+    const route = document.createElementNS(namespace, 'path');
+
+    overlay.dataset.quickRouteOverlay = '';
+    overlay.setAttribute('aria-hidden', 'true');
+    Object.assign(overlay.style, {
+        position: 'absolute',
+        inset: '0',
+        width: '100%',
+        height: '100%',
+        overflow: 'hidden',
+        pointerEvents: 'none',
+        zIndex: '2',
     });
-    map.addLayer({
-        id,
-        type: 'line',
-        source: id,
-        layout: {
-            'line-cap': 'round',
-            'line-join': 'round',
+
+    [outline, route].forEach((path) => {
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke-linecap', 'round');
+        path.setAttribute('stroke-linejoin', 'round');
+        path.setAttribute('vector-effect', 'non-scaling-stroke');
+    });
+    outline.setAttribute('stroke', GOOGLE_ROUTE_OUTLINE);
+    outline.setAttribute('stroke-width', '7.5');
+    outline.setAttribute('stroke-opacity', '0.82');
+    route.setAttribute('stroke', GOOGLE_ROUTE_BLUE);
+    route.setAttribute('stroke-width', '4.5');
+    route.setAttribute('pathLength', '1000');
+    route.style.strokeDasharray = '1000';
+    route.style.strokeDashoffset = '1000';
+
+    overlay.append(outline, route);
+    map.getContainer().append(overlay);
+
+    const render = () => {
+        const points = coordinates
+            .map(([lng, lat]) => map.project([lng, lat]))
+            .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+        if (points.length < 2) return;
+
+        let pathData = `M${points[0].x.toFixed(2)},${points[0].y.toFixed(2)}`;
+        for (let index = 1; index < points.length - 1; index += 1) {
+            const point = points[index];
+            const next = points[index + 1];
+            const midpoint = { x: (point.x + next.x) / 2, y: (point.y + next.y) / 2 };
+            pathData += ` Q${point.x.toFixed(2)},${point.y.toFixed(2)} ${midpoint.x.toFixed(2)},${midpoint.y.toFixed(2)}`;
+        }
+        const last = points.at(-1);
+        if (points.length === 2) {
+            const start = points[0];
+            const midpoint = { x: (start.x + last.x) / 2, y: (start.y + last.y) / 2 };
+            const delta = { x: last.x - start.x, y: last.y - start.y };
+            const length = Math.max(Math.hypot(delta.x, delta.y), 1);
+            const bend = Math.min(52, length * .18);
+            const control = {
+                x: midpoint.x - (delta.y / length) * bend,
+                y: midpoint.y + (delta.x / length) * bend,
+            };
+            pathData += ` Q${control.x.toFixed(2)},${control.y.toFixed(2)} ${last.x.toFixed(2)},${last.y.toFixed(2)}`;
+        } else {
+            pathData += ` Q${last.x.toFixed(2)},${last.y.toFixed(2)} ${last.x.toFixed(2)},${last.y.toFixed(2)}`;
+        }
+
+        outline.setAttribute('d', pathData);
+        route.setAttribute('d', pathData);
+    };
+
+    map.on('move', render);
+    map.on('resize', render);
+    render();
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        window.requestAnimationFrame(() => {
+            route.style.transition = 'stroke-dashoffset .9s ease-out';
+            route.style.strokeDashoffset = '0';
+        });
+    } else {
+        route.style.strokeDashoffset = '0';
+    }
+
+    return {
+        remove() {
+            map.off('move', render);
+            map.off('resize', render);
+            overlay.remove();
         },
-        paint,
-    });
+    };
 };
 
 const initializeMap = async (root) => {
@@ -96,13 +177,13 @@ const initializeMap = async (root) => {
         type: 'fill',
         source: 'dssc-five-kilometer-radius',
         paint: { 'fill-color': '#60a5fa', 'fill-opacity': 0.05 },
-    });
+    }, 'service-area-mask');
     map.addLayer({
         id: 'dssc-five-kilometer-radius-line',
         type: 'line',
         source: 'dssc-five-kilometer-radius',
         paint: { 'line-color': '#2563eb', 'line-width': 1.5 },
-    });
+    }, 'service-area-mask');
 
     addBrowseMarker(map, {
         lat: campusLat,
@@ -120,7 +201,7 @@ const initializeMap = async (root) => {
     (settings.houses || []).forEach((house) => {
         const latitude = numberOrNull(house.latitude);
         const longitude = numberOrNull(house.longitude);
-        if (latitude === null || longitude === null) return;
+        if (!isInsideServiceArea(house.latitude, house.longitude)) return;
 
         validHouseCount += 1;
         points.push([longitude, latitude]);
@@ -161,21 +242,21 @@ const initializeMap = async (root) => {
 let quickRouteMap = null;
 let quickRouteCanvas = null;
 let quickRouteMarkers = [];
-let quickRouteLayerIds = [];
+let quickRouteOverlay = null;
 let quickRouteRequest = 0;
 
 const formatRouteDistance = (meters) => {
     if (!Number.isFinite(meters)) return 'Unavailable';
 
     return meters < 1000
-        ? `${Math.max(1, Math.round(meters))} m`
+        ? `${Math.max(50, Math.round(meters / 50) * 50)} m`
         : `${(meters / 1000).toFixed(2)} km`;
 };
 
 const formatRouteDuration = (seconds) => {
     if (!Number.isFinite(seconds)) return 'Unavailable';
 
-    const minutes = Math.max(1, Math.round(seconds / 60));
+    const minutes = Math.max(1, Math.ceil(seconds / 60));
     const hours = Math.floor(minutes / 60);
     const remainingMinutes = minutes % 60;
 
@@ -187,21 +268,18 @@ const formatRouteDuration = (seconds) => {
 const clearQuickRouteLayers = () => {
     quickRouteMarkers.forEach((marker) => marker.remove());
     quickRouteMarkers = [];
-
-    quickRouteLayerIds.slice().reverse().forEach((id) => {
-        removeMapLayerAndSource(quickRouteMap, id);
-    });
-    quickRouteLayerIds = [];
+    quickRouteOverlay?.remove();
+    quickRouteOverlay = null;
 };
 
-const initializeQuickRouteMap = async (canvas) => {
+const initializeQuickRouteMap = async (canvas, center) => {
     if (quickRouteMap && quickRouteCanvas === canvas) return quickRouteMap;
 
     quickRouteMap?.remove();
     quickRouteCanvas = canvas;
     quickRouteMap = createOpenStreetMap(canvas, {
-        center: [125.30909, 6.75874],
-        zoom: 14,
+        center,
+        zoom: 13,
         scrollZoom: false,
     });
     await whenMapLoaded(quickRouteMap);
@@ -209,13 +287,14 @@ const initializeQuickRouteMap = async (canvas) => {
     return quickRouteMap;
 };
 
-const drivingRouteUrl = (coordinates) => {
-    const configured = String(
-        boardMatchMapConfig().routing?.drivingUrl
-        || 'https://routing.openstreetmap.de/routed-car',
-    ).replace(/\/$/, '');
+const drivingRouteUrl = (coordinates, baseUrl) => {
+    const configured = String(baseUrl || 'https://routing.openstreetmap.de/routed-car').replace(/\/$/, '');
+    const routeBase = configured.endsWith('/route/v1') ? configured : `${configured}/route/v1`;
 
-    return `${configured}/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=false`;
+    // Stored property pins can be inside a lot rather than directly on a
+    // road. Let the routing service snap both endpoints to the nearest
+    // routable road instead of rejecting them with a strict radius.
+    return `${routeBase}/driving/${coordinates}?overview=full&geometries=geojson&steps=false`;
 };
 
 const renderQuickRoute = async (listing = {}) => {
@@ -231,13 +310,25 @@ const renderQuickRoute = async (listing = {}) => {
     const houseLat = numberOrNull(listing.latitude);
     const houseLng = numberOrNull(listing.longitude);
 
+    const requestId = ++quickRouteRequest;
+    clearQuickRouteLayers();
+    if (!isInsideServiceArea(listing.latitude, listing.longitude)) {
+        if (status) status.textContent = serviceAreaMessage();
+        if (distanceOutput) distanceOutput.textContent = 'Unavailable';
+        if (durationOutput) durationOutput.textContent = 'Unavailable';
+        return;
+    }
+
     if ([campusLat, campusLng, houseLat, houseLng].includes(null)) {
         if (status) status.textContent = 'Route unavailable because one location has no saved coordinates.';
         return;
     }
 
-    const requestId = ++quickRouteRequest;
-    const map = await initializeQuickRouteMap(canvas);
+    const map = await initializeQuickRouteMap(canvas, [
+        (campusLng + houseLng) / 2,
+        (campusLat + houseLat) / 2,
+    ]);
+    if (requestId !== quickRouteRequest) return;
     clearQuickRouteLayers();
 
     const campusPoint = [campusLng, campusLat];
@@ -261,13 +352,6 @@ const renderQuickRoute = async (listing = {}) => {
         }),
     );
 
-    addLineLayer(map, 'quick-route-direct', [campusPoint, housePoint], {
-        'line-color': '#64748b',
-        'line-width': 3,
-        'line-opacity': 0.7,
-        'line-dasharray': [2, 2],
-    });
-    quickRouteLayerIds.push('quick-route-direct');
     fitMapToLngLats(map, [campusPoint, housePoint], { padding: 54, maxZoom: 15 });
     window.setTimeout(() => map.resize(), 80);
 
@@ -278,34 +362,44 @@ const renderQuickRoute = async (listing = {}) => {
         const coordinates = `${campusLng},${campusLat};${houseLng},${houseLat}`;
         const controller = new AbortController();
         const timeout = window.setTimeout(() => controller.abort(), 12000);
-        const response = await fetch(drivingRouteUrl(coordinates), {
-            headers: { Accept: 'application/json' },
-            signal: controller.signal,
-        });
-        window.clearTimeout(timeout);
-        if (!response.ok) throw new Error(`Routing service responded with ${response.status}.`);
+        const routing = boardMatchMapConfig().routing || {};
+        const routeServices = [
+            routing.drivingUrl,
+            routing.fallbackUrl,
+            'https://router.project-osrm.org/route/v1',
+        ].filter((url, index, services) => url && services.indexOf(url) === index);
+        let payload = null;
+        let route = null;
 
-        const payload = await response.json();
-        const route = payload.routes?.[0];
+        for (const service of routeServices) {
+            const response = await fetch(drivingRouteUrl(coordinates, service), {
+                headers: { Accept: 'application/json' },
+                signal: controller.signal,
+            });
+            if (!response.ok) continue;
+            const candidate = await response.json();
+            if (candidate.routes?.[0]?.geometry?.coordinates?.length) {
+                payload = candidate;
+                route = candidate.routes[0];
+                break;
+            }
+        }
+        window.clearTimeout(timeout);
         if (payload.code !== 'Ok' || !route?.geometry?.coordinates?.length) {
             throw new Error('No road route was returned.');
         }
         if (requestId !== quickRouteRequest) return;
 
-        removeMapLayerAndSource(map, 'quick-route-direct');
-        quickRouteLayerIds = quickRouteLayerIds.filter((id) => id !== 'quick-route-direct');
-        addLineLayer(map, 'quick-route-outline', route.geometry.coordinates, {
-            'line-color': '#ffffff',
-            'line-width': 8,
-            'line-opacity': 0.9,
-        });
-        addLineLayer(map, 'quick-route-road', route.geometry.coordinates, {
-            'line-color': '#2563eb',
-            'line-width': 5,
-            'line-opacity': 0.95,
-        });
-        quickRouteLayerIds.push('quick-route-outline', 'quick-route-road');
-        fitMapToLngLats(map, route.geometry.coordinates, { padding: 50, maxZoom: 16 });
+        const highlightedCoordinates = [campusPoint, ...route.geometry.coordinates, housePoint];
+        quickRouteOverlay = createQuickRouteOverlay(map, highlightedCoordinates);
+        fitMapToLngLats(
+            map,
+            highlightedCoordinates,
+            {
+                padding: { top: 64, right: 56, bottom: 64, left: 56 },
+                maxZoom: 15,
+            },
+        );
 
         if (distanceOutput) distanceOutput.textContent = formatRouteDistance(Number(route.distance));
         if (durationOutput) durationOutput.textContent = formatRouteDuration(Number(route.duration));
@@ -320,7 +414,7 @@ const renderQuickRoute = async (listing = {}) => {
                 : 'Unavailable';
         }
         if (durationOutput) durationOutput.textContent = 'Route unavailable';
-        if (status) status.textContent = 'Road routing is unavailable; showing the direct connection.';
+        if (status) status.textContent = 'Road routing is unavailable; try turn-by-turn directions.';
     }
 };
 

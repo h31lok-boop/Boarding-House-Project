@@ -29,17 +29,7 @@
         default => 'Private Room',
     };
 
-    $fallbackPhotos = [
-        'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=900&q=80',
-        'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=900&q=80',
-        'https://images.unsplash.com/photo-1560185127-6ed189bf02f4?auto=format&fit=crop&w=900&q=80',
-        'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=900&q=80',
-    ];
-
-    $isPlaceholderImage = fn ($image): bool => blank($image)
-        || \Illuminate\Support\Str::contains((string) $image, 'boarding-house-placeholder.svg');
-
-    $listings = $houseCollection->map(function ($house, int $index) use ($propertyTypeLabel, $fallbackPhotos, $isPlaceholderImage) {
+    $listings = $houseCollection->map(function ($house) use ($propertyTypeLabel) {
         $price = $house->display_price
             ?? $house->rooms->where('price', '>', 0)->min('price')
             ?? $house->roomCategories->where('monthly_rate', '>', 0)->min('monthly_rate')
@@ -51,13 +41,12 @@
             (int) ($house->available_rooms_count ?? 0),
             (int) ($house->room_categories_available_rooms_sum ?? 0),
         );
-        $photoUrls = collect($house->gallery_image_urls ?? [])
+        $photoUrls = collect($house->gallery_image_urls ?? [$house->cover_image_url])
             ->filter()
-            ->reject($isPlaceholderImage)
             ->unique()
             ->values();
         if ($photoUrls->isEmpty()) {
-            $photoUrls = collect([$fallbackPhotos[$index % count($fallbackPhotos)]]);
+            $photoUrls = collect([asset('images/boarding-house-placeholder.svg')]);
         }
         $image = $photoUrls->first();
         $distance = $house->dssc_distance_km ?? $house->distance_from_dssc ?? null;
@@ -497,7 +486,7 @@
                                             <p data-quick-route-duration class="mt-0.5 text-xs font-black text-slate-800 dark:text-slate-100">Calculating...</p>
                                         </div>
                                     </div>
-                                    <a :href="selectedListing.directions_url" target="_blank" rel="noopener noreferrer" class="flex h-10 items-center justify-center gap-2 border-t border-slate-200 bg-white text-xs font-bold text-blue-600 transition hover:bg-blue-50 dark:border-slate-700 dark:bg-slate-950 dark:text-blue-300 dark:hover:bg-slate-800">
+                                    <a :href="selectedListing.directions_url" target="_blank" rel="noopener noreferrer" class="mx-3 mb-3 flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400">
                                         Open turn-by-turn directions
                                         <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M13.5 4.5H19.5V10.5M19 5 11 13M19.5 13.5V18A1.5 1.5 0 0 1 18 19.5H6A1.5 1.5 0 0 1 4.5 18V6A1.5 1.5 0 0 1 6 4.5H10.5"/></svg>
                                     </a>

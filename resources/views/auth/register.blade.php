@@ -273,10 +273,6 @@
         $googleConfigured = filled(config('services.google.client_id'));
         $selectedRole = 'tenant';
     @endphp
-    <div style="margin-bottom:14px;border:1px solid #dbeafe;border-radius:11px;background:#eff6ff;padding:10px 12px;color:#475569;font-size:11.5px;line-height:1.5;">
-        Complete every required student detail below. At the bottom, choose whether to create a password or securely link the completed profile with Google.
-    </div>
-
     <form id="regForm" method="POST" action="{{ route('register.store') }}" enctype="multipart/form-data" novalidate>
         @csrf
 
@@ -349,7 +345,6 @@
                 @error('profile_photo')<p class="field-error" style="margin-top:5px"><span>{{ $message }}</span></p>@enderror
             </div>
 
-            <div class="password-method-note"><strong>Password option:</strong> Complete these two password fields only when using “Create account with email.” They are not required when using “Register with Google.”</div>
             <div class="field">
                 <label class="field-label" for="password">Password<span class="req">*</span></label>
                 <div class="input-box{{ $errors->has('password') ? ' is-error' : '' }}" id="box-password">
@@ -731,7 +726,6 @@
                     <button type="button" class="btn-google-reg" disabled style="opacity:.55;cursor:not-allowed">Google registration is unavailable</button>
                 @endif
 
-                <p class="registration-methods-copy">Google must return the same email entered above. Your completed student details will be saved before dashboard access is granted.</p>
             </div>
 
         </div>{{-- /role-conditional wrapper --}}

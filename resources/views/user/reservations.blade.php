@@ -20,23 +20,13 @@
     };
 
     $imageFor = function ($house): string {
-        $path = $house?->images?->first()?->image_path
-            ?? $house?->featured_image
-            ?? $house?->exterior_image
-            ?? $house?->cover_image_path
-            ?? null;
-
-        if ($path) {
-            return \Illuminate\Support\Str::startsWith($path, ['http://', 'https://', '/'])
-                ? $path
-                : \Illuminate\Support\Facades\Storage::url($path);
-        }
-
-        return asset('images/boarding-house-placeholder.svg');
+        return $house?->cover_image_url ?: asset('images/boarding-house-placeholder.svg');
     };
 
     $galleryImages = collect($activeHouse?->images ?? [])
+        ->sortBy(fn ($image) => [$image->is_primary ? 0 : 1, (int) ($image->sort_order ?? 0), (int) $image->id])
         ->pluck('image_path')
+        ->merge(collect($activeHouse?->photos ?? [])->pluck('photo_path'))
         ->map(fn ($path) => \Illuminate\Support\Str::startsWith((string) $path, ['http://', 'https://', '/']) ? $path : \Illuminate\Support\Facades\Storage::url($path))
         ->filter()
         ->values();
@@ -115,7 +105,7 @@
             ],
         ],
         'messages' => [
-            'initial' => 'Allow location access to preview the best route to this boarding house.',
+            'initial' => 'Loading the driving route from DSSC Main Campus to this boarding house.',
             'requesting' => 'Requesting permission to use your current location...',
             'reset' => 'Map reset. Use your current location again to refresh the route.',
             'missingCoordinates' => 'Map route is unavailable because this boarding house has no saved coordinates.',
@@ -175,83 +165,197 @@
             <a href="{{ route('user.boarding-houses.index') }}" class="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-5 text-xs font-bold text-white hover:bg-blue-700">Find a Boarding House</a>
         </section>
     @else
-        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-950">
-            <div class="grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-                <div class="relative min-h-[320px] bg-slate-100 lg:min-h-[380px]">
-                    <img src="{{ $galleryImages->first() }}" alt="{{ $activeHouse->name }}" class="absolute inset-0 h-full w-full object-cover">
-                    <div class="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-slate-950/10 to-transparent"></div>
-                    <div class="absolute bottom-4 left-4 right-4 flex flex-wrap items-center gap-2">
-                        <span class="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-blue-700 shadow-sm backdrop-blur">
-                            <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75" /><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                            {{ $verificationLabel }}
-                        </span>
-                        <span class="rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-slate-700 shadow-sm backdrop-blur">{{ $availableRooms->count() }} available</span>
-                    </div>
-                </div>
-                <div class="p-5 sm:p-6">
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                        <div class="min-w-0">
-                            <h2 class="text-xl font-bold tracking-tight text-slate-950 dark:text-white sm:text-2xl">{{ $activeHouse->name }}</h2>
-                            <p class="mt-1.5 flex items-start gap-1.5 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                                <svg class="mt-1 h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s7-4.8 7-11a7 7 0 1 0-14 0c0 6.2 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5" stroke-width="1.8"/></svg>
-                                <span>{{ $addressLabel }}</span>
-                            </p>
+        <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_350px]" data-reservation-details-layout>
+            <div class="min-w-0 space-y-5">
+                <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-950">
+                    <div class="grid md:grid-cols-2">
+                        <div class="relative min-h-[260px] bg-slate-100 md:min-h-[300px]">
+                            <img src="{{ $galleryImages->first() }}" alt="{{ $activeHouse->name }}" class="absolute inset-0 h-full w-full object-cover">
+                            <div class="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-slate-950/10 to-transparent"></div>
+                            <div class="absolute bottom-4 left-4 right-4 flex flex-wrap items-center gap-2">
+                                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-blue-700 shadow-sm backdrop-blur">
+                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75" /><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                                    {{ $verificationLabel }}
+                                </span>
+                                <span class="rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-slate-700 shadow-sm backdrop-blur">{{ $availableRooms->count() }} available</span>
+                            </div>
                         </div>
-                        <span class="w-fit shrink-0 rounded-2xl bg-blue-50 px-4 py-2.5 text-right text-blue-800 ring-1 ring-inset ring-blue-100 dark:bg-blue-400/10 dark:text-blue-200 dark:ring-blue-400/20">
-                            <span class="block text-[10px] font-bold uppercase tracking-wider text-blue-500 dark:text-blue-300">Starts at</span>
-                            <span class="text-lg font-bold tabular-nums">{{ $monthlyAmount }}</span>
-                        </span>
-                    </div>
+                        <div class="p-5 sm:p-6">
+                            <div class="flex flex-col gap-3 2xl:flex-row 2xl:items-start 2xl:justify-between">
+                                <div class="min-w-0">
+                                    <h2 class="text-xl font-bold tracking-tight text-slate-950 dark:text-white sm:text-2xl">{{ $activeHouse->name }}</h2>
+                                    <p class="mt-1.5 flex items-start gap-1.5 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                                        <svg class="mt-1 h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s7-4.8 7-11a7 7 0 1 0-14 0c0 6.2 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5" stroke-width="1.8"/></svg>
+                                        <span>{{ $addressLabel }}</span>
+                                    </p>
+                                </div>
+                                <span class="w-fit shrink-0 rounded-2xl bg-blue-50 px-4 py-2.5 text-right text-blue-800 ring-1 ring-inset ring-blue-100 dark:bg-blue-400/10 dark:text-blue-200 dark:ring-blue-400/20">
+                                    <span class="block text-[10px] font-bold uppercase tracking-wider text-blue-500 dark:text-blue-300">Starts at</span>
+                                    <span class="text-lg font-bold tabular-nums">{{ $monthlyAmount }}</span>
+                                </span>
+                            </div>
 
-                    <div class="mt-5 grid gap-2.5 sm:grid-cols-3">
-                        <div class="rounded-xl bg-slate-50 p-3 dark:bg-slate-900">
-                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Room</p>
-                            <p class="mt-1 truncate text-sm font-semibold text-slate-900 dark:text-white">{{ $activeRoom?->effective_room_number ?? $primaryRoom?->effective_room_number ?? 'Any available room' }}</p>
-                        </div>
-                        <div class="rounded-xl bg-slate-50 p-3 dark:bg-slate-900">
-                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Owner</p>
-                            <p class="mt-1 truncate text-sm font-semibold text-slate-900 dark:text-white">{{ $ownerName }}</p>
-                        </div>
-                        <div class="rounded-xl bg-slate-50 p-3 dark:bg-slate-900">
-                            <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Contact</p>
-                            <p class="mt-1 truncate text-sm font-semibold text-slate-900 dark:text-white">{{ $ownerPhone }}</p>
+                            <div class="mt-5 grid gap-2.5 sm:grid-cols-3">
+                                <div class="rounded-xl bg-slate-50 p-3 dark:bg-slate-900">
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Room</p>
+                                    <p class="mt-1 truncate text-sm font-semibold text-slate-900 dark:text-white">{{ $activeRoom?->effective_room_number ?? $primaryRoom?->effective_room_number ?? 'Any available room' }}</p>
+                                </div>
+                                <div class="rounded-xl bg-slate-50 p-3 dark:bg-slate-900">
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Owner</p>
+                                    <p class="mt-1 truncate text-sm font-semibold text-slate-900 dark:text-white">{{ $ownerName }}</p>
+                                </div>
+                                <div class="rounded-xl bg-slate-50 p-3 dark:bg-slate-900">
+                                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Contact</p>
+                                    <p class="mt-1 truncate text-sm font-semibold text-slate-900 dark:text-white">{{ $ownerPhone }}</p>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 flex flex-wrap gap-1.5">
+                                @foreach ($amenities as $amenity)
+                                    <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{ $amenity }}</span>
+                                @endforeach
+                            </div>
+
+                            <div class="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
+                                <a href="#reservation-form" class="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-xs font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/25 sm:flex-none">
+                                    {{ $currentReservation ? 'View Reservation' : 'Reserve This Room' }}
+                                </a>
+                                <a href="#route-planner" class="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 dark:border-slate-700 dark:text-slate-300 sm:flex-none">
+                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6.75V18m-10.5 2.25 4.72-1.574a1.5 1.5 0 0 1 .948 0l5.664 1.888a1.5 1.5 0 0 0 .948 0l3.47-1.157A1.5 1.5 0 0 0 21.75 18V4.82a1.5 1.5 0 0 0-1.974-1.423l-3.052 1.018a1.5 1.5 0 0 1-.948 0L10.112 2.527a1.5 1.5 0 0 0-.948 0L5.694 3.684A1.5 1.5 0 0 0 4.5 5.109V19.5a1.5 1.5 0 0 0 1.974 1.423Z"/></svg>
+                                    View Route
+                                </a>
+                                @if ($canPay && $isApproved)
+                                    <a href="{{ route('user.payments.index') }}" class="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 text-xs font-bold text-white shadow-sm shadow-amber-500/25 transition hover:bg-amber-600 sm:flex-none">
+                                        Pay Deposit
+                                    </a>
+                                @endif
+                            </div>
                         </div>
                     </div>
+                </section>
+                @include('user.partials.reservation-compatibility')
+                <div class="grid items-start gap-5 md:grid-cols-2">
+                    <section id="reservation-form" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 scroll-mt-6 dark:border-slate-800 dark:bg-slate-950">
+                        <div class="flex items-start justify-between gap-3">
+                            <h2 class="text-sm font-bold text-slate-950 dark:text-white">{{ $currentReservation ? 'Reservation Details' : 'Reservation Form' }}</h2>
+                            <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">{{ $referenceNumber }}</span>
+                        </div>
 
-                    <div class="mt-4 flex flex-wrap gap-1.5">
-                        @foreach ($amenities as $amenity)
-                            <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{ $amenity }}</span>
-                        @endforeach
-                    </div>
-
-                    <div class="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
-                        <a href="#reservation-form" class="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-xs font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/25 sm:flex-none">
-                            {{ $currentReservation ? 'View Reservation' : 'Reserve This Room' }}
-                        </a>
-                        <a href="#route-planner" class="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 dark:border-slate-700 dark:text-slate-300 sm:flex-none">
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6.75V18m-10.5 2.25 4.72-1.574a1.5 1.5 0 0 1 .948 0l5.664 1.888a1.5 1.5 0 0 0 .948 0l3.47-1.157A1.5 1.5 0 0 0 21.75 18V4.82a1.5 1.5 0 0 0-1.974-1.423l-3.052 1.018a1.5 1.5 0 0 1-.948 0L10.112 2.527a1.5 1.5 0 0 0-.948 0L5.694 3.684A1.5 1.5 0 0 0 4.5 5.109V19.5a1.5 1.5 0 0 0 1.974 1.423Z"/></svg>
-                            View Route
-                        </a>
-                        @if ($canPay && $isApproved)
-                            <a href="{{ route('user.payments.index') }}" class="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 text-xs font-bold text-white shadow-sm shadow-amber-500/25 transition hover:bg-amber-600 sm:flex-none">
-                                Pay Deposit
-                            </a>
+                        @if (! $currentReservation || $selectedHouse)
+                            <form method="POST" action="{{ route('user.boarding-houses.reservations.store', $activeHouse) }}" class="mt-5 space-y-4">
+                                @csrf
+                                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">Room Selection
+                                    <select name="room_id" class="mt-1 w-full rounded-xl border-slate-200 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500/20">
+                                        <option value="">Any available room</option>
+                                        @foreach ($availableRooms as $room)
+                                            <option value="{{ $room->id }}" @selected(old('room_id') == $room->id)>
+                                                {{ $room->effective_room_number ?? $room->name ?? 'Room #'.$room->id }} - {{ $money($room->price) ?? 'Ask owner' }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                    @error('room_id')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
+                                </label>
+                                <div class="grid gap-3 sm:grid-cols-2">
+                                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">Move-in Date
+                                        <input type="date" name="check_in_date" value="{{ old('check_in_date') }}" class="mt-1 w-full rounded-xl border-slate-200 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500/20">
+                                        @error('check_in_date')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
+                                    </label>
+                                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">Occupants
+                                        <input type="number" name="occupants" min="1" max="20" value="{{ old('occupants', 1) }}" class="mt-1 w-full rounded-xl border-slate-200 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500/20">
+                                        @error('occupants')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
+                                    </label>
+                                </div>
+                                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">Emergency Contact Name
+                                    <input type="text" name="emergency_contact_name" value="{{ old('emergency_contact_name', $tenant?->tenantProfile?->emergency_contact_name) }}" class="mt-1 w-full rounded-xl border-slate-200 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500/20">
+                                    @error('emergency_contact_name')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
+                                </label>
+                                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">Emergency Contact Number
+                                    <input type="text" name="emergency_contact_number" value="{{ old('emergency_contact_number', $tenant?->tenantProfile?->emergency_contact_number ?? $tenant?->emergency_contact) }}" class="mt-1 w-full rounded-xl border-slate-200 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500/20">
+                                    @error('emergency_contact_number')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
+                                </label>
+                                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">Reservation Notes
+                                    <textarea name="notes" rows="3" class="mt-1 w-full rounded-xl border-slate-200 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500/20" placeholder="Tell the owner anything important about your move-in.">{{ old('notes') }}</textarea>
+                                    @error('notes')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
+                                </label>
+                                @if ($activeHouse?->services?->where('is_active', true)->isNotEmpty())
+                                    <div>
+                                        <p class="text-xs font-semibold text-slate-600 dark:text-slate-300">Optional services</p>
+                                        <div class="mt-2 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                                            @foreach ($activeHouse->services->where('is_active', true) as $service)
+                                                <label class="flex items-center justify-between gap-3 text-xs text-slate-700">
+                                                    <span class="flex items-center gap-2"><input type="checkbox" name="service_ids[]" value="{{ $service->id }}" class="rounded border-slate-300 text-blue-600">{{ $service->name }}</span>
+                                                    <span class="font-semibold">₱{{ number_format((float) $service->price, 2) }} / {{ str_replace('_', ' ', $service->billing_type) }}</span>
+                                                </label>
+                                            @endforeach
+                                        </div>
+                                        @error('service_ids')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
+                                    </div>
+                                @endif
+                                <label class="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+                                    <input type="checkbox" name="terms_accepted" value="1" class="mt-1 rounded border-slate-300 text-blue-600 focus:ring-blue-500" @checked(old('terms_accepted'))>
+                                    <span>I agree to the reservation terms, cancellation policy, and 48-hour expiration rule.</span>
+                                </label>
+                                @error('terms_accepted')<span class="block text-xs text-rose-600">{{ $message }}</span>@enderror
+                                <button type="submit" class="inline-flex h-11 w-full items-center justify-center rounded-xl bg-blue-600 text-sm font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/25 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200">Submit Reservation</button>
+                            </form>
+                        @else
+                            <dl class="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-100 bg-slate-50/60 text-sm dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900/50">
+                                <div class="flex justify-between gap-4 px-3.5 py-2.5"><dt class="text-xs text-slate-500">Room</dt><dd class="text-xs font-semibold text-slate-900 dark:text-white">{{ $activeRoom?->effective_room_number ?? 'Any available room' }}</dd></div>
+                                <div class="flex justify-between gap-4 px-3.5 py-2.5"><dt class="text-xs text-slate-500">Move-in</dt><dd class="text-xs font-semibold text-slate-900 dark:text-white">{{ $moveInLabel }}</dd></div>
+                                <div class="flex justify-between gap-4 px-3.5 py-2.5"><dt class="text-xs text-slate-500">Occupants</dt><dd class="text-xs font-semibold text-slate-900 dark:text-white">{{ $currentReservation->occupants ?? 1 }}</dd></div>
+                                <div class="px-3.5 py-2.5"><dt class="text-xs text-slate-500">Emergency Contact</dt><dd class="mt-0.5 text-xs font-semibold text-slate-900 dark:text-white">{{ $currentReservation->emergency_contact_name ?: 'Not provided' }} {{ $currentReservation->emergency_contact_number ? '· '.$currentReservation->emergency_contact_number : '' }}</dd></div>
+                            </dl>
                         @endif
-                    </div>
-                </div>
-            </div>
-        </section>
+                    </section>
+                    <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-950">
+                        <h2 class="text-sm font-bold text-slate-950 dark:text-white">Payment Summary</h2>
+                        <div class="mt-3 space-y-2">
+                            <div class="flex justify-between gap-4 text-xs"><span class="text-slate-500">Monthly rent</span><span class="font-semibold tabular-nums text-slate-900 dark:text-white">{{ $monthlyAmount }}</span></div>
+                            <div class="flex justify-between gap-4 text-xs"><span class="text-slate-500">Deposit due</span><span class="font-semibold tabular-nums text-slate-900 dark:text-white">{{ $depositAmount }}</span></div>
+                            <div class="flex justify-between gap-4 text-xs"><span class="text-slate-500">BoardMatch fee</span><span class="font-semibold tabular-nums text-slate-900 dark:text-white">{{ $serviceFee }}</span></div>
+                        </div>
+                        <div class="mt-3 flex items-center justify-between gap-4 rounded-xl bg-slate-50 px-3.5 py-2.5 dark:bg-slate-900">
+                            <span class="text-xs font-semibold text-slate-600 dark:text-slate-200">Total due now</span>
+                            <span class="text-lg font-bold tabular-nums text-blue-700 dark:text-blue-300">{{ $totalDue }}</span>
+                        </div>
+                        <p class="mt-2 text-[11px] leading-4 text-slate-400">Payment opens after owner approval and is blocked if the reservation expires.</p>
+                        @if ($canPay)
+                            <a href="{{ route('user.payments.index') }}" class="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-amber-500 text-sm font-bold text-white shadow-sm shadow-amber-500/25 transition hover:bg-amber-600 hover:shadow-md hover:shadow-amber-500/30 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-200">
+                                Go to Payments
+                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
+                            </a>
+                        @else
+                            <button type="button" disabled class="mt-4 inline-flex h-11 w-full cursor-not-allowed items-center justify-center rounded-xl bg-slate-100 text-sm font-semibold text-slate-400 dark:bg-slate-800 dark:text-slate-500">Payment unavailable</button>
+                        @endif
 
-        <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_390px]">
-            <main class="space-y-5">
-                <section id="route-planner" class="bm-location-map overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-200/50 scroll-mt-6 dark:border-slate-800 dark:bg-slate-950" data-boardmatch-location-map data-auto-route-on-load="true">
+                    </section>
+                </div>
+                <section class="grid gap-4 lg:grid-cols-3">
+                    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-950">
+                        <h3 class="text-sm font-bold text-slate-950 dark:text-white">Boarding House Rules</h3>
+                        <ul class="mt-3 space-y-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
+                            @foreach (collect(preg_split('/\r\n|\r|\n|;|- /', (string) $activeHouse->house_rules))->map(fn ($rule) => trim($rule))->filter()->take(5)->values()->all() ?: ['Respect quiet hours.', 'Keep shared spaces clean.', 'Visitors must follow owner policy.'] as $rule)
+                                <li class="flex gap-2"><span class="mt-2 h-1.5 w-1.5 rounded-full bg-blue-600"></span><span>{{ $rule }}</span></li>
+                            @endforeach
+                        </ul>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-950">
+                        <h3 class="text-sm font-bold text-slate-950 dark:text-white">Cancellation Policy</h3>
+                        <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">Pending reservations may be cancelled before owner approval. Approved reservations may require owner coordination, especially after deposit submission.</p>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-950">
+                        <h3 class="text-sm font-bold text-slate-950 dark:text-white">Terms & Conditions</h3>
+                        <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">A reservation hold lasts 48 hours. Expired reservations cannot proceed to payment and rooms are returned to available inventory.</p>
+                    </div>
+                </section>
+                <section id="route-planner" class="bm-location-map overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-200/50 scroll-mt-6 dark:border-slate-800 dark:bg-slate-950" data-boardmatch-location-map data-default-route-origin="dssc">
                     <script type="application/json" data-map-config>{!! json_encode($mapConfig, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
                     <div class="border-b border-slate-100 px-5 py-4 dark:border-slate-800">
                         <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div>
                                 <h2 class="text-sm font-bold text-slate-950 dark:text-white">Turn-by-Turn Directions</h2>
                                 <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Route to {{ $activeHouse->name }}</p>
-                                <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Live directions from your location via OpenStreetMap.</p>
+                                <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Road directions from DSSC Main Campus via OpenStreetMap.</p>
                             </div>
                             <span class="inline-flex w-fit items-center rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
                                 <span data-map-provider>OpenStreetMap + OSRM</span>
@@ -282,7 +386,7 @@
                                 </div>
                                 <div data-route-options class="mt-2 space-y-2"></div>
                             </div>
-                            <p data-route-status class="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs leading-5 text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">Allow location access to preview directions.</p>
+                            <p data-route-status class="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs leading-5 text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">Loading the driving route from DSSC Main Campus.</p>
                             <div class="mt-3 grid gap-1.5">
                                 <button type="button" data-route-current class="inline-flex w-full items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700">Use My Current Location</button>
                                 <button type="button" data-route-dssc class="inline-flex w-full items-center justify-center rounded-lg border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 dark:border-slate-700 dark:text-slate-300">Route From DSSC</button>
@@ -324,13 +428,14 @@
                         </div>
                     </div>
                 </section>
-
+            </div>
+            <aside class="min-w-0 space-y-5" aria-label="Reservation status and compatibility">
                 <section id="reservation-panel" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-950">
                     <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <h2 class="text-sm font-bold text-slate-950 dark:text-white">Reservation Progress</h2>
                         <span class="w-fit rounded-full border px-3 py-1 text-xs font-bold {{ $statusMeta['class'] }}">{{ $statusMeta['label'] }}</span>
                     </div>
-                    <ol class="mt-5 grid gap-3 sm:grid-cols-5 sm:gap-0">
+                    <ol class="mt-5 grid gap-5">
                         @foreach ($timelineSteps as $index => $step)
                             @php
                                 $dotClass = match ($step['state']) {
@@ -345,9 +450,9 @@
                                 };
                                 $connectorClass = $step['state'] === 'done' ? 'bg-emerald-300' : 'bg-slate-200 dark:bg-slate-700';
                             @endphp
-                            <li class="relative flex items-center gap-3 sm:flex-col sm:gap-0 sm:text-center">
+                            <li class="relative flex items-center gap-3">
                                 @unless ($loop->last)
-                                    <span class="absolute left-3.5 top-8 h-[calc(100%-1rem)] w-px sm:left-1/2 sm:top-3.5 sm:h-px sm:w-full {{ $connectorClass }}" aria-hidden="true"></span>
+                                    <span class="absolute left-3.5 top-7 h-full w-px {{ $connectorClass }}" aria-hidden="true"></span>
                                 @endunless
                                 <span class="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-[11px] font-bold {{ $dotClass }}">
                                     @if ($step['state'] === 'done')
@@ -356,7 +461,7 @@
                                         {{ $index + 1 }}
                                     @endif
                                 </span>
-                                <p class="text-xs font-semibold sm:mt-2 {{ $labelClass }}">{{ $step['label'] }}</p>
+                                <p class="text-xs font-semibold {{ $labelClass }}">{{ $step['label'] }}</p>
                             </li>
                         @endforeach
                     </ol>
@@ -378,121 +483,7 @@
                         <div class="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-800">This reservation expired after 48 hours and the room was released.</div>
                     @endif
                 </section>
-
-                <section class="grid gap-4 lg:grid-cols-3">
-                    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-950">
-                        <h3 class="text-sm font-bold text-slate-950 dark:text-white">Boarding House Rules</h3>
-                        <ul class="mt-3 space-y-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                            @foreach (collect(preg_split('/\r\n|\r|\n|;|- /', (string) $activeHouse->house_rules))->map(fn ($rule) => trim($rule))->filter()->take(5)->values()->all() ?: ['Respect quiet hours.', 'Keep shared spaces clean.', 'Visitors must follow owner policy.'] as $rule)
-                                <li class="flex gap-2"><span class="mt-2 h-1.5 w-1.5 rounded-full bg-blue-600"></span><span>{{ $rule }}</span></li>
-                            @endforeach
-                        </ul>
-                    </div>
-                    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-950">
-                        <h3 class="text-sm font-bold text-slate-950 dark:text-white">Cancellation Policy</h3>
-                        <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">Pending reservations may be cancelled before owner approval. Approved reservations may require owner coordination, especially after deposit submission.</p>
-                    </div>
-                    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-950">
-                        <h3 class="text-sm font-bold text-slate-950 dark:text-white">Terms & Conditions</h3>
-                        <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">A reservation hold lasts 48 hours. Expired reservations cannot proceed to payment and rooms are returned to available inventory.</p>
-                    </div>
-                </section>
-            </main>
-
-            <aside class="space-y-5 xl:sticky xl:top-6 xl:self-start">
-                <section id="reservation-form" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 scroll-mt-6 dark:border-slate-800 dark:bg-slate-950">
-                    <div class="flex items-start justify-between gap-3">
-                        <h2 class="text-sm font-bold text-slate-950 dark:text-white">{{ $currentReservation ? 'Reservation Details' : 'Reservation Form' }}</h2>
-                        <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">{{ $referenceNumber }}</span>
-                    </div>
-
-                    @if (! $currentReservation || $selectedHouse)
-                        <form method="POST" action="{{ route('user.boarding-houses.reservations.store', $activeHouse) }}" class="mt-5 space-y-4">
-                            @csrf
-                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">Room Selection
-                                <select name="room_id" class="mt-1 w-full rounded-xl border-slate-200 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500/20">
-                                    <option value="">Any available room</option>
-                                    @foreach ($availableRooms as $room)
-                                        <option value="{{ $room->id }}" @selected(old('room_id') == $room->id)>
-                                            {{ $room->effective_room_number ?? $room->name ?? 'Room #'.$room->id }} - {{ $money($room->price) ?? 'Ask owner' }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                                @error('room_id')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
-                            </label>
-                            <div class="grid gap-3 sm:grid-cols-2">
-                                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">Move-in Date
-                                    <input type="date" name="check_in_date" value="{{ old('check_in_date') }}" class="mt-1 w-full rounded-xl border-slate-200 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500/20">
-                                    @error('check_in_date')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
-                                </label>
-                                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">Occupants
-                                    <input type="number" name="occupants" min="1" max="20" value="{{ old('occupants', 1) }}" class="mt-1 w-full rounded-xl border-slate-200 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500/20">
-                                    @error('occupants')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
-                                </label>
-                            </div>
-                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">Emergency Contact Name
-                                <input type="text" name="emergency_contact_name" value="{{ old('emergency_contact_name', $tenant?->tenantProfile?->emergency_contact_name) }}" class="mt-1 w-full rounded-xl border-slate-200 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500/20">
-                                @error('emergency_contact_name')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
-                            </label>
-                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">Emergency Contact Number
-                                <input type="text" name="emergency_contact_number" value="{{ old('emergency_contact_number', $tenant?->tenantProfile?->emergency_contact_number ?? $tenant?->emergency_contact) }}" class="mt-1 w-full rounded-xl border-slate-200 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500/20">
-                                @error('emergency_contact_number')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
-                            </label>
-                            <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">Reservation Notes
-                                <textarea name="notes" rows="3" class="mt-1 w-full rounded-xl border-slate-200 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500/20" placeholder="Tell the owner anything important about your move-in.">{{ old('notes') }}</textarea>
-                                @error('notes')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
-                            </label>
-                            @if ($activeHouse?->services?->where('is_active', true)->isNotEmpty())
-                                <div>
-                                    <p class="text-xs font-semibold text-slate-600 dark:text-slate-300">Optional services</p>
-                                    <div class="mt-2 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                                        @foreach ($activeHouse->services->where('is_active', true) as $service)
-                                            <label class="flex items-center justify-between gap-3 text-xs text-slate-700">
-                                                <span class="flex items-center gap-2"><input type="checkbox" name="service_ids[]" value="{{ $service->id }}" class="rounded border-slate-300 text-blue-600">{{ $service->name }}</span>
-                                                <span class="font-semibold">₱{{ number_format((float) $service->price, 2) }} / {{ str_replace('_', ' ', $service->billing_type) }}</span>
-                                            </label>
-                                        @endforeach
-                                    </div>
-                                    @error('service_ids')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
-                                </div>
-                            @endif
-                            <label class="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
-                                <input type="checkbox" name="terms_accepted" value="1" class="mt-1 rounded border-slate-300 text-blue-600 focus:ring-blue-500" @checked(old('terms_accepted'))>
-                                <span>I agree to the reservation terms, cancellation policy, and 48-hour expiration rule.</span>
-                            </label>
-                            @error('terms_accepted')<span class="block text-xs text-rose-600">{{ $message }}</span>@enderror
-                            <button type="submit" class="inline-flex h-11 w-full items-center justify-center rounded-xl bg-blue-600 text-sm font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/25 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200">Submit Reservation</button>
-                        </form>
-                    @else
-                        <dl class="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-100 bg-slate-50/60 text-sm dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900/50">
-                            <div class="flex justify-between gap-4 px-3.5 py-2.5"><dt class="text-xs text-slate-500">Room</dt><dd class="text-xs font-semibold text-slate-900 dark:text-white">{{ $activeRoom?->effective_room_number ?? 'Any available room' }}</dd></div>
-                            <div class="flex justify-between gap-4 px-3.5 py-2.5"><dt class="text-xs text-slate-500">Move-in</dt><dd class="text-xs font-semibold text-slate-900 dark:text-white">{{ $moveInLabel }}</dd></div>
-                            <div class="flex justify-between gap-4 px-3.5 py-2.5"><dt class="text-xs text-slate-500">Occupants</dt><dd class="text-xs font-semibold text-slate-900 dark:text-white">{{ $currentReservation->occupants ?? 1 }}</dd></div>
-                            <div class="px-3.5 py-2.5"><dt class="text-xs text-slate-500">Emergency Contact</dt><dd class="mt-0.5 text-xs font-semibold text-slate-900 dark:text-white">{{ $currentReservation->emergency_contact_name ?: 'Not provided' }} {{ $currentReservation->emergency_contact_number ? '· '.$currentReservation->emergency_contact_number : '' }}</dd></div>
-                        </dl>
-                    @endif
-                </section>
-
-                <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-950">
-                    <h2 class="text-sm font-bold text-slate-950 dark:text-white">Payment Summary</h2>
-                    <div class="mt-3 space-y-2">
-                        <div class="flex justify-between gap-4 text-xs"><span class="text-slate-500">Monthly rent</span><span class="font-semibold tabular-nums text-slate-900 dark:text-white">{{ $monthlyAmount }}</span></div>
-                        <div class="flex justify-between gap-4 text-xs"><span class="text-slate-500">Deposit due</span><span class="font-semibold tabular-nums text-slate-900 dark:text-white">{{ $depositAmount }}</span></div>
-                        <div class="flex justify-between gap-4 text-xs"><span class="text-slate-500">BoardMatch fee</span><span class="font-semibold tabular-nums text-slate-900 dark:text-white">{{ $serviceFee }}</span></div>
-                    </div>
-                    <div class="mt-3 flex items-center justify-between gap-4 rounded-xl bg-slate-50 px-3.5 py-2.5 dark:bg-slate-900">
-                        <span class="text-xs font-semibold text-slate-600 dark:text-slate-200">Total due now</span>
-                        <span class="text-lg font-bold tabular-nums text-blue-700 dark:text-blue-300">{{ $totalDue }}</span>
-                    </div>
-                    <p class="mt-2 text-[11px] leading-4 text-slate-400">Payment opens after owner approval and is blocked if the reservation expires.</p>
-                    @if ($canPay)
-                        <a href="{{ route('user.payments.index') }}" class="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-amber-500 text-sm font-bold text-white shadow-sm shadow-amber-500/25 transition hover:bg-amber-600 hover:shadow-md hover:shadow-amber-500/30 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-200">
-                            Go to Payments
-                            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
-                        </a>
-                    @else
-                        <button type="button" disabled class="mt-4 inline-flex h-11 w-full cursor-not-allowed items-center justify-center rounded-xl bg-slate-100 text-sm font-semibold text-slate-400 dark:bg-slate-800 dark:text-slate-500">Payment unavailable</button>
-                    @endif
+                @include('user.partials.reservation-match-breakdown')
                     @if ($canCancel)
                         <form method="POST" action="{{ route('user.reservations.cancel', $currentReservation) }}" onsubmit="return confirm('Cancel this reservation?')" class="mt-2">
                             @csrf
@@ -500,9 +491,9 @@
                             <button class="inline-flex h-10 w-full items-center justify-center rounded-xl text-xs font-semibold text-rose-600 transition hover:bg-rose-50 dark:hover:bg-rose-400/10">Cancel Reservation</button>
                         </form>
                     @endif
-                </section>
             </aside>
         </div>
+
     @endif
 </div>
 </x-user.shell>

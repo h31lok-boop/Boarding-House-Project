@@ -988,6 +988,7 @@ class AdminOwnerController extends Controller
                 'barangayReference:id,barangay_name',
                 'city:id,city_name',
                 'images:id,boarding_house_id,image_path,is_primary,sort_order',
+                'photos:id,boarding_house_id,photo_path',
                 'owner:id,name,email,phone,contact_number',
                 'ownerProfile',
                 'province:id,province_name',
@@ -1073,6 +1074,7 @@ class AdminOwnerController extends Controller
                 'barangayReference:id,barangay_name',
                 'city:id,city_name',
                 'images:id,boarding_house_id,image_path,is_primary,sort_order',
+                'photos:id,boarding_house_id,photo_path',
                 'owner:id,name,email,phone,contact_number',
                 'ownerProfile',
                 'province:id,province_name',
@@ -1441,7 +1443,9 @@ class AdminOwnerController extends Controller
         $data = $request->validate([
             'sender_id' => ['required', 'exists:users,id', 'different:recipient_id'],
             'recipient_id' => ['required', 'exists:users,id'],
-            'boarding_house_id' => ['nullable', 'exists:boarding_houses,id'],
+            'boarding_house_id' => ['nullable', Rule::exists('boarding_houses', 'id')->where(
+                fn ($query) => $query->whereIn('id', BoardingHouse::query()->select('id'))
+            )],
             'message' => ['nullable', 'string', 'max:1000'],
         ]);
 
@@ -3454,6 +3458,42 @@ class AdminOwnerController extends Controller
         return back()->with('success', 'Notification sent successfully.');
     }
 
+    public function markDisplayedNotificationsAsRead(Request $request)
+    {
+        $this->authorizeAdmin($request);
+
+        if (! Schema::hasTable('notifications')) {
+            return response()->json(['unread_count' => 0]);
+        }
+
+        $ids = collect($request->input('ids', []))
+            ->filter(fn ($id) => is_numeric($id))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        if ($ids->isNotEmpty()) {
+            $updates = ['updated_at' => now()];
+            if (Schema::hasColumn('notifications', 'is_read')) {
+                $updates['is_read'] = true;
+            }
+            if (Schema::hasColumn('notifications', 'read_at')) {
+                $updates['read_at'] = now();
+            }
+
+            DB::table('notifications')
+                ->where('user_id', $request->user()->id)
+                ->whereIn('id', $ids)
+                ->when(Schema::hasColumn('notifications', 'is_read'), fn ($query) => $query->where('is_read', false))
+                ->when(! Schema::hasColumn('notifications', 'is_read') && Schema::hasColumn('notifications', 'read_at'), fn ($query) => $query->whereNull('read_at'))
+                ->update($updates);
+        }
+
+        return response()->json([
+            'unread_count' => $this->unreadNotificationsCount($request->user()->id),
+        ]);
+    }
+
     public function updateNotification(Request $request, string $notification)
     {
         $this->authorizeAdmin($request);
@@ -3739,6 +3779,10 @@ class AdminOwnerController extends Controller
 
         $query = DB::table($table)->whereBetween('created_at', [$start, $end]);
 
+        if ($table === 'boarding_houses') {
+            $query->whereIn('id', BoardingHouse::query()->select('id'));
+        }
+
         if ($statuses && Schema::hasColumn($table, 'status')) {
             $query->whereIn(DB::raw('LOWER(status)'), array_map('strtolower', $statuses));
         }
@@ -3899,11 +3943,11 @@ class AdminOwnerController extends Controller
         }
 
         if (Schema::hasColumn('boarding_houses', 'approval_status')) {
-            return (int) DB::table('boarding_houses')->whereRaw('LOWER(approval_status) = ?', ['pending'])->count();
+            return (int) BoardingHouse::query()->whereRaw('LOWER(approval_status) = ?', ['pending'])->count();
         }
 
         if (Schema::hasColumn('boarding_houses', 'status')) {
-            return (int) DB::table('boarding_houses')->whereRaw('LOWER(status) = ?', ['pending'])->count();
+            return (int) BoardingHouse::query()->whereRaw('LOWER(status) = ?', ['pending'])->count();
         }
 
         return 0;
@@ -4481,6 +4525,10 @@ class AdminOwnerController extends Controller
 
     private function tableCount(string $table): int
     {
+        if ($table === 'boarding_houses' && Schema::hasTable($table)) {
+            return BoardingHouse::query()->count();
+        }
+
         return Schema::hasTable($table) ? (int) DB::table($table)->count() : 0;
     }
 

@@ -12,7 +12,7 @@ test('all workspace modal styles use a viewport-level isolated foundation', func
         ->toContain('&& !(el instanceof HTMLDialogElement && el.open)')
         ->toContain('mountModalAtDocumentLevel')
         ->toContain('resetModalScroll')
-        ->toContain("document.body.appendChild(modal)")
+        ->toContain('document.body.appendChild(modal)')
         ->toContain("modal.setAttribute('data-modal-portaled', 'true')")
         ->toContain("document.documentElement.classList.toggle('modal-open'")
         ->toContain("document.body.classList.toggle('modal-open'");

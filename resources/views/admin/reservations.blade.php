@@ -985,12 +985,14 @@
                                                     <button
                                                         type="button"
                                                         @click.stop="openEdit({{ \Illuminate\Support\Js::from($payload) }})"
+                                                        title="Edit"
                                                         class="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                                                     >View details</button>
                                                 @else
                                                     <button
                                                         type="button"
                                                         @click.stop="openEdit({{ \Illuminate\Support\Js::from($payload) }})"
+                                                        title="Edit"
                                                         class="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
                                                     >View details</button>
                                                 @endif
@@ -1138,11 +1140,11 @@
             x-show="editOpen"
             x-cloak
             x-transition
-            class="fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-3 backdrop-blur-sm"
+            class="edit-reservation-modal fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-3 backdrop-blur-sm"
         >
-            <div class="flex w-full max-w-3xl max-h-[92vh] flex-col overflow-x-hidden overflow-y-auto rounded-2xl bg-white shadow-2xl shadow-slate-900/25">
+            <div class="edit-reservation-dialog flex w-full max-w-3xl max-h-[92vh] flex-col overflow-x-hidden overflow-y-auto rounded-2xl bg-white shadow-2xl shadow-slate-900/25">
                 {{-- Header --}}
-                <div class="flex shrink-0 items-start justify-between border-b border-slate-100 px-7 py-5">
+                <div class="edit-reservation-header flex shrink-0 items-start justify-between border-b border-slate-100 px-7 py-5">
                     <div class="flex min-w-0 items-center gap-3">
                         <span class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-sm font-black text-blue-700"><template x-if="selected.tenant_photo_url"><img :src="selected.tenant_photo_url" :alt="selected.tenant" class="h-full w-full object-cover"></template><span x-show="!selected.tenant_photo_url" x-text="selected.tenant_initials || 'T'"></span></span>
                         <div class="min-w-0">
@@ -1156,7 +1158,7 @@
                 </div>
 
                 {{-- Modal body; the whole dialog scrolls so its actions cannot cover content. --}}
-                <div class="shrink-0 px-7 py-5">
+                <div class="edit-reservation-body shrink-0 px-7 py-5">
                     {{-- Error banner --}}
                     <div x-show="editError" x-cloak class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] font-semibold text-rose-800" x-text="editError"></div>
 
@@ -1164,7 +1166,7 @@
                         {{-- Boarding House (Read-only) --}}
                         <section>
                             <p class="mb-2.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">Boarding House</p>
-                            <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-slate-50/70 px-4 py-3.5">
+                            <div class="edit-house-summary flex items-center justify-between gap-3 rounded-xl border border-slate-200/80 bg-slate-50/70 px-4 py-3.5">
                                 <div class="flex min-w-0 items-center gap-3">
                                     <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-blue-700">
                                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1189,8 +1191,8 @@
                         {{-- Room Assignment --}}
                         <section>
                             <p class="mb-2.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">Room Assignment</p>
-                            <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                                <div>
+                            <div class="edit-room-assignment grid grid-cols-1 gap-4 lg:grid-cols-2">
+                                <div class="edit-room-details">
                                     <label class="block text-[13px] font-semibold text-slate-700">
                                         Assign Room <span class="text-rose-600">*</span>
                                         <select x-model="editForm.room_id" @change="onRoomChange()" :disabled="editSaving || editRoomsLoading" class="mt-1.5 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-[13px] text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-50 disabled:opacity-60" :class="editErrors.room_id ? 'border-rose-300 bg-rose-50' : ''">
@@ -1234,7 +1236,7 @@
                             </div>
 
                             {{-- Rate + Dates row --}}
-                            <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                            <div class="edit-rate-grid mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
                                 <div>
                                     <label class="block text-[13px] font-semibold text-slate-700">
                                         Monthly Rate (PHP) <span class="text-rose-600">*</span>
@@ -1265,7 +1267,7 @@
                         </section>
 
                         {{-- Status Row: Reservation + Payment --}}
-                        <section class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <section class="edit-status-grid grid grid-cols-1 gap-4 sm:grid-cols-2">
                             <div>
                                 <p class="mb-2.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">Reservation Status</p>
                                 <label class="block text-[13px] font-semibold text-slate-700">
@@ -1334,7 +1336,7 @@
                 </div>
 
                 {{-- Footer --}}
-                <div class="flex shrink-0 flex-wrap items-center justify-end gap-2.5 border-t border-slate-100 bg-white px-7 py-4">
+                <div class="edit-reservation-footer flex shrink-0 flex-wrap items-center justify-end gap-2.5 border-t border-slate-100 bg-white px-7 py-4">
                     <button
                         type="button"
                         x-show="selected.status_value === 'pending'"

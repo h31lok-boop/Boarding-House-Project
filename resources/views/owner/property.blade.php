@@ -126,7 +126,7 @@
                         </div>
                     </div>
                     <div class="flex shrink-0 items-center gap-1.5">
-                        <button type="button" @click="editOpen = true" class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
+                        <button type="button" @click="editOpen = true; $nextTick(() => window.dispatchEvent(new CustomEvent('boarding-house-map:edit')))" class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50">
                             <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M16.862 4.487a2.1 2.1 0 0 1 2.97 2.97L8.416 18.873l-4.5.5.5-4.5 12.446-10.386Z"/></svg>
                             Edit
                         </button>
@@ -444,7 +444,7 @@
 
     {{-- Edit Property Modal --}}
     <div data-modal-root role="dialog" aria-modal="true" aria-labelledby="edit-property-title" x-show="editOpen" x-cloak x-transition.opacity @keydown.escape.window="editOpen = false" class="bm-modal-overlay" style="display: none;">
-        <form action="{{ $updateUrl }}" method="POST" enctype="multipart/form-data" class="bm-modal bm-modal--xl">
+        <form action="{{ $updateUrl }}" method="POST" enctype="multipart/form-data" data-owner-address-form="edit" class="bm-modal bm-modal--xl">
             @csrf
             @method('PUT')
             <div class="bm-modal__header">
@@ -488,19 +488,25 @@
                 </div>
 
                 <section class="mt-6 rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
-                    <h3 class="text-sm font-bold text-slate-950">Location</h3>
+                    <h3 class="text-sm font-bold text-slate-950">Address-based property pin</h3>
+                    <p class="mt-1 text-xs text-slate-500">The map pin is generated from the address you enter and cannot be moved manually.</p>
+                    <div class="mt-4 overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-sm">
+                        <div id="edit-location-map" data-property-location-map data-address-derived-location="true" class="h-80 w-full sm:h-96"></div>
+                    </div>
                     <div class="mt-4 grid gap-4 md:grid-cols-2">
-                        <label class="text-sm md:col-span-2">Complete Address<input name="address" class="ui-input mt-1" :value="selected.address"></label>
-                        <label class="text-sm">Barangay<input name="barangay" class="ui-input mt-1" :value="selected.barangay"></label>
-                        <label class="text-sm">Nearby Landmark<input name="nearby_landmark" class="ui-input mt-1" :value="selected.nearby_landmark"></label>
-                        <label class="text-sm">Distance from DSSC (km)<input name="distance_from_dssc" type="number" min="0" max="100" step="0.01" class="ui-input mt-1" :value="selected.distance_from_dssc"></label>
-                        <label class="text-sm">Latitude<input name="latitude" type="number" step="0.0000001" class="ui-input mt-1" :value="selected.latitude"></label>
-                        <label class="text-sm">Longitude<input name="longitude" type="number" step="0.0000001" class="ui-input mt-1" :value="selected.longitude"></label>
-                        <label class="md:col-span-2 flex items-center gap-2 text-sm">
-                            <input type="hidden" name="is_near_dssc" value="0">
-                            <input type="checkbox" name="is_near_dssc" value="1" :checked="selected.is_near_dssc">
-                            Near DSSC
-                        </label>
+                        <label class="text-sm md:col-span-2">Complete Address<input id="edit-address" name="address" required class="ui-input mt-1" :value="selected.address"></label>
+                        <label class="text-sm">Barangay<input id="edit-barangay" name="barangay" class="ui-input mt-1" :value="selected.barangay"></label>
+                        <label class="text-sm">Nearby Landmark<input id="edit-landmark" name="nearby_landmark" class="ui-input mt-1" :value="selected.nearby_landmark"></label>
+                        <input id="edit-distance" name="distance_from_dssc" type="hidden" :value="selected.distance_from_dssc">
+                        <input id="edit-location-status" name="location_status" type="hidden" :value="selected.location_status || 'approximate'">
+                        <input id="edit-latitude" name="latitude" type="hidden" :value="selected.latitude">
+                        <input id="edit-longitude" name="longitude" type="hidden" :value="selected.longitude">
+                        <input type="hidden" name="is_near_dssc" value="0">
+                        <input id="edit-near-dssc" type="checkbox" name="is_near_dssc" value="1" :checked="selected.is_near_dssc" class="hidden" tabindex="-1" aria-hidden="true">
+                        <div class="md:col-span-2">
+                            <button type="button" class="btn-secondary justify-center" data-geocode-address="edit">Update Pin From Address</button>
+                            <p id="edit-geocode-status" class="mt-2 text-xs text-slate-500" aria-live="polite">Change the address or barangay to generate a new pin.</p>
+                        </div>
                     </div>
                 </section>
 
@@ -559,5 +565,21 @@
             </div>
         </div>
     </div>
+
+    <script type="application/json" data-admin-boarding-house-map-config>
+        {!! json_encode([
+            'dssc' => [
+                'name' => (string) config('dssc.landmark'),
+                'latitude' => (float) config('dssc.latitude'),
+                'longitude' => (float) config('dssc.longitude'),
+            ],
+            'openStreetMap' => [
+                'tileUrl' => config('services.openstreetmap.tile_url'),
+                'attribution' => config('services.openstreetmap.attribution'),
+                'maxZoom' => (int) config('services.openstreetmap.max_zoom', 19),
+                'nominatimUrl' => config('services.openstreetmap.nominatim_url'),
+            ],
+        ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}
+    </script>
 </x-admin.shell>
 </x-layouts.dashboard>

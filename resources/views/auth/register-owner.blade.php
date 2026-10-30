@@ -90,7 +90,6 @@
         <section class="form-side">
             <p class="eyebrow">Boarding house owner application</p>
             <h1>Register your property</h1>
-            <p class="lead">Submit your account, property information, and business permit. Your account will remain unavailable until an administrator verifies the permit.</p>
             <div class="method-note">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01" stroke-linecap="round"/></svg>
                 <span>Complete every required field and upload your business permit first. At the bottom, choose either email and password or a Google-linked owner application.</span>
@@ -133,6 +132,8 @@
                         <label class="field">Boarding house name <span>*</span><input name="bh_name" value="{{ old('bh_name') }}" required></label>
                         <label class="field">Property contact number <span>*</span><input name="bh_contact" value="{{ old('bh_contact', old('phone')) }}" required></label>
                         <label class="field wide">Complete address <span>*</span><textarea name="bh_address" required>{{ old('bh_address') }}</textarea></label>
+                        <label class="field">Latitude <span>*</span><input name="latitude" type="number" step="0.0000001" min="-90" max="90" value="{{ old('latitude') }}" required></label>
+                        <label class="field">Longitude <span>*</span><input name="longitude" type="number" step="0.0000001" min="-180" max="180" value="{{ old('longitude') }}" required></label>
                         <label class="field">Minimum monthly rent <span>*</span><input name="rent_min" type="number" min="0" value="{{ old('rent_min') }}" required></label>
                         <label class="field">Maximum monthly rent <span>*</span><input name="rent_max" type="number" min="0" value="{{ old('rent_max') }}" required></label>
                         <div class="field wide">Room types <span>*</span><div class="choices">

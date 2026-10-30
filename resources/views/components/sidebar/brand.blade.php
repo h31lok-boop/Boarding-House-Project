@@ -15,6 +15,6 @@
     </div>
     <div class="sidebar-brand-text min-w-0 leading-tight">
         <p class="truncate text-lg font-bold tracking-tight text-white">BoardMatch</p>
-        <p class="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Student housing</p>
+        <p class="whitespace-nowrap text-[7px] font-semibold uppercase tracking-[0.05em] text-slate-400">BOARDING HOUSE FINDER</p>
     </div>
 </a>

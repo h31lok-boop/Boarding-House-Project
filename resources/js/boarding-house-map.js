@@ -2,14 +2,20 @@ import {
     boardMatchMapConfig,
     createHtmlMarker,
     createOpenStreetMap,
-    distanceMeters,
     fitMapToLngLats,
-    lineFeature,
-    removeMapLayerAndSource,
+    isInsideServiceArea,
+    openStreetMapConfig,
+    serviceAreaMessage,
     whenMapLoaded,
 } from './openstreetmap';
 
 const MAP_ROOT_SELECTOR = '[data-boardmatch-location-map]';
+const ROUTE_STYLE = {
+    active: '#4285f4',
+    activeOutline: '#0b57d0',
+    inactive: '#9aa0a6',
+    inactiveOutline: '#ffffff',
+};
 
 const DEFAULT_MESSAGES = {
     initial: 'Open the reservation panel to request your location and preview the route.',
@@ -50,6 +56,7 @@ const modeRoutingServices = (profile) => {
 };
 
 const numberOrNull = (value) => {
+    if (value === null || value === undefined || String(value).trim() === '') return null;
     const parsed = Number(value);
 
     return Number.isFinite(parsed) ? parsed : null;
@@ -82,12 +89,26 @@ const formatDistance = (meters) => {
     return `${(meters / 1000).toFixed(meters < 10000 ? 1 : 0)} km`;
 };
 
+const formatRouteDistance = (meters) => {
+    if (!Number.isFinite(meters)) {
+        return '--';
+    }
+
+    if (meters < 1000) {
+        // Google Maps presents short route totals in readable 50 m increments.
+        return `${Math.max(50, Math.round(meters / 50) * 50)} m`;
+    }
+
+    return `${(meters / 1000).toFixed(meters < 10000 ? 1 : 0)} km`;
+};
+
 const formatDuration = (seconds) => {
     if (!Number.isFinite(seconds)) {
         return '--';
     }
 
-    const totalMinutes = Math.max(1, Math.round(seconds / 60));
+    // Do not show a 1 minute ETA for a route that takes more than 60 seconds.
+    const totalMinutes = Math.max(1, Math.ceil(seconds / 60));
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
 
@@ -99,6 +120,69 @@ const formatDuration = (seconds) => {
 };
 
 const travelModeLabel = (mode) => MODE_META[mode]?.label || 'Route';
+
+const createProjectedRouteOverlay = (map, coordinates, active = false) => {
+    const namespace = 'http://www.w3.org/2000/svg';
+    const overlay = document.createElementNS(namespace, 'svg');
+    const outline = document.createElementNS(namespace, 'path');
+    const route = document.createElementNS(namespace, 'path');
+
+    overlay.dataset.routeOverlay = '';
+    overlay.setAttribute('aria-hidden', 'true');
+    Object.assign(overlay.style, {
+        position: 'absolute',
+        inset: '0',
+        width: '100%',
+        height: '100%',
+        overflow: 'hidden',
+        pointerEvents: 'none',
+    });
+
+    [outline, route].forEach((path) => {
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke-linecap', 'round');
+        path.setAttribute('stroke-linejoin', 'round');
+        path.setAttribute('vector-effect', 'non-scaling-stroke');
+    });
+    overlay.append(outline, route);
+    map.getContainer().append(overlay);
+
+    const render = () => {
+        const points = coordinates
+            .map(([lng, lat]) => map.project([lng, lat]))
+            .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+        const pathData = points.map((point, index) => (
+            `${index === 0 ? 'M' : 'L'}${point.x.toFixed(2)},${point.y.toFixed(2)}`
+        )).join(' ');
+
+        outline.setAttribute('d', pathData);
+        route.setAttribute('d', pathData);
+    };
+
+    const setActive = (isActive) => {
+        outline.setAttribute('stroke', isActive ? ROUTE_STYLE.activeOutline : ROUTE_STYLE.inactiveOutline);
+        outline.setAttribute('stroke-width', isActive ? '10' : '8');
+        outline.setAttribute('stroke-opacity', isActive ? '0.98' : '0.55');
+        route.setAttribute('stroke', isActive ? ROUTE_STYLE.active : ROUTE_STYLE.inactive);
+        route.setAttribute('stroke-width', isActive ? '6.5' : '4');
+        route.setAttribute('stroke-opacity', isActive ? '1' : '0.72');
+        overlay.style.zIndex = isActive ? '2' : '1';
+    };
+
+    map.on('move', render);
+    map.on('resize', render);
+    setActive(active);
+    render();
+
+    return {
+        setActive,
+        remove() {
+            map.off('move', render);
+            map.off('resize', render);
+            overlay.remove();
+        },
+    };
+};
 
 const stepInstruction = (step, index) => {
     const type = String(step?.maneuver?.type || '').toLowerCase();
@@ -188,6 +272,9 @@ class BoardingHouseLocationMap {
         };
 
         this.destination = this.coordinateFromConfig(this.config.house);
+        if (!isInsideServiceArea(this.destination?.lat, this.destination?.lng)) {
+            this.destination = null;
+        }
         this.campus = this.coordinateFromConfig(this.config.dssc);
         this.travelMode = 'DRIVING';
         this.defaultOriginLabel = 'Your current location';
@@ -325,7 +412,7 @@ class BoardingHouseLocationMap {
 
     updateRouteMetrics(distance, duration) {
         if (this.elements.routeDistance) {
-            this.elements.routeDistance.textContent = formatDistance(Number(distance));
+            this.elements.routeDistance.textContent = formatRouteDistance(Number(distance));
         }
 
         if (this.elements.routeDuration) {
@@ -343,9 +430,16 @@ class BoardingHouseLocationMap {
     }
 
     async initMap() {
+        const initialCenter = this.campus
+            ? [
+                (this.destination.lng + this.campus.lng) / 2,
+                (this.destination.lat + this.campus.lat) / 2,
+            ]
+            : [this.destination.lng, this.destination.lat];
+
         this.map = createOpenStreetMap(this.elements.canvas, {
-            center: [this.destination.lng, this.destination.lat],
-            zoom: 15,
+            center: initialCenter,
+            zoom: this.campus ? 13 : 15,
             scrollZoom: false,
             openStreetMap: this.config.openStreetMap,
         });
@@ -364,6 +458,7 @@ class BoardingHouseLocationMap {
                 this.config.house?.priceLabel,
             ]),
         });
+        this.houseMarker.getElement().style.zIndex = '3';
 
         if (this.campus) {
             this.campusMarker = createHtmlMarker({
@@ -377,6 +472,7 @@ class BoardingHouseLocationMap {
                     this.config.dssc?.address,
                 ]),
             });
+            this.campusMarker.getElement().style.zIndex = '3';
         }
 
         this.fitInitialView();
@@ -397,8 +493,8 @@ class BoardingHouseLocationMap {
         }
 
         fitMapToLngLats(this.map, points, {
-            padding: 54,
-            maxZoom: this.origin ? 16 : 15,
+            padding: { top: 72, right: 64, bottom: 72, left: 64 },
+            maxZoom: this.origin ? 15 : 14,
         });
     }
 
@@ -417,6 +513,7 @@ class BoardingHouseLocationMap {
                 popupOffset: 22,
                 popupHtml: this.createPopupHtml('Your current location'),
             });
+            this.userMarker.getElement().style.zIndex = '3';
             return;
         }
 
@@ -653,7 +750,7 @@ class BoardingHouseLocationMap {
         let lastError = null;
 
         for (const service of services) {
-            const url = `${service.baseUrl.replace(/\/$/, '')}/${service.profile}/${coordinates}?alternatives=true&overview=full&steps=true&geometries=geojson`;
+            const url = `${service.baseUrl.replace(/\/$/, '')}/${service.profile}/${coordinates}?alternatives=true&overview=full&steps=true&geometries=geojson&radiuses=100;100`;
 
             try {
                 const controller = new AbortController();
@@ -725,111 +822,15 @@ class BoardingHouseLocationMap {
         this.clearRoute();
 
         this.routeLayers = routes.map((route, index) => {
-            const sourceId = `boardmatch-route-${index}`;
-            const outlineId = `${sourceId}-outline`;
-            const lineId = `${sourceId}-line`;
             const lngLatCoordinates = route.coordinates.map(([lat, lng]) => [lng, lat]);
+            const highlightedCoordinates = [
+                [this.origin.lng, this.origin.lat],
+                ...lngLatCoordinates,
+                [this.destination.lng, this.destination.lat],
+            ];
 
-            this.map.addSource(sourceId, {
-                type: 'geojson',
-                data: lineFeature(lngLatCoordinates),
-            });
-            this.map.addLayer({
-                id: outlineId,
-                type: 'line',
-                source: sourceId,
-                layout: { 'line-cap': 'round', 'line-join': 'round' },
-                paint: {
-                    'line-color': '#ffffff',
-                    'line-opacity': 0.98,
-                    'line-width': 12,
-                },
-            });
-            this.map.addLayer({
-                id: lineId,
-                type: 'line',
-                source: sourceId,
-                layout: { 'line-cap': 'round', 'line-join': 'round' },
-                paint: {
-                    'line-color': index === 0 ? '#2563eb' : '#94a3b8',
-                    'line-opacity': index === 0 ? 1 : 0.76,
-                    'line-width': index === 0 ? 7 : 5,
-                },
-            });
-
-            // OSRM snaps routes to the road network, so the polyline can stop
-            // short of off-road origins/destinations. Bridge both gaps with
-            // dashed connector lines so the route visually reaches the markers.
-            const connectors = this.buildConnectors(route, index);
-            const connectorSourceId = `${sourceId}-connectors`;
-            const connectorId = `${connectorSourceId}-line`;
-
-            if (connectors.length) {
-                this.map.addSource(connectorSourceId, {
-                    type: 'geojson',
-                    data: {
-                        type: 'FeatureCollection',
-                        features: connectors.map((coordinates) => lineFeature(coordinates)),
-                    },
-                });
-                this.map.addLayer({
-                    id: connectorId,
-                    type: 'line',
-                    source: connectorSourceId,
-                    layout: { 'line-cap': 'round', 'line-join': 'round' },
-                    paint: {
-                        'line-color': index === 0 ? '#2563eb' : '#94a3b8',
-                        'line-opacity': index === 0 ? 0.85 : 0.6,
-                        'line-width': 3,
-                        'line-dasharray': [1, 2.5],
-                    },
-                });
-            }
-
-            const clickHandler = () => this.selectRoute(index);
-            [outlineId, lineId, ...(connectors.length ? [connectorId] : [])].forEach((layerId) => {
-                this.map.on('click', layerId, clickHandler);
-            });
-
-            return {
-                sourceId,
-                outlineId,
-                lineId,
-                connectorSourceId: connectors.length ? connectorSourceId : null,
-                connectorId: connectors.length ? connectorId : null,
-                clickHandler,
-            };
+            return createProjectedRouteOverlay(this.map, highlightedCoordinates, index === 0);
         });
-    }
-
-    buildConnectors(route, index) {
-        const coords = route.coordinates;
-        if (!coords.length) {
-            return [];
-        }
-
-        const connectors = [];
-        const endpoints = [
-            { anchor: this.origin, roadPoint: coords[0] },
-            { anchor: this.destination, roadPoint: coords[coords.length - 1] },
-        ];
-
-        endpoints.forEach(({ anchor, roadPoint }) => {
-            if (!anchor || !roadPoint) {
-                return;
-            }
-
-            // Only draw a connector when the gap is visually meaningful (> 12 m).
-            const roadCoordinate = { lat: roadPoint[0], lng: roadPoint[1] };
-            if (distanceMeters(anchor, roadCoordinate) > 12) {
-                connectors.push([
-                    [anchor.lng, anchor.lat],
-                    [roadCoordinate.lng, roadCoordinate.lat],
-                ]);
-            }
-        });
-
-        return connectors;
     }
 
     selectRoute(index, { fit = true } = {}) {
@@ -840,21 +841,7 @@ class BoardingHouseLocationMap {
 
         this.activeRouteIndex = index;
         this.routeLayers.forEach((layer, routeIndex) => {
-            const active = routeIndex === index;
-            this.map.setPaintProperty(layer.outlineId, 'line-opacity', active ? 0.92 : 0.5);
-            this.map.setPaintProperty(layer.outlineId, 'line-width', active ? 9 : 8);
-            this.map.setPaintProperty(layer.lineId, 'line-color', active ? '#2563eb' : '#94a3b8');
-            this.map.setPaintProperty(layer.lineId, 'line-opacity', active ? 0.98 : 0.72);
-            this.map.setPaintProperty(layer.lineId, 'line-width', active ? 5.5 : 4);
-            if (layer.connectorId) {
-                this.map.setPaintProperty(layer.connectorId, 'line-color', active ? '#2563eb' : '#94a3b8');
-                this.map.setPaintProperty(layer.connectorId, 'line-opacity', active ? 0.85 : 0.5);
-            }
-            if (active) {
-                this.map.moveLayer(layer.outlineId);
-                this.map.moveLayer(layer.lineId);
-                if (layer.connectorId) this.map.moveLayer(layer.connectorId);
-            }
+            layer.setActive(routeIndex === index);
         });
 
         this.routeOptionButtons.forEach((button, routeIndex) => {
@@ -873,10 +860,19 @@ class BoardingHouseLocationMap {
         this.renderSteps(route.steps);
 
         if (fit && route.coordinates.length) {
+            const routePoints = route.coordinates.map(([lat, lng]) => [lng, lat]);
+            if (this.origin) {
+                routePoints.unshift([this.origin.lng, this.origin.lat]);
+            }
+            routePoints.push([this.destination.lng, this.destination.lat]);
+
             fitMapToLngLats(
                 this.map,
-                route.coordinates.map(([lat, lng]) => [lng, lat]),
-                { padding: 54, maxZoom: 16 },
+                routePoints,
+                {
+                    padding: { top: 72, right: 64, bottom: 72, left: 64 },
+                    maxZoom: 15,
+                },
             );
         }
     }
@@ -899,7 +895,7 @@ class BoardingHouseLocationMap {
                 <span class="bm-route-option__summary">${escapeHtml(route.summary)}</span>
                 <span class="bm-route-option__meta">
                     <span>${escapeHtml(formatDuration(route.duration))}</span>
-                    <span>${escapeHtml(formatDistance(route.distance))}</span>
+                    <span>${escapeHtml(formatRouteDistance(route.distance))}</span>
                 </span>
             `;
             button.addEventListener('click', () => this.selectRoute(index));
@@ -978,16 +974,7 @@ class BoardingHouseLocationMap {
     }
 
     clearRoute() {
-        this.routeLayers.forEach((layer) => {
-            [layer.outlineId, layer.lineId, layer.connectorId].filter(Boolean).forEach((layerId) => {
-                this.map.off('click', layerId, layer.clickHandler);
-            });
-            if (layer.connectorId) {
-                removeMapLayerAndSource(this.map, layer.connectorId, layer.connectorSourceId);
-            }
-            if (this.map.getLayer(layer.lineId)) this.map.removeLayer(layer.lineId);
-            removeMapLayerAndSource(this.map, layer.outlineId, layer.sourceId);
-        });
+        this.routeLayers.forEach((layer) => layer.remove());
         this.routeLayers = [];
     }
 
@@ -1087,11 +1074,12 @@ class BoardingHouseLocationMap {
         this.clearRouteOptions();
         this.renderStepsPlaceholder('Turn-by-turn directions will appear here after the route is loaded.');
         this.updateRouteMetrics(null, null);
-        this.setProvider('OpenStreetMap + OSRM');
+        const basemap = String(openStreetMapConfig(this.config.openStreetMap).basemap).toLowerCase();
+        this.setProvider(basemap === 'hybrid' ? 'MapLibre Hybrid + OSRM' : 'OpenStreetMap + OSRM');
 
         if (!this.destination) {
-            this.showUnavailable(this.message('missingCoordinates'));
-            this.setRouteStatus(this.message('missingCoordinates'), 'warning');
+            this.showUnavailable(serviceAreaMessage());
+            this.setRouteStatus(serviceAreaMessage(), 'warning');
             return;
         }
 

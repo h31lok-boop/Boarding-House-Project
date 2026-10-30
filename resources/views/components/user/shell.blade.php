@@ -89,7 +89,8 @@
 
     <main class="user-dashboard-main min-w-0 bg-[#f7f8fb] dark:bg-[#020617]">
         <div class="mx-auto max-w-[1540px] space-y-5 px-4 py-5 sm:px-6 2xl:px-8">
-            {{-- Persistent tenant header. All counters and links are scoped to the signed-in tenant. --}}
+            {{-- Show the workspace header only on the tenant dashboard. --}}
+            @if (request()->routeIs('user.dashboard'))
             <header data-tenant-workspace-header class="sticky top-2.5 z-[60] rounded-[1.1rem] border border-white/80 bg-white px-3 py-2.5 shadow-[0_14px_30px_rgba(15,23,42,0.08)] dark:border-slate-800/90 dark:bg-slate-950 sm:px-3.5">
                 <div class="flex min-w-0 items-center justify-between gap-2.5">
                     <div class="flex min-w-0 items-center gap-2.5">
@@ -109,8 +110,7 @@
                                 <span class="absolute -right-1 -top-1 inline-flex min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{{ $messageCount > 99 ? '99+' : $messageCount }}</span>
                             @endif
                         </a>
-                        <x-ai-assistant />
-                        <x-header-notification-link :href="$r('user.notifications.index')" :count="$notificationsCount" />
+                        <x-header-notification-link :href="$r('user.notifications.index')" :mark-read-url="$r('user.notifications.headerRead')" :count="$notificationsCount" />
                         <x-theme-icon-toggle />
 
                         <div class="relative z-[70]" x-data="{ open: false }">
@@ -148,6 +148,7 @@
                     </form>
                 @endif
             </header>
+            @endif
 
             @isset($header)
                 <div class="ui-card p-3.5">
@@ -160,4 +161,6 @@
             {{ $slot }}
         </div>
     </main>
+
+    <x-ai-assistant />
 </div>

@@ -14,8 +14,8 @@ test('admin map api returns geotagged boarding houses', function () {
 
     BoardingHouse::factory()->create([
         'name' => 'Map House One',
-        'latitude' => 6.7440000,
-        'longitude' => 125.3550000,
+        'latitude' => 6.7677800,
+        'longitude' => 125.3062000,
         'is_active' => true,
         'approval_status' => 'approved',
     ]);
@@ -39,16 +39,16 @@ test('user map api excludes non-approved houses', function () {
 
     BoardingHouse::factory()->create([
         'name' => 'Approved House',
-        'latitude' => 6.7440000,
-        'longitude' => 125.3550000,
+        'latitude' => 6.7677800,
+        'longitude' => 125.3062000,
         'is_active' => true,
         'approval_status' => 'approved',
     ]);
 
     BoardingHouse::factory()->create([
         'name' => 'Pending House',
-        'latitude' => 6.7445000,
-        'longitude' => 125.3555000,
+        'latitude' => 6.7683100,
+        'longitude' => 125.3078200,
         'is_active' => true,
         'approval_status' => 'pending',
     ]);

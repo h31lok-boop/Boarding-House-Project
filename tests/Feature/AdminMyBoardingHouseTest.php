@@ -49,7 +49,7 @@ test('my boarding house only shows properties owned by the signed in owner accou
         ->assertDontSee('Unassigned House');
 });
 
-test('my boarding house actions redirect back to the owner scoped page', function () {
+test('admin cannot modify a boarding house from the admin property routes', function () {
     $owner = User::factory()->create([
         'role' => 'admin',
         'is_active' => true,
@@ -71,11 +71,13 @@ test('my boarding house actions redirect back to the owner scoped page', functio
             'return_to_my_boarding_house' => '1',
             'is_active' => '1',
         ])
-        ->assertRedirect(route('admin.my-boarding-house'));
+        ->assertForbidden();
 
     $this->actingAs($owner)
         ->delete(route('admin.listings.destroy', $house), [
             'return_to_my_boarding_house' => '1',
         ])
-        ->assertRedirect(route('admin.my-boarding-house'));
+        ->assertForbidden();
+
+    expect(BoardingHouse::query()->whereKey($house->id)->exists())->toBeTrue();
 });

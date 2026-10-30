@@ -135,11 +135,11 @@
                 'google_maps_url' => $house->latitude !== null && $house->longitude !== null
                     ? 'https://www.google.com/maps/search/?api=1&query='.$house->latitude.','.$house->longitude
                     : null,
-                'update_url' => $route('listings.update', $house),
-                'destroy_url' => $route('listings.destroy', array_filter([
+                'update_url' => $isOwnerWorkspace ? $route('listings.update', $house) : null,
+                'destroy_url' => $isOwnerWorkspace ? $route('listings.destroy', array_filter([
                     'boarding_house' => $house,
                     'return_to_my_boarding_house' => $isMineView && ! $isOwnerWorkspace ? 1 : null,
-                ])),
+                ])) : null,
             ];
 
             return [
@@ -161,10 +161,10 @@
                     : $photoCount.' '.\Illuminate\Support\Str::plural('photo', $photoCount).' uploaded',
                 'photo_note_classes' => $photoCount === 0 ? 'text-amber-700' : 'text-blue-600',
                 'payload' => $payload,
-                'destroy_url' => $route('listings.destroy', array_filter([
+                'destroy_url' => $isOwnerWorkspace ? $route('listings.destroy', array_filter([
                     'boarding_house' => $house,
                     'return_to_my_boarding_house' => $isMineView && ! $isOwnerWorkspace ? 1 : null,
-                ])),
+                ])) : null,
             ];
         })->values();
     @endphp
@@ -512,7 +512,7 @@
             @endforeach
         </div>
 
-        @if ($isMineView)
+        @if ($isMineView && $isOwnerWorkspace)
             <section class="overflow-hidden rounded-[1.1rem] border border-slate-200/80 bg-white shadow-[0_4px_12px_rgba(15,23,42,0.04)]">
                 <div class="border-b border-slate-200/80 bg-gradient-to-r from-blue-50/50 to-transparent px-5 py-4">
                     <h2 class="text-sm font-semibold tracking-[-0.01em] text-slate-950">Quick Actions</h2>
@@ -564,6 +564,7 @@
                             <span class="inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-medium {{ $property['status_classes'] }}">
                                 {{ $property['visible_status'] }}
                             </span>
+                            @if ($isOwnerWorkspace)
                             <button
                                 type="button"
                                 @click="editDetails({{ \Illuminate\Support\Js::from($property['payload']) }})"
@@ -572,6 +573,7 @@
                                 <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16.862 3.487a2.25 2.25 0 0 1 3.182 3.182L8.25 18.463 3.75 19.5l1.037-4.5L16.862 3.487Z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m14.625 5.625 3.75 3.75"/></svg>
                                 Edit Property
                             </button>
+                            @endif
                         </div>
                     </div>
                 </div>
@@ -655,10 +657,12 @@
                             @include('components.sidebar.partials.admin-icon', ['name' => 'boarding-house'])
                         </div>
                         <p class="mt-4 text-base font-semibold tracking-[-0.02em] text-slate-900">{{ $isMineView ? 'You haven\'t added a property yet' : 'No boarding houses yet' }}</p>
-                        <p class="mt-2 text-sm leading-6 text-slate-500">{{ $isMineView ? 'Add your boarding house to start managing rooms and tenants.' : 'Add your first boarding house to start managing rooms and availability.' }}</p>
+                        <p class="mt-2 text-sm leading-6 text-slate-500">{{ $isMineView ? 'Add your boarding house to start managing rooms and tenants.' : ($isOwnerWorkspace ? 'Add your first boarding house to start managing rooms and availability.' : 'Boarding houses will appear here for review and reference.') }}</p>
+                        @if ($isOwnerWorkspace)
                         <a href="{{ $createListingUrl }}" class="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-medium text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700">
                             {{ $isMineView ? 'Add Your Property' : 'Add Boarding House' }}
                         </a>
+                        @endif
                     </div>
                 </div>
             @else
@@ -724,6 +728,7 @@
                                 </div>
                             </div>
 
+                            @if ($isOwnerWorkspace)
                             <div class="hidden" aria-hidden="true">
                                 <button type="button" class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition hover:bg-slate-50" @click="showDetails({{ \Illuminate\Support\Js::from($listing['payload']) }})">
                                     <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -745,6 +750,7 @@
                                     </svg>
                                 </button>
                             </div>
+                            @endif
                         </article>
                     @endforeach
                 </div>
@@ -820,6 +826,7 @@
                                             {{ $listing['visible_status'] }}
                                         </span>
                                     </td>
+                                    @if ($isOwnerWorkspace)
                                     <td class="hidden">
                                         <div class="hidden" aria-hidden="true">
                                             <button type="button" title="View" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700" @click="showDetails({{ \Illuminate\Support\Js::from($listing['payload']) }})">
@@ -842,6 +849,7 @@
                                             </button>
                                         </div>
                                     </td>
+                                    @endif
                                 </tr>
                             @endforeach
                         </tbody>
@@ -888,9 +896,10 @@
             </section>
         @endif
 
+        @if ($isOwnerWorkspace)
         <template x-teleport="body">
         <div data-modal-root role="dialog" aria-modal="true" x-show="addOpen" x-cloak x-transition.opacity @keydown.escape.window="addOpen = false" class="bm-modal-overlay" style="display: none;">
-            <form method="POST" action="{{ $route('listings.store') }}" enctype="multipart/form-data" autocomplete="off" data-form-type="other" data-lpignore="true" data-1p-ignore data-bwignore class="bm-modal bm-modal--xl">
+            <form method="POST" action="{{ $route('listings.store') }}" enctype="multipart/form-data" autocomplete="off" data-form-type="other" data-lpignore="true" data-1p-ignore data-bwignore @if ($isOwnerWorkspace) data-owner-address-form="create" @endif class="bm-modal bm-modal--xl">
                 @csrf
                 @if ($isMineView && ! $isOwnerWorkspace)
                     <input type="hidden" name="return_to_my_boarding_house" value="1">
@@ -929,16 +938,30 @@
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <h3 class="text-sm font-bold text-slate-950">Location</h3>
-                            <p class="mt-1 text-xs text-slate-500">Use DSSC Main Campus in Matti as the distance reference.</p>
+                            <p class="mt-1 text-xs text-slate-500">{{ $isOwnerWorkspace ? 'Enter the complete property address and BoardMatch will place the map pin for you.' : 'Use DSSC Main Campus in Matti as the distance reference.' }}</p>
                         </div>
+                        @unless ($isOwnerWorkspace)
                         <button type="button" class="btn-secondary justify-center" data-location-picker="create">Pick Location on Map</button>
+                        @endunless
                     </div>
                     <div class="mt-4 grid gap-4 md:grid-cols-2">
-                        <label class="text-sm md:col-span-2">Complete Address<input id="create-address" name="address" required class="ui-input mt-1" placeholder="Near DSSC Main Campus, Matti, Digos City"></label>
+                        <label class="text-sm md:col-span-2">Complete Address<input id="create-address" name="address" required class="ui-input mt-1" placeholder="Street, barangay, Digos City"></label>
                         <label class="text-sm">Barangay
                             <input id="create-barangay" name="barangay" list="dssc-location-options" class="ui-input mt-1" placeholder="Matti">
                         </label>
-                        <label class="text-sm">Nearby Landmark<input id="create-landmark" name="nearby_landmark" class="ui-input mt-1" value="{{ config('dssc.landmark') }}"></label>
+                        <label class="text-sm">Nearby Landmark<input id="create-landmark" name="nearby_landmark" class="ui-input mt-1" value="{{ $isOwnerWorkspace ? '' : config('dssc.landmark') }}" placeholder="Optional landmark"></label>
+                        @if ($isOwnerWorkspace)
+                            <input id="create-distance" name="distance_from_dssc" type="hidden">
+                            <input id="create-location-status" name="location_status" type="hidden" value="approximate">
+                            <input id="create-latitude" name="latitude" type="hidden">
+                            <input id="create-longitude" name="longitude" type="hidden">
+                            <input type="hidden" name="is_near_dssc" value="0">
+                            <input id="create-near-dssc" type="checkbox" name="is_near_dssc" value="1" class="hidden" tabindex="-1" aria-hidden="true">
+                            <div class="md:col-span-2">
+                                <button type="button" class="btn-secondary justify-center" data-geocode-address="create">Pin This Address</button>
+                                <p id="create-geocode-status" class="mt-2 text-xs text-slate-500" aria-live="polite">The pin is generated only from the address you enter.</p>
+                            </div>
+                        @else
                         <label class="text-sm">Distance from DSSC Main Campus (km)<input id="create-distance" name="distance_from_dssc" type="number" min="0" max="100" step="0.01" class="ui-input mt-1"></label>
                         <label class="text-sm">Location Status
                             <select id="create-location-status" name="location_status" class="ui-input mt-1">
@@ -953,8 +976,9 @@
                             <input id="create-near-dssc" type="checkbox" name="is_near_dssc" value="1">
                             Is this near DSSC?
                         </label>
+                        @endif
                     </div>
-                    <div id="create-location-map" class="mt-4 hidden h-80 w-full overflow-hidden rounded-xl border border-blue-200 bg-white"></div>
+                    <div id="create-location-map" @if ($isOwnerWorkspace) data-address-derived-location="true" @endif class="mt-4 hidden h-80 w-full overflow-hidden rounded-xl border border-blue-200 bg-white"></div>
                 </section>
                 <datalist id="dssc-location-options">
                     @foreach ($locationOptions as $locationOption)
@@ -998,6 +1022,7 @@
             </form>
         </div>
         </template>
+        @endif
 
         <template x-teleport="body">
         <div data-modal-root data-property-details-modal role="dialog" aria-modal="true" x-show="viewOpen" x-cloak x-transition.opacity @keydown.escape.window="viewOpen = false" class="bm-modal-overlay" style="display: none;">
@@ -1018,7 +1043,7 @@
                                     <img :src="selected.images[viewPhotoCursor]?.url" alt="Boarding house photo" class="h-72 w-full object-cover" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}'">
                                 </template>
                                 <template x-if="!selected.images || !selected.images.length">
-                                    <img src="{{ asset('images/boarding-house-placeholder.svg') }}" alt="Boarding house photo unavailable" class="h-72 w-full object-cover">
+                                    <img :src="selected.cover_image_url || @js(asset('images/boarding-house-placeholder.svg'))" alt="Boarding house photo unavailable" class="h-72 w-full object-cover" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}'">
                                 </template>
                                 <template x-if="(selected.images || []).length > 1">
                                     <div>
@@ -1099,12 +1124,14 @@
                 </div>
                 <div class="bm-modal__footer items-center justify-between">
                     <div class="flex flex-wrap gap-2">
+                        @if ($isOwnerWorkspace)
                         <button type="button" @click="editDetails(selected); viewOpen = false" class="bm-modal__button bm-modal__button--primary">Edit</button>
                         <button
                             type="button"
                             @click="askConfirm({ url: selected.destroy_url, title: 'Delete this boarding house?', message: `This will permanently remove ${selected.name}. This cannot be undone.`, label: 'Yes, Delete' }); viewOpen = false"
                             class="bm-modal__button bm-modal__button--danger"
                         >Delete</button>
+                        @endif
                     </div>
                     <button type="button" @click="viewOpen = false" class="bm-modal__button bm-modal__button--secondary">Close</button>
                 </div>
@@ -1112,9 +1139,10 @@
         </div>
         </template>
 
+        @if ($isOwnerWorkspace)
         <template x-teleport="body">
         <div data-modal-root role="dialog" aria-modal="true" x-show="editOpen" x-cloak x-transition.opacity @keydown.escape.window="editOpen = false" @click.self="editOpen = false" class="bm-modal-overlay" style="display: none;">
-            <form method="POST" :action="selected.update_url" enctype="multipart/form-data" autocomplete="off" data-form-type="other" data-lpignore="true" data-1p-ignore data-bwignore class="bm-modal bm-modal--property-editor" @if ($isMineView) data-owner-direct-editor @endif>
+            <form method="POST" :action="selected.update_url" enctype="multipart/form-data" autocomplete="off" data-form-type="other" data-lpignore="true" data-1p-ignore data-bwignore @if ($isOwnerWorkspace) data-owner-address-form="edit" @endif class="bm-modal bm-modal--property-editor" @if ($isMineView) data-owner-direct-editor @endif>
                 @csrf @method('PUT')
                 @if ($isMineView && ! $isOwnerWorkspace)
                     <input type="hidden" name="return_to_my_boarding_house" value="1">
@@ -1240,22 +1268,36 @@
                                 <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                     <div>
                                         <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-300">Location</p>
-                                        <h3 class="mt-1 text-base font-bold text-slate-950 dark:text-white">Tag the property on the map</h3>
-                                        <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Click the exact building location to place the marker. Drag the marker anytime to correct it.</p>
+                                        <h3 class="mt-1 text-base font-bold text-slate-950 dark:text-white">{{ $isOwnerWorkspace ? 'Address-based property pin' : 'Tag the property on the map' }}</h3>
+                                        <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ $isOwnerWorkspace ? 'Update the address below and BoardMatch will move the pin to that location.' : 'Click the exact building location to place the marker. Drag the marker anytime to correct it.' }}</p>
                                     </div>
+                                    @unless ($isOwnerWorkspace)
                                     <button type="button" class="btn-secondary shrink-0 justify-center" data-location-picker="edit">Center marker</button>
+                                    @endunless
                                 </div>
                                 <div class="mt-4 overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-sm dark:border-blue-400/30 dark:bg-slate-900">
-                                    <div id="edit-location-map" data-property-location-map class="h-80 w-full sm:h-96"></div>
+                                    <div id="edit-location-map" data-property-location-map @if ($isOwnerWorkspace) data-address-derived-location="true" @endif class="h-80 w-full sm:h-96"></div>
                                     <div class="flex items-start gap-3 border-t border-blue-100 bg-white px-4 py-3 dark:border-blue-400/20 dark:bg-slate-900">
                                         <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-400/10 dark:text-blue-300"><svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 21s7-4.35 7-11a7 7 0 1 0-14 0c0 6.65 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5" stroke-width="2"/></svg></span>
-                                        <div><p class="text-xs font-bold text-slate-800 dark:text-slate-100">Property marker</p><p class="mt-0.5 text-[11px] leading-5 text-slate-500 dark:text-slate-400">The coordinates and DSSC distance below update automatically from this marker.</p></div>
+                                        <div><p class="text-xs font-bold text-slate-800 dark:text-slate-100">Property marker</p><p class="mt-0.5 text-[11px] leading-5 text-slate-500 dark:text-slate-400">{{ $isOwnerWorkspace ? 'This pin is generated from the property address and cannot be dragged manually.' : 'The coordinates and DSSC distance below update automatically from this marker.' }}</p></div>
                                     </div>
                                 </div>
                                 <div class="mt-4 grid gap-4 md:grid-cols-2">
                                     <label class="text-sm font-semibold text-slate-700 dark:text-slate-200 md:col-span-2">Complete address<input id="edit-address" name="address" required class="ui-input mt-1.5" :value="selected.address"></label>
                                     <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Barangay<input id="edit-barangay" name="barangay" list="dssc-location-options" class="ui-input mt-1.5" :value="selected.barangay"></label>
                                     <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Nearby landmark<input id="edit-landmark" name="nearby_landmark" class="ui-input mt-1.5" :value="selected.nearby_landmark"></label>
+                                    @if ($isOwnerWorkspace)
+                                        <input id="edit-distance" name="distance_from_dssc" type="hidden" :value="selected.distance_from_dssc">
+                                        <input id="edit-location-status" name="location_status" type="hidden" :value="selected.location_status || 'approximate'">
+                                        <input id="edit-latitude" name="latitude" type="hidden" :value="selected.latitude">
+                                        <input id="edit-longitude" name="longitude" type="hidden" :value="selected.longitude">
+                                        <input type="hidden" name="is_near_dssc" value="0">
+                                        <input id="edit-near-dssc" type="checkbox" name="is_near_dssc" value="1" :checked="selected.is_near_dssc" class="hidden" tabindex="-1" aria-hidden="true">
+                                        <div class="md:col-span-2">
+                                            <button type="button" class="btn-secondary justify-center" data-geocode-address="edit">Update Pin From Address</button>
+                                            <p id="edit-geocode-status" class="mt-2 text-xs text-slate-500 dark:text-slate-400" aria-live="polite">Change the address or barangay to generate a new pin.</p>
+                                        </div>
+                                    @else
                                     <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Distance from DSSC (km)<input id="edit-distance" name="distance_from_dssc" type="number" min="0" max="100" step="0.01" class="ui-input mt-1.5" :value="selected.distance_from_dssc"></label>
                                     <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Location accuracy
                                         <select id="edit-location-status" name="location_status" class="ui-input mt-1.5" :value="selected.location_status || 'approximate'">
@@ -1270,6 +1312,7 @@
                                         <input id="edit-near-dssc" type="checkbox" name="is_near_dssc" value="1" :checked="selected.is_near_dssc" class="rounded border-slate-300 text-blue-600 focus:ring-blue-500">
                                         Near DSSC Main Campus
                                     </label>
+                                    @endif
                                 </div>
                             </div>
                         </section>
@@ -1289,6 +1332,7 @@
             </form>
         </div>
         </template>
+        @endif
 
     <script type="application/json" data-admin-boarding-house-map-config>
         {!! json_encode([
@@ -1306,6 +1350,7 @@
         ], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}
     </script>
 
+    @if ($isOwnerWorkspace)
     {{-- Delete confirmation modal --}}
     <template x-teleport="body">
     <div data-modal-root role="dialog" aria-modal="true" x-show="confirmOpen" x-cloak x-transition
@@ -1331,6 +1376,7 @@
         </div>
     </div>
     </template>
+    @endif
     </div>
 </x-admin.shell>
 </x-layouts.dashboard>

@@ -50,6 +50,8 @@ function googleOwnerRegistrationPayload(array $overrides = []): array
         'username' => 'google_property_owner',
         'bh_name' => 'Google Owner Boarding House',
         'bh_address' => 'Roxas Street, Digos City',
+        'latitude' => 6.7677800,
+        'longitude' => 125.3062000,
         'bh_contact' => '+639991112222',
         'room_types' => ['Solo Room', 'Bedspace'],
         'rent_min' => 3000,
@@ -199,6 +201,8 @@ test('complete owner fields and uploads are preserved before google registration
         'username' => 'google_property_owner',
         'bh_name' => 'Google Owner Boarding House',
         'bh_address' => 'Roxas Street, Digos City',
+        'latitude' => 6.7677800,
+        'longitude' => 125.3062000,
         'bh_contact' => '+639991112222',
         'room_types' => ['Solo Room', 'Bedspace'],
         'rent_min' => 3000,
@@ -271,6 +275,27 @@ test('google owner callback creates a disabled pending application with its perm
     Storage::disk('public')->assertExists($owner->ownerProfile->proof_of_ownership);
     Storage::disk('public')->assertExists($boardingHouse->featured_image);
     Storage::disk('local')->assertMissing($registration['permit_temp_path']);
+});
+
+test('google owner callback handles an incomplete legacy session without an undefined coordinate error', function () {
+    $registration = googleOwnerRegistrationPayload();
+    $registration['email'] = 'legacy-google-owner@example.com';
+    unset($registration['latitude'], $registration['longitude']);
+    Storage::disk('local')->put($registration['permit_temp_path'], 'permit-file');
+    Storage::disk('local')->put($registration['photo_temp_files'][0]['path'], 'property-photo');
+
+    mockGoogleProvider([
+        'id' => 'google-owner-missing-location',
+        'email' => 'legacy-google-owner@example.com',
+        'name' => 'Google Property Owner',
+    ]);
+
+    $this->withSession(['google_registration' => $registration])
+        ->get(route('auth.google.callback'))
+        ->assertRedirect(route('register.owner'))
+        ->assertSessionHasErrors('registration');
+
+    $this->assertDatabaseMissing('users', ['email' => 'legacy-google-owner@example.com']);
 });
 
 test('google registration rejects a google account with a different email', function () {

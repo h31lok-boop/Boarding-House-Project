@@ -19,7 +19,7 @@ test('tenant workspace controls appear on the user dashboard without a duplicate
         ->assertDontSee('Search boarding houses, locations, reservations...');
 });
 
-test('dashboard search header is hidden on other user pages', function (string $routeName) {
+test('tenant workspace header is hidden on other user pages', function (string $routeName) {
     $user = User::factory()->create([
         'role' => 'user',
         'is_active' => true,
@@ -29,6 +29,8 @@ test('dashboard search header is hidden on other user pages', function (string $
     $this->actingAs($user)
         ->get(route($routeName))
         ->assertOk()
+        ->assertDontSee('data-tenant-workspace-header', false)
+        ->assertSee('data-sidebar-reopen', false)
         ->assertDontSee('Search anything...')
         ->assertDontSee('Search boarding houses, locations, reservations...');
 })->with([

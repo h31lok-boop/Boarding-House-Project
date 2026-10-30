@@ -2,6 +2,7 @@
 
 use App\Models\BoardingHouse;
 use App\Models\BoardingHouseImage;
+use App\Models\BoardingHousePhoto;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Models\User;
@@ -47,7 +48,12 @@ it('lets an owner upload property photos that are displayed to tenants', functio
         ->assertSee('Property Photos')
         ->assertSee('The first photo is used as the listing background image.')
         ->assertDontSee('Set as cover')
-        ->assertSee('Upload photos');
+        ->assertSee('Upload photos')
+        ->assertSee('data-owner-address-form="edit"', false)
+        ->assertSee('data-address-derived-location="true"', false)
+        ->assertSee('Update Pin From Address')
+        ->assertDontSee('>Latitude<input', false)
+        ->assertDontSee('>Longitude<input', false);
 
     $this->actingAs($owner)
         ->get(route('owner.boarding-houses'))
@@ -69,7 +75,14 @@ it('lets an owner upload property photos that are displayed to tenants', functio
         ->assertSee('Add property photos')
         ->assertSee('Previous property photo')
         ->assertSee('Next property photo')
-        ->assertSee('Tag the property on the map')
+        ->assertSee('Address-based property pin')
+        ->assertSee('data-owner-address-form="create"', false)
+        ->assertSee('Pin This Address')
+        ->assertSee('data-owner-address-form="edit"', false)
+        ->assertSee('data-address-derived-location="true"', false)
+        ->assertSee('Update Pin From Address')
+        ->assertDontSee('>Latitude<input', false)
+        ->assertDontSee('>Longitude<input', false)
         ->assertSee('Boarding House Details');
 
     $imageUrl = $images->firstWhere('is_primary', true)->url;
@@ -157,6 +170,33 @@ it('prevents an owner from changing another owners property photos', function ()
         ->assertForbidden();
 
     expect($house->images()->count())->toBe(0);
+});
+
+it('shows an owner their existing legacy property photo in every owner property view', function () {
+    Storage::fake('public');
+    $owner = User::factory()->verifiedOwner()->create();
+    $house = BoardingHouse::factory()->create(['owner_id' => $owner->id]);
+    Storage::disk('public')->put('boarding-houses/owner-legacy.jpg', 'legacy photo');
+    BoardingHousePhoto::create([
+        'owner_id' => $owner->id,
+        'boarding_house_id' => $house->id,
+        'photo_path' => 'boarding-houses/owner-legacy.jpg',
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('owner.dashboard'))
+        ->assertOk()
+        ->assertSee('owner-legacy.jpg');
+
+    $this->actingAs($owner)
+        ->get(route('owner.boarding-houses'))
+        ->assertOk()
+        ->assertSee('owner-legacy.jpg');
+
+    $this->actingAs($owner)
+        ->get(route('owner.my-boarding-house'))
+        ->assertOk()
+        ->assertSee('owner-legacy.jpg');
 });
 
 it('explains why a property with a pending reservation cannot be deleted', function () {

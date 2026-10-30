@@ -64,5 +64,4 @@ class PaymentReceiptController extends Controller
             403
         );
     }
-
 }

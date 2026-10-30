@@ -12,8 +12,8 @@ it('renders the redesigned owner dashboard with real scoped data', function () {
     $owner = User::factory()->verifiedOwner()->create();
     $other = User::factory()->verifiedOwner()->create();
 
-    $house = BoardingHouse::create(['owner_id' => $owner->id, 'name' => 'Sunrise Residences', 'is_active' => true, 'approval_status' => 'approved']);
-    $foreign = BoardingHouse::create(['owner_id' => $other->id, 'name' => 'Rival Lodge', 'is_active' => true]);
+    $house = BoardingHouse::factory()->create(['owner_id' => $owner->id, 'name' => 'Sunrise Residences', 'is_active' => true, 'approval_status' => 'approved']);
+    $foreign = BoardingHouse::factory()->create(['owner_id' => $other->id, 'name' => 'Rival Lodge', 'is_active' => true]);
 
     $occupied = Room::create(['boarding_house_id' => $house->id, 'room_no' => 'A1', 'status' => 'occupied', 'price' => 3500]);
     Room::create(['boarding_house_id' => $house->id, 'room_no' => 'A2', 'status' => 'Occupied', 'price' => 3500]);
@@ -81,9 +81,9 @@ it('filters by an owned property and refuses foreign property scopes', function 
     $owner = User::factory()->verifiedOwner()->create();
     $otherOwner = User::factory()->verifiedOwner()->create();
 
-    $first = BoardingHouse::create(['owner_id' => $owner->id, 'name' => 'First Owner House', 'is_active' => true]);
-    $second = BoardingHouse::create(['owner_id' => $owner->id, 'name' => 'Second Owner House', 'is_active' => true]);
-    $foreign = BoardingHouse::create(['owner_id' => $otherOwner->id, 'name' => 'Foreign Secret House', 'is_active' => true]);
+    $first = BoardingHouse::factory()->create(['owner_id' => $owner->id, 'name' => 'First Owner House', 'is_active' => true]);
+    $second = BoardingHouse::factory()->create(['owner_id' => $owner->id, 'name' => 'Second Owner House', 'is_active' => true]);
+    $foreign = BoardingHouse::factory()->create(['owner_id' => $otherOwner->id, 'name' => 'Foreign Secret House', 'is_active' => true]);
 
     Room::create(['boarding_house_id' => $first->id, 'room_no' => 'F1', 'status' => 'available', 'price' => 2500]);
     Room::create(['boarding_house_id' => $second->id, 'room_no' => 'S1', 'status' => 'occupied', 'price' => 3500]);
@@ -113,7 +113,7 @@ it('uses the selected month for revenue and scopes notification counts to the ow
 
     $owner = User::factory()->verifiedOwner()->create();
     $otherOwner = User::factory()->verifiedOwner()->create();
-    $house = BoardingHouse::create(['owner_id' => $owner->id, 'name' => 'Monthly House', 'is_active' => true]);
+    $house = BoardingHouse::factory()->create(['owner_id' => $owner->id, 'name' => 'Monthly House', 'is_active' => true]);
     $room = Room::create(['boarding_house_id' => $house->id, 'room_no' => 'M1', 'status' => 'occupied', 'price' => 4200]);
     $tenantUser = User::factory()->create(['role' => 'user']);
     $tenant = Tenant::create(['user_id' => $tenantUser->id, 'boarding_house_id' => $house->id, 'room_id' => $room->id, 'status' => 'active']);

@@ -5,6 +5,7 @@ use App\Models\Payment;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\PaymentWordDocumentService;
+
 test('payment service creates a valid printable word document', function () {
     $user = new User([
         'name' => 'Test Tenant',

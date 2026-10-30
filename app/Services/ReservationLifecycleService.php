@@ -132,7 +132,7 @@ class ReservationLifecycleService
 
     public function relevantReservationForUser(int $userId): ?Reservation
     {
-        return Reservation::with(['boardingHouse', 'room'])
+        return Reservation::with(['boardingHouse.images', 'boardingHouse.photos', 'room'])
             ->where('user_id', $userId)
             ->whereNotIn(DB::raw('LOWER(status)'), ['cancelled', 'canceled', 'rejected'])
             ->latest('id')

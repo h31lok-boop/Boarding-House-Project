@@ -37,6 +37,7 @@ class TenantPreferenceRecommendationService
         [$budgetMin, $budgetMax, $preferredLocation, $lifestyleText] = $this->parseProfile($profile);
 
         return $houses
+            ->filter(fn (BoardingHouse $house) => app(MattiServiceArea::class)->contains($house->latitude, $house->longitude))
             ->map(function (BoardingHouse $house) use ($budgetMin, $budgetMax, $preferredLocation, $lifestyleText) {
                 $price = $this->housePrice($house);
 
@@ -81,11 +82,13 @@ class TenantPreferenceRecommendationService
     public function candidates(): Collection
     {
         $query = BoardingHouse::query()
+            ->inServiceArea()
             ->with([
                 'amenities:id,name',
                 'rooms:id,boarding_house_id,price,status,available_slots',
                 'roomCategories:id,boarding_house_id,monthly_rate,available_rooms,is_available',
-                'images:id,boarding_house_id,image_path,is_primary',
+                'images:id,boarding_house_id,image_path,is_primary,sort_order',
+                'photos:id,boarding_house_id,photo_path',
             ])
             ->withCount([
                 'rooms as available_rooms_count' => fn ($q) => $q->where('status', 'available'),

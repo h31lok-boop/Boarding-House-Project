@@ -9,6 +9,7 @@ use App\Models\Reservation;
 use App\Models\ReservationService;
 use App\Models\Room;
 use App\Services\ReservationLifecycleService;
+use App\Services\MattiServiceArea;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -21,6 +22,8 @@ class ReservationController extends Controller
 
     public function store(Request $request, BoardingHouse $boardingHouse)
     {
+        abort_unless(app(MattiServiceArea::class)->contains($boardingHouse->latitude, $boardingHouse->longitude), 404);
+
         $this->reservationLifecycleService->expireStaleReservations();
 
         // Daily limit: one reservation request per user per day.

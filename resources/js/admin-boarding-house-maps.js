@@ -1,9 +1,12 @@
 import {
     boardMatchMapConfig,
+    boardMatchServiceArea,
     circlePolygon,
     createHtmlMarker,
     createOpenStreetMap,
+    isInsideServiceArea,
     openStreetMapConfig,
+    serviceAreaMessage,
     whenMapLoaded,
 } from './openstreetmap';
 
@@ -62,6 +65,49 @@ const initializeAdminBoardingHouseMaps = () => {
         map: document.getElementById(`${mode}-location-map`),
     });
 
+    const geocodeStatus = (mode) => {
+        let status = document.getElementById(`${mode}-geocode-status`);
+        if (!status && pickerFields(mode).map) {
+            status = document.createElement('p');
+            status.id = `${mode}-geocode-status`;
+            status.className = 'mt-2 text-xs text-slate-500';
+            status.setAttribute('aria-live', 'polite');
+            pickerFields(mode).map.before(status);
+        }
+
+        return status;
+    };
+
+    const validateLocation = (mode, lat, lng) => {
+        const valid = isInsideServiceArea(lat, lng);
+        const message = valid ? '' : serviceAreaMessage();
+        const fields = pickerFields(mode);
+        fields.latitude?.setCustomValidity(message);
+        fields.longitude?.setCustomValidity(message);
+        const status = geocodeStatus(mode);
+        if (status) status.textContent = message;
+
+        return valid;
+    };
+
+    const isAddressDerivedPicker = (mode) => (
+        pickerFields(mode).map?.dataset.addressDerivedLocation === 'true'
+    );
+
+    const addressQuery = (mode) => {
+        const fields = pickerFields(mode);
+
+        return [
+            fields.address?.value,
+            'Matti',
+            fields.landmark?.value,
+            'Digos City',
+            'Davao del Sur',
+            'Davao Region',
+            'Philippines',
+        ].map((part) => String(part || '').trim()).filter(Boolean).join(', ');
+    };
+
     const distanceFromDssc = (lat, lng) => {
         const earthRadius = 6371;
         const toRadians = (value) => value * Math.PI / 180;
@@ -78,11 +124,13 @@ const initializeAdminBoardingHouseMaps = () => {
     };
 
     const updateLocationFields = (mode, lat, lng, markExact = false) => {
+        if (!validateLocation(mode, lat, lng)) return false;
         const fields = pickerFields(mode);
         const distance = distanceFromDssc(lat, lng);
 
         fields.latitude.value = Number(lat).toFixed(7);
         fields.longitude.value = Number(lng).toFixed(7);
+        if (fields.barangay) fields.barangay.value = 'Matti';
         fields.distance.value = distance.toFixed(2);
         fields.nearDssc.checked = distance <= 5;
         if (fields.nearDssc.checked && !fields.landmark.value.trim()) {
@@ -91,9 +139,12 @@ const initializeAdminBoardingHouseMaps = () => {
         if (markExact) {
             fields.locationStatus.value = 'exact';
         }
+
+        return true;
     };
 
     const reverseGeocode = async (mode, lat, lng) => {
+        if (!isInsideServiceArea(lat, lng)) return;
         const fields = pickerFields(mode);
         const nominatimUrl = String(
             osm.nominatimUrl || boardMatchMapConfig().openStreetMap?.nominatimUrl,
@@ -105,11 +156,10 @@ const initializeAdminBoardingHouseMaps = () => {
             });
             if (!response.ok) return;
             const result = await response.json();
+            if (Number(fields.latitude.value) !== Number(Number(lat).toFixed(7))
+                || Number(fields.longitude.value) !== Number(Number(lng).toFixed(7))) return;
             fields.address.value = result.display_name || fields.address.value;
-            fields.barangay.value = result.address?.village
-                || result.address?.suburb
-                || result.address?.quarter
-                || fields.barangay.value;
+            fields.barangay.value = 'Matti';
         } catch (error) {
             // Coordinates and distance remain usable when reverse geocoding is unavailable.
         }
@@ -117,7 +167,9 @@ const initializeAdminBoardingHouseMaps = () => {
 
     const placePickerMarker = (mode, lat, lng, reverseAddress = false, markExact = true) => {
         const picker = pickerMaps[mode];
-        if (!picker) return;
+        if (!picker || !validateLocation(mode, lat, lng)) return false;
+
+        const addressDerived = isAddressDerivedPicker(mode);
 
         if (!picker.marker) {
             picker.marker = createHtmlMarker({
@@ -126,22 +178,30 @@ const initializeAdminBoardingHouseMaps = () => {
                 html: propertyMarkerHtml,
                 title: 'Boarding house location',
                 anchor: 'bottom',
-                draggable: true,
+                draggable: !addressDerived,
                 popupOffset: 18,
-                popupHtml: '<strong>Boarding house location</strong><br>Drag or click the map to adjust.',
+                popupHtml: addressDerived
+                    ? '<strong>Boarding house location</strong><br>Derived from the address entered by the owner.'
+                    : '<strong>Boarding house location</strong><br>Drag or click the map to adjust.',
             });
-            picker.marker.on('dragend', () => {
-                const point = picker.marker.getLngLat();
-                updateLocationFields(mode, point.lat, point.lng, true);
-                reverseGeocode(mode, point.lat, point.lng);
-            });
+            if (!addressDerived) {
+                picker.marker.on('dragend', () => {
+                    const point = picker.marker.getLngLat();
+                    if (!placePickerMarker(mode, point.lat, point.lng, true)) {
+                        picker.marker.setLngLat(picker.savedPoint);
+                    }
+                });
+            }
             picker.marker.togglePopup();
         } else {
             picker.marker.setLngLat([lng, lat]);
         }
 
         updateLocationFields(mode, lat, lng, markExact);
+        picker.savedPoint = [Number(lng), Number(lat)];
         if (reverseAddress) reverseGeocode(mode, lat, lng);
+
+        return true;
     };
 
     const addDsscRadius = (map) => {
@@ -154,13 +214,13 @@ const initializeAdminBoardingHouseMaps = () => {
             type: 'fill',
             source: 'admin-dssc-radius',
             paint: { 'fill-color': '#60a5fa', 'fill-opacity': 0.07 },
-        });
+        }, 'service-area-mask');
         map.addLayer({
             id: 'admin-dssc-radius-line',
             type: 'line',
             source: 'admin-dssc-radius',
             paint: { 'line-color': '#2563eb', 'line-width': 2 },
-        });
+        }, 'service-area-mask');
         createHtmlMarker({
             map,
             lngLat: [dssc.lng, dssc.lat],
@@ -179,8 +239,15 @@ const initializeAdminBoardingHouseMaps = () => {
         fields.map.classList.remove('hidden');
         const fieldLat = Number(fields.latitude.value);
         const fieldLng = Number(fields.longitude.value);
-        const startLat = Number.isFinite(fieldLat) && fields.latitude.value !== '' ? fieldLat : dssc.lat;
-        const startLng = Number.isFinite(fieldLng) && fields.longitude.value !== '' ? fieldLng : dssc.lng;
+        const hasSavedCoordinates = isInsideServiceArea(fields.latitude.value, fields.longitude.value);
+        const area = boardMatchServiceArea();
+        if (!area) {
+            validateLocation(mode, null, null);
+            return;
+        }
+        const startLat = hasSavedCoordinates ? fieldLat : area.center[1];
+        const startLng = hasSavedCoordinates ? fieldLng : area.center[0];
+        const addressDerived = isAddressDerivedPicker(mode);
 
         if (!pickerMaps[mode]) {
             const map = createOpenStreetMap(fields.map, {
@@ -191,14 +258,24 @@ const initializeAdminBoardingHouseMaps = () => {
             pickerMaps[mode] = { map, marker: null, ready: whenMapLoaded(map) };
             await pickerMaps[mode].ready;
             addDsscRadius(map);
-            map.on('click', (event) => {
-                placePickerMarker(mode, event.lngLat.lat, event.lngLat.lng, true);
-            });
+            if (!addressDerived) {
+                map.on('click', (event) => {
+                    placePickerMarker(mode, event.lngLat.lat, event.lngLat.lng, true);
+                });
+            }
         } else {
             await pickerMaps[mode].ready;
         }
 
-        placePickerMarker(mode, startLat, startLng, false, false);
+        if (hasSavedCoordinates) {
+            placePickerMarker(mode, startLat, startLng, false, false);
+        } else {
+            pickerMaps[mode].marker?.remove();
+            pickerMaps[mode].marker = null;
+            if (fields.latitude.value !== '' || fields.longitude.value !== '') {
+                validateLocation(mode, fields.latitude.value, fields.longitude.value);
+            }
+        }
         pickerMaps[mode].map.jumpTo({
             center: [startLng, startLat],
             zoom: pickerMaps[mode].map.getZoom() || 15,
@@ -206,7 +283,80 @@ const initializeAdminBoardingHouseMaps = () => {
         window.setTimeout(() => pickerMaps[mode].map.resize(), 100);
     };
 
+    const geocodeOwnerAddress = async (mode) => {
+        const fields = pickerFields(mode);
+        const status = geocodeStatus(mode);
+        const query = addressQuery(mode);
+        const area = boardMatchServiceArea();
+        if (!area) return validateLocation(mode, null, null);
+
+        if (!fields.address?.value.trim()) {
+            if (status) status.textContent = 'Enter the complete property address first.';
+            fields.address?.focus();
+            return false;
+        }
+
+        if (status) status.textContent = 'Locating this address on the map…';
+
+        const nominatimUrl = String(
+            osm.nominatimUrl || boardMatchMapConfig().openStreetMap?.nominatimUrl,
+        ).replace(/\/$/, '');
+        try {
+            const lookupQueries = [
+                query,
+                [fields.address?.value, 'Matti', 'Digos City', 'Davao del Sur', 'Philippines']
+                    .map((part) => String(part || '').trim()).filter(Boolean).join(', '),
+            ].filter((value, index, values) => value && values.indexOf(value) === index);
+
+            let result = null;
+            for (const lookupQuery of lookupQueries) {
+                const params = new URLSearchParams({
+                    format: 'jsonv2',
+                    limit: '10',
+                    countrycodes: 'ph',
+                    addressdetails: '1',
+                    q: lookupQuery,
+                    ...area.geocodingParameters,
+                });
+                const response = await fetch(`${nominatimUrl}/search?${params.toString()}`, {
+                    headers: { Accept: 'application/json', 'Accept-Language': 'en' },
+                });
+                if (!response.ok) continue;
+                const results = await response.json();
+                result = results.find((candidate) => isInsideServiceArea(candidate.lat, candidate.lon));
+                if (result) break;
+            }
+
+            const lat = Number(result?.lat);
+            const lng = Number(result?.lon);
+            if (!isInsideServiceArea(lat, lng)) {
+                throw new Error('Address not found.');
+            }
+
+            await openLocationPicker(mode);
+            if (!placePickerMarker(mode, lat, lng, false, false)) return false;
+            pickerMaps[mode].map.jumpTo({ center: [lng, lat], zoom: 17 });
+            fields.map.dataset.addressDirty = 'false';
+            fields.map.dataset.geocodedQuery = query;
+            if (status) status.textContent = 'Map pin updated from the entered address.';
+
+            return true;
+        } catch (error) {
+            if (status) {
+                status.textContent = 'Address could not be located inside Matti. Enter the property street and a nearby landmark in Matti, Digos City, then try again.';
+            }
+
+            return false;
+        }
+    };
+
     document.addEventListener('click', (event) => {
+        const addressButton = event.target.closest?.('[data-geocode-address]');
+        if (addressButton) {
+            geocodeOwnerAddress(addressButton.dataset.geocodeAddress).catch(console.error);
+            return;
+        }
+
         const button = event.target.closest?.('[data-location-picker]');
         if (!button) return;
         openLocationPicker(button.dataset.locationPicker).catch(console.error);
@@ -216,15 +366,52 @@ const initializeAdminBoardingHouseMaps = () => {
         window.setTimeout(() => openLocationPicker('edit').catch(console.error), 120);
     });
 
-    ['create', 'edit'].forEach((mode) => {
+    // Edit forms may be mounted later by Alpine; delegate validation so those
+    // coordinate fields receive the same geofence checks as the create form.
+    document.addEventListener('change', (event) => {
+        const match = event.target.id?.match(/^(create|edit)-(latitude|longitude)$/);
+        if (!match) return;
+        const mode = match[1];
         const fields = pickerFields(mode);
-        [fields.latitude, fields.longitude].forEach((input) => input?.addEventListener('change', () => {
-            const lat = Number(fields.latitude.value);
-            const lng = Number(fields.longitude.value);
-            if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-            updateLocationFields(mode, lat, lng);
-            if (pickerMaps[mode]) placePickerMarker(mode, lat, lng);
-        }));
+        const lat = fields.latitude.value;
+        const lng = fields.longitude.value;
+        if (!updateLocationFields(mode, lat, lng)) return;
+        if (pickerMaps[mode]) placePickerMarker(mode, lat, lng);
+    });
+
+    document.addEventListener('input', (event) => {
+        const match = event.target.id?.match(/^(create|edit)-(address|barangay|landmark)$/);
+        if (!match) return;
+        const mode = match[1];
+        if (isAddressDerivedPicker(mode)) pickerFields(mode).map.dataset.addressDirty = 'true';
+    });
+
+    document.addEventListener('submit', async (event) => {
+        const form = event.target;
+        const mode = form.querySelector?.('#create-latitude') ? 'create'
+            : (form.querySelector?.('#edit-latitude') ? 'edit' : null);
+        if (!mode) return;
+
+        const fields = pickerFields(mode);
+        const hasCoordinates = isInsideServiceArea(fields.latitude?.value, fields.longitude?.value);
+        if (!form.matches('[data-owner-address-form]')) {
+            if (!validateLocation(mode, fields.latitude?.value, fields.longitude?.value)) {
+                event.preventDefault();
+                fields.latitude?.reportValidity();
+            }
+            return;
+        }
+        const addressChanged = fields.map?.dataset.addressDirty === 'true';
+        if (hasCoordinates && !addressChanged) {
+            validateLocation(mode, fields.latitude.value, fields.longitude.value);
+            return;
+        }
+
+        event.preventDefault();
+        const located = await geocodeOwnerAddress(mode);
+        if (!located) return;
+
+        form.requestSubmit();
     });
 
     window.addEventListener('boarding-house-map:show', (event) => {
@@ -233,7 +420,9 @@ const initializeAdminBoardingHouseMaps = () => {
             const lat = Number(house.latitude);
             const lng = Number(house.longitude);
 
-            if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            if (!isInsideServiceArea(house.latitude, house.longitude)) {
+                detailMarker?.remove();
+                detailMarker = null;
                 setMapEmpty(true);
                 return;
             }

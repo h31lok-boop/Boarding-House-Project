@@ -39,8 +39,8 @@ test('boarding house recommendations rank houses by user preferences and occupan
         'price' => 3500,
         'monthly_payment' => '3500',
         'available_rooms' => 3,
-        'latitude' => 6.7440000,
-        'longitude' => 125.3550000,
+        'latitude' => 6.7677800,
+        'longitude' => 125.3062000,
         'is_active' => true,
         'approval_status' => 'approved',
         'status' => 'approved',
@@ -75,8 +75,8 @@ test('boarding house recommendations rank houses by user preferences and occupan
         'price' => 9000,
         'monthly_payment' => '9000',
         'available_rooms' => 0,
-        'latitude' => 6.9000000,
-        'longitude' => 125.5500000,
+        'latitude' => 6.7683100,
+        'longitude' => 125.3078200,
         'is_active' => true,
         'approval_status' => 'approved',
         'status' => 'approved',
@@ -106,7 +106,7 @@ test('boarding house recommendations rank houses by user preferences and occupan
     ]);
 
     $ranked = app(BoardingHouseRecommendationService::class)
-        ->rank($user->fresh(), collect([$weakHouse, $strongHouse]), 6.7440000, 125.3550000);
+        ->rank($user->fresh(), collect([$weakHouse, $strongHouse]), 6.7677800, 125.3062000);
 
     expect($ranked->first()['house']->is($strongHouse))->toBeTrue();
     expect($ranked->first()['recommendation']['recommendation_percent'])->toBeGreaterThan(

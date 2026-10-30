@@ -1,9 +1,9 @@
 <?php
 
-test('tenant sidebar places preferences before matchmaking', function () {
+test('tenant sidebar places smart match before preferences', function () {
     $projectRoot = dirname(__DIR__, 2);
     $sidebar = file_get_contents($projectRoot.'/resources/views/components/sidebar/user-panel.blade.php');
 
-    expect(strpos($sidebar, "'label' => 'My Preferences'"))
-        ->toBeLessThan(strpos($sidebar, "'label' => 'Matchmaking'"));
+    expect(strpos($sidebar, "'label' => 'Smart Match'"))
+        ->toBeLessThan(strpos($sidebar, "'label' => 'My Preferences'"));
 });

@@ -102,6 +102,8 @@ test('owners register through the dedicated permit form and remain blocked until
         'password_confirmation' => 'OwnerSafe9!',
         'bh_name' => 'Admin Boarding House',
         'bh_address' => '123 Owner Street',
+        'latitude' => 6.7677800,
+        'longitude' => 125.3062000,
         'bh_contact' => '+639991111111',
         'room_types' => ['single', 'shared'],
         'rent_min' => 3000,

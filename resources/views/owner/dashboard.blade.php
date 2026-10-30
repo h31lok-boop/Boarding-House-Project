@@ -5,6 +5,7 @@
         $propertyRows = collect($propertyRows ?? []);
         $attention = collect($needsAttention ?? [])->filter(fn ($item) => (int) ($item['count'] ?? 0) > 0)->take(3);
         $activities = collect($recentActivity ?? [])->take(5);
+        $tenantSummary = collect($tenantSummary ?? [])->take(8);
         $firstName = strtok(trim((string) ($ownerName ?? 'Owner')), ' ') ?: 'Owner';
         $money = fn ($amount) => 'PHP '.number_format((float) $amount, 0);
         $totalRooms = max((int) ($totalRooms ?? 0), 0);
@@ -91,6 +92,29 @@
                 line-dataset-label="Collected revenue"
                 :currency="true"
             />
+
+            <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <header class="flex items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-700">
+                    <div>
+                        <h2 class="text-base font-black text-slate-950 dark:text-white">Current tenants</h2>
+                        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Tenants with an active lease in the selected properties.</p>
+                    </div>
+                    <a href="{{ route('owner.tenants.index') }}" class="text-xs font-bold text-blue-600 dark:text-blue-300">View all</a>
+                </header>
+                <div class="divide-y divide-slate-100 dark:divide-slate-700">
+                    @forelse ($tenantSummary as $lease)
+                        <div class="flex items-center justify-between gap-4 px-5 py-3.5">
+                            <div class="min-w-0">
+                                <p class="truncate text-sm font-bold text-slate-900 dark:text-white">{{ $lease->user?->name ?? 'Tenant' }}</p>
+                                <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{{ $lease->boardingHouse?->name ?? 'Property' }}</p>
+                            </div>
+                            <span class="shrink-0 rounded-full bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300">Room {{ $lease->room?->effective_room_number ?? 'Unassigned' }}</span>
+                        </div>
+                    @empty
+                        <div class="px-5 py-8 text-center text-sm text-slate-500 dark:text-slate-400">No active tenants in this view.</div>
+                    @endforelse
+                </div>
+            </article>
 
             <section class="grid gap-5 lg:grid-cols-[1.2fr_.8fr]">
                 <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">

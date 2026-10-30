@@ -29,7 +29,7 @@
     $isSuperAdmin = $sidebarUser?->isSuperAdmin() ?? false;
     $sidebarUserIsOwner = $sidebarUser?->isStrictOwner() ?? false;
 
-    $navBase = 'group/sidebar-item relative flex items-center gap-2 rounded-lg px-2 py-1.5 text-[12px] font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400/70';
+    $navBase = 'group/sidebar-item relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400/70';
     $navActive = $navBase . ' bg-[#2563EB] text-white shadow-[0_10px_22px_rgba(37,99,235,0.3)]';
     $navInactive = $navBase . ' text-[#CBD5E1] hover:bg-white/10 hover:text-white';
 
@@ -180,6 +180,33 @@
             ->filter(fn ($section) => count($section['items']) > 0)
             ->values()
             ->all();
+
+        $ownerSectionKeys = [
+            'OVERVIEW' => ['dashboard'],
+            'PROPERTY MANAGEMENT' => ['boarding-houses', 'rooms', 'services'],
+            'BOOKINGS & TENANTS' => ['reservations', 'tenants', 'payments'],
+            'COMMUNICATION' => ['inquiries', 'messages', 'reviews'],
+            'ACCOUNT' => ['notifications', 'settings'],
+        ];
+
+        $ownerItems = collect($sections)
+            ->flatMap(fn ($section) => $section['items'])
+            ->keyBy('key');
+
+        $sections = collect($ownerSectionKeys)
+            ->map(function ($keys, $label) use ($ownerItems) {
+                return [
+                    'label' => $label,
+                    'items' => collect($keys)
+                        ->map(fn ($key) => $ownerItems->get($key))
+                        ->filter()
+                        ->values()
+                        ->all(),
+                ];
+            })
+            ->filter(fn ($section) => count($section['items']) > 0)
+            ->values()
+            ->all();
     }
 
     if (! $isSuperAdmin) {
@@ -200,7 +227,9 @@
 <nav class="sidebar-nav admin-sidebar-nav flex-1 space-y-3 pr-1 text-sm" aria-label="{{ $isOwnerWorkspace ? 'Owner navigation' : 'Admin navigation' }}">
     @foreach ($sections as $section)
         <section class="space-y-1">
-            <p class="sidebar-group px-2 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-500">{{ $section['label'] }}</p>
+            @if ($section['label'] !== 'OVERVIEW')
+                <p class="sidebar-group px-2.5 text-[9px] font-bold uppercase tracking-[0.14em] text-[#8298B5]">{{ $section['label'] }}</p>
+            @endif
             <div class="space-y-0.5">
                 @foreach ($section['items'] as $menu)
                     @php($isActive = (bool) ($menu['active'] ?? false))
@@ -211,7 +240,7 @@
                         title="{{ $menu['label'] }}"
                         @if($isActive) aria-current="page" @endif
                     >
-                        <span class="sidebar-icon flex h-4 w-4 shrink-0 items-center justify-center">
+                        <span class="sidebar-icon flex h-5 w-5 shrink-0 items-center justify-center">
                             @include('components.sidebar.partials.admin-icon', ['name' => $menu['icon']])
                         </span>
                         <span class="sidebar-text min-w-0 flex-1 truncate">{{ $menu['label'] }}</span>

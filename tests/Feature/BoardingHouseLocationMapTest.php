@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Storage;
 
 test('tenant boarding house details renders the interactive route planner and map fallbacks', function () {
     config()->set('services.openstreetmap.tile_url', 'https://tiles.example.test/{z}/{x}/{y}.png');
+    config()->set('services.openstreetmap.basemap', 'hybrid');
+    config()->set('services.openstreetmap.imagery_tile_url', 'https://imagery.example.test/{z}/{y}/{x}.png');
 
     $tenant = User::factory()->create([
         'role' => 'user',
@@ -49,6 +51,8 @@ test('tenant boarding house details renders the interactive route planner and ma
         ->assertSee('data-route-steps', false)
         ->assertSee('id="boardmatch-map-config"', false)
         ->assertSee('tiles.example.test', false)
+        ->assertSee('imagery.example.test', false)
+        ->assertSee('"basemap":"hybrid"', false)
         ->assertSee('https://www.openstreetmap.org/', false);
 
     $mapScript = file_get_contents(resource_path('js/boarding-house-map.js'));
@@ -86,6 +90,72 @@ test('details page keeps a map unavailable state when coordinates are missing', 
         ->assertSee('Map route is unavailable because this boarding house has no saved coordinates.')
         ->assertSee('"latitude":null', false)
         ->assertSee('"longitude":null', false);
+});
+
+test('Purok 6 Igpit seed uses the exact destination pin and DSSC route origin', function () {
+    $snapshot = json_decode(
+        file_get_contents(database_path('seeders/data/boarding-housemanagement.json')),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+    $house = collect($snapshot['tables']['boarding_houses'] ?? [])
+        ->firstWhere('slug', 'casa-digos-boarding-stay-6');
+
+    expect($house)
+        ->not->toBeNull()
+        ->and((float) $house['latitude'])->toBe(6.7295643)
+        ->and((float) $house['longitude'])->toBe(125.2863264)
+        ->and($house['address'])->toBe('Purok 6, Igpit, Digos City, Davao del Sur')
+        ->and($house['barangay'])->toBe('Igpit')
+        ->and($house['location_status'])->toBe('exact');
+
+    $reservationView = file_get_contents(resource_path('views/user/reservations.blade.php'));
+    $mapScript = file_get_contents(resource_path('js/boarding-house-map.js'));
+    expect($reservationView)
+        ->toContain('data-default-route-origin="dssc"')
+        ->not->toContain('data-auto-route-on-load="true"');
+    expect($mapScript)
+        ->toContain('this.routeFromDssc()')
+        ->toContain('this.updateRouteMetrics(route.distance, route.duration)')
+        ->toContain('(this.destination.lng + this.campus.lng) / 2')
+        ->toContain('routePoints.unshift([this.origin.lng, this.origin.lat])')
+        ->toContain('routePoints.push([this.destination.lng, this.destination.lat])');
+});
+
+test('Manulat route uses its verified destination pin and Google-style route metrics', function () {
+    $snapshot = json_decode(
+        file_get_contents(database_path('seeders/data/boarding-housemanagement.json')),
+        true,
+        flags: JSON_THROW_ON_ERROR,
+    );
+    $house = collect($snapshot['tables']['boarding_houses'] ?? [])
+        ->firstWhere('slug', 'matti-student-boarding-house');
+
+    expect($house)
+        ->not->toBeNull()
+        ->and((float) $house['latitude'])->toBe(6.7599661)
+        ->and((float) $house['longitude'])->toBe(125.3047948)
+        ->and((float) $house['distance_from_dssc'])->toBe(0.49)
+        ->and($house['location_status'])->toBe('exact');
+
+    $locationMap = file_get_contents(resource_path('js/boarding-house-map.js'));
+    $browseMap = file_get_contents(resource_path('js/boarding-house-browse-map.js'));
+    expect($locationMap)
+        ->toContain("active: '#4285f4'")
+        ->toContain("activeOutline: '#0b57d0'")
+        ->toContain('createProjectedRouteOverlay')
+        ->toContain("overlay.dataset.routeOverlay = ''")
+        ->toContain('layer.setActive(routeIndex === index)')
+        ->toContain('Math.ceil(seconds / 60)')
+        ->toContain('radiuses=100;100');
+    expect($browseMap)
+        ->toContain("GOOGLE_ROUTE_BLUE = '#4285f4'")
+        ->toContain("GOOGLE_ROUTE_OUTLINE = '#0b57d0'")
+        ->toContain('Math.ceil(seconds / 60)')
+        ->toContain('radiuses=100;100')
+        ->toContain('createQuickRouteOverlay(map, highlightedCoordinates)')
+        ->toContain("overlay.dataset.quickRouteOverlay = ''")
+        ->not->toContain("addLineLayer(map, 'quick-route-direct'");
 });
 
 test('similar boarding house card displays only its designated primary image', function () {

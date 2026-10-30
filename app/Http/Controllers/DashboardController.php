@@ -161,7 +161,7 @@ class DashboardController extends Controller
         return [
             'id' => $reservation->id,
             'house_name' => $reservation->boardingHouse?->name ?? 'Boarding house',
-            'address' => trim((string) ($reservation->boardingHouse?->address ?? '')),
+            'address' => trim((string) ($reservation->boardingHouse?->full_address ?: $reservation->boardingHouse?->address ?? '')),
             'room_no' => $reservation->room?->room_no,
             'room_description' => trim((string) ($reservation->room?->description ?? '')),
             'status' => $status,
@@ -837,6 +837,7 @@ class DashboardController extends Controller
             && Schema::hasColumn('rooms', 'room_no')
         ) {
             $room = Room::query()
+                ->whereHas('boardingHouse')
                 ->whereRaw('LOWER(room_no) = ?', [strtolower($roomNumber)])
                 ->latest()
                 ->first();
@@ -979,9 +980,9 @@ class DashboardController extends Controller
         }
 
         $bookingInfo = [
-            'boarding_house' => $boardingHouse?->name ?: ($houseName !== '' ? $houseName : 'No active booking'),
+            'boarding_house' => $boardingHouse?->name ?: 'No active booking',
             'room_number' => $roomNumber !== '' ? $roomNumber : ($room?->room_no ?: 'Not assigned'),
-            'address' => trim((string) ($boardingHouse?->address ?? '')),
+            'address' => trim((string) ($boardingHouse?->full_address ?: $boardingHouse?->address ?? '')),
             'description' => trim((string) ($room?->description ?: $boardingHouse?->description ?: '')),
             'move_in_date' => $tenant->move_in_date ? Carbon::parse($tenant->move_in_date)->format('M d, Y') : null,
         ];
@@ -1218,7 +1219,10 @@ class DashboardController extends Controller
 
         $houseIdColumn = $this->firstAvailableColumn($columns, ['boarding_house_id']);
         if ($houseIdColumn && Schema::hasTable('boarding_houses')) {
-            $query->leftJoin('boarding_houses as booking_house', 'bookings.'.$houseIdColumn, '=', 'booking_house.id');
+            $query->leftJoin('boarding_houses as booking_house', function ($join) use ($houseIdColumn) {
+                $join->on('bookings.'.$houseIdColumn, '=', 'booking_house.id')
+                    ->whereIn('booking_house.id', BoardingHouse::query()->select('id'));
+            });
         }
 
         $searchableColumns = array_values(array_intersect($columns, [
@@ -1657,7 +1661,10 @@ class DashboardController extends Controller
 
         $houseIdColumn = $this->firstAvailableColumn($columns, ['boarding_house_id']);
         if ($houseIdColumn && Schema::hasTable('boarding_houses')) {
-            $query->leftJoin('boarding_houses as tenant_booking_house', 'tenant_booking.'.$houseIdColumn, '=', 'tenant_booking_house.id');
+            $query->leftJoin('boarding_houses as tenant_booking_house', function ($join) use ($houseIdColumn) {
+                $join->on('tenant_booking.'.$houseIdColumn, '=', 'tenant_booking_house.id')
+                    ->whereIn('tenant_booking_house.id', BoardingHouse::query()->select('id'));
+            });
         }
 
         $referenceColumn = $this->firstAvailableColumn($columns, ['booking_reference', 'reference_no', 'reference', 'booking_id']);

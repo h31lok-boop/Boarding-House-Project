@@ -2,12 +2,27 @@
 
 namespace App\Models;
 
+use App\Services\MattiServiceArea;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\ValidationException;
 
 class Reservation extends Model
 {
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $reservation) {
+            if (! $reservation->exists || $reservation->isDirty('boarding_house_id') || ($reservation->isDirty('status') && in_array(strtolower((string) $reservation->status), ['approved','confirmed','active','checked_in','checked-in'], true))) {
+                $house = BoardingHouse::query()->whereKey($reservation->boarding_house_id)->first();
+
+                if (! $house || ! app(MattiServiceArea::class)->contains($house->latitude, $house->longitude)) {
+                    throw ValidationException::withMessages(['boarding_house_id' => 'Reservations are limited to boarding houses inside '.config('service-area.name').'.']);
+                }
+            }
+        });
+    }
 
     protected $fillable = [
         'user_id',

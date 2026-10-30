@@ -7,12 +7,25 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Services\MattiServiceArea;
 
 class BoardingHouse extends Model
 {
     use HasFactory;
 
     private static array $schemaColumnCache = [];
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $house): void {
+            // Coordinates are validated at user-facing write boundaries. Do not
+            // reject legacy or address-only records at the model layer; public
+            // queries explicitly exclude records outside the service area.
+            if (filled($house->latitude) && filled($house->longitude)) {
+                $house->barangay = config('service-area.barangay');
+            }
+        });
+    }
 
     protected $fillable = [
         'owner_profile_id',
@@ -261,7 +274,7 @@ class BoardingHouse extends Model
 
         return $this->relationLoaded('photos')
             ? $this->photos->first()?->photo_path
-            : null;
+            : $this->photos()->value('photo_path');
     }
 
     public function getCoverImageUrlAttribute(): string
@@ -327,6 +340,22 @@ class BoardingHouse extends Model
     public function scopeVisible($query)
     {
         return $query->where('is_active', true)->approved();
+    }
+
+    /**
+     * Restrict a query to listings inside the configured public service area.
+     *
+     * This is intentionally explicit instead of a global scope so administrators
+     * can still inspect historical or legacy listings outside the service area.
+     */
+    public function scopeInServiceArea($query)
+    {
+        $model = $query->getModel();
+
+        return $query->whereIntegerInRaw(
+            $model->qualifyColumn('id'),
+            app(MattiServiceArea::class)->eligibleIds($model->getConnectionName()),
+        );
     }
 
     private function normalizeMoneyValue($value): ?float

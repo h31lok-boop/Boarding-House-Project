@@ -1,14 +1,28 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 import * as maplibregl from 'maplibre-gl';
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
+import { createServiceArea } from './service-area';
+
+// Use an explicit same-origin worker asset. The default blob worker can start
+// without completing GeoJSON updates in some local Chrome/Herd environments,
+// leaving route layers present but visually empty.
+maplibregl.setWorkerUrl(maplibreWorkerUrl);
 
 const DEFAULTS = {
     tileUrl: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '© OpenStreetMap contributors',
     maxZoom: 19,
     nominatimUrl: 'https://nominatim.openstreetmap.org',
+    basemap: 'hybrid',
+    imageryTileUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    transportationTileUrl: 'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}',
+    referenceTileUrl: 'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+    imageryAttribution: 'Source: Esri, Vantor, Earthstar Geographics, and the GIS User Community',
+    referenceAttribution: 'Esri, HERE, Garmin, &copy; OpenStreetMap contributors, and the GIS User Community',
 };
 
 let documentConfig = null;
+let documentServiceArea;
 
 export const boardMatchMapConfig = () => {
     if (documentConfig) {
@@ -27,6 +41,65 @@ export const boardMatchMapConfig = () => {
     return documentConfig;
 };
 
+export const boardMatchServiceArea = () => {
+    if (documentServiceArea === undefined) {
+        documentServiceArea = createServiceArea(boardMatchMapConfig().serviceArea);
+    }
+
+    return documentServiceArea;
+};
+
+export const isInsideServiceArea = (latitude, longitude) => (
+    boardMatchServiceArea()?.contains([longitude, latitude]) === true
+);
+
+export const serviceAreaMessage = () => `Choose a property location inside the ${
+    boardMatchServiceArea()?.name || 'Matti, Digos City, Davao del Sur, Davao Region'
+} boundary.`;
+
+const addServiceAreaBoundary = (map, area) => {
+    const ringArea = (ring) => ring.reduce((sum, [lng, lat], index) => {
+        const [nextLng, nextLat] = ring[(index + 1) % ring.length];
+
+        return sum + (lng * nextLat) - (nextLng * lat);
+    }, 0);
+    const worldRing = [[-180, -85], [180, -85], [180, 85], [-180, 85], [-180, -85]];
+    const worldWinding = Math.sign(ringArea(worldRing));
+    const exteriorMaskHoles = area.polygons.map((polygon) => {
+        const ring = polygon[0];
+
+        return Math.sign(ringArea(ring)) === worldWinding ? [...ring].reverse() : ring;
+    });
+
+    map.addSource('service-area', {
+        type: 'geojson',
+        data: { type: 'Feature', properties: {}, geometry: area.geometry },
+    });
+    map.addSource('service-area-outside', {
+        type: 'geojson',
+        data: {
+            type: 'Feature',
+            properties: {},
+            geometry: {
+                type: 'Polygon',
+                coordinates: [worldRing, ...exteriorMaskHoles],
+            },
+        },
+    });
+    map.addLayer({
+        id: 'service-area-mask',
+        type: 'fill',
+        source: 'service-area-outside',
+        paint: { 'fill-color': '#0f172a', 'fill-opacity': 1 },
+    });
+    map.addLayer({
+        id: 'service-area-boundary',
+        type: 'line',
+        source: 'service-area',
+        paint: { 'line-color': '#93c5fd', 'line-width': 2 },
+    });
+};
+
 export const openStreetMapConfig = (overrides = {}) => ({
     ...DEFAULTS,
     ...(boardMatchMapConfig().openStreetMap || {}),
@@ -35,6 +108,44 @@ export const openStreetMapConfig = (overrides = {}) => ({
 
 export const openStreetMapStyle = (overrides = {}) => {
     const config = openStreetMapConfig(overrides);
+    const maxZoom = Number(config.maxZoom) || DEFAULTS.maxZoom;
+
+    if (String(config.basemap).toLowerCase() === 'hybrid') {
+        return {
+            version: 8,
+            sources: {
+                imagery: {
+                    type: 'raster',
+                    tiles: [config.imageryTileUrl],
+                    tileSize: 256,
+                    minzoom: 0,
+                    maxzoom: maxZoom,
+                    attribution: config.imageryAttribution,
+                },
+                transportation: {
+                    type: 'raster',
+                    tiles: [config.transportationTileUrl],
+                    tileSize: 256,
+                    minzoom: 0,
+                    maxzoom: maxZoom,
+                    attribution: config.referenceAttribution,
+                },
+                reference: {
+                    type: 'raster',
+                    tiles: [config.referenceTileUrl],
+                    tileSize: 256,
+                    minzoom: 0,
+                    maxzoom: maxZoom,
+                    attribution: config.referenceAttribution,
+                },
+            },
+            layers: [
+                { id: 'imagery-tiles', type: 'raster', source: 'imagery' },
+                { id: 'transportation-overlay', type: 'raster', source: 'transportation' },
+                { id: 'place-label-overlay', type: 'raster', source: 'reference' },
+            ],
+        };
+    }
 
     return {
         version: 8,
@@ -44,7 +155,7 @@ export const openStreetMapStyle = (overrides = {}) => {
                 tiles: [config.tileUrl],
                 tileSize: 256,
                 minzoom: 0,
-                maxzoom: Number(config.maxZoom) || DEFAULTS.maxZoom,
+                maxzoom: maxZoom,
                 attribution: config.attribution,
             },
         },
@@ -58,17 +169,37 @@ export const openStreetMapStyle = (overrides = {}) => {
 
 export const createOpenStreetMap = (container, options = {}) => {
     const config = openStreetMapConfig(options.openStreetMap);
+    const area = boardMatchServiceArea();
+    if (!area) throw new Error('The Matti service-area boundary is unavailable.');
+
+    let allowedCenter = area.constrainCenter(options.center);
+    const maxZoom = Number(config.maxZoom) || DEFAULTS.maxZoom;
     const map = new maplibregl.Map({
         container,
         style: openStreetMapStyle(config),
-        center: options.center || [125.30909, 6.75874],
+        center: allowedCenter,
         zoom: options.zoom ?? 14,
-        maxZoom: Number(config.maxZoom) || DEFAULTS.maxZoom,
+        minZoom: 12,
+        maxZoom,
+        maxBounds: area.bounds,
+        renderWorldCopies: false,
+        // Apply polygon containment to every gesture, resize and programmatic
+        // move. The default rectangular viewport constraint can otherwise push
+        // the center into a concavity of the Matti polygon.
+        transformConstrain: (center, zoom) => {
+            allowedCenter = area.constrainCenter([center.lng, center.lat], allowedCenter);
+            return {
+                center: new maplibregl.LngLat(...allowedCenter),
+                zoom: Math.max(12, Math.min(maxZoom, zoom)),
+            };
+        },
         attributionControl: false,
         dragRotate: false,
         pitchWithRotate: false,
         cooperativeGestures: false,
     });
+
+    map.once('load', () => addServiceAreaBoundary(map, area));
 
     map.touchZoomRotate.disableRotation();
     map.addControl(new maplibregl.NavigationControl({
@@ -151,7 +282,9 @@ export const boundsForLngLats = (points = []) => {
 };
 
 export const fitMapToLngLats = (map, points, options = {}) => {
-    const bounds = boundsForLngLats(points);
+    // A user's route can start elsewhere, but fitting it must not expand the
+    // property browsing area beyond Matti.
+    const bounds = boundsForLngLats(points.filter((point) => boardMatchServiceArea()?.contains(point)));
 
     if (!bounds.isEmpty()) {
         map.fitBounds(bounds, {

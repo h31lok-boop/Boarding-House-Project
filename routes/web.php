@@ -84,9 +84,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // My property (owner's single-property dashboard)
         Route::get('/my-boarding-house', [AdminListingController::class, 'myBoardingHouse'])->name('my-boarding-house');
 
-        // Boarding-house oversight & approval (view all; edits gated by BoardingHousePolicy)
+        // Boarding-house oversight is view-only. Mutation routes remain
+        // addressable so direct requests receive a deliberate 403 from the
+        // controller rather than being silently exposed or returning 404.
         Route::get('/boarding-houses', [AdminOwnerController::class, 'boardingHouses'])->name('boarding-houses');
-        Route::get('/boarding-houses/create', [AdminOwnerController::class, 'boardingHouses'])->name('boarding-houses.create');
+        Route::get('/boarding-houses/create', fn () => abort(403, 'Administrators have read-only access to boarding houses.'))->name('boarding-houses.create');
         Route::get('/listings', [AdminOwnerController::class, 'boardingHouses'])->name('listings');
         Route::post('/listings', [BoardingHouseController::class, 'store'])->name('listings.store');
         Route::put('/listings/{boarding_house}', [BoardingHouseController::class, 'update'])->name('listings.update');
@@ -152,6 +154,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Notifications (admin's own)
         Route::get('/notifications', [AdminOwnerController::class, 'notifications'])->name('notifications.index');
+        Route::post('/notifications/header-read', [AdminOwnerController::class, 'markDisplayedNotificationsAsRead'])->name('notifications.headerRead');
         Route::post('/notifications', [AdminOwnerController::class, 'storeNotification'])->name('notifications.store');
         Route::delete('/notifications/clear-all', [AdminOwnerController::class, 'clearNotifications'])->name('notifications.clear');
         Route::patch('/notifications/{notification}', [AdminOwnerController::class, 'updateNotification'])->name('notifications.update');
@@ -245,6 +248,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         // Notifications
         Route::get('/notifications', [OwnerController::class, 'notifications'])->name('notifications.index');
+        Route::post('/notifications/header-read', [OwnerController::class, 'markDisplayedNotificationsAsRead'])->name('notifications.headerRead');
         Route::post('/notifications', [OwnerController::class, 'storeNotification'])->name('notifications.store');
         Route::delete('/notifications/clear-all', [OwnerController::class, 'clearNotifications'])->name('notifications.clear');
         Route::patch('/notifications/{notification}', [OwnerController::class, 'updateNotification'])->name('notifications.update');
@@ -316,8 +320,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/settings/two-factor', [UserSettingsController::class, 'updateTwoFactor'])->name('settings.two-factor.update');
         Route::post('/settings/logout-other-devices', [UserSettingsController::class, 'logoutOtherDevices'])->name('settings.logout-other-devices');
         Route::put('/settings/privacy', [UserSettingsController::class, 'updatePrivacySettings'])->name('settings.privacy.update');
-        Route::get('/notifications', [UserNotificationController::class, 'index'])->name('notifications.index');
-        Route::post('/notifications/read-all', [UserNotificationController::class, 'markAllAsRead'])->name('notifications.readAll');
+    Route::get('/notifications', [UserNotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/header-read', [UserNotificationController::class, 'markDisplayedNotificationsAsRead'])->name('notifications.headerRead');
+    Route::post('/notifications/read-all', [UserNotificationController::class, 'markAllAsRead'])->name('notifications.readAll');
         Route::delete('/notifications/clear-all', [UserNotificationController::class, 'clearAll'])->name('notifications.clearAll');
         Route::post('/notifications/{id}/read', [UserNotificationController::class, 'markAsRead'])->name('notifications.read');
         Route::delete('/notifications/{id}', [UserNotificationController::class, 'destroy'])->name('notifications.destroy');

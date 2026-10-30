@@ -5,6 +5,7 @@ namespace App\Http\Controllers\User;
 use App\Http\Controllers\Controller;
 use App\Models\BoardingHouse;
 use App\Models\Inquiry;
+use App\Services\MattiServiceArea;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -13,6 +14,8 @@ class InquiryController extends Controller
 {
     public function store(Request $request, BoardingHouse $boardingHouse)
     {
+        abort_unless(app(MattiServiceArea::class)->contains($boardingHouse->latitude, $boardingHouse->longitude), 404);
+
         // ── Daily limit: one inquiry per user per day ────────────────────────
         $alreadySentToday = Inquiry::where('user_id', $request->user()->id)
             ->whereDate('created_at', today())

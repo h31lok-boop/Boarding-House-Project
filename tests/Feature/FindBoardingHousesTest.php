@@ -44,8 +44,8 @@ function createAvailableBrowseHouse(array $attributes = []): BoardingHouse
         'price' => 3500,
         'monthly_payment' => '3500',
         'available_rooms' => 2,
-        'latitude' => 6.7440000,
-        'longitude' => 125.3550000,
+        'latitude' => 6.7677800,
+        'longitude' => 125.3062000,
         'is_active' => true,
         'status' => 'approved',
         'approval_status' => 'approved',
@@ -78,8 +78,8 @@ test('recommended tab ranks approved available boarding houses using saved prefe
         'price' => 12000,
         'monthly_payment' => '12000',
         'room_type_name' => 'Studio Unit',
-        'latitude' => 6.7900000,
-        'longitude' => 125.4100000,
+        'latitude' => 6.7683100,
+        'longitude' => 125.3078200,
     ]);
 
     $response = $this->actingAs($user)->get(route('user.boarding-houses.index'));

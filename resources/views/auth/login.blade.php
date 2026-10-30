@@ -20,19 +20,22 @@
             font-family: 'Manrope', 'Segoe UI', sans-serif;
         }
 
-        .auth-page { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 32px 0 56px; }
-        .auth-topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
+        .auth-page { width: min(1180px, calc(100% - 32px)); margin: 0 auto; padding: 16px 0; }
+        .auth-topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; width: 100%; }
         .auth-brand { display: inline-flex; align-items: center; gap: 10px; color: #172033; text-decoration: none; font-weight: 800; }
         .auth-brand img { width: 42px; height: 42px; border-radius: 12px; box-shadow: 0 8px 20px rgba(37,99,235,.2); }
-        .auth-actions { display: flex; align-items: center; gap: 10px; }
+        .auth-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; flex-shrink: 0; }
         .auth-action { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; border: 1px solid #dbe4ef; border-radius: 11px; background: #fff; padding: 0 14px; color: #475569; text-decoration: none; font-size: 12px; font-weight: 800; transition: .2s; }
         .auth-action:hover { border-color: #93b4e8; color: #1d4ed8; }
 
         .login-wrap {
             width: 100%;
             max-width: 440px;
-            margin: 46px auto 0;
+            margin: clamp(12px, 2vh, 24px) auto 0;
         }
+
+        .login-heading { text-align: center; margin-bottom: 16px; }
+        .login-back { text-align: center; margin: 12px 0 0; }
 
         /* ── Brand mark ── */
         .brand-mark {
@@ -55,7 +58,7 @@
             background: #fff;
             border: 1px solid #dbe4ef;
             border-radius: 24px;
-            padding: 2rem 2rem 1.75rem;
+            padding: 24px;
             box-shadow: 0 24px 65px rgba(15,23,42,.09);
         }
 
@@ -138,7 +141,7 @@
         /* ── OR divider ── */
         .or-row {
             display: flex; align-items: center; gap: 10px;
-            margin: 1rem 0; font-size: 0.75rem;
+            margin: 12px 0; font-size: 0.75rem;
             font-weight: 600; color: #9ca3af;
         }
         .or-row::before, .or-row::after {
@@ -205,7 +208,7 @@
         .divider {
             height: 1px;
             background: var(--border);
-            margin: 1.5rem 0;
+            margin: 16px 0;
         }
 
         /* ── Links ── */
@@ -216,9 +219,9 @@
         @media (max-width: 620px) {
             .auth-page { width: min(100% - 20px, 1180px); padding-top: 18px; }
             .auth-topbar { align-items: flex-start; }
-            .auth-actions { flex-direction: column; align-items: stretch; gap: 6px; }
+            .auth-actions { flex-direction: column; align-items: stretch; gap: 6px; margin-left: auto; }
             .auth-action { min-height: 34px; padding: 0 10px; font-size: 11px; }
-            .login-wrap { margin-top: 28px; }
+            .login-wrap { margin-top: 16px; }
             .login-card { padding: 24px 18px 22px; }
         }
     </style>
@@ -237,7 +240,7 @@
     <div class="login-wrap">
 
         {{-- ── Brand ── --}}
-        <div style="text-align:center; margin-bottom:1.75rem">
+        <div class="login-heading">
             <h1 style="font-size:1.75rem; font-weight:800; color:var(--text); margin:0 0 .35rem">Welcome back</h1>
             <p style="font-size:0.875rem; color:var(--muted); margin:0">Sign in to your BoardMatch account</p>
         </div>
@@ -282,8 +285,7 @@
                                value="{{ old('email') }}"
                                required
                                autofocus
-                               autocomplete="username"
-                               placeholder="admin, tenant, or you@example.com">
+                               autocomplete="username">
                     </div>
                 </div>
 
@@ -300,7 +302,6 @@
                                name="password"
                                required
                                autocomplete="current-password"
-                               placeholder="••••••••"
                                style="padding-right:2.5rem">
                         <button type="button" class="pw-toggle" id="pwToggle" aria-label="Toggle password visibility">
                             {{-- Eye icon (show) --}}
@@ -344,7 +345,7 @@
             </form>
 
             {{-- ── OR divider ── --}}
-            <div class="or-row" style="margin-top:1.25rem">or</div>
+            <div class="or-row">or</div>
 
             {{-- ── Continue with Google ── --}}
             @php $googleConfigured = filled(config('services.google.client_id')); @endphp
@@ -375,7 +376,7 @@
                 </button>
             @endif
 
-            <div class="divider" style="margin-top:1.25rem"></div>
+            <div class="divider"></div>
 
             {{-- Register --}}
             <p style="text-align:center; font-size:0.875rem; color:var(--muted); margin:0">
@@ -386,7 +387,7 @@
         </div>
 
         {{-- Back link --}}
-        <p style="text-align:center; margin-top:1.25rem">
+        <p class="login-back">
             <a class="muted-link" href="{{ url('/') }}">
                 ← Back to Homepage
             </a>

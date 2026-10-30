@@ -34,6 +34,6 @@ test('admin dashboard and workspace header have deliberate mobile layouts', func
         ->toContain('aria-label="Open navigation menu"')
         ->not->toContain('aria-label="Open search"')
         ->and($css)
-        ->toContain('@media (max-width: 479px)')
-        ->toContain('.admin-shell .admin-header-ai');
+        ->toContain('@media (max-width: 639px)')
+        ->toContain('.ai-assistant-fab');
 });

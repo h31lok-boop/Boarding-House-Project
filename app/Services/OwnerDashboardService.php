@@ -16,6 +16,9 @@ use Illuminate\Support\Facades\Schema;
 
 class OwnerDashboardService
 {
+    /** Keep this list in sync with Tenant Management's active lease states. */
+    private const ACTIVE_LEASE_STATUSES = ['active', 'approved', 'checked-in', 'checked_in', 'confirmed'];
+
     private const PAID_STATUSES = ['paid', 'confirmed', 'completed'];
 
     private const UNPAID_STATUSES = ['pending', 'unpaid', 'overdue', 'partial'];
@@ -33,11 +36,12 @@ class OwnerDashboardService
         $houseIds = $scopedProperties->pluck('id')->map(fn ($id) => (int) $id)->values();
         $rooms = $scopedProperties->flatMap(fn (BoardingHouse $house) => $house->rooms)->values();
 
-        $roomSummary = $this->roomSummary($rooms);
-        $tenantSummary = $this->tenantSummary($houseIds, $period);
+        $activeLeases = $this->activeLeases($houseIds, $period);
+        $roomSummary = $this->roomSummary($rooms, $activeLeases);
+        $tenantSummary = $this->tenantSummary($houseIds, $activeLeases, $period);
         $paymentSummary = $this->paymentSummary($houseIds, $period);
         $reservationSummary = $this->reservationSummary($houseIds, $period);
-        $propertyRows = $this->propertyRows($scopedProperties, $period);
+        $propertyRows = $this->propertyRows($scopedProperties, $period, $activeLeases);
 
         return [
             'hasProperty' => true,
@@ -55,6 +59,7 @@ class OwnerDashboardService
             'reservedRooms' => $roomSummary['reserved'],
             'occupancyRate' => $roomSummary['rate'],
             'activeTenantCount' => $tenantSummary['active'],
+            'tenantSummary' => $tenantSummary['records'],
             'monthlyRevenue' => $paymentSummary['monthlyRevenue'],
             'unpaidPaymentsCount' => $paymentSummary['unpaidCount'],
             'unpaidAmount' => $paymentSummary['unpaidAmount'],
@@ -120,13 +125,38 @@ class OwnerDashboardService
         ];
     }
 
-    private function roomSummary(Collection $rooms): array
+    private function activeLeases(Collection $houseIds, array $period): Collection
+    {
+        if (! Schema::hasTable('reservations') || $houseIds->isEmpty()) {
+            return collect();
+        }
+
+        return Reservation::query()
+            ->whereIn('boarding_house_id', $houseIds)
+            ->whereIn(DB::raw('LOWER(status)'), self::ACTIVE_LEASE_STATUSES)
+            ->where(function (Builder $query) use ($period) {
+                $query->whereNull('check_in_date')->orWhereDate('check_in_date', '<=', $period['end']);
+            })
+            ->where(function (Builder $query) use ($period) {
+                $query->whereNull('check_out_date')->orWhereDate('check_out_date', '>=', $period['start']);
+            })
+            ->with(['user', 'room', 'boardingHouse'])
+            ->latest('updated_at')
+            ->get();
+    }
+
+    private function roomSummary(Collection $rooms, Collection $activeLeases): array
     {
         $status = fn (Room $room) => strtolower((string) $room->status);
         $total = $rooms->count();
-        $occupied = $rooms->filter(fn (Room $room) => $status($room) === 'occupied')->count();
-        $available = $rooms->filter(fn (Room $room) => $status($room) === 'available')->count();
-        $reserved = $rooms->filter(fn (Room $room) => $status($room) === 'reserved')->count();
+        $roomIds = $activeLeases->pluck('room_id')->filter()->unique()->map(fn ($id) => (int) $id);
+        // Room status remains a useful legacy signal for walk-ins, while an
+        // active lease always wins for reservation-based check-in/transfer.
+        $occupied = $rooms->filter(fn (Room $room) => $roomIds->contains((int) $room->id)
+            || $status($room) === 'occupied')->count();
+        $reserved = $rooms->filter(fn (Room $room) => $status($room) === 'reserved'
+            && ! $roomIds->contains((int) $room->id))->count();
+        $available = max($total - $occupied - $reserved, 0);
 
         return [
             'total' => $total,
@@ -137,27 +167,41 @@ class OwnerDashboardService
         ];
     }
 
-    private function tenantSummary(Collection $houseIds, array $period): array
+    private function tenantSummary(Collection $houseIds, Collection $activeLeases, array $period): array
     {
-        if (! Schema::hasTable('tenants') || $houseIds->isEmpty()) {
-            return ['active' => 0, 'new' => 0];
+        // Older walk-in records predate reservation leases. Keep those visible
+        // only when there is no reservation lease data for this scope.
+        if ($activeLeases->isEmpty() && Schema::hasTable('tenants')) {
+            $legacy = Tenant::with(['user', 'boardingHouse', 'room'])
+                ->whereIn('boarding_house_id', $houseIds)
+                ->whereIn(DB::raw('LOWER(status)'), ['active', 'occupied'])
+                ->where(function (Builder $query) use ($period) {
+                    $query->whereNull('move_in_date')->orWhereDate('move_in_date', '<=', $period['end']);
+                })
+                ->where(function (Builder $query) use ($period) {
+                    $query->whereNull('move_out_date')->orWhereDate('move_out_date', '>=', $period['start']);
+                })
+                ->latest('move_in_date')
+                ->get();
+
+            return [
+                'active' => $legacy->unique('user_id')->count(),
+                'new' => $legacy->filter(fn (Tenant $tenant) => $tenant->move_in_date
+                    && $tenant->move_in_date->betweenIncluded($period['start'], $period['end']))->count(),
+                'records' => $legacy->unique('user_id')->values(),
+            ];
         }
 
-        $base = Tenant::query()->whereIn('boarding_house_id', $houseIds);
-        $active = (clone $base)
-            ->whereIn(DB::raw('LOWER(status)'), ['active', 'occupied'])
-            ->where(function (Builder $query) use ($period) {
-                $query->whereNull('move_in_date')->orWhereDate('move_in_date', '<=', $period['end']);
-            })
-            ->where(function (Builder $query) use ($period) {
-                $query->whereNull('move_out_date')->orWhereDate('move_out_date', '>=', $period['start']);
-            })
-            ->count();
-        $new = (clone $base)
-            ->whereBetween('move_in_date', [$period['start']->toDateString(), $period['end']->toDateString()])
-            ->count();
+        $records = $activeLeases
+            ->filter(fn (Reservation $lease) => $lease->user_id)
+            ->unique('user_id')
+            ->sortBy(fn (Reservation $lease) => strtolower((string) ($lease->user?->name ?? '')))
+            ->values();
 
-        return ['active' => (int) $active, 'new' => (int) $new];
+        $new = $records->filter(fn (Reservation $lease) => $lease->check_in_date
+            && $lease->check_in_date->betweenIncluded($period['start'], $period['end']))->count();
+
+        return ['active' => $records->count(), 'new' => $new, 'records' => $records];
     }
 
     private function paymentSummary(Collection $houseIds, array $period): array
@@ -237,20 +281,10 @@ class OwnerDashboardService
         ];
     }
 
-    private function propertyRows(Collection $properties, array $period): Collection
+    private function propertyRows(Collection $properties, array $period, Collection $activeLeases): Collection
     {
         $houseIds = $properties->pluck('id');
-        $tenantCounts = collect();
         $incomeByHouse = collect();
-
-        if (Schema::hasTable('tenants') && $houseIds->isNotEmpty()) {
-            $tenantCounts = Tenant::query()
-                ->whereIn('boarding_house_id', $houseIds)
-                ->whereIn(DB::raw('LOWER(status)'), ['active', 'occupied'])
-                ->selectRaw('boarding_house_id, COUNT(*) as total')
-                ->groupBy('boarding_house_id')
-                ->pluck('total', 'boarding_house_id');
-        }
 
         if (Schema::hasTable('payments') && $houseIds->isNotEmpty()) {
             $dateColumn = Schema::hasColumn('payments', 'paid_at') ? 'paid_at' : 'created_at';
@@ -263,10 +297,15 @@ class OwnerDashboardService
                 ->pluck('total', 'boarding_house_id');
         }
 
-        return $properties->map(function (BoardingHouse $house) use ($tenantCounts, $incomeByHouse) {
+        return $properties->map(function (BoardingHouse $house) use ($incomeByHouse, $activeLeases) {
             $rooms = collect($house->rooms);
-            $occupied = $rooms->filter(fn (Room $room) => strtolower((string) $room->status) === 'occupied')->count();
-            $available = $rooms->filter(fn (Room $room) => strtolower((string) $room->status) === 'available')->count();
+            $houseLeases = $activeLeases->where('boarding_house_id', $house->id);
+            $occupiedIds = $houseLeases->pluck('room_id')->filter()->unique()->map(fn ($id) => (int) $id);
+            $occupied = $rooms->filter(fn (Room $room) => $occupiedIds->contains((int) $room->id)
+                || ($activeLeases->isEmpty() && strtolower((string) $room->status) === 'occupied'))->count();
+            $reserved = $rooms->filter(fn (Room $room) => strtolower((string) $room->status) === 'reserved'
+                && ! $occupiedIds->contains((int) $room->id))->count();
+            $available = max($rooms->count() - $occupied - $reserved, 0);
             $total = $rooms->count();
             $approval = strtolower((string) ($house->approval_status ?: ($house->status ?: 'pending')));
 
@@ -279,7 +318,7 @@ class OwnerDashboardService
                 'occupiedRooms' => $occupied,
                 'availableRooms' => $available,
                 'occupancyRate' => $total > 0 ? (int) round(($occupied / $total) * 100) : 0,
-                'tenants' => (int) ($tenantCounts[$house->id] ?? 0),
+                'tenants' => $houseLeases->unique('user_id')->count(),
                 'monthlyIncome' => (float) ($incomeByHouse[$house->id] ?? 0),
                 'status' => $approval === 'pending' ? 'Pending' : ((bool) $house->is_active ? 'Active' : 'Inactive'),
             ];

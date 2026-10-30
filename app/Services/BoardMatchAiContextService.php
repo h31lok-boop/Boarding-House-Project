@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\BoardingHouse;
 use App\Models\User;
 use Closure;
 use Illuminate\Database\Query\Builder;
@@ -116,6 +117,9 @@ class BoardMatchAiContextService
         ], $ownershipScope, 20);
         $houseIds = array_values(array_filter(array_column($houses, 'id')));
         $houseScope = fn (Builder $query) => $query->whereIn('boarding_house_id', $houseIds ?: [-1]);
+        // Retain the owner's financial history even when a former listing is outside the service area.
+        $historicalHouseScope = fn (Builder $query) => $query->whereIn('boarding_house_id',
+            BoardingHouse::query()->select('id')->toBase()->where($ownershipScope));
 
         return [
             'boarding_houses' => $houses,
@@ -129,18 +133,18 @@ class BoardMatchAiContextService
                 ], $houseScope, 20),
             ],
             'reservations' => [
-                'total' => $this->count('reservations', $houseScope),
-                'by_status' => $this->groupCounts('reservations', 'status', $houseScope),
-                'by_payment_status' => $this->groupCounts('reservations', 'payment_status', $houseScope),
+                'total' => $this->count('reservations', $historicalHouseScope),
+                'by_status' => $this->groupCounts('reservations', 'status', $historicalHouseScope),
+                'by_payment_status' => $this->groupCounts('reservations', 'payment_status', $historicalHouseScope),
                 'recent' => $this->records('reservations', [
                     'id', 'user_id', 'boarding_house_id', 'room_id', 'check_in_date',
                     'total_amount', 'payment_status', 'status', 'booking_type', 'created_at',
-                ], $houseScope, 12),
+                ], $historicalHouseScope, 12),
             ],
             'payments' => [
-                'total' => $this->count('payments', $houseScope),
-                'total_amount' => $this->sum('payments', 'amount', $houseScope),
-                'by_status' => $this->groupCounts('payments', 'status', $houseScope),
+                'total' => $this->count('payments', $historicalHouseScope),
+                'total_amount' => $this->sum('payments', 'amount', $historicalHouseScope),
+                'by_status' => $this->groupCounts('payments', 'status', $historicalHouseScope),
             ],
             'inquiries' => [
                 'total' => $this->count('inquiries', $houseScope),
@@ -197,6 +201,7 @@ class BoardMatchAiContextService
                 'id', 'name', 'address', 'barangay', 'nearby_landmark', 'distance_from_dssc',
                 'price', 'monthly_payment', 'available_rooms', 'capacity', 'status',
             ], fn (Builder $query) => $query
+                ->whereIn('id', BoardingHouse::query()->inServiceArea()->select('id'))
                 ->where('is_active', true)
                 ->where('approval_status', 'approved'), 15),
             'my_reservations' => $this->records('reservations', [
@@ -299,7 +304,7 @@ class BoardMatchAiContextService
                 return [];
             }
 
-            $query = DB::table($table)->select($availableColumns);
+            $query = $this->tableQuery($table)->select($availableColumns);
             $scope?->call($this, $query);
 
             if (in_array('updated_at', Schema::getColumnListing($table), true)) {
@@ -321,7 +326,7 @@ class BoardMatchAiContextService
                 return 0;
             }
 
-            $query = DB::table($table);
+            $query = $this->tableQuery($table);
             $scope?->call($this, $query);
 
             return $query->count();
@@ -335,7 +340,7 @@ class BoardMatchAiContextService
                 return 0.0;
             }
 
-            $query = DB::table($table);
+            $query = $this->tableQuery($table);
             $scope?->call($this, $query);
 
             return round((float) $query->sum($column), 2);
@@ -349,7 +354,7 @@ class BoardMatchAiContextService
                 return 0.0;
             }
 
-            $query = DB::table($table);
+            $query = $this->tableQuery($table);
             $scope?->call($this, $query);
 
             return round((float) $query->avg($column), 2);
@@ -363,7 +368,7 @@ class BoardMatchAiContextService
                 return [];
             }
 
-            $query = DB::table($table);
+            $query = $this->tableQuery($table);
             $scope?->call($this, $query);
 
             return $query
@@ -376,6 +381,19 @@ class BoardMatchAiContextService
                 ])
                 ->all();
         }, []);
+    }
+
+    private function tableQuery(string $table): Builder
+    {
+        $query = DB::table($table);
+
+        if ($table === 'boarding_houses') {
+            $query->whereIn('id', BoardingHouse::query()->select('id'));
+        } elseif ($table === 'boarding_house_matches') {
+            $query->whereIn('boarding_house_id', BoardingHouse::query()->select('id'));
+        }
+
+        return $query;
     }
 
     private function attempt(Closure $callback, mixed $fallback): mixed

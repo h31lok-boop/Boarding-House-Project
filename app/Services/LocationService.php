@@ -30,6 +30,7 @@ class LocationService
     public function getNearbyBoardingHouses(float $radius = 5): Collection
     {
         return BoardingHouse::query()
+            ->inServiceArea()
             ->with(['barangayReference:id,barangay_name'])
             ->visible()
             ->where(function ($availableQuery) {

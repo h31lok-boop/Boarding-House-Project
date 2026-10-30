@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\BoardingHouse;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -182,7 +183,8 @@ class PredictiveAnalyticsService
             return collect();
         }
 
-        return DB::table('boarding_houses')
+        // Historical payment and reservation aggregates retain all of the owner's records.
+        return BoardingHouse::query()
             ->where('owner_id', $user->id)
             ->pluck('id')
             ->map(fn ($id) => (int) $id);
@@ -355,7 +357,7 @@ class PredictiveAnalyticsService
             return collect();
         }
 
-        $houses = DB::table('boarding_houses')
+        $houses = BoardingHouse::query()
             ->when($houseIds !== null, fn ($query) => $query->whereIn('id', $houseIds))
             ->pluck('name', 'id');
 

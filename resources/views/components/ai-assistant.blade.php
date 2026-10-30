@@ -18,21 +18,20 @@
         configured: @js($assistantConfigured),
     })"
     @keydown.escape.window="close()"
-    class="inline-flex shrink-0"
+    class="ai-assistant-fab"
+    data-ai-assistant-fab
 >
     <button
         type="button"
         @click="openAssistant()"
-        class="relative inline-flex h-9 w-9 items-center justify-center rounded-xl border border-violet-200 bg-violet-50 text-violet-700 shadow-sm transition hover:border-violet-300 hover:bg-violet-100 focus:outline-none focus:ring-4 focus:ring-violet-100 dark:border-violet-400/20 dark:bg-violet-400/10 dark:text-violet-300 dark:hover:bg-violet-400/15 dark:focus:ring-violet-900"
+        class="ai-assistant-fab__button"
         aria-label="Open BoardMatch AI assistant"
         title="Ask BoardMatch AI"
         :aria-expanded="open"
     >
-        <svg class="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+        <svg class="ai-assistant-fab__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m12 3 1.2 4.2a5 5 0 0 0 3.5 3.5L21 12l-4.3 1.3a5 5 0 0 0-3.5 3.5L12 21l-1.2-4.2a5 5 0 0 0-3.5-3.5L3 12l4.3-1.3a5 5 0 0 0 3.5-3.5L12 3Z"/>
-            <path stroke-linecap="round" stroke-width="1.8" d="M19 3v4M17 5h4"/>
         </svg>
-        <span class="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-slate-950 {{ $assistantConfigured ? 'bg-emerald-500' : 'bg-amber-400' }}"></span>
     </button>
 
     <template x-teleport="body">
