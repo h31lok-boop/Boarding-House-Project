@@ -10,11 +10,11 @@ return [
 
     'nearby_radius_km' => 5.0,
 
+    // Tenant rent reminders are shown this many days before an unpaid due date.
+    'payment_reminder_days' => (int) env('DSSC_PAYMENT_REMINDER_DAYS', 7),
+
     'areas' => [
         'Matti',
         'Purok 3, Matti',
-        'Mahayahay',
-        'Tres de Mayo',
-        'Poblacion / City Proper',
     ],
 ];

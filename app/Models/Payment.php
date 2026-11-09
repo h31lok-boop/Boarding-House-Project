@@ -11,6 +11,8 @@ class Payment extends Model
 
     protected $fillable = [
         'tenant_id',
+        'reservation_id',
+        'received_by',
         'boarding_house_id',
         'amount',
         'due_date',
@@ -40,6 +42,16 @@ class Payment extends Model
         return $this->belongsTo(Tenant::class);
     }
 
+    public function reservation()
+    {
+        return $this->belongsTo(Reservation::class);
+    }
+
+    public function receiver()
+    {
+        return $this->belongsTo(User::class, 'received_by');
+    }
+
     public function boardingHouse()
     {
         return $this->belongsTo(BoardingHouse::class);
@@ -48,5 +60,15 @@ class Payment extends Model
     public function receipts()
     {
         return $this->hasMany(PaymentReceipt::class);
+    }
+
+    public function advanceAllocations()
+    {
+        return $this->hasMany(AdvanceRentAllocation::class, 'payment_id');
+    }
+
+    public function appliedAdvanceAllocations()
+    {
+        return $this->hasMany(AdvanceRentAllocation::class, 'billing_payment_id');
     }
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BoardingHouse;
 use App\Models\BoardingHouseService;
+use App\Models\AdvanceRentAllocation;
 use App\Models\Inquiry;
 use App\Models\MaintenanceRequest;
 use App\Models\Payment;
@@ -675,7 +676,17 @@ class AdminOwnerController extends Controller
         };
 
         $users = User::query()
-            ->with(['ownerProfile', 'ownedBoardingHouses.photos', 'ownedBoardingHouses.images'])
+            ->with([
+                'ownerProfile',
+                'tenantProfile',
+                'tenantRecords.boardingHouse',
+                'tenantRecords.room',
+                'tenantRecords.payments',
+                'reservations.boardingHouse',
+                'reservations.room',
+                'ownedBoardingHouses.photos',
+                'ownedBoardingHouses.images',
+            ])
             ->whereIn('role', $roles)
             ->when($request->filled('q'), function ($query) use ($request) {
                 $term = '%'.$request->query('q').'%';
@@ -1060,6 +1071,32 @@ class AdminOwnerController extends Controller
             ->when($request->user()?->isStrictOwner(), fn ($query) => $query->whereKey($request->user()->id))
             ->orderBy('name')
             ->get(['id', 'name', 'email', 'phone', 'contact_number']);
+
+        if ($this->workspace === 'owner') {
+            $allAmenities = Schema::hasTable('amenities')
+                ? \App\Models\Amenity::query()->orderBy('name')->get(['id', 'name'])
+                : collect();
+            $publishedHouseIds = BoardingHouse::query()
+                ->whereIn('id', $ownerScopedHouseIds)
+                ->where('is_active', true)
+                ->whereRaw('LOWER(approval_status) = ?', ['approved'])
+                ->pluck('id');
+
+            $ownerSummary = [
+                'total_properties' => $totalBoardingHouses,
+                'published_properties' => $publishedHouseIds->count(),
+                'available_slots' => Room::query()
+                    ->whereIn('boarding_house_id', $publishedHouseIds)
+                    ->get(['available_slots'])
+                    ->sum(fn ($room) => max((int) ($room->available_slots ?? 0), 0)),
+                'pending_reservations' => Reservation::query()
+                    ->whereIn('boarding_house_id', $ownerScopedHouseIds)
+                    ->whereIn(DB::raw('LOWER(status)'), ['pending', 'reserved'])
+                    ->count(),
+            ];
+
+            return view('owner.boarding-houses', compact('houses', 'ownerSummary', 'allAmenities'));
+        }
 
         return view('admin.boarding-houses', compact('houses', 'owners', 'totalBoardingHouses', 'totalRooms', 'occupiedRooms', 'occupancyRate'));
     }
@@ -1921,12 +1958,13 @@ class AdminOwnerController extends Controller
                 : 0,
             'confirmed' => $this->countWhereStatus('reservations', ['confirmed', 'approved'], $ownerHouseIds),
             'pending' => $this->countWhereStatus('reservations', ['pending'], $ownerHouseIds),
-            'cancelled' => $this->countWhereStatus('reservations', ['cancelled', 'rejected'], $ownerHouseIds),
+            'rejected' => $this->countWhereStatus('reservations', ['rejected'], $ownerHouseIds),
+            'cancelled' => $this->countWhereStatus('reservations', ['cancelled'], $ownerHouseIds),
             'totalTrend' => $this->countTrend($this->countCreatedBetween('reservations', $weekStart, $weekEnd, null, $ownerCreatedScope), 'this week'),
             'confirmedTrend' => $this->countTrend($this->countCreatedBetween('reservations', $weekStart, $weekEnd, ['confirmed', 'approved'], $ownerCreatedScope), 'this week'),
             'pendingTrend' => $pendingTrend['label'],
             'pendingTone' => $pendingTrend['tone'],
-            'cancelledTrend' => $this->countTrend($this->countCreatedBetween('reservations', $weekStart, $weekEnd, ['cancelled', 'rejected'], $ownerCreatedScope), 'this week'),
+            'cancelledTrend' => $this->countTrend($this->countCreatedBetween('reservations', $weekStart, $weekEnd, ['cancelled'], $ownerCreatedScope), 'this week'),
         ];
 
         $today = now()->toDateString();
@@ -2054,14 +2092,14 @@ class AdminOwnerController extends Controller
         $this->authorizeAdmin($request);
 
         $rows = [[
-            'Reservation No.',
+            'Reference',
             'Tenant',
             'Boarding House',
             'Room Type',
             'Move-in Date',
             'Reservation Status',
             'Payment Status',
-            'Amount',
+            'Monthly Rent',
         ]];
 
         $this->reservationListingQuery($request)
@@ -2069,7 +2107,7 @@ class AdminOwnerController extends Controller
             ->get()
             ->each(function (Reservation $reservation) use (&$rows) {
                 $rows[] = [
-                    'RSV-'.now()->format('Y').'-'.str_pad((string) $reservation->id, 5, '0', STR_PAD_LEFT),
+                    'RES-'.str_pad((string) $reservation->id, 6, '0', STR_PAD_LEFT),
                     $reservation->user->name ?? 'Tenant',
                     $reservation->boardingHouse->name ?? 'Boarding house',
                     $reservation->room->room_type ?? $reservation->room->type ?? $reservation->room->effective_room_number ?? 'Room',
@@ -2421,6 +2459,9 @@ class AdminOwnerController extends Controller
 
         // Detect whether this is a full edit-modal save or a quick status-only action
         $isFullEdit = $request->boolean('_full_edit');
+        if (strtolower((string) $reservation->status) === 'rejected' && $request->input('status') !== 'rejected') {
+            abort(422, 'A rejected reservation cannot be reopened through this action.');
+        }
 
         if ($isFullEdit) {
             $data = $request->validate([
@@ -2442,6 +2483,16 @@ class AdminOwnerController extends Controller
                 'payment_status.required' => 'Please choose a payment status.',
                 'house_rules.required' => 'House rules are required. Type them or insert a template.',
             ]);
+
+            if ($request->user()?->isStrictOwner() && strtolower((string) $reservation->status) !== strtolower((string) $data['status'])) {
+                $current = strtolower((string) $reservation->status);
+                $allowed = match ($current) {
+                    'pending', 'reserved' => ['approved', 'confirmed', 'rejected', 'cancelled'],
+                    'approved', 'confirmed' => ['cancelled', 'completed'],
+                    default => [],
+                };
+                abort_unless(in_array($data['status'], $allowed, true), 422, 'That reservation status cannot transition from its current state.');
+            }
 
             $room = Room::find($data['room_id']);
             $roomChanged = (int) $reservation->room_id !== (int) $data['room_id'];
@@ -2476,7 +2527,33 @@ class AdminOwnerController extends Controller
                 'notes' => $data['notes'] ?? null,
             ];
 
+            if (Schema::hasColumn('reservations', 'rejection_reason')) {
+                $updates['rejection_reason'] = null;
+            }
+            if (Schema::hasColumn('reservations', 'cancelled_at')) {
+                $updates['cancelled_at'] = $data['status'] === 'cancelled' ? now() : null;
+            }
+
             $isApproval = in_array($data['status'], ['approved', 'confirmed'], true);
+            if ($isApproval && $data['payment_status'] === 'paid') {
+                $hasRecordedPayment = Schema::hasTable('payments')
+                    && Schema::hasTable('tenants')
+                    && Payment::query()
+                        ->where('tenant_id', function ($query) use ($reservation) {
+                            $query->select('id')->from('tenants')->where('user_id', $reservation->user_id)->limit(1);
+                        })
+                        ->where('boarding_house_id', $reservation->boarding_house_id)
+                        ->where('status', 'paid')
+                        ->when(Schema::hasColumn('payments', 'reservation_id'), fn ($query) => $query->where('reservation_id', $reservation->id))
+                        ->exists();
+
+                if (! $hasRecordedPayment) {
+                    return response()->json([
+                        'success' => false,
+                        'errors' => ['payment_status' => ['Confirmation cannot mark a payment as received. Record the cash payment separately after it is received.']],
+                    ], 422);
+                }
+            }
             if ($isApproval && Schema::hasColumn('reservations', 'approved_at')) {
                 $updates['approved_at'] = now();
             }
@@ -2581,13 +2658,27 @@ class AdminOwnerController extends Controller
         // --- Legacy quick-action path (approve/reject/cancel from confirm dialog) ---
         $data = $request->validate([
             'status' => ['sometimes', 'required', Rule::in(['pending', 'approved', 'confirmed', 'cancelled', 'rejected', 'expired'])],
-            'notes' => ['nullable', 'string', 'max:1000'],
+            'notes' => ['nullable', 'string', 'max:1000', Rule::requiredIf(fn () => $request->input('status') === 'rejected')],
         ]);
 
         if (! array_key_exists('status', $data)) {
             $reservation->update(['notes' => $data['notes'] ?? null]);
 
             return back()->with('success', 'Notes saved.');
+        }
+
+        $currentStatus = strtolower((string) $reservation->status);
+        $allowedTransitions = match ($currentStatus) {
+            'pending', 'reserved' => ['approved', 'confirmed', 'rejected', 'cancelled', 'expired'],
+            'approved', 'confirmed' => ['cancelled', 'completed'],
+            'rejected', 'cancelled', 'expired', 'completed' => [$currentStatus],
+            default => ['approved', 'confirmed', 'rejected', 'cancelled'],
+        };
+        if (! in_array($data['status'], $allowedTransitions, true)) {
+            abort(422, 'That reservation status cannot transition from its current state.');
+        }
+        if ($currentStatus === 'rejected' && $data['status'] === 'rejected') {
+            return back()->with('success', 'Reservation is already rejected.');
         }
 
         if ($data['status'] === 'expired') {
@@ -2598,6 +2689,22 @@ class AdminOwnerController extends Controller
 
         $updates = $data;
         $isApproval = in_array($data['status'], ['approved', 'confirmed'], true);
+        if ($data['status'] === 'rejected' && Schema::hasColumn('reservations', 'rejection_reason')) {
+            $updates['rejection_reason'] = trim((string) $data['notes']);
+            if (Schema::hasColumn('reservations', 'rejected_at')) {
+                $updates['rejected_at'] = now();
+            }
+            if (Schema::hasColumn('reservations', 'rejected_by')) {
+                $updates['rejected_by'] = $request->user()->id;
+            }
+        } elseif ($data['status'] !== 'rejected') {
+            if (Schema::hasColumn('reservations', 'rejection_reason')) $updates['rejection_reason'] = null;
+            if (Schema::hasColumn('reservations', 'rejected_at')) $updates['rejected_at'] = null;
+            if (Schema::hasColumn('reservations', 'rejected_by')) $updates['rejected_by'] = null;
+        }
+        if (Schema::hasColumn('reservations', 'cancelled_at')) {
+            $updates['cancelled_at'] = $data['status'] === 'cancelled' ? now() : null;
+        }
         if ($isApproval && Schema::hasColumn('reservations', 'approved_at')) {
             $updates['approved_at'] = now();
         }
@@ -2629,7 +2736,7 @@ class AdminOwnerController extends Controller
             'approved' => 'Your reservation has been approved. Please settle your payment to secure the room.',
             'confirmed' => 'Your reservation has been confirmed. Please settle your payment to secure the room.',
             'cancelled' => 'Your reservation has been cancelled. Contact the boarding house if this was unexpected.',
-            'rejected' => 'Your reservation request was declined. You can browse other boarding houses anytime.',
+            'rejected' => 'Your reservation request was declined. Reason: '.trim((string) ($reservation->rejection_reason ?: ($data['notes'] ?? 'No reason provided.'))).' You can browse other boarding houses anytime.',
         ];
 
         $this->notifyUser(
@@ -2725,11 +2832,15 @@ class AdminOwnerController extends Controller
             ->when($isOwner, fn ($query) => $query->whereIn('id', $ownerHouseIds))
             ->orderBy('name')
             ->get();
+        $reservations = Reservation::with(['user', 'boardingHouse', 'room'])
+            ->whereIn(DB::raw('LOWER(status)'), ReservationLifecycleService::APPROVED_STATUSES)
+            ->when($isOwner, fn ($query) => $query->whereIn('boarding_house_id', $ownerHouseIds))
+            ->latest('approved_at')->latest('id')->limit(200)->get();
         $financeWorkbench = $this->paymentWorkbenchData($isOwner ? $ownerHouseIds : null);
 
         $view = $tab === 'transactions' ? 'admin.transactions' : 'admin.payments';
 
-        return view($view, compact('payments', 'tenants', 'houses', 'tab', 'financeWorkbench'));
+        return view($view, compact('payments', 'tenants', 'houses', 'reservations', 'tab', 'financeWorkbench'));
     }
 
     /**
@@ -2784,31 +2895,131 @@ class AdminOwnerController extends Controller
             'paid_at' => ['nullable', 'date'],
             'status' => ['required', Rule::in(['paid', 'unpaid', 'pending', 'overdue'])],
             'payment_method' => ['nullable', Rule::in(['cash'])],
-            'payment_type' => ['nullable', Rule::in(['rent', 'reservation', 'service', 'other'])],
+            'payment_type' => ['nullable', Rule::in(['rent', 'advance_rent', 'reservation', 'downpayment', 'deposit', 'service', 'other'])],
             'reference_no' => ['nullable', 'string', 'max:100'],
             'reference_number' => ['nullable', 'string', 'max:100'],
+            'reservation_id' => ['nullable', 'integer', 'exists:reservations,id'],
+            'allocation_json' => ['nullable', 'json'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
+
+        $tenantRecord = Tenant::query()->with('user')->findOrFail($data['tenant_id']);
 
         if ($request->user()?->isStrictOwner()) {
             $ownedHouseIds = $this->ownerHouseIds($request);
 
             abort_unless($ownedHouseIds->contains((int) $data['boarding_house_id']), 403);
-            abort_unless(
-                Tenant::query()
-                    ->whereKey($data['tenant_id'])
-                    ->where('boarding_house_id', $data['boarding_house_id'])
-                    ->exists(),
-                403
-            );
+        }
+
+        abort_unless((int) $tenantRecord->boarding_house_id === (int) $data['boarding_house_id'], 403);
+
+        $approvedReservation = Reservation::query()
+            ->where('user_id', $tenantRecord->user_id)
+            ->where('boarding_house_id', $data['boarding_house_id'])
+            ->when($data['reservation_id'] ?? null, fn ($query, $id) => $query->whereKey($id))
+            ->whereIn(DB::raw('LOWER(status)'), ReservationLifecycleService::APPROVED_STATUSES)
+            ->latest('approved_at')
+            ->latest('id')
+            ->first();
+
+        abort_if(! $approvedReservation, 422, 'A cash payment can only be recorded after the owner approves the reservation.');
+
+        $paymentType = $data['payment_type'] ?? 'rent';
+        $allocationRows = [];
+        if ($paymentType === 'advance_rent') {
+            abort_if(! ($data['reservation_id'] ?? null), 422, 'Advance rent must be linked to the authoritative reservation.');
+            abort_if($data['status'] !== 'paid', 422, 'Advance rent must be recorded only after the cash is received.');
+            abort_if(! Schema::hasTable('advance_rent_allocations'), 422, 'Advance-rent allocation storage is not available yet.');
+
+            $allocationRows = json_decode((string) ($data['allocation_json'] ?? ''), true);
+            abort_if(! is_array($allocationRows) || $allocationRows === [], 422, 'Select at least one billing period for advance rent.');
+            $allocationTotal = 0.0;
+            foreach ($allocationRows as $row) {
+                abort_if(! is_array($row) || empty($row['billing_payment_id']) || empty($row['period_start']) || empty($row['period_end']) || ! is_numeric($row['amount']), 422, 'Each advance-rent allocation needs a billing period and amount.');
+                $start = Carbon::parse($row['period_start'], 'Asia/Manila')->toDateString();
+                $end = Carbon::parse($row['period_end'], 'Asia/Manila')->toDateString();
+                abort_if($end < $start, 422, 'An advance-rent period must end on or after its start date.');
+                $allocationTotal += (float) $row['amount'];
+            }
+            abort_if(abs(round($allocationTotal, 2) - round((float) $data['amount'], 2)) > 0.009, 422, 'Advance-rent allocations must equal the cash amount received.');
+        }
+        if (in_array($paymentType, ['downpayment', 'deposit'], true) && $data['status'] !== 'paid') {
+            abort(422, 'A cash downpayment must be recorded as received and paid.');
         }
 
         $data['payment_method'] = 'cash';
-        $data['payment_type'] = $data['payment_type'] ?? 'rent';
+        $data['payment_type'] = $paymentType;
         $data['reference_number'] = $data['reference_number'] ?? ($data['reference_no'] ?? null);
-        $payment = Payment::create($data);
+        $data['paid_at'] = $data['status'] === 'paid' ? ($data['paid_at'] ?? now()) : null;
+        if (Schema::hasColumn('payments', 'reservation_id')) {
+            $data['reservation_id'] = $approvedReservation->id;
+        }
+        if (Schema::hasColumn('payments', 'received_by')) {
+            $data['received_by'] = $request->user()->id;
+        }
+
+        $payment = DB::transaction(function () use ($data, $approvedReservation, $allocationRows) {
+            $duplicate = Payment::query()
+                ->where('tenant_id', $data['tenant_id'])
+                ->where('boarding_house_id', $data['boarding_house_id'])
+                ->when(Schema::hasColumn('payments', 'reservation_id'), fn ($query) => $query->where('reservation_id', $approvedReservation->id))
+                ->where('amount', $data['amount'])
+                ->where('status', 'paid')
+                ->when($data['reference_number'], fn ($query, $reference) => $query->where(function ($scope) use ($reference) {
+                    $scope->where('reference_no', $reference)->orWhere('reference_number', $reference);
+                }))
+                ->whereDate('paid_at', Carbon::parse($data['paid_at'])->toDateString())
+                ->lockForUpdate()
+                ->first();
+
+            if ($duplicate) {
+                return $duplicate;
+            }
+
+            $payment = Payment::create($data);
+
+            if ($payment->payment_type === 'advance_rent') {
+                foreach ($allocationRows as $row) {
+                    $billingPayment = Payment::query()
+                        ->with(['receipts', 'appliedAdvanceAllocations'])
+                        ->whereKey((int) $row['billing_payment_id'])
+                        ->where('tenant_id', $payment->tenant_id)
+                        ->where('boarding_house_id', $payment->boarding_house_id)
+                        ->where('reservation_id', $approvedReservation->id)
+                        ->whereRaw('LOWER(payment_type) = ?', ['rent'])
+                        ->lockForUpdate()
+                        ->first();
+                    abort_if(! $billingPayment, 422, 'Each allocation must target a rent bill on the selected reservation.');
+
+                    $alreadyCovered = (float) $billingPayment->receipts->where('status', PaymentReceipt::STATUS_APPROVED)->sum('amount')
+                        + (float) $billingPayment->appliedAdvanceAllocations->sum('amount');
+                    abort_if((float) $row['amount'] > max((float) $billingPayment->amount - $alreadyCovered, 0) + 0.009, 422, 'An allocation exceeds the remaining balance of its billing period.');
+
+                    $duplicatePeriod = AdvanceRentAllocation::query()
+                        ->where('reservation_id', $approvedReservation->id)
+                        ->where('period_start', Carbon::parse($row['period_start'], 'Asia/Manila')->toDateString())
+                        ->where('period_end', Carbon::parse($row['period_end'], 'Asia/Manila')->toDateString())
+                        ->lockForUpdate()
+                        ->exists();
+                    abort_if($duplicatePeriod, 422, 'That billing period already has an advance-rent allocation.');
+
+                    AdvanceRentAllocation::create([
+                        'payment_id' => $payment->id,
+                        'billing_payment_id' => $billingPayment->id,
+                        'reservation_id' => $approvedReservation->id,
+                        'tenant_id' => $payment->tenant_id,
+                        'period_start' => Carbon::parse($row['period_start'], 'Asia/Manila')->toDateString(),
+                        'period_end' => Carbon::parse($row['period_end'], 'Asia/Manila')->toDateString(),
+                        'amount' => $row['amount'],
+                    ]);
+                }
+            }
+
+            return $payment;
+        });
         if ($payment->status === 'paid') {
             $this->issuePaymentReceipt($payment, $request->user()->id);
+            $this->notifyTenantOfCashPayment($payment);
         }
 
         return back()->with('success', 'Payment record created.');
@@ -2818,6 +3029,17 @@ class AdminOwnerController extends Controller
     {
         $this->authorizeAdmin($request);
         $this->authorize('update', $payment);
+
+        $tenantUserId = Tenant::whereKey($payment->tenant_id)->value('user_id');
+        abort_if(
+            ! $tenantUserId || ! Reservation::query()
+                ->where('user_id', $tenantUserId)
+                ->where('boarding_house_id', $payment->boarding_house_id)
+                ->whereIn(DB::raw('LOWER(status)'), ReservationLifecycleService::APPROVED_STATUSES)
+                ->exists(),
+            422,
+            'Payments can only be updated after the owner approves the reservation.'
+        );
 
         $data = $request->validate([
             'status' => ['required', Rule::in(['paid', 'unpaid', 'pending', 'overdue'])],
@@ -2835,6 +3057,7 @@ class AdminOwnerController extends Controller
 
         if ($payment->status === 'paid') {
             $this->issuePaymentReceipt($payment, $request->user()->id);
+            $this->notifyTenantOfCashPayment($payment);
         }
 
         return back()->with('success', 'Payment updated.');
@@ -2852,6 +3075,11 @@ class AdminOwnerController extends Controller
         }
 
         $receiptNumber = 'RCT-PAY-'.now()->format('Y').'-'.str_pad((string) $payment->id, 6, '0', STR_PAD_LEFT);
+        $purpose = str((string) ($payment->payment_type ?: 'rent'))
+            ->replace(['_', '-'], ' ')
+            ->title()
+            ->toString();
+
         PaymentReceipt::create([
             'user_id' => $tenantUserId,
             'payment_id' => $payment->id,
@@ -2863,7 +3091,7 @@ class AdminOwnerController extends Controller
             'status' => PaymentReceipt::STATUS_APPROVED,
             'reviewed_at' => now(),
             'reviewed_by' => $reviewedBy,
-            'notes' => 'Payment recorded by owner/admin.',
+            'notes' => $purpose.' recorded by owner/admin.',
         ]);
 
         $payment->forceFill(['receipt_number' => $receiptNumber])->save();
@@ -2902,6 +3130,50 @@ class AdminOwnerController extends Controller
                     ->pluck('total', 'rating_value')
                 : collect(),
         ]);
+    }
+
+    private function notifyTenantOfCashPayment(Payment $payment): void
+    {
+        $tenantUserId = Tenant::whereKey($payment->tenant_id)->value('user_id');
+        if (! $tenantUserId || ! $payment->reservation_id) {
+            return;
+        }
+
+        $payment->loadMissing(['reservation.boardingHouse', 'advanceAllocations.billingPayment']);
+        $allocations = $payment->advanceAllocations->filter(function ($allocation) {
+            return $allocation->billingPayment
+                && (float) $allocation->amount + 0.009 >= (float) $allocation->billingPayment->amount;
+        });
+        $isTwoMonthAdvance = strtolower((string) $payment->payment_type) === 'advance_rent'
+            && $allocations->count() >= 2;
+        $title = $isTwoMonthAdvance ? '2 months advance rent recorded' : 'Cash payment recorded';
+        $purpose = $isTwoMonthAdvance ? 'Advance Rent' : str((string) ($payment->payment_type ?: 'rent'))->replace('_', ' ')->title()->toString();
+        $receipt = PaymentReceipt::where('payment_id', $payment->id)->latest('id')->first();
+        $message = $isTwoMonthAdvance
+            ? 'The owner recorded '.number_format((float) $payment->amount, 2).' in cash for two complete rent periods.'
+            : $purpose.' payment of '.number_format((float) $payment->amount, 2).' was recorded as received in cash.';
+
+        $this->notifyUser(
+            $tenantUserId,
+            $title,
+            $message,
+            'payment',
+            'payment:'.$payment->id.':recorded',
+            [
+                'payment_id' => $payment->id,
+                'receipt_id' => $receipt?->id,
+                'reservation_id' => $payment->reservation_id,
+                'payment_type' => $payment->payment_type,
+                'payment_method' => 'Cash',
+                'amount' => (float) $payment->amount,
+                'full_period_count' => $allocations->count(),
+                'periods' => $allocations->map(fn ($allocation) => [
+                    'start' => $allocation->period_start?->toDateString(),
+                    'end' => $allocation->period_end?->toDateString(),
+                    'amount' => (float) $allocation->amount,
+                ])->values()->all(),
+            ]
+        );
     }
 
     public function updateReview(Request $request, Review $review)

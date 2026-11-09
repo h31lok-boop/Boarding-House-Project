@@ -6,6 +6,8 @@
     $houseRecommendations = collect($houseRecommendations ?? []);
     $hasPreferences = (bool) ($hasPreferences ?? false);
     $recommendationMode = ($recommendationMode ?? 'matches') === 'suggestions' ? 'suggestions' : 'matches';
+    $preferenceMatches = collect($preferenceMatches ?? ($recommendationMode === 'matches' ? $houseRecommendations : []));
+    $otherOptions = collect($otherOptions ?? []);
     $isSuggestionMode = $recommendationMode === 'suggestions' && $houseRecommendations->isNotEmpty();
     $preferenceMatchCount = (int) ($preferenceMatchCount ?? ($isSuggestionMode ? 0 : $houseRecommendations->count()));
     $suggestionCount = (int) ($suggestionCount ?? ($isSuggestionMode ? $houseRecommendations->count() : 0));
@@ -15,9 +17,9 @@
     $tenant = $tenant ?? auth()->user();
     $preferenceSummary = $preferenceSummary ?? [];
     $houseFilters = $houseFilters ?? ['house_sort' => 'highest_match', 'room_type' => null, 'dssc_area' => null];
-    $topMatches = $houseRecommendations->take(4)->values();
+    $topMatches = $houseRecommendations->values();
     $compareMatches = $houseRecommendations->take(3)->values();
-    $featured = $topMatches->first();
+    $featured = $preferenceMatches->first() ?: $topMatches->first();
     $featuredHouse = data_get($featured, 'house');
     $featuredRecommendation = data_get($featured, 'recommendation', []);
 
@@ -211,7 +213,7 @@
                     @elseif ($hasPreferences)
                         The preference scan found
                         <span class="font-black text-blue-600 dark:text-blue-400">{{ $preferenceMatchCount }}</span>
-                        compatible {{ \Illuminate\Support\Str::plural('boarding house', $preferenceMatchCount) }}.
+                        compatible {{ \Illuminate\Support\Str::plural('boarding house', $preferenceMatchCount) }}{{ ! $isSuggestionMode && $otherOptions->isNotEmpty() ? ' and '.$otherOptions->count().' other eligible options' : '' }}.
                     @else
                         Set your preferences to unlock AI-ranked boarding houses matched to your budget, location, and lifestyle.
                     @endif
@@ -281,9 +283,10 @@
         <p class="px-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">Last successful AI explanation scan: {{ \Illuminate\Support\Carbon::parse($lastAiScanAt)->format('M d, Y h:i A') }}</p>
     @endif
 
-    <section class="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
+    <section class="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-5">
         @foreach ([
-            ['label' => $isSuggestionMode ? 'Suggestions' : 'Total Matches', 'value' => $isSuggestionMode ? $suggestionCount : $preferenceMatchCount, 'caption' => $isSuggestionMode ? 'Not preference matches' : 'Boarding Houses', 'color' => 'blue', 'icon' => 'home'],
+            ['label' => $isSuggestionMode ? 'Suggestions' : 'Matches', 'value' => $isSuggestionMode ? $suggestionCount : $preferenceMatchCount, 'caption' => $isSuggestionMode ? 'Not preference matches' : 'Meet the standard', 'color' => 'blue', 'icon' => 'home'],
+            ['label' => 'Other Options', 'value' => $isSuggestionMode ? 0 : $otherOptions->count(), 'caption' => 'Eligible and scored', 'color' => 'amber', 'icon' => 'home'],
             ['label' => $isSuggestionMode ? 'Top Rating' : 'Best Match', 'value' => $isSuggestionMode ? ($bestSuggestionRating > 0 ? number_format($bestSuggestionRating, 1).'/5' : 'Feature-based') : $bestScore.'%', 'caption' => $isSuggestionMode ? 'Published reviews' : 'Compatibility', 'color' => 'violet', 'icon' => 'sparkles'],
             ['label' => 'Near DSSC', 'value' => $nearDsscCount, 'caption' => 'Within 1 km', 'color' => 'emerald', 'icon' => 'pin'],
             ['label' => 'Within Budget', 'value' => $withinBudgetCount, 'caption' => $isSuggestionMode ? 'Suggested options' : 'Matches', 'color' => 'amber', 'icon' => 'wallet'],
@@ -448,7 +451,7 @@
                             <div class="mt-2.5 grid gap-2 sm:grid-cols-2">
                                 <a href="{{ route('user.boarding-houses.show', $featuredHouse) }}" class="inline-flex h-9 items-center justify-center rounded-xl border border-blue-200 bg-white px-3 text-xs font-black text-blue-600 transition hover:-translate-y-0.5 hover:bg-blue-50 dark:border-blue-500/30 dark:bg-slate-950 dark:text-blue-300">View Details</a>
                                 @if ($availableRooms($featuredHouse) > 0)
-                                    <a href="{{ route('user.boarding-houses.show', $featuredHouse) }}#reservation-panel" class="inline-flex h-9 items-center justify-center rounded-xl bg-blue-600 px-3 text-xs font-black text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-blue-700">Reserve Now</a>
+                                    <a href="{{ route('user.reservations.index', ['mode' => 'create', 'property_id' => $featuredHouse->id, 'return_to' => 'listing']) }}" class="inline-flex h-9 items-center justify-center rounded-xl bg-blue-600 px-3 text-xs font-black text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-blue-700">Reserve Now</a>
                                 @else
                                     <a href="{{ route('user.boarding-houses.show', $featuredHouse) }}" class="inline-flex h-9 items-center justify-center rounded-xl bg-slate-200 px-3 text-xs font-black text-slate-500 transition hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-400" title="No rooms currently available — check the listing for updates">Fully Booked — View Listing</a>
                                 @endif
@@ -464,7 +467,7 @@
                 <article class="self-start rounded-2xl border border-slate-100 bg-white p-4 shadow-[0_14px_34px_rgba(15,23,42,0.07)] dark:border-slate-800 dark:bg-slate-900">
                 <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h2 class="text-base font-black text-slate-950 dark:text-white">{{ $isSuggestionMode ? 'Suggested Alternatives' : 'Top Matches For You' }}</h2>
+                        <h2 class="text-base font-black text-slate-950 dark:text-white">{{ $isSuggestionMode ? 'Suggested Alternatives' : 'Ranked Matches and Other Options' }}</h2>
                         <p class="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">{{ $isSuggestionMode ? 'These are recommendations based on ratings, features, and availability—not preference matches.' : 'Only listings that meet the preference-match standard are shown here.' }}</p>
                     </div>
                     <button type="button" class="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-700 dark:border-slate-700 dark:text-slate-200 xl:hidden" @click="filtersOpen = ! filtersOpen">
@@ -474,11 +477,27 @@
                 </div>
 
                 <div class="mt-3 divide-y divide-slate-100 dark:divide-slate-800">
-                    @foreach ($topMatches as $index => $item)                        @php
+                    @foreach ($topMatches as $index => $item)
+                        @if (! $isSuggestionMode && $otherOptions->isNotEmpty() && $index === $preferenceMatches->count())
+                            <div class="border-t border-slate-100 py-3 dark:border-slate-800">
+                                <h3 class="text-sm font-black text-slate-950 dark:text-white">Other Options</h3>
+                                <p class="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">Eligible, scored listings below the {{ $matchThreshold }}% preference-match standard.</p>
+                            </div>
+                        @endif
+                        @php
                             $house = data_get($item, 'house');
                             $rec = data_get($item, 'recommendation', []);
                             $score = $rawScore($item);
                             $tone = $scoreTone($score);
+                            $unmet = collect(data_get($rec, 'scores', []))
+                                ->filter(fn ($value) => is_numeric($value) && (float) $value < 0.65)
+                                ->keys()
+                                ->map(fn ($key) => match ($key) {
+                                    'room_type' => 'room type',
+                                    'lifestyle' => 'lifestyle',
+                                    default => str_replace('_', ' ', $key),
+                                })
+                                ->values();
                             $roomsLeft = $availableRooms($house);
                             $roomsLabel = $roomsLeft > 2 ? 'Available Now' : ($roomsLeft > 0 ? $roomsLeft.' Rooms Left' : 'Check Availability');
                             $roomsTone = $roomsLeft > 2 ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/30' : 'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30';
@@ -499,6 +518,9 @@
                                 <h3 class="truncate text-sm font-black text-slate-950 dark:text-white">{{ $house->name }}</h3>
                                 <p class="mt-1 truncate text-xs font-semibold text-slate-500 dark:text-slate-400">{{ $distanceLabel($item) }}</p>
                                 <span class="mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[10px] font-black ring-1 {{ $roomsTone }}">{{ $roomsLabel }}</span>
+                                @if (! $isSuggestionMode && $score < $matchThreshold)
+                                    <p class="mt-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">{{ $unmet->isNotEmpty() ? 'Lower fit: '.$unmet->implode(', ') : 'Some preferences are not fully met.' }}</p>
+                                @endif
                             </div>
                             <div class="flex items-center sm:block sm:text-right">
                                 @if ($isSuggestionMode)
@@ -506,7 +528,7 @@
                                     <p class="ml-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400 sm:ml-0">Suggestion</p>
                                 @else
                                     <p class="text-lg font-black {{ $tone['text'] }}">{{ $score }}%</p>
-                                    <p class="ml-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400 sm:ml-0">Match</p>
+                                    <p class="ml-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400 sm:ml-0">{{ $score >= $matchThreshold ? 'Match' : 'Other option' }}</p>
                                 @endif
                             </div>
                             <div class="hidden items-center text-slate-400 sm:flex">
@@ -523,8 +545,8 @@
                 </div>
 
                 <div class="mt-4 flex justify-center">
-                    <a href="{{ route('user.boarding-houses.index', ['tab' => 'recommended']) }}" class="inline-flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-black text-blue-600 transition hover:bg-blue-50 hover:text-blue-700 dark:text-blue-300 dark:hover:bg-blue-500/10">
-                        {{ $isSuggestionMode ? 'View All Listings' : 'View All Matches' }}
+                    <a href="{{ route('user.boarding-houses.index', ['tab' => 'matchmaking', 'house_min_score' => 0]) }}" class="inline-flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-black text-blue-600 transition hover:bg-blue-50 hover:text-blue-700 dark:text-blue-300 dark:hover:bg-blue-500/10">
+                        {{ $isSuggestionMode ? 'View All Listings' : 'View All Matches and Other Options' }}
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 8.25 21 12m0 0-3.75 3.75M21 12H3" /></svg>
                     </a>
                 </div>

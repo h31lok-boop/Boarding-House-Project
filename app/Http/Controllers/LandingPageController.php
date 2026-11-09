@@ -42,21 +42,23 @@ class LandingPageController extends Controller
             ->limit(6)
             ->get();
 
-        $mapBoardingHouses = BoardingHouse::query()
-            ->inServiceArea()
-            ->visible()
-            ->with(['images', 'photos', 'rooms', 'roomCategories'])
-            ->whereNotNull('latitude')
-            ->whereNotNull('longitude')
-            ->get();
-        $recanaBoardingHouse = $mapBoardingHouses->first(
-            fn (BoardingHouse $house): bool => str_contains(strtolower((string) $house->name), 'recaña')
-                || str_contains(strtolower((string) $house->name), 'recana')
-        );
-
         $tenant = auth()->user();
         $hasMatchPreferences = $tenant?->isTenant()
             && $recommendationService->hasPreferences($tenant);
+
+        $visibleHousesForStats = BoardingHouse::query()
+            ->visible()
+            ->withCount([
+                'rooms as available_room_count' => fn ($query) => $query->available(),
+            ])
+            ->withSum('roomCategories as category_available_room_count', 'available_rooms')
+            ->get(['id', 'available_rooms']);
+        $verifiedListingCount = $visibleHousesForStats->count();
+        $availableRoomCount = $visibleHousesForStats->sum(fn (BoardingHouse $house): int => max(
+            (int) ($house->available_rooms ?? 0),
+            (int) ($house->available_room_count ?? 0),
+            (int) ($house->category_available_room_count ?? 0),
+        ));
 
         $featuredBoardingHouses->each(function (BoardingHouse $house) use ($recommendationService, $tenant, $hasMatchPreferences): void {
             $house->match_score = $hasMatchPreferences
@@ -64,33 +66,11 @@ class LandingPageController extends Controller
                 : null;
         });
 
-        $landingMapListings = $mapBoardingHouses
-            ->filter(fn (BoardingHouse $house): bool => $house->latitude !== null && $house->longitude !== null)
-            ->map(function (BoardingHouse $house): array {
-                $availableRooms = max(
-                    (int) ($house->available_rooms ?? 0),
-                    (int) ($house->available_rooms_count ?? 0),
-                    (int) ($house->room_categories_available_rooms_sum ?? 0),
-                );
-
-                return [
-                    'name' => $house->name,
-                    'latitude' => (float) $house->latitude,
-                    'longitude' => (float) $house->longitude,
-                    'image' => $house->cover_image_url,
-                    'price' => $house->effective_price,
-                    'distance' => $house->distance_from_dssc !== null
-                        ? number_format((float) $house->distance_from_dssc, 2).' km from DSSC'
-                        : 'Distance unavailable',
-                    'availability' => $availableRooms > 0
-                        ? $availableRooms.' '.\Illuminate\Support\Str::plural('room', $availableRooms).' available'
-                        : 'Check availability',
-                    'url' => route('login'),
-                ];
-            })
-            ->values()
-            ->all();
-
-        return view('welcome', compact('featuredBoardingHouses', 'hasMatchPreferences', 'landingMapListings', 'recanaBoardingHouse'));
+        return view('welcome', compact(
+            'featuredBoardingHouses',
+            'hasMatchPreferences',
+            'verifiedListingCount',
+            'availableRoomCount',
+        ));
     }
 }

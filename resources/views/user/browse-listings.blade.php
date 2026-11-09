@@ -55,7 +55,7 @@
                 ? ((float) $distance < 1 ? number_format((float) $distance * 1000).'m from DSSC Main Campus' : number_format((float) $distance, 1).' km from DSSC Main Campus')
                 : 'Near Digos City');
 
-        $address = $house->full_address ?: ($house->address ?: ($house->display_barangay ?: 'Digos City'));
+        $address = $house->canonical_address ?: ($house->display_barangay ?: 'Digos City');
         $latitude = is_numeric($house->latitude) ? (float) $house->latitude : null;
         $longitude = is_numeric($house->longitude) ? (float) $house->longitude : null;
         $hasCoordinates = $latitude !== null && $longitude !== null;
@@ -123,7 +123,7 @@
             'amenities' => $house->amenities->pluck('name')->values(),
             'available_rooms' => $availableRooms,
             'url' => route('user.boarding-houses.show', $house),
-            'reserve_url' => route('user.boarding-houses.show', $house).'#reservation-panel',
+            'reserve_url' => route('user.reservations.index', ['mode' => 'create', 'property_id' => $house->id, 'return_to' => 'listing']),
         ];
     })->values();
 
@@ -156,19 +156,11 @@
         ['label' => 'Tres de Mayo', 'href' => route('user.boarding-houses.index', ['tab' => 'near', 'dssc_area' => 'tres-de-mayo', 'available_only' => 1, 'sort' => 'distance_dssc']), 'active' => $dsscArea === 'tres-de-mayo'],
     ];
 
-    $budgetMax = (int) ($preferenceSummary['preferred_rental_budget'] ?? request('max_price', 3500));
     $dsscMapUrl = 'https://www.openstreetmap.org/?mlat='.
         rawurlencode((string) ($dsscLandmark['latitude'] ?? config('dssc.latitude'))).
         '&mlon='.rawurlencode((string) ($dsscLandmark['longitude'] ?? config('dssc.longitude'))).
         '#map=14/'.rawurlencode((string) ($dsscLandmark['latitude'] ?? config('dssc.latitude'))).
         '/'.rawurlencode((string) ($dsscLandmark['longitude'] ?? config('dssc.longitude')));
-    $browseTabs = [
-        ['key' => 'recommended', 'label' => 'Recommended for You', 'href' => route('user.boarding-houses.index', ['tab' => 'recommended'])],
-        ['key' => 'near', 'label' => 'Near DSSC', 'href' => route('user.boarding-houses.index', ['tab' => 'near', 'dssc_area' => 'near', 'dssc_radius' => 1, 'available_only' => 1, 'sort' => 'distance_dssc'])],
-        ['key' => 'budget', 'label' => 'Budget Friendly', 'href' => route('user.boarding-houses.index', ['tab' => 'budget', 'max_price' => $budgetMax, 'available_only' => 1, 'sort' => 'price_asc'])],
-        ['key' => 'recent', 'label' => 'Recently Added', 'href' => route('user.boarding-houses.index', ['tab' => 'recent', 'available_only' => 1, 'sort' => 'newest'])],
-        ['key' => 'all', 'label' => 'All Listings', 'href' => route('user.boarding-houses.index', ['tab' => 'all'])],
-    ];
 @endphp
 
 <div
@@ -251,16 +243,6 @@
             @foreach($locationChips as $chip)
                 <x-user.browse-location-chip :href="$chip['href']" :active="$chip['active']">{{ $chip['label'] }}</x-user.browse-location-chip>
             @endforeach
-            <div class="relative" x-data="{ open: false }">
-                <button type="button" @click="open = !open" class="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-bold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-800">
-                    More
-                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m19 9-7 7-7-7" /></svg>
-                </button>
-                <div x-cloak x-show="open" @click.outside="open = false" x-transition class="absolute right-0 z-20 mt-2 w-48 rounded-xl border border-slate-200 bg-white p-2 text-sm shadow-xl dark:border-slate-700 dark:bg-slate-950">
-                    <a href="{{ route('user.boarding-houses.index', ['tab' => 'all']) }}" class="block rounded-lg px-3 py-2 font-semibold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">All Digos City</a>
-                    <a href="{{ route('user.preferences.index') }}" class="block rounded-lg px-3 py-2 font-semibold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800">Edit preferred areas</a>
-                </div>
-            </div>
         </div>
     </section>
 
@@ -268,16 +250,20 @@
         <input type="hidden" name="tab" value="{{ $selectedBrowseTab }}">
         <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
             <label class="block">
-                <span class="sr-only">Budget</span>
-                <select name="max_price" @change="filtering = true; $event.target.form.submit()" class="h-9 w-full rounded-xl border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 shadow-none focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
-                    <option value="">Budget</option>
-                    <option value="3000" @selected(request('max_price') == '3000')>Under PHP 3,000</option>
-                    <option value="4500" @selected(request('max_price') == '4500')>Up to PHP 4,500</option>
-                    <option value="6000" @selected(request('max_price') == '6000')>Up to PHP 6,000</option>
-                    <option value="9000" @selected(request('max_price') == '9000')>Up to PHP 9,000</option>
-                </select>
+                <span class="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Maximum Monthly Budget (₱)</span>
+                <input
+                    type="number"
+                    name="max_price"
+                    value="{{ request('max_price') }}"
+                    min="1"
+                    step="1"
+                    inputmode="decimal"
+                    placeholder="Enter your budget"
+                    aria-label="Maximum Monthly Budget (₱)"
+                    class="h-9 w-full rounded-xl border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-700 shadow-none placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:placeholder:text-slate-500"
+                >
             </label>
-            <label class="block">
+            <label class="block pt-5">
                 <span class="sr-only">Room Type</span>
                 <select name="room_type" @change="filtering = true; $event.target.form.submit()" class="h-9 w-full rounded-xl border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 shadow-none focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
                     <option value="">Room Type</option>
@@ -288,7 +274,7 @@
                     <option value="dormitory" @selected(request('room_type') === 'dormitory')>Dormitory</option>
                 </select>
             </label>
-            <label class="block">
+            <label class="block pt-5">
                 <span class="sr-only">Gender Preference</span>
                 <select name="gender_preference" @change="filtering = true; $event.target.form.submit()" class="h-9 w-full rounded-xl border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 shadow-none focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
                     <option value="">Gender Preference</option>
@@ -297,7 +283,7 @@
                     <option value="mixed" @selected(request('gender_preference') === 'mixed')>Mixed</option>
                 </select>
             </label>
-            <label class="block">
+            <label class="block pt-5">
                 <span class="sr-only">Availability</span>
                 <select name="available_only" @change="filtering = true; $event.target.form.submit()" class="h-9 w-full rounded-xl border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 shadow-none focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
                     <option value="">Availability</option>
@@ -305,7 +291,7 @@
                     <option value="0" @selected(request('available_only') == '0')>Show all</option>
                 </select>
             </label>
-            <label class="block">
+            <label class="block pt-5">
                 <span class="sr-only">More Filters</span>
                 <select name="sort" @change="filtering = true; $event.target.form.submit()" class="h-9 w-full rounded-xl border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 shadow-none focus:border-blue-500 focus:ring-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
                     <option value="">More Filters</option>
@@ -317,17 +303,6 @@
             </label>
         </div>
     </form>
-
-    <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-        <nav class="flex gap-2 overflow-x-auto border-b border-slate-200 dark:border-slate-800" aria-label="Boarding house result categories">
-            @foreach($browseTabs as $tab)
-                <a href="{{ $tab['href'] }}" class="shrink-0 border-b-2 px-2.5 py-2 text-xs font-bold transition {{ $selectedBrowseTab === $tab['key'] ? 'border-blue-600 text-blue-600 dark:text-blue-300' : 'border-transparent text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100' }}">
-                    {{ $tab['label'] }}
-                </a>
-            @endforeach
-        </nav>
-
-    </div>
 
     @if (collect($mapHouses ?? [])->isNotEmpty())
         <x-user.browse-map-panel

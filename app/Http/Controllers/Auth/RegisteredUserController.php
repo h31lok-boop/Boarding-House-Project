@@ -43,7 +43,7 @@ class RegisteredUserController extends Controller
 
     public function showOwnerRegistrationForm(): View
     {
-        return view('auth.register-owner');
+        return view('auth.register', ['selectedRole' => 'owner']);
     }
 
     public function register(Request $request): RedirectResponse
@@ -200,11 +200,11 @@ class RegisteredUserController extends Controller
         if ($role === 'tenant') {
             $rules['school'] = ['required', 'string', 'max:255'];
             $rules['course_year'] = ['required', 'string', 'max:255'];
-            $rules['preferred_location'] = ['required', 'string', 'max:255'];
+            $rules['preferred_location'] = ['nullable', 'string', 'max:255'];
             $rules['rental_budget'] = ['required', 'numeric', 'min:0', 'max:999999'];
             $rules['budget_min'] = ['nullable', 'numeric', 'min:0', 'max:999999'];
             $rules['budget_max'] = ['nullable', 'numeric', 'min:0', 'max:999999'];
-            $rules['lifestyle_info'] = ['required', 'string', 'max:3000'];
+            $rules['lifestyle_info'] = ['nullable', 'string', 'max:3000'];
         }
 
         if ($role === 'owner') {
@@ -260,7 +260,6 @@ class RegisteredUserController extends Controller
             'preferred_location.required' => 'Preferred location is required.',
             'rental_budget.required' => 'Rental budget is required.',
             'rental_budget.numeric' => 'Rental budget must be a number.',
-            'lifestyle_info.required' => 'Lifestyle information is required for AI recommendations.',
             'bh_name.required' => 'Boarding house name is required.',
             'bh_address.required' => 'Boarding house address is required.',
             'bh_contact.required' => 'Boarding house contact number is required.',
@@ -359,9 +358,9 @@ class RegisteredUserController extends Controller
             'user_id' => $user->id,
             'school_university' => $validated['school'],
             'course_year_level' => $validated['course_year'],
-            'preferred_location' => $validated['preferred_location'],
+            'preferred_location' => $validated['preferred_location'] ?? null,
             'rental_budget' => $validated['rental_budget'],
-            'lifestyle_information' => $validated['lifestyle_info'],
+            'lifestyle_information' => $validated['lifestyle_info'] ?? null,
             'school_company' => $validated['school'],
             'course_or_position' => $validated['course_year'],
             'valid_id_type' => null,
@@ -376,14 +375,18 @@ class RegisteredUserController extends Controller
             return;
         }
 
+        $matchNotes = array_values(array_filter([
+            filled($validated['preferred_location'] ?? null)
+                ? 'Preferred Location: '.$validated['preferred_location']
+                : null,
+            $validated['lifestyle_info'] ?? null,
+        ]));
+
         TenantMatchProfile::create([
             'user_id' => $user->id,
             'budget_min' => $validated['budget_min'] ?? $validated['rental_budget'],
             'budget_max' => $validated['budget_max'] ?? $validated['rental_budget'],
-            'additional_notes' => implode("\n\n", [
-                'Preferred Location: '.$validated['preferred_location'],
-                $validated['lifestyle_info'],
-            ]),
+            'additional_notes' => implode("\n\n", $matchNotes),
             'gender_preference' => 'no_preference',
             'completed_at' => now(),
         ]);

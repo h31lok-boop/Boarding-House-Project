@@ -2,6 +2,7 @@
 
 use App\Models\BoardingHouse;
 use App\Models\OwnerProfile;
+use App\Models\TenantProfile;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -77,6 +78,44 @@ test('admin user management separates tenants owners and administrators', functi
         ->assertSee('User Management')
         ->assertSee($tenant->name)
         ->assertDontSee($owner->name);
+});
+
+test('user details payload is keyed to each users current database relationships', function () {
+    $admin = User::factory()->create([
+        'role' => 'admin',
+        'status' => 'active',
+        'is_active' => true,
+    ]);
+    $first = User::factory()->create([
+        'name' => 'First Tenant',
+        'role' => 'user',
+        'status' => 'active',
+        'is_active' => true,
+        'phone' => '09170000001',
+    ]);
+    $second = User::factory()->create([
+        'name' => 'Second Tenant',
+        'role' => 'user',
+        'status' => 'active',
+        'is_active' => true,
+        'phone' => '09170000002',
+    ]);
+    TenantProfile::create([
+        'user_id' => $first->id,
+        'student_id' => 'STU-001',
+        'school_company' => 'DSSC',
+        'course_or_position' => 'BSIT',
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('admin.user-management', ['account_type' => 'tenant']))
+        ->assertOk()
+        ->assertSee('data-user-id="'.$first->id.'"', false)
+        ->assertSee('data-user-id="'.$second->id.'"', false)
+        ->assertSee('09170000001', false)
+        ->assertSee('09170000002', false)
+        ->assertSee('STU-001', false)
+        ->assertSee('DSSC', false);
 });
 
 test('admin owner applications keep the list compact and show linked houses in the review modal', function () {
@@ -318,7 +357,7 @@ test('the boarding house editor cannot publish a listing for an unverified owner
             'is_active' => '1',
             'approval_status' => 'approved',
         ])
-        ->assertSessionHasErrors('approval_status');
+        ->assertForbidden();
 
     expect($house->fresh()->is_active)->toBeFalse()
         ->and($house->fresh()->approval_status)->toBe('pending');

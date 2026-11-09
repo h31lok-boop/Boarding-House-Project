@@ -21,7 +21,7 @@ const DEFAULT_MESSAGES = {
     initial: 'Open the reservation panel to request your location and preview the route.',
     requesting: 'Getting your location…',
     reset: 'Map reset. Open the reservation panel or tap Reserve Room to route again.',
-    missingCoordinates: 'Map route is unavailable because this boarding house has no saved coordinates.',
+    missingCoordinates: 'Exact location not provided.',
     geolocationDenied: 'Enable location services to see live routes from your current location. The map is centered on the boarding house for now.',
     routeFailed: 'Route could not be generated right now. Please try again in a moment.',
     locationUnavailable: 'Your location could not be determined right now. Please check your device settings and try again.',
@@ -1078,15 +1078,26 @@ class BoardingHouseLocationMap {
         this.setProvider(basemap === 'hybrid' ? 'MapLibre Hybrid + OSRM' : 'OpenStreetMap + OSRM');
 
         if (!this.destination) {
-            this.showUnavailable(serviceAreaMessage());
-            this.setRouteStatus(serviceAreaMessage(), 'warning');
+            const configuredHouseCoordinates = this.coordinateFromConfig(this.config.house);
+            const unavailableMessage = configuredHouseCoordinates
+                ? serviceAreaMessage()
+                : this.message('missingCoordinates');
+            this.setLoading(false);
+            this.showUnavailable(unavailableMessage);
+            this.setRouteStatus(unavailableMessage, 'warning');
             return;
         }
 
         this.hideUnavailable();
         await this.initMap();
         this.setRouteStatus(this.message('initial'));
-        window.setTimeout(() => this.map?.resize(), 140);
+        const resizeMap = () => this.map?.resize();
+        window.setTimeout(resizeMap, 140);
+        window.addEventListener('resize', resizeMap);
+        if ('ResizeObserver' in window) {
+            this.resizeObserver = new ResizeObserver(resizeMap);
+            this.resizeObserver.observe(this.root);
+        }
 
         if (this.root.dataset.autoRouteOnLoad === 'true') {
             window.setTimeout(() => this.autoLocateFromReservationFlow(), 220);
@@ -1110,6 +1121,7 @@ const initializeBoardingHouseMaps = () => {
         const locationMap = new BoardingHouseLocationMap(root);
         locationMap.init().catch((error) => {
             console.error('Boarding house map failed to initialize.', error);
+            locationMap.setLoading(false);
             locationMap.showUnavailable(locationMap.message('routeFailed'));
         });
     });

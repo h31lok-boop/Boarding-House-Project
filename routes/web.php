@@ -191,6 +191,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/my-boarding-house', [OwnerController::class, 'property'])->name('my-boarding-house');
         Route::get('/boarding-houses', [OwnerController::class, 'boardingHousesIndex'])->name('boarding-houses');
         Route::get('/boarding-houses/create', [OwnerController::class, 'boardingHousesIndex'])->name('boarding-houses.create');
+        Route::get('/boarding-houses/{boardingHouse}/edit', [OwnerController::class, 'editBoardingHouse'])->name('boarding-houses.edit');
+        Route::get('/boarding-houses/{boardingHouse}', [OwnerController::class, 'propertyDetails'])->name('boarding-houses.details');
         Route::post('/listings', [BoardingHouseController::class, 'store'])->name('listings.store');
         Route::put('/listings/{boarding_house}', [BoardingHouseController::class, 'update'])->name('listings.update');
         Route::delete('/listings/{boarding_house}', [BoardingHouseController::class, 'destroy'])->name('listings.destroy');
@@ -301,6 +303,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/messages', [TenantAreaController::class, 'storeMessage'])->middleware('throttle:10,1')->name('messages.store');
         Route::get('/help-center', [HelpCenterController::class, 'index'])->name('help');
         Route::get('/help-center', [HelpCenterController::class, 'index'])->name('help-center.index');
+        Route::get('/help-center/support-request/{supportRequest}', [HelpCenterController::class, 'show'])->name('help-center.show');
         Route::post('/help-center/support-request', [HelpCenterController::class, 'store'])->name('help.store');
         Route::post('/help-center/support-request', [HelpCenterController::class, 'store'])->name('help-center.store');
         Route::get('/reviews', [TenantAreaController::class, 'reviews'])->name('reviews');
@@ -313,6 +316,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/profile', [UserPreferenceController::class, 'edit'])->name('profile');
         Route::put('/profile', [UserPreferenceController::class, 'update'])->name('profile.update');
         Route::get('/settings', [UserSettingsController::class, 'index'])->name('settings.index');
+        Route::put('/settings/profile', [UserSettingsController::class, 'updateProfile'])->name('settings.profile.update');
         Route::put('/settings/personal-information', [UserSettingsController::class, 'updatePersonalInfo'])->name('settings.personal.update');
         Route::put('/settings/contact-information', [UserSettingsController::class, 'updateContactInfo'])->name('settings.contact.update');
         Route::put('/settings/password', [UserSettingsController::class, 'updatePassword'])->name('settings.password.update');

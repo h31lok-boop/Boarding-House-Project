@@ -84,10 +84,10 @@ class GeoBoardAccessSeeder extends Seeder
             $this->ensureTenantProfile($tenant->id, $admin->id, 'Davao del Sur State College');
         }
 
-        $this->removeOtherAccounts($accounts->all(), $admin, $owners->first());
-        $this->assertAccountRoster();
+        $this->call(ConsolidateSeededAccountsSeeder::class);
+        $this->assertCanonicalAccounts();
 
-        $this->command?->info('Seeded exactly 1 administrator, 2 owners, and 5 tenants.');
+        $this->command?->info('Seeded the canonical administrator, owner, and tenant accounts.');
     }
 
     /**
@@ -102,13 +102,6 @@ class GeoBoardAccessSeeder extends Seeder
                 'username' => 'owner',
                 'phone' => '09170000002',
                 'company' => 'Jani Boarding House Office',
-            ],
-            [
-                'name' => 'Maria Santos',
-                'email' => 'owner2@boardmatch.test',
-                'username' => 'owner2',
-                'phone' => '09170000003',
-                'company' => 'Santos Student Homes',
             ],
         ];
     }
@@ -126,28 +119,10 @@ class GeoBoardAccessSeeder extends Seeder
                 'phone' => '09171000001',
             ],
             [
-                'name' => 'Carlo Mendoza',
-                'email' => 'tenant2@boardmatch.test',
-                'username' => 'tenant2',
-                'phone' => '09171000002',
-            ],
-            [
                 'name' => 'Mae Dela Peña',
                 'email' => 'tenant3@boardmatch.test',
                 'username' => 'tenant3',
                 'phone' => '09171000003',
-            ],
-            [
-                'name' => 'John Bautista',
-                'email' => 'tenant4@boardmatch.test',
-                'username' => 'tenant4',
-                'phone' => '09171000004',
-            ],
-            [
-                'name' => 'Angela Ramos',
-                'email' => 'tenant5@boardmatch.test',
-                'username' => 'tenant5',
-                'phone' => '09171000005',
             ],
         ];
     }
@@ -314,24 +289,12 @@ class GeoBoardAccessSeeder extends Seeder
         });
     }
 
-    private function assertAccountRoster(): void
+    private function assertCanonicalAccounts(): void
     {
-        $counts = User::query()
-            ->selectRaw('LOWER(role) as role_name, COUNT(*) as total')
-            ->groupBy('role_name')
-            ->pluck('total', 'role_name');
-
-        $actual = [
-            'admin' => (int) ($counts['admin'] ?? 0),
-            'owner' => (int) ($counts['owner'] ?? 0),
-            'tenant' => (int) collect(['user', 'tenant', 'student'])->sum(
-                fn (string $role) => (int) ($counts[$role] ?? 0)
-            ),
-            'total' => User::query()->count(),
-        ];
-
-        if ($actual !== ['admin' => 1, 'owner' => 2, 'tenant' => 5, 'total' => 8]) {
-            throw new \RuntimeException('Unexpected seeded account roster: '.json_encode($actual));
+        foreach (['admin@example.com', 'owner@example.com', 'tenant@example.com'] as $email) {
+            if (! User::query()->where('email', $email)->exists()) {
+                throw new \RuntimeException("Canonical account missing after consolidation: {$email}");
+            }
         }
     }
 

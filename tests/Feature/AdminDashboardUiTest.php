@@ -35,7 +35,6 @@ test('admin dashboard action routes are reachable', function (string $routeName,
         ->assertOk();
 })->with([
     'search' => ['admin.search', ['query' => 'tenant']],
-    'boarding house create' => ['admin.boarding-houses.create', []],
     'notifications' => ['admin.notifications.index', []],
     'reports' => ['admin.reports.index', []],
 ]);

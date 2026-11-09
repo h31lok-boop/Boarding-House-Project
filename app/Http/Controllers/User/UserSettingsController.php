@@ -30,6 +30,7 @@ class UserSettingsController extends Controller
         return view('user.settings', [
             'tenant' => $tenant,
             'notificationPreferences' => $this->notificationPreferences($tenant),
+            'savedTheme' => data_get($tenant->preferences, 'theme', 'light') === 'dark' ? 'dark' : 'light',
             'privacyPreferences' => $this->privacyPreferences($tenant),
             'completionItems' => $this->profileCompletionItems($tenant),
             'completionPercent' => $this->profileCompletionPercent($tenant),
@@ -37,6 +38,84 @@ class UserSettingsController extends Controller
             'accountStatus' => $this->accountStatus($tenant),
             'accountType' => $this->accountType($tenant),
         ]);
+    }
+
+    public function updateProfile(Request $request): RedirectResponse
+    {
+        $tenant = $this->tenant($request);
+        $validated = $request->validate([
+            'first_name' => ['required', 'string', 'max:100'],
+            'last_name' => ['required', 'string', 'max:100'],
+            'phone_number' => ['nullable', 'string', 'max:20', 'regex:/^[0-9+\-\s().]{7,20}$/'],
+            'date_of_birth' => ['nullable', 'date'],
+            'gender' => ['nullable', Rule::in(['Male', 'Female', 'Other', 'Prefer not to say'])],
+            'emergency_contact_name' => ['nullable', 'string', 'max:100'],
+            'emergency_contact_number' => ['nullable', 'string', 'max:30', 'regex:/^[0-9+\-\s().]{7,30}$/'],
+            'emergency_contact_relationship' => ['nullable', 'string', 'max:50'],
+            'rent_reminders' => ['required', 'boolean'],
+            'match_recommendations' => ['required', 'boolean'],
+            'theme' => [Rule::in(['light', 'dark'])],
+            'profile_photo' => ['nullable', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
+        ], [
+            'phone_number.regex' => 'Please enter a valid phone number.',
+            'emergency_contact_number.regex' => 'Please enter a valid emergency contact number.',
+        ]);
+
+        $newPhotoPath = null;
+        if ($request->hasFile('profile_photo')) {
+            $newPhotoPath = $request->file('profile_photo')->store('profile-photos', 'public');
+        }
+
+        $oldPhotoPaths = collect([$tenant->photo_path, $tenant->profile_photo, $tenant->profile_image])
+            ->filter()->unique()->values();
+
+        try {
+            DB::transaction(function () use ($tenant, $validated, $newPhotoPath): void {
+                $tenant->forceFill([
+                    'first_name' => $validated['first_name'],
+                    'last_name' => $validated['last_name'],
+                    'name' => trim($validated['first_name'].' '.$validated['last_name']),
+                    'phone_number' => $validated['phone_number'] ?: null,
+                    'phone' => $validated['phone_number'] ?: null,
+                    'contact_number' => $validated['phone_number'] ?: null,
+                    'date_of_birth' => $validated['date_of_birth'] ?? null,
+                    'gender' => $validated['gender'] ?? null,
+                    'notify_payment_reminders' => (bool) $validated['rent_reminders'],
+                    'allow_matchmaking_data' => (bool) $validated['match_recommendations'],
+                    'preferences' => array_merge((array) ($tenant->preferences ?? []), ['theme' => $validated['theme']]),
+                ]);
+
+                if ($newPhotoPath) {
+                    $tenant->photo_path = $newPhotoPath;
+                    $tenant->profile_photo = $newPhotoPath;
+                    $tenant->profile_image = $newPhotoPath;
+                }
+
+                $tenant->save();
+
+                $profile = $tenant->tenantProfile()->firstOrCreate(['user_id' => $tenant->id]);
+                $profile->forceFill([
+                    'emergency_contact_name' => $validated['emergency_contact_name'] ?: null,
+                    'emergency_contact_number' => $validated['emergency_contact_number'] ?: null,
+                    'emergency_contact_relationship' => $validated['emergency_contact_relationship'] ?: null,
+                ])->save();
+
+                if (Schema::hasTable('user_notification_preferences')) {
+                    $preference = $this->notificationPreferenceModel($tenant);
+                    $preference->sms_notifications = (bool) $validated['rent_reminders'];
+                    $preference->save();
+                }
+            });
+        } catch (\Throwable $exception) {
+            $this->deletePublicFile($newPhotoPath);
+            throw $exception;
+        }
+
+        if ($newPhotoPath) {
+            $oldPhotoPaths->each(fn (string $path) => $this->deletePublicFile($path));
+        }
+
+        return redirect()->route('user.settings.index')->with('success', 'Settings saved successfully.');
     }
 
     public function updatePersonalInfo(Request $request): RedirectResponse

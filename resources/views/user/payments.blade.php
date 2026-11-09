@@ -4,112 +4,73 @@
     $money = fn ($value, $decimals = 2) => html_entity_decode('&#8369;').number_format((float) $value, $decimals);
     $paymentSchedule = collect($paymentSchedule ?? []);
     $receipts = collect($receipts ?? []);
-    $nextPayment = $paymentSchedule->first();
-    $amountDue = (float) data_get($nextPayment, 'amount', $summaryTotal ?? 0);
-    $nextDueDate = data_get($nextPayment, 'due_date');
+    $advancePeriods = collect(data_get($advanceRent ?? [], 'periods', []));
+    $advanceReceipts = $receipts->filter(fn ($receipt) => strtolower((string) $receipt->payment?->payment_type) === 'advance_rent')->values();
+    $advanceReceipt = $advanceReceipts->first();
+    $paymentFilters = $paymentFilters ?? [];
+    $selectedReservationId = ($reservationContext ?? null)?->id;
+    $availableReservations = collect([$reservationContext ?? null])->merge($pastReservations ?? collect())->filter()->unique('id')->values();
 @endphp
 
-<div x-data="{ detailOpen: false, selected: {} }" class="space-y-4">
-    <x-user.page-header
-        eyebrow="Payment Center"
-        title="Payments"
-        subtitle="Review your balance, pay the property owner in cash, and open your official receipts."
-    />
+<div x-data="{ paymentTab: 'schedule' }" class="user-payments-page space-y-5">
+    <x-user.page-header eyebrow="Payment Center" title="Payments" subtitle="Your rent, balances, and recorded payments." />
 
-    @if (session('success'))
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800 shadow-sm dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200">
-            {{ session('success') }}
-        </div>
+    @if ($availableReservations->isNotEmpty())
+        <section class="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900" aria-label="Financial reservation selector">
+            <form method="GET" action="{{ route('user.payments.index') }}" class="grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(180px,1.2fr)_minmax(140px,0.8fr)_minmax(130px,0.7fr)_minmax(130px,0.7fr)_auto] lg:items-end">
+                <label for="payment-reservation" class="text-xs font-bold text-slate-600 dark:text-slate-300">Reservation<select id="payment-reservation" name="reservation" class="mt-1 h-10 min-w-0 w-full flex-1 rounded-lg border-slate-200 bg-white text-sm font-normal shadow-sm focus:border-blue-500 focus:ring-blue-500/30 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                    @foreach ($availableReservations as $availableReservation)
+                        <option value="{{ $availableReservation->id }}" @selected((int) $selectedReservationId === (int) $availableReservation->id)>{{ $availableReservation->boardingHouse?->name ?? 'Boarding house unavailable' }} · RES-{{ str_pad((string) $availableReservation->id, 6, '0', STR_PAD_LEFT) }}</option>
+                    @endforeach
+                </select></label>
+                <label class="text-xs font-bold text-slate-600 dark:text-slate-300">Payment Type<select name="payment_type" class="mt-1 h-10 w-full rounded-lg border-slate-200 bg-white text-sm font-normal shadow-sm focus:border-blue-500 focus:ring-blue-500/30 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"><option value="">All Types</option><option value="rent" @selected(($paymentFilters['payment_type'] ?? '') === 'rent')>Rent</option><option value="advance_rent" @selected(($paymentFilters['payment_type'] ?? '') === 'advance_rent')>Advance Rent</option><option value="downpayment" @selected(($paymentFilters['payment_type'] ?? '') === 'downpayment')>Downpayment</option><option value="security_deposit" @selected(($paymentFilters['payment_type'] ?? '') === 'security_deposit')>Security Deposit</option><option value="deposit" @selected(($paymentFilters['payment_type'] ?? '') === 'deposit')>Deposit</option></select></label>
+                <label class="text-xs font-bold text-slate-600 dark:text-slate-300">From Date<input name="date_from" type="date" value="{{ $paymentFilters['date_from'] ?? '' }}" class="mt-1 h-10 w-full rounded-lg border-slate-200 bg-white text-sm font-normal shadow-sm focus:border-blue-500 focus:ring-blue-500/30 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"></label>
+                <label class="text-xs font-bold text-slate-600 dark:text-slate-300">To Date<input name="date_to" type="date" value="{{ $paymentFilters['date_to'] ?? '' }}" class="mt-1 h-10 w-full rounded-lg border-slate-200 bg-white text-sm font-normal shadow-sm focus:border-blue-500 focus:ring-blue-500/30 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"></label>
+                <div class="flex gap-2"><button class="inline-flex h-10 items-center justify-center rounded-lg bg-blue-600 px-3.5 text-xs font-bold text-white hover:bg-blue-700">Apply</button><a href="{{ route('user.payments.index', $selectedReservationId ? ['reservation' => $selectedReservationId] : []) }}" class="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 px-3.5 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">Reset</a></div>
+            </form>
+        </section>
     @endif
 
-    @if (session('error'))
-        <div class="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700 shadow-sm dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-200">
-            {{ session('error') }}
-        </div>
-    @endif
+    @if (session('success'))<div class="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800 shadow-sm dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200">{{ session('success') }}</div>@endif
+    @if (session('error'))<div class="rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-700 shadow-sm dark:border-red-400/20 dark:bg-red-400/10 dark:text-red-200">{{ session('error') }}</div>@endif
 
-    <section data-tenant-payment-overview class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div class="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div class="flex min-w-0 items-center gap-3">
-                <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-xs font-black text-white">₱</span>
-                <div class="min-w-0">
-                    <h2 class="text-sm font-bold text-slate-950 dark:text-white">Cash payment only</h2>
-                    <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Pay directly to the property owner or authorized front desk staff.</p>
-                </div>
-            </div>
+    @if (! ($hasApprovedReservation ?? false))
+        <section class="rounded-2xl border border-slate-200 bg-white px-4 py-5 text-sm font-semibold text-slate-600 shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">{{ $paymentEmptyMessage ?? 'Payment details will appear after owner approval.' }}</section>
+    @else
+        <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label="Payment summary">
+            <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"><p class="text-xs font-bold uppercase tracking-wide text-slate-400">Monthly Rent</p><p class="mt-2 text-2xl font-black tabular-nums text-slate-950 dark:text-white">{{ isset($agreedRent) && $agreedRent !== null ? $money($agreedRent) : 'Not set' }}</p></div>
+            <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"><p class="text-xs font-bold uppercase tracking-wide text-slate-400">Current Amount Due</p><p class="mt-2 text-2xl font-black tabular-nums text-slate-950 dark:text-white">{{ ($hasBillingData ?? false) ? $money($currentAmountDue ?? 0) : '—' }}</p><p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Due now, including overdue balances</p></div>
+            <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"><p class="text-xs font-bold uppercase tracking-wide text-slate-400">Advance Rent Remaining</p><p class="mt-2 text-2xl font-black tabular-nums text-blue-700 dark:text-blue-300">{{ $advancePeriods->isNotEmpty() ? $money($advanceRentRemaining ?? 0) : '—' }}</p><p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Unused allocated coverage</p></div>
+            <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"><p class="text-xs font-bold uppercase tracking-wide text-slate-400">Next Rent Due</p>@if ($nextDueDate)<p class="mt-2 text-2xl font-black tabular-nums text-slate-950 dark:text-white">{{ $money($nextDueAmount ?? 0) }}</p><p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Due {{ $nextDueDate }}</p>@else<p class="mt-2 text-2xl font-black text-slate-950 dark:text-white">No upcoming rent due.</p>@endif</div>
+        </section>
 
-            <div class="sm:text-right">
-                <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Amount due</p>
-                <p class="mt-0.5 text-xl font-black tabular-nums text-slate-950 dark:text-white">{{ $money($amountDue) }}</p>
-                <p class="text-[11px] text-slate-500 dark:text-slate-400">{{ $nextDueDate ? 'Due '.$nextDueDate : 'No payment due' }}</p>
-            </div>
-        </div>
+        @if (($advanceRent['full_period_count'] ?? 0) > 0 && $advanceReceipt)
+            <section class="rounded-2xl border border-blue-200 bg-blue-50/70 p-4 shadow-sm dark:border-blue-400/20 dark:bg-blue-400/10" aria-label="Advance rent details">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><h2 class="text-base font-black text-blue-950 dark:text-blue-100">{{ $advanceRent['full_period_count'] }} {{ $advanceRent['full_period_count'] === 1 ? 'month' : 'months' }} advance rent recorded</h2><p class="mt-1 text-sm text-blue-900 dark:text-blue-200">Actual amount: {{ $money($advanceRent['amount'] ?? 0) }} · Payment date: {{ $advanceReceipt->payment_date?->format('M d, Y') ?: 'Not recorded' }}</p></div>@if ($advanceReceipts->count() > 1)<a href="{{ route('user.transactions.index', $selectedReservationId ? ['reservation' => $selectedReservationId] : []) }}" class="inline-flex h-10 items-center justify-center rounded-lg bg-blue-600 px-3.5 text-xs font-bold text-white hover:bg-blue-700">View Payments</a>@elseif ($advanceReceipt->status === \App\Models\PaymentReceipt::STATUS_APPROVED && $advanceReceipt->receipt_path)<a href="{{ route('payment-receipts.print', $advanceReceipt) }}" target="_blank" class="inline-flex h-10 items-center justify-center rounded-lg bg-blue-600 px-3.5 text-xs font-bold text-white hover:bg-blue-700">View Receipt</a>@endif</div>
+                <div class="mt-3 grid gap-2 text-xs text-blue-900 sm:grid-cols-2 lg:grid-cols-3 dark:text-blue-200"><span>Cash payment date: {{ $advanceReceipt->payment_date?->format('M d, Y') ?: 'Not set' }}</span><span>Remaining coverage: {{ $money($advanceRentRemaining ?? 0) }}</span>@if (data_get($advanceRent, 'covered_through'))<span>Covered through: {{ data_get($advanceRent, 'covered_through') }}</span>@endif</div>
+                <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-blue-900 dark:text-blue-200">@foreach ($advancePeriods as $period)<span>{{ $period['start'] }} – {{ $period['end'] }}: {{ $money($period['amount'] ?? 0) }}</span>@endforeach</div>
+            </section>
+        @endif
 
-        <div class="grid gap-px border-t border-slate-200 bg-slate-200 dark:border-slate-800 dark:bg-slate-800 sm:grid-cols-4">
-            @foreach ($statusGuide as $step)
-                <div class="bg-white p-3 dark:bg-slate-900">
-                    <p class="text-xs font-bold text-slate-900 dark:text-white">{{ $step['label'] }}</p>
-                    <p class="mt-1 text-[11px] leading-4 text-slate-500 dark:text-slate-400">{{ $step['description'] }}</p>
-                </div>
-            @endforeach
-        </div>
-    </section>
+        @if ($depositAmount === null)<p class="text-sm font-semibold text-slate-500 dark:text-slate-400">Deposit not set.</p>@endif
 
-    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div class="border-b border-slate-100 px-3.5 py-3 dark:border-slate-800">
-            <h2 class="text-sm font-semibold text-slate-950 dark:text-white">Payment Schedule</h2>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
-                <thead class="bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:bg-slate-800/70 dark:text-slate-300">
-                    <tr>
-                        <th class="px-3.5 py-3">Due date</th>
-                        <th class="px-3.5 py-3">Type</th>
-                        <th class="px-3.5 py-3 text-right">Amount</th>
-                        <th class="px-3.5 py-3 text-right">Status</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                    @forelse ($paymentSchedule as $schedule)
-                        <tr>
-                            <td class="whitespace-nowrap px-3.5 py-3 font-medium text-slate-700 dark:text-slate-200">{{ $schedule['due_date'] }}</td>
-                            <td class="px-3.5 py-3 text-slate-700 dark:text-slate-300">{{ $schedule['type'] }}</td>
-                            <td class="whitespace-nowrap px-3.5 py-3 text-right font-semibold tabular-nums text-slate-950 dark:text-white">{{ $money($schedule['amount']) }}</td>
-                            <td class="whitespace-nowrap px-3.5 py-3 text-right"><x-payments.status-badge :status="$schedule['status']" /></td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="4" class="px-4 py-10 text-center text-sm text-slate-500 dark:text-slate-400">No payment schedule yet.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </section>
+        <nav class="payments-tabs flex items-center gap-2 border-b border-slate-200 dark:border-slate-800" aria-label="Payment details">
+            <button type="button" @click="paymentTab = 'schedule'" :class="paymentTab === 'schedule' ? 'border-blue-600 text-blue-700 dark:text-blue-300' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'" class="border-b-2 px-3 py-2 text-sm font-bold">Billing Schedule</button>
+            <button type="button" @click="paymentTab = 'history'" :class="paymentTab === 'history' ? 'border-blue-600 text-blue-700 dark:text-blue-300' : 'border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'" class="border-b-2 px-3 py-2 text-sm font-bold">Payment History</button>
+        </nav>
 
-    @if ($receipts->isNotEmpty())
-        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div class="border-b border-slate-100 px-3.5 py-3 dark:border-slate-800">
-                <h2 class="text-sm font-semibold text-slate-950 dark:text-white">Cash payment receipts</h2>
-            </div>
-            <div class="divide-y divide-slate-100 dark:divide-slate-800">
-                @foreach ($receipts as $receipt)
-                    <div class="flex flex-wrap items-center justify-between gap-3 px-3.5 py-3">
-                        <div>
-                            <p class="text-xs font-bold text-slate-900 dark:text-white">{{ $receipt->receipt_number ?: 'Receipt #'.$receipt->id }}</p>
-                            <p class="mt-0.5 text-[11px] text-slate-500">{{ $receipt->payment_date?->format('M d, Y') ?: 'Not set' }} · Cash Payment</p>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <span class="text-sm font-bold text-slate-900 dark:text-white">{{ $money($receipt->amount) }}</span>
-                            @if ($receipt->status === \App\Models\PaymentReceipt::STATUS_APPROVED)
-                                <a href="{{ route('payment-receipts.print', $receipt) }}" target="_blank" class="text-xs font-bold text-blue-600 hover:text-blue-700">Preview / Print</a>
-                            @else
-                                <span class="text-xs font-semibold text-slate-500">Recorded</span>
-                            @endif
-                        </div>
-                    </div>
-                @endforeach
-            </div>
+        <section x-show="paymentTab === 'schedule'" x-cloak class="payments-table-card overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div class="border-b border-slate-100 px-4 py-3 dark:border-slate-800"><h2 class="text-base font-black text-slate-950 dark:text-white">Payment Schedule</h2></div>
+            <div class="overflow-x-auto"><table class="min-w-[700px] w-full text-left text-sm"><thead class="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-800/70 dark:text-slate-300"><tr><th class="px-4 py-3">Billing Period</th><th class="px-4 py-3">Due Date</th><th class="px-4 py-3 text-right">Charge</th><th class="px-4 py-3 text-right">Paid</th><th class="px-4 py-3 text-right">Balance</th><th class="px-4 py-3 text-right">Status</th></tr></thead><tbody class="divide-y divide-slate-100 dark:divide-slate-800">@forelse ($paymentSchedule as $schedule)<tr><td class="px-4 py-3 text-slate-700 dark:text-slate-200">{{ $schedule['billing_period'] ?? 'Not set' }}<div class="mt-0.5 text-xs text-slate-400">{{ $schedule['type'] }}</div></td><td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">{{ $schedule['due_date'] }}</td><td class="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-700 dark:text-slate-200">{{ $money($schedule['charge'] ?? 0) }}</td><td class="whitespace-nowrap px-4 py-3 text-right tabular-nums text-slate-700 dark:text-slate-200">{{ $money($schedule['paid'] ?? 0) }}</td><td class="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-slate-950 dark:text-white">{{ $money($schedule['balance'] ?? 0) }}</td><td class="whitespace-nowrap px-4 py-3 text-right"><x-payments.status-badge :status="$schedule['status']" /></td></tr>@empty<tr><td colspan="6" class="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">Billing schedule not set.</td></tr>@endforelse</tbody></table></div>
+        </section>
+
+        <section x-show="paymentTab === 'history'" x-cloak class="payments-table-card overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div class="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 dark:border-slate-800"><h2 class="text-base font-black text-slate-950 dark:text-white">Payment History <span class="ml-1 text-xs font-semibold text-slate-400">({{ $receipts->count() }})</span></h2><a href="{{ route('user.transactions.index', $selectedReservationId ? ['reservation' => $selectedReservationId] : []) }}" class="text-xs font-bold text-blue-600 hover:text-blue-700 dark:text-blue-300">View all transactions</a></div>
+            @if ($receipts->isNotEmpty())
+                <div class="overflow-x-auto"><table class="min-w-[900px] w-full text-left text-sm"><thead class="bg-slate-50 text-xs font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-800/70 dark:text-slate-300"><tr><th class="px-4 py-3">Payment Date</th><th class="px-4 py-3">Reference No.</th><th class="px-4 py-3">Payment Type</th><th class="px-4 py-3">Covered Period</th><th class="px-4 py-3">Method</th><th class="px-4 py-3 text-right">Amount</th><th class="px-4 py-3 text-right">Receipt</th></tr></thead><tbody class="divide-y divide-slate-100 dark:divide-slate-800">@foreach ($receipts as $receipt)@php($receiptPeriods = collect($receipt->payment?->advanceAllocations ?? []))@php($fullPeriods = $receiptPeriods->filter(fn ($period) => $period->billingPayment && (float) $period->amount >= (float) $period->billingPayment->amount)->count())<tr><td class="whitespace-nowrap px-4 py-3 text-slate-700 dark:text-slate-200">{{ $receipt->payment_date?->format('M d, Y') ?: 'Not recorded' }}</td><td class="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-300">{{ $receipt->receipt_number ?: ($receipt->payment?->reference_no ?: $receipt->payment?->reference_number ?: 'Not recorded') }}</td><td class="px-4 py-3 font-semibold text-slate-700 dark:text-slate-200">{{ strtolower((string) $receipt->payment?->payment_type) === 'advance_rent' && $fullPeriods > 0 ? 'Advance Rent — '.$fullPeriods.' '.($fullPeriods === 1 ? 'month' : 'months') : ($receipt->payment?->payment_type ? \Illuminate\Support\Str::headline($receipt->payment->payment_type) : 'Not recorded') }}</td><td class="px-4 py-3 text-xs text-slate-600 dark:text-slate-300">@if ($receiptPeriods->isNotEmpty())@foreach ($receiptPeriods as $period)<span class="mr-2 inline-block">{{ $period->period_start?->format('M d, Y') }} – {{ $period->period_end?->format('M d, Y') }}</span>@endforeach@else<span class="text-slate-400">Not recorded</span>@endif</td><td class="px-4 py-3 text-slate-700 dark:text-slate-200">{{ $receipt->payment?->payment_method ?: $receipt->payment_method ?: 'Not recorded' }}</td><td class="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums text-slate-950 dark:text-white">{{ $money($receipt->amount) }}</td><td class="px-4 py-3 text-right">@if ($receipt->status === \App\Models\PaymentReceipt::STATUS_APPROVED && $receipt->receipt_path)<a href="{{ route('payment-receipts.print', $receipt) }}" target="_blank" class="font-bold text-blue-600 hover:text-blue-700">View Receipt</a>@else<span class="text-xs text-slate-400">Not recorded</span>@endif</td></tr>@endforeach</tbody></table></div>
+            @else
+                <p class="px-4 py-8 text-center text-sm text-slate-500 dark:text-slate-400">No recorded payments yet.</p>
+            @endif
         </section>
     @endif
 </div>

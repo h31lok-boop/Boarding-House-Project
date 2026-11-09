@@ -10,6 +10,8 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             DatabaseSnapshotSeeder::class,
+            ConsolidateSeededAccountsSeeder::class,
+            AssignBoardingHousesToOwnerSeeder::class,
         ]);
     }
 

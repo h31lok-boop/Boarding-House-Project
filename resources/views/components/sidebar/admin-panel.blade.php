@@ -29,7 +29,7 @@
     $isSuperAdmin = $sidebarUser?->isSuperAdmin() ?? false;
     $sidebarUserIsOwner = $sidebarUser?->isStrictOwner() ?? false;
 
-    $navBase = 'group/sidebar-item relative flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400/70';
+    $navBase = 'group/sidebar-item relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400/70';
     $navActive = $navBase . ' bg-[#2563EB] text-white shadow-[0_10px_22px_rgba(37,99,235,0.3)]';
     $navInactive = $navBase . ' text-[#CBD5E1] hover:bg-white/10 hover:text-white';
 
@@ -228,7 +228,7 @@
     @foreach ($sections as $section)
         <section class="space-y-1">
             @if ($section['label'] !== 'OVERVIEW')
-                <p class="sidebar-group px-2.5 text-[9px] font-bold uppercase tracking-[0.14em] text-[#8298B5]">{{ $section['label'] }}</p>
+                <p class="sidebar-group px-3 text-[10px] font-bold uppercase tracking-[0.14em] text-[#8298B5]">{{ $section['label'] }}</p>
             @endif
             <div class="space-y-0.5">
                 @foreach ($section['items'] as $menu)

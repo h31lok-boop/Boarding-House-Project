@@ -203,6 +203,71 @@ test('owners register through the dedicated permit form and remain blocked until
     $this->assertAuthenticatedAs($owner);
 });
 
+test('newly registered tenant and owner accounts are read from the database by user management without exposing passwords', function () {
+    Storage::fake('public');
+
+    $this->post(route('register.store'), [
+        'name' => 'Database Tenant',
+        'email' => 'database-tenant@example.com',
+        'role' => 'tenant',
+        'phone' => '+639991222222',
+        'school' => 'DSSC',
+        'course_year' => 'BSIT 4',
+        'rental_budget' => 3500,
+        'password' => 'TenantSafe9!',
+        'password_confirmation' => 'TenantSafe9!',
+        'terms' => '1',
+    ])->assertRedirect();
+
+    $this->post(route('logout'));
+
+    $this->post(route('register.owner.store'), [
+        'name' => 'Database Owner',
+        'email' => 'database-owner@example.com',
+        'phone' => '+639991333333',
+        'password' => 'OwnerSafe9!',
+        'password_confirmation' => 'OwnerSafe9!',
+        'bh_name' => 'Database Owner House',
+        'bh_address' => 'Matti, Digos City',
+        'latitude' => 6.7677800,
+        'longitude' => 125.3062000,
+        'bh_contact' => '+639991333333',
+        'room_types' => ['single'],
+        'rent_min' => 3000,
+        'rent_max' => 5000,
+        'amenities' => ['wifi'],
+        'house_rules' => 'Respect quiet hours.',
+        'proof_of_ownership' => testImageUpload('database-permit.png'),
+        'terms' => '1',
+    ])->assertRedirect(route('login', absolute: false));
+
+    $admin = User::factory()->create([
+        'role' => 'admin',
+        'status' => 'active',
+        'is_active' => true,
+    ]);
+
+    $tenant = User::where('email', 'database-tenant@example.com')->firstOrFail();
+    $owner = User::where('email', 'database-owner@example.com')->firstOrFail();
+
+    $this->actingAs($admin)
+        ->get(route('admin.user-management', ['account_type' => 'tenant']))
+        ->assertOk()
+        ->assertSee('Database Tenant')
+        ->assertSee('database-tenant@example.com')
+        ->assertDontSee('TenantSafe9!')
+        ->assertDontSee($tenant->password);
+
+    $this->actingAs($admin)
+        ->get(route('admin.user-management', ['account_type' => 'owner']))
+        ->assertOk()
+        ->assertSee('Database Owner')
+        ->assertSee('database-owner@example.com')
+        ->assertSee('Pending approval')
+        ->assertDontSee('OwnerSafe9!')
+        ->assertDontSee($owner->password);
+});
+
 test('owner registration cannot be submitted without a business permit', function () {
     Storage::fake('public');
 

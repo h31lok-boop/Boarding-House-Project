@@ -1,7 +1,7 @@
 # Recommended Tech Stack
 
 ## Core
-- Backend: `Laravel 12` (PHP 8.4)
+- Backend: `Laravel 12` (PHP 8.3)
 - Frontend templating: `Blade + Tailwind CSS + Alpine.js`
 - Database: `MySQL 8`
 - Auth: `Laravel Breeze` + `spatie/laravel-permission`

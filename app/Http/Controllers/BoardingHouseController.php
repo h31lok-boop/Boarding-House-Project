@@ -84,8 +84,8 @@ class BoardingHouseController extends Controller
             'distance_from_dssc' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'is_near_dssc' => ['nullable', 'boolean'],
             'location_status' => ['nullable', Rule::in(['exact', 'approximate'])],
-            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
-            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:latitude'],
             'description' => [Rule::requiredIf($requiresDetails), 'nullable', 'string'],
             'house_rules' => ['nullable', 'string'],
             'landlord_info' => [Rule::requiredIf($requiresDetails), 'nullable', 'string', 'max:255'],
@@ -93,6 +93,9 @@ class BoardingHouseController extends Controller
             'contact_name' => ['nullable', 'string', 'max:255'],
             'contact_phone' => ['nullable', 'string', 'max:50'],
             'monthly_payment' => [Rule::requiredIf($requiresDetails), 'numeric', 'min:0'],
+            'advance_rent' => ['nullable', 'integer', 'min:0', 'max:24'],
+            'security_deposit' => ['nullable', 'numeric', 'min:0'],
+            'billing_cycle' => ['nullable', Rule::in(['monthly', 'weekly'])],
             'capacity' => ['nullable', 'integer', 'min:1'],
             'available_rooms' => ['nullable', 'integer', 'min:0'],
             'is_active' => ['nullable', 'boolean'],
@@ -247,8 +250,8 @@ class BoardingHouseController extends Controller
             'distance_from_dssc' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'is_near_dssc' => ['nullable', 'boolean'],
             'location_status' => ['nullable', Rule::in(['exact', 'approximate'])],
-            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
-            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90', 'required_with:longitude'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180', 'required_with:latitude'],
             'description' => ['nullable', 'string'],
             'house_rules' => ['nullable', 'string'],
             'landlord_info' => [Rule::requiredIf($requiresDetails), 'nullable', 'string', 'max:255'],
@@ -477,7 +480,7 @@ class BoardingHouseController extends Controller
 
         if ($activeTenants > 0) {
             return redirect()->route($redirectRoute)->with(
-                'error',
+                'delete_error',
                 'Cannot delete this property because it has '.$activeTenants.' active '.($activeTenants === 1 ? 'tenant' : 'tenants').'. Move them out before deleting.'
             );
         }
@@ -488,7 +491,7 @@ class BoardingHouseController extends Controller
 
         if ($pendingReservations > 0) {
             return redirect()->route($redirectRoute)->with(
-                'error',
+                'delete_error',
                 'Cannot delete this property because there '.($pendingReservations === 1 ? 'is' : 'are').' '.$pendingReservations.' pending '.($pendingReservations === 1 ? 'reservation' : 'reservations').'. Resolve them before deleting.'
             );
         }

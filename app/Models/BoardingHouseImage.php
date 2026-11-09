@@ -39,12 +39,28 @@ class BoardingHouseImage extends Model
         $this->attributes['is_primary'] = (bool) $value;
     }
 
-    public function getUrlAttribute(): string
+    public function getUrlAttribute(): ?string
     {
-        if (Str::startsWith($this->image_path, ['http://', 'https://', '/'])) {
-            return $this->image_path;
+        $path = trim(str_replace('\\', '/', (string) $this->image_path));
+        $parts = parse_url($path);
+
+        if (($parts['scheme'] ?? null) !== null || ($parts['host'] ?? null) !== null) {
+            $host = strtolower((string) ($parts['host'] ?? ''));
+            if (! in_array($host, ['localhost', '127.0.0.1', '::1'], true)) {
+                return $path;
+            }
+            $path = (string) ($parts['path'] ?? '');
         }
 
-        return Storage::disk('public')->url($this->image_path);
+        $path = ltrim($path, '/');
+        foreach (['storage/', 'public/'] as $prefix) {
+            if (Str::startsWith($path, $prefix)) {
+                $path = Str::after($path, $prefix);
+            }
+        }
+
+        return Storage::disk('public')->exists($path)
+            ? asset('storage/'.$path)
+            : (is_file(public_path($path)) ? asset($path) : null);
     }
 }

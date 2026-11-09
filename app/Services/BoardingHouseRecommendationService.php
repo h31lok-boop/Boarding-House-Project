@@ -100,8 +100,22 @@ class BoardingHouseRecommendationService
                 ->values()
             : collect();
 
+        $otherOptions = $matches->isNotEmpty()
+            ? $ranked
+                ->reject(fn (array $item): bool => $matches->contains(
+                    fn (array $match): bool => (int) data_get($match, 'house.id') === (int) data_get($item, 'house.id')
+                ))
+                ->map(function (array $item): array {
+                    $item['recommendation']['result_type'] = 'other_option';
+
+                    return $item;
+                })
+                ->values()
+            : collect();
+
         return [
             'matches' => $matches,
+            'other_options' => $otherOptions,
             'suggestions' => $suggestions,
             'scanned_count' => $ranked->count(),
             'match_threshold' => (int) config('matchmaking.boarding_house_match_threshold', 70),
@@ -261,7 +275,7 @@ class BoardingHouseRecommendationService
         return $reasons ?: ['Approved active listing with details available for review.'];
     }
 
-    public function candidates(int $limit = 100): Collection
+    public function candidates(?int $limit = null): Collection
     {
         if (! Schema::hasTable('boarding_houses')) {
             return collect();
@@ -304,7 +318,9 @@ class BoardingHouseRecommendationService
                 ->orWhereHas('roomCategories', fn ($categoryQuery) => $categoryQuery->where('available_rooms', '>', 0));
         });
 
-        return $query->orderBy('name')->limit($limit)->get();
+        $query->orderBy('name');
+
+        return $limit !== null ? $query->limit($limit)->get() : $query->get();
     }
 
     public function hasPreferences(User $tenant): bool

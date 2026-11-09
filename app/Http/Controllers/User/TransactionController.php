@@ -4,16 +4,23 @@ namespace App\Http\Controllers\User;
 
 use App\Http\Controllers\Controller;
 use App\Models\PaymentReceipt;
+use App\Models\Reservation;
 use App\Models\Transaction;
+use App\Services\ReservationLifecycleService;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class TransactionController extends Controller
 {
+    public function __construct(
+        private readonly ReservationLifecycleService $reservationLifecycle,
+    ) {}
+
     public function index(Request $request)
     {
         $tenant = $request->user();
@@ -28,6 +35,7 @@ class TransactionController extends Controller
             'q' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', Rule::in(['paid', 'pending_review', 'rejected'])],
             'payment_method' => ['nullable', Rule::in(['Cash Payment'])],
+            'payment_type' => ['nullable', Rule::in(['rent', 'advance_rent', 'downpayment', 'security_deposit', 'deposit'])],
             'date_from' => ['nullable', 'date'],
             'date_to' => $dateToRules,
         ]);
@@ -40,51 +48,97 @@ class TransactionController extends Controller
             ]);
         }
 
-        $baseQuery = Transaction::query()->where('user_id', $tenant->id);
+        $currentReservation = $this->reservationLifecycle->relevantReservationForUser($tenant->id);
+        $selectedReservationId = $request->integer('reservation');
+        $selectedReservation = $this->reservationLifecycle->reservationForUser($tenant->id, $selectedReservationId ?: null);
+        abort_if($selectedReservationId > 0 && ! $selectedReservation, 404);
+        $currentReservation = $selectedReservation ?: $currentReservation;
+        $approvedReservation = $currentReservation
+            && $this->reservationLifecycle->isApprovedStatus($currentReservation->status)
+            ? $currentReservation
+            : null;
+        $pastReservations = Reservation::with('boardingHouse')
+            ->where('user_id', $tenant->id)
+            ->when($currentReservation, fn ($query) => $query->where('id', '!=', $currentReservation->id))
+            ->latest('created_at')->latest('id')->get();
+
+        if (! $approvedReservation) {
+            return view('user.transactions', [
+                'transactions' => $this->emptyPaginator($request),
+                'stats' => $this->emptyStats(),
+                'filters' => $filters,
+                'reservationContext' => $currentReservation,
+                'pastReservations' => $pastReservations,
+            ]);
+        }
+
+        $reservationPaymentScope = function ($query) use ($approvedReservation) {
+            $query->where(function ($scope) use ($approvedReservation) {
+                $hasRelation = false;
+                if (Schema::hasColumn('payments', 'reservation_id')) {
+                    $scope->whereHas('payment', fn ($payment) => $payment->where('reservation_id', $approvedReservation->id));
+                    $hasRelation = true;
+                }
+                if (Schema::hasColumn('bookings', 'reservation_id')) {
+                    $method = $hasRelation ? 'orWhereHas' : 'whereHas';
+                    $scope->{$method}('booking', fn ($booking) => $booking->where('reservation_id', $approvedReservation->id));
+                    $hasRelation = true;
+                }
+                if (! $hasRelation) {
+                    $scope->whereRaw('1 = 0');
+                }
+            });
+        };
+
+        $baseQuery = Transaction::query()->where('user_id', $tenant->id)->where($reservationPaymentScope);
 
         $stats = [
             [
                 'label' => 'Total Transactions',
                 'value' => (clone $baseQuery)->count(),
-                'description' => 'All-time transactions',
+                'description' => 'Selected reservation scope',
                 'icon' => 'document',
             ],
             [
                 'label' => 'Total Paid',
                 'value' => $this->money((clone $baseQuery)->where('status', PaymentReceipt::STATUS_APPROVED)->sum('amount')),
-                'description' => 'Total amount paid',
+                'description' => 'Selected reservation total',
                 'icon' => 'wallet',
             ],
             [
                 'label' => 'Pending Reviews',
                 'value' => (clone $baseQuery)->where('status', PaymentReceipt::STATUS_PENDING_REVIEW)->count(),
-                'description' => 'Awaiting verification',
+                'description' => 'Selected reservation scope',
                 'icon' => 'clock',
             ],
             [
                 'label' => 'Last Payment',
                 'value' => $this->lastPaymentLabel($baseQuery),
-                'description' => 'Most recent payment',
+                'description' => 'Selected reservation scope',
                 'icon' => 'calendar',
             ],
         ];
 
         $transactions = Transaction::query()
-            ->with(['booking.room.boardingHouse'])
+            ->with(['user', 'booking.room.boardingHouse', 'payment.boardingHouse', 'payment.reservation', 'payment.receiver', 'payment.advanceAllocations.billingPayment'])
             ->where('user_id', $tenant->id)
+            ->where($reservationPaymentScope)
             ->when($filters['q'] ?? null, function ($query, string $term) {
                 $like = '%'.$term.'%';
 
                 $query->where(function ($search) use ($like) {
                     $search->where('reference_number', 'like', $like)
+                        ->orWhere('receipt_number', 'like', $like)
                         ->orWhere('transaction_id', 'like', $like)
                         ->orWhere('payment_method', 'like', $like)
                         ->orWhere('notes', 'like', $like)
-                        ->orWhere('original_filename', 'like', $like);
+                        ->orWhere('original_filename', 'like', $like)
+                        ->orWhereHas('user', fn ($user) => $user->where('name', 'like', $like));
                 });
             })
             ->when($filters['status'] ?? null, fn ($query, string $status) => $query->where('status', $this->databaseStatus($status)))
             ->when($filters['payment_method'] ?? null, fn ($query, string $method) => $query->where('payment_method', $method))
+            ->when($filters['payment_type'] ?? null, fn ($query, string $type) => $query->whereHas('payment', fn ($payment) => $payment->where('payment_type', $type)))
             ->when($filters['date_from'] ?? null, fn ($query, string $date) => $query->whereDate('payment_date', '>=', $date))
             ->when($filters['date_to'] ?? null, fn ($query, string $date) => $query->whereDate('payment_date', '<=', $date))
             ->latest('payment_date')
@@ -93,23 +147,49 @@ class TransactionController extends Controller
             ->withQueryString()
             ->through(fn (Transaction $transaction) => $this->presentTransaction($transaction));
 
-        return view('user.transactions', compact('transactions', 'stats', 'filters'));
+        return view('user.transactions', compact('transactions', 'stats', 'filters', 'pastReservations') + ['reservationContext' => $currentReservation]);
     }
 
     private function presentTransaction(Transaction $transaction): array
     {
-        $date = $transaction->payment_date ?: $transaction->created_at;
+        $paymentDate = $transaction->payment_date;
+        $date = $paymentDate ?: $transaction->created_at;
         $reference = $transaction->reference_number ?: $transaction->transaction_id ?: 'N/A';
         $hasReceipt = filled($transaction->receipt_path);
         $receiptExists = $hasReceipt && Storage::disk('public')->exists($transaction->receipt_path);
-        $description = $this->descriptionFor($transaction);
+        $fullAdvancePeriods = $this->fullAdvancePeriodCount($transaction);
+        $paymentType = $this->paymentTypeLabel($transaction);
+        $description = $paymentType === 'Advance Rent' && $fullAdvancePeriods > 0
+            ? 'Advance Rent — '.$fullAdvancePeriods.' '.($fullAdvancePeriods === 1 ? 'month' : 'months')
+            : $paymentType;
+        $reservation = $transaction->payment?->reservation;
+        $boardingHouse = $transaction->payment?->boardingHouse
+            ?? $transaction->booking?->room?->boardingHouse;
+        $room = $transaction->booking?->room?->effective_room_number
+            ?? $transaction->booking?->room?->room_no
+            ?? $transaction->booking?->room?->name;
+        $coveredPeriods = $transaction->payment?->advanceAllocations?->map(fn ($allocation) => [
+            'start' => $allocation->period_start?->format('M d, Y'),
+            'end' => $allocation->period_end?->format('M d, Y'),
+            'amount' => (float) $allocation->amount,
+            'full' => $allocation->billingPayment
+                ? (float) $allocation->amount >= (float) $allocation->billingPayment->amount
+                : false,
+        ])->values()->all() ?? [];
+        $receiptLink = $hasReceipt ? route('payment-receipts.show', $transaction) : null;
+        $paymentMethod = $transaction->payment?->payment_method ?: $transaction->payment_method;
+        $paymentMethod = $paymentMethod
+            ? str((string) $paymentMethod)->replace(['_', '-'], ' ')->title()->toString()
+            : 'Not recorded';
 
         return [
             'id' => $transaction->id,
             'transaction_id' => $this->transactionId($transaction),
-            'date' => $date?->format('M d, Y') ?? 'N/A',
+            'date' => $paymentDate?->format('M d, Y') ?? 'Not recorded',
             'description' => $description,
-            'payment_method' => 'Cash Payment',
+            'payer_name' => $transaction->user?->name ?: 'Not recorded',
+            'payment_method' => $paymentMethod,
+            'payment_type' => $paymentType,
             'reference_number' => $reference,
             'amount' => $this->money($transaction->amount),
             'amount_raw' => (float) $transaction->amount,
@@ -127,28 +207,43 @@ class TransactionController extends Controller
             ],
             'details' => [
                 'payment_date' => $date?->format('M d, Y') ?? 'N/A',
+                'payment_date_time' => $paymentDate ? $paymentDate->format('M d, Y').' (time not recorded)' : 'Not recorded',
                 'uploaded_at' => $transaction->created_at?->format('M d, Y h:i A') ?? 'N/A',
+                'receipt_number' => $transaction->receipt_number ?: 'Not recorded',
                 'rejection_reason' => $transaction->rejection_reason,
-                'boarding_house' => $transaction->booking?->room?->boardingHouse?->name,
+                'boarding_house' => $boardingHouse?->name ?: 'Not recorded',
+                'room' => $room ?: 'Not recorded',
+                'reservation_reference' => $transaction->payment?->reservation_id
+                    ? 'RES-'.str_pad((string) $transaction->payment->reservation_id, 6, '0', STR_PAD_LEFT)
+                    : 'Not recorded',
+                'payment_type' => $paymentType,
+                'received_by' => $transaction->payment?->receiver?->name ?: 'Not recorded',
+                'covered_periods' => $coveredPeriods,
+                'receipt_url' => $receiptLink,
             ],
         ];
     }
 
-    private function descriptionFor(Transaction $transaction): string
+    private function paymentTypeLabel(Transaction $transaction): string
     {
-        $notes = trim((string) $transaction->notes);
-
-        if ($notes !== '') {
-            return str($notes)->limit(64)->toString();
+        $paymentType = strtolower(trim((string) ($transaction->payment?->payment_type ?? '')));
+        if ($paymentType === 'advance_rent') {
+            return 'Advance Rent';
+        }
+        if (in_array($paymentType, ['downpayment', 'deposit', 'security_deposit', 'rent'], true)) {
+            return $paymentType === 'security_deposit' ? 'Security Deposit' : str($paymentType)->replace(['_', '-'], ' ')->title()->toString();
         }
 
-        $date = $transaction->payment_date ?: $transaction->created_at;
+        return 'Not recorded';
+    }
 
-        if (! $transaction->receipt_path) {
-            return 'Deposit';
+    private function fullAdvancePeriodCount(Transaction $transaction): int
+    {
+        if (strtolower(trim((string) ($transaction->payment?->payment_type ?? ''))) !== 'advance_rent') {
+            return 0;
         }
 
-        return 'Monthly Rent'.($date ? ' - '.$date->format('F') : '');
+        return (int) ($transaction->payment?->advanceAllocations?->filter(fn ($allocation) => $allocation->billingPayment && (float) $allocation->amount >= (float) $allocation->billingPayment->amount)->count() ?? 0);
     }
 
     private function transactionId(Transaction $transaction): string
@@ -199,10 +294,10 @@ class TransactionController extends Controller
     private function emptyStats(): array
     {
         return [
-            ['label' => 'Total Transactions', 'value' => 0, 'description' => 'All-time transactions', 'icon' => 'document'],
-            ['label' => 'Total Paid', 'value' => $this->money(0), 'description' => 'Total amount paid', 'icon' => 'wallet'],
-            ['label' => 'Pending Reviews', 'value' => 0, 'description' => 'Awaiting verification', 'icon' => 'clock'],
-            ['label' => 'Last Payment', 'value' => 'N/A', 'description' => 'Most recent payment', 'icon' => 'calendar'],
+            ['label' => 'Total Transactions', 'value' => 0, 'description' => 'Selected reservation scope', 'icon' => 'document'],
+            ['label' => 'Total Paid', 'value' => $this->money(0), 'description' => 'Selected reservation total', 'icon' => 'wallet'],
+            ['label' => 'Pending Reviews', 'value' => 0, 'description' => 'Selected reservation scope', 'icon' => 'clock'],
+            ['label' => 'Last Payment', 'value' => 'N/A', 'description' => 'Selected reservation scope', 'icon' => 'calendar'],
         ];
     }
 

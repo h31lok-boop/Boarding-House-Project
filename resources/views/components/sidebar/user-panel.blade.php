@@ -1,6 +1,6 @@
 @php
     $r = fn($name, $params = []) => route($name, $params);
-    $navBase = 'group/sidebar-item relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400/70';
+    $navBase = 'group/sidebar-item relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400/70';
     $navActive = $navBase . ' bg-[#0866FF] text-white shadow-[0_10px_22px_rgba(37,99,235,0.3)]';
     $navInactive = $navBase . ' text-[#CBD5E1] hover:bg-white/10 hover:text-white';
     $isSectionRoute = fn($route, $section) => request()->routeIs($route) && request('section') === $section;
@@ -163,11 +163,11 @@
     ];
 @endphp
 
-<nav class="sidebar-nav user-sidebar-nav space-y-6 pr-1 text-sm" aria-label="Tenant navigation">
+<nav class="sidebar-nav user-sidebar-nav space-y-3 pr-1 text-sm" aria-label="Tenant navigation">
     @foreach ($sections as $section)
-        <section class="space-y-1.5">
+        <section class="space-y-1">
             <p class="sidebar-group px-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#80A7D1]">{{ $section['label'] }}</p>
-            <div class="space-y-1">
+            <div class="space-y-0.5">
                 @foreach ($section['items'] as $menu)
                     @php
                         $isActive = (bool) ($menu['active'] ?? false);
@@ -184,7 +184,7 @@
                         </span>
                         <span class="sidebar-text min-w-0 flex-1 truncate">{{ $menu['label'] }}</span>
                         @if (!empty($menu['badge']))
-                            <span class="{{ $badgeBase }} {{ $isActive ? 'bg-white/20 text-white shadow-none' : $badgeTone }}">{{ $menu['badge'] }}</span>
+                            <span @if (($menu['label'] ?? '') === 'Notifications') data-notifications-unread-count @endif class="{{ $badgeBase }} {{ $isActive ? 'bg-white/20 text-white shadow-none' : $badgeTone }}">{{ $menu['badge'] }}</span>
                         @endif
                     </a>
                 @endforeach

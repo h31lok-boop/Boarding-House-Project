@@ -48,7 +48,7 @@
     ], $overrides), fn ($value) => filled($value));
 
     $groupedNotifications = collect($notifications->items())->groupBy(function ($notification) {
-        $createdAt = $notification->created_at;
+        $createdAt = $notification->display_created_at ?? $notification->created_at;
 
         if (! $createdAt) {
             return 'Earlier';
@@ -62,16 +62,17 @@
             return 'Yesterday';
         }
 
-        return 'Earlier';
+        return $createdAt->format('F j, Y');
     });
+    $primaryFilters = collect(['all' => 'All', 'unread' => 'Unread', 'reservations' => 'Reservations', 'payments' => 'Payments']);
 @endphp
 
-<div x-data="{ detailOpen: false, selected: {} }" class="mx-auto w-full max-w-3xl space-y-5 text-slate-900 dark:text-slate-100">
+<div x-data="{ detailOpen: false, selected: {}, unreadCount: @js($unreadCount), openNotification(payload) { this.selected = payload; this.detailOpen = true; if (!payload.unread || !payload.read_url) return; fetch(payload.read_url, { method: 'POST', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content || '', 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' }).then(response => response.ok ? response.json() : Promise.reject()).then(data => { this.unreadCount = Number(data.unread_count || 0); window.dispatchEvent(new CustomEvent('notifications:unread-count', { detail: this.unreadCount })); document.querySelectorAll('[data-notifications-unread-count]').forEach(el => el.textContent = this.unreadCount > 99 ? '99+' : this.unreadCount); payload.unread = false; }).catch(() => {}); } }" class="user-notifications-page w-full space-y-5 text-slate-900 dark:text-slate-100">
     {{-- Header --}}
     <header class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-            <h1 class="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Notifications</h1>
-            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Updates on your reservations, payments, messages, and system alerts.</p>
+            <h1 class="text-[26px] font-black tracking-tight text-slate-900 dark:text-white">Notifications</h1>
+            <p class="mt-1 text-base text-slate-500 dark:text-slate-400">Stay updated on your reservations and payments.</p>
         </div>
 
         <div class="flex items-center gap-2">
@@ -80,7 +81,7 @@
                 <button
                     type="submit"
                     @disabled($unreadCount === 0)
-                    class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    class="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-5 text-sm font-bold text-blue-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-blue-400/30 dark:bg-slate-900 dark:text-blue-300"
                 >
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m9 12.75 2.25 2.25L15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
@@ -89,22 +90,11 @@
                 </button>
             </form>
 
-            <form method="POST" action="{{ route('user.notifications.clearAll') }}" onsubmit="return confirm('Clear all notifications? This action cannot be undone.');">
-                @csrf
-                @method('DELETE')
-                <button
-                    type="submit"
-                    @disabled($totalCount === 0)
-                    class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
-                    Clear all
-                </button>
-            </form>
         </div>
     </header>
 
     {{-- Search + sort --}}
-    <form method="GET" action="{{ route('user.notifications.index') }}" class="flex flex-col gap-2 sm:flex-row">
+    <form method="GET" action="{{ route('user.notifications.index') }}" class="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white/70 p-2 shadow-sm shadow-slate-200/40 sm:flex-row dark:border-slate-800 dark:bg-slate-900/70 dark:shadow-none">
         <input type="hidden" name="filter" value="{{ $filter }}">
         <label class="relative block flex-1">
             <span class="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
@@ -117,14 +107,14 @@
                 value="{{ $search }}"
                 type="search"
                 placeholder="Search notifications…"
-                class="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-700 shadow-sm shadow-slate-200/50 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:shadow-none dark:focus:ring-blue-400/20"
+                class="h-11 w-full rounded-xl border border-slate-200 bg-white pl-11 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-400 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-blue-400/20"
             >
         </label>
         <div class="relative sm:w-44">
             <select
                 name="sort"
                 onchange="this.form.submit()"
-                class="h-12 w-full appearance-none rounded-2xl border border-slate-200 bg-white px-4 pr-9 text-sm font-medium text-slate-600 shadow-sm shadow-slate-200/50 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:shadow-none dark:focus:ring-blue-400/20"
+                class="h-11 w-full appearance-none rounded-xl border border-slate-200 bg-white px-4 pr-9 text-sm font-medium text-slate-600 outline-none transition focus:border-blue-400 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:ring-blue-400/20"
             >
                 @foreach ($sortOptions as $key => $label)
                     <option value="{{ $key }}" @selected($sort === $key)>{{ $label }}</option>
@@ -138,27 +128,29 @@
 
     {{-- Filter tabs --}}
     <nav class="flex flex-wrap items-center gap-2" aria-label="Notification filters">
-        @foreach ($filters as $key => $label)
+        @foreach ($primaryFilters as $key => $label)
             @php
                 $isActiveTab = $filter === $key;
             @endphp
             <a
                 href="{{ route('user.notifications.index', $queryFor(['filter' => $key])) }}"
                 @if ($key === 'all') data-summary-card="all" data-summary-count="{{ $totalCount }}" @endif
-                class="inline-flex h-9 items-center gap-2 rounded-full px-4 text-[13px] font-semibold transition {{ $isActiveTab
+                class="inline-flex h-11 items-center gap-2 rounded-full px-5 text-sm font-semibold transition {{ $isActiveTab
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50 hover:text-slate-900 hover:ring-slate-300 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-700 dark:hover:bg-slate-800 dark:hover:text-white' }}"
             >
                 <span>{{ $label }}</span>
-                @if ($key === 'unread' && $unreadCount > 0)
-                    <span class="rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none {{ $isActiveTab ? 'bg-white/20 text-white' : 'bg-blue-600 text-white' }}">{{ $unreadCount }}</span>
+                @if ($key === 'unread')
+                    <span data-notifications-unread-count class="rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none {{ $isActiveTab ? 'bg-white/20 text-white' : 'bg-blue-600 text-white' }}">{{ $unreadCount }}</span>
                 @endif
             </a>
         @endforeach
     </nav>
 
+    <div class="notifications-layout">
     {{-- Notification list --}}
-    <section data-notification-list class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
+    <section data-notification-list class="notifications-feed overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
+        <div data-notification-scroll>
         @if ($groupedNotifications->isEmpty())
             <div class="px-6 py-16 text-center">
                 <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 text-slate-400">
@@ -166,19 +158,19 @@
                         {!! $notificationIcon('system') !!}
                     </svg>
                 </div>
-                <p class="mt-4 text-base font-bold text-slate-900 dark:text-white">No notifications found</p>
+                <p class="mt-4 text-base font-bold text-slate-900 dark:text-white">You’re all caught up.</p>
                 <p class="mx-auto mt-1.5 max-w-md text-sm leading-6 text-slate-500 dark:text-slate-400">
                     @if ($search !== '' || $filter !== 'all')
                         Nothing matched your search or filter. <a href="{{ route('user.notifications.index') }}" class="font-semibold text-blue-600 hover:underline">Clear filters</a>
                     @else
-                        Updates about reservations, payments, messages, and system alerts will appear here.
+                        Reservation and payment updates will appear here.
                     @endif
                 </p>
             </div>
         @else
             @foreach ($groupedNotifications as $groupLabel => $groupItems)
                 <div @class(['border-t border-slate-100' => ! $loop->first])>
-                    <p class="bg-slate-50/70 px-6 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">{{ $groupLabel }}</p>
+                    <p class="bg-slate-50/70 px-6 py-3 text-sm font-bold uppercase tracking-wider text-slate-500">{{ $groupLabel }}</p>
 
                     <div class="divide-y divide-slate-100">
                         @foreach ($groupItems as $notification)
@@ -186,7 +178,7 @@
                                 $type = $normalizeType($notification->type);
                                 $meta = $typeMeta[$type];
                                 $isUnread = $notification->read_at === null;
-                                $reservationContext = $notification->reservation_context
+                                $notificationReservationContext = $notification->reservation_context
                                     ?? data_get($notification->data, 'reservation', []);
                                 $displayMessage = $notification->display_message ?? $notification->message;
                                 $detailPayload = [
@@ -203,25 +195,28 @@
                                     'statusClass' => $isUnread ? 'bg-blue-50 text-blue-700' : 'bg-emerald-50 text-emerald-700',
                                     'statusDot' => $isUnread ? 'bg-blue-600' : 'bg-emerald-500',
                                     'readAt' => $notification->read_at ? \Illuminate\Support\Carbon::parse($notification->read_at)->format('M d, Y — h:i A') : null,
-                                    'boardingHouse' => data_get($reservationContext, 'boarding_house_name'),
-                                    'boardingHouseAddress' => data_get($reservationContext, 'boarding_house_address'),
-                                    'ownerName' => data_get($reservationContext, 'owner_name'),
-                                    'ownerEmail' => data_get($reservationContext, 'owner_email'),
-                                    'ownerContact' => data_get($reservationContext, 'owner_contact'),
-                                    'room' => data_get($reservationContext, 'room'),
+                                    'boardingHouse' => data_get($notificationReservationContext, 'boarding_house_name'),
+                                    'boardingHouseAddress' => data_get($notificationReservationContext, 'boarding_house_address'),
+                                    'ownerName' => data_get($notificationReservationContext, 'owner_name'),
+                                    'ownerEmail' => data_get($notificationReservationContext, 'owner_email'),
+                                    'ownerContact' => data_get($notificationReservationContext, 'owner_contact'),
+                                    'room' => data_get($notificationReservationContext, 'room'),
                                     'read_url' => route('user.notifications.read', $notification->id),
+                                    'unread' => $isUnread,
+                                    'actionUrl' => $notification->action_url,
+                                    'actionLabel' => $notification->action_label,
                                     'delete_url' => route('user.notifications.destroy', $notification->id),
                                 ];
                             @endphp
 
                             <article
                                 data-notification-card
-                                class="group cursor-pointer px-6 py-4 transition duration-150 hover:bg-slate-50/80 focus-within:bg-blue-50/40 dark:hover:bg-slate-800/70 dark:focus-within:bg-blue-400/10 {{ $isUnread ? 'bg-blue-50/40 dark:bg-blue-400/5' : '' }}"
+                                class="group cursor-pointer px-6 py-5 transition duration-150 hover:bg-slate-50/80 focus-within:bg-blue-50/40 dark:hover:bg-slate-800/70 dark:focus-within:bg-blue-400/10 {{ $isUnread ? 'bg-blue-50/40 dark:bg-blue-400/5' : '' }}"
                                 role="button"
                                 tabindex="0"
-                                @click="selected = {{ \Illuminate\Support\Js::from($detailPayload) }}; detailOpen = true"
-                                @keydown.enter="selected = {{ \Illuminate\Support\Js::from($detailPayload) }}; detailOpen = true"
-                                @keydown.space.prevent="selected = {{ \Illuminate\Support\Js::from($detailPayload) }}; detailOpen = true"
+                                @click="openNotification({{ \Illuminate\Support\Js::from($detailPayload) }})"
+                                @keydown.enter="openNotification({{ \Illuminate\Support\Js::from($detailPayload) }})"
+                                @keydown.space.prevent="openNotification({{ \Illuminate\Support\Js::from($detailPayload) }})"
                             >
                                 <div class="flex items-start gap-4">
                                     <span class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {{ $meta['iconWrap'] }}">
@@ -232,30 +227,34 @@
 
                                     <div class="min-w-0 flex-1">
                                         <div class="flex items-baseline justify-between gap-3">
-                                            <p class="truncate text-[14px] font-semibold {{ $isUnread ? 'text-slate-900' : 'text-slate-700' }}">
+                                            <p class="truncate text-lg font-bold {{ $isUnread ? 'text-slate-900' : 'text-slate-700' }}">
                                                 {{ $notification->title }}
                                                 @if ($isUnread)
                                                     <span class="ml-1.5 inline-block h-2 w-2 rounded-full bg-blue-600 align-middle" aria-label="Unread"></span>
                                                 @endif
                                             </p>
-                                            <time class="shrink-0 text-[11px] font-medium text-slate-400" title="{{ optional($notification->created_at)->format('M d, Y h:i A') }}">
+                                            <time class="shrink-0 text-xs font-medium text-slate-400" title="{{ optional($notification->created_at)->format('M d, Y h:i A') }}">
                                                 {{ optional($notification->created_at)->diffForHumans(null, true) }}
                                             </time>
                                         </div>
 
-                                        <p class="mt-1 text-[13px] leading-5 {{ $isUnread ? 'text-slate-600' : 'text-slate-500' }}">
+                                        <p class="mt-2 text-[15px] leading-6 {{ $isUnread ? 'text-slate-600' : 'text-slate-500' }}">
                                             {{ \Illuminate\Support\Str::limit($displayMessage, 200) }}
                                         </p>
 
-                                        @if (filled(data_get($reservationContext, 'boarding_house_name')) || filled(data_get($reservationContext, 'owner_name')))
+                                        @if (filled(data_get($notificationReservationContext, 'boarding_house_name')) || filled(data_get($notificationReservationContext, 'owner_name')))
                                             <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500">
-                                                @if (filled(data_get($reservationContext, 'boarding_house_name')))
-                                                    <span><strong class="font-semibold text-slate-700">Boarding house:</strong> {{ data_get($reservationContext, 'boarding_house_name') }}</span>
+                                                @if (filled(data_get($notificationReservationContext, 'boarding_house_name')))
+                                                    <span><strong class="font-semibold text-slate-700">Boarding house:</strong> {{ data_get($notificationReservationContext, 'boarding_house_name') }}</span>
                                                 @endif
-                                                @if (filled(data_get($reservationContext, 'owner_name')))
-                                                    <span><strong class="font-semibold text-slate-700">Owner:</strong> {{ data_get($reservationContext, 'owner_name') }}</span>
+                                                @if (filled(data_get($notificationReservationContext, 'owner_name')))
+                                                    <span><strong class="font-semibold text-slate-700">Owner:</strong> {{ data_get($notificationReservationContext, 'owner_name') }}</span>
                                                 @endif
                                             </div>
+                                        @endif
+
+                                        @if ($notification->action_url)
+                                            <a href="{{ $notification->action_url }}" @click.stop="openNotification({{ \Illuminate\Support\Js::from($detailPayload) }})" class="mt-3 inline-flex h-9 items-center justify-center rounded-lg bg-blue-600 px-3.5 text-xs font-bold text-white transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100">{{ $notification->action_label }}</a>
                                         @endif
 
                                         <div class="hidden">
@@ -296,9 +295,10 @@
                 </div>
             @endforeach
         @endif
+        </div>
 
         {{-- Pagination --}}
-        <div class="flex flex-col gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div class="notifications-feed-footer flex flex-col gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
             <p class="text-xs font-medium text-slate-400">
                 Showing {{ $notifications->firstItem() ?? 0 }}–{{ $notifications->lastItem() ?? 0 }} of {{ number_format($notifications->total()) }} notifications
             </p>
@@ -327,6 +327,36 @@
             @endif
         </div>
     </section>
+
+    <aside class="notifications-sidebar">
+        <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-black text-slate-950 dark:text-white">At a glance</h2>
+                <span class="text-xs font-semibold text-slate-400">All time</span>
+            </div>
+            <dl class="mt-4 divide-y divide-slate-100 dark:divide-slate-800">
+                <div class="flex items-center justify-between gap-3 py-3"><dt class="text-[15px] text-slate-600 dark:text-slate-300">Unread notifications</dt><dd data-notifications-unread-count class="text-xl font-black text-blue-700 dark:text-blue-300">{{ $unreadCount }}</dd></div>
+                <div class="flex items-center justify-between gap-3 py-3"><dt class="text-[15px] text-slate-600 dark:text-slate-300">Reservation updates</dt><dd class="text-xl font-black text-slate-950 dark:text-white">{{ $summaryCards['reservations']['count'] ?? 0 }}</dd></div>
+                <div class="flex items-center justify-between gap-3 py-3"><dt class="text-[15px] text-slate-600 dark:text-slate-300">Payment updates</dt><dd class="text-xl font-black text-slate-950 dark:text-white">{{ $summaryCards['payments']['count'] ?? 0 }}</dd></div>
+            </dl>
+            <div class="mt-5 rounded-xl border border-blue-100 bg-blue-50/70 p-4 dark:border-blue-500/20 dark:bg-blue-500/10">
+                <div class="flex items-start gap-3">
+                    <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-blue-600 shadow-sm dark:bg-slate-900 dark:text-blue-300"><svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m0 3.75h.008M10.29 3.86 2.9 17.14A1.5 1.5 0 0 0 4.2 19.4h15.6a1.5 1.5 0 0 0 1.3-2.26L13.71 3.86a1.96 1.96 0 0 0-3.42 0Z"/></svg></span>
+                    <p class="text-sm leading-6 text-blue-900 dark:text-blue-100">Payment notifications appear after the owner records receiving your cash payment.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h2 class="text-xl font-black text-slate-950 dark:text-white">Quick links</h2>
+            @php($quickReservation = $reservationContext ?? null)
+            <div class="mt-4 divide-y divide-slate-100 dark:divide-slate-800">
+                <a href="{{ route('user.reservations.index', $quickReservation ? ['reservation' => $quickReservation->id] : []) }}" class="group flex min-h-11 items-center justify-between gap-3 py-3 text-[15px] font-bold text-slate-700 transition hover:text-blue-700 dark:text-slate-200 dark:hover:text-blue-300"><span class="flex items-center gap-3"><span class="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3M4 11h16M5 5h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/></svg></span>Track Reservation</span><svg class="h-4 w-4 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7"/></svg></a>
+                <a href="{{ route('user.payments.index', $quickReservation ? ['reservation' => $quickReservation->id] : []) }}" class="group flex min-h-11 items-center justify-between gap-3 py-3 text-[15px] font-bold text-slate-700 transition hover:text-blue-700 dark:text-slate-200 dark:hover:text-blue-300"><span class="flex items-center gap-3"><span class="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300"><svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5m-18 0A2.25 2.25 0 0 1 6 6h12a2.25 2.25 0 0 1 2.25 2.25v9A2.25 2.25 0 0 1 18 19.5H6a2.25 2.25 0 0 1-2.25-2.25v-9Z" /></svg></span>Payment History</span><svg class="h-4 w-4 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="m9 5 7 7-7 7"/></svg></a>
+            </div>
+        </section>
+    </aside>
+    </div>
 
     {{-- Detail modal --}}
     <div
@@ -433,6 +463,9 @@
 
             {{-- Footer --}}
             <div class="bm-modal__footer border-slate-100 px-6 py-4">
+                <template x-if="selected.actionUrl">
+                    <a :href="selected.actionUrl" class="inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100" x-text="selected.actionLabel || 'View Details'"></a>
+                </template>
                 <template x-if="selected.status === 'Unread'">
                     <form method="POST" :action="selected.read_url">
                         @csrf

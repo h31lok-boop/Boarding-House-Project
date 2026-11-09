@@ -81,7 +81,7 @@
                 ? new Intl.NumberFormat('en-PH', {
                     style: 'currency',
                     currency: 'PHP',
-                    maximumFractionDigits: 0,
+                    maximumFractionDigits: 2,
                 }).format(value)
                 : new Intl.NumberFormat('en-PH').format(value);
 

@@ -12,11 +12,11 @@ class BoardingHouseDesignatedPhotoSeeder extends Seeder
     public function run(): void
     {
         $assignments = [
-            'Matti Student Boarding House' => 'boarding-houses/bh-photo-1.jpg',
-            'Purok 3 Boarding House' => 'boarding-houses/bh-photo-2.jpg',
-            'DSSC Ladies Boarding House' => 'boarding-houses/bh-photo-3.jpg',
-            'Mahayahay Student Home' => 'boarding-houses/bh-photo-4.jpg',
-            'Tres de Mayo Boarding House' => 'boarding-houses/bh-photo-5.jpg',
+            'Matti Student Boarding House' => 'boarding-houses/VqaYZjGTwItoQmzz4kZwEANLEktsctmK0xJPsowp.jpg',
+            'Purok 3 Boarding House' => 'boarding-houses/0Jp30raXFAV1UhUuuFwflBzGc0NZh4GIi89fuQXe.jpg',
+            'DSSC Ladies Boarding House' => 'boarding-houses/llxKRIPPSw72cykSEXpRDIejqN2QsmbC5fb637T8.jpg',
+            'Mahayahay Student Home' => 'boarding-houses/ELiw94JCl25UFBPWyhw2NeVZXMFf5MRST9wk7lXV.jpg',
+            'Tres de Mayo Boarding House' => 'boarding-houses/3vdaBWBXNXHGP3g7MUVmDRiQy5ay2YvJg8hiHklK.jpg',
             'City Proper Student Dorm' => 'boarding-houses/bh-photo-6.jpg',
         ];
 

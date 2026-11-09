@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="Tests\Unit\UserPhotoPathAssetTest" file="tests\Unit\UserPhotoPathAssetTest.php" tests="2" assertions="23" errors="0" failures="0" skipped="0" time="0.066826">
+    <testcase name="user accounts expose one canonical photo path with legacy compatibility" file="tests\Unit\UserPhotoPathAssetTest.php::user accounts expose one canonical photo path with legacy compatibility" class="Tests\Unit\UserPhotoPathAssetTest" classname="Tests.Unit.UserPhotoPathAssetTest" assertions="7" time="0.057500"/>
+    <testcase name="profile photos are shown in account lists and profile dialogs" file="tests\Unit\UserPhotoPathAssetTest.php::profile photos are shown in account lists and profile dialogs" class="Tests\Unit\UserPhotoPathAssetTest" classname="Tests.Unit.UserPhotoPathAssetTest" assertions="16" time="0.009326"/>
+  </testsuite>
+</testsuites>

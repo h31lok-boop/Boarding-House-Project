@@ -7,6 +7,7 @@ use App\Models\Room;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class RoomController extends Controller
 {
@@ -74,6 +75,22 @@ class RoomController extends Controller
             'remove_image' => ['nullable', 'boolean'],
         ]);
 
+        $targetHouse = BoardingHouse::findOrFail($data['boarding_house_id'] ?? $room->boarding_house_id);
+        $this->authorize('update', $targetHouse);
+        $activeHolds = $room->reservations()
+            ->whereRaw("LOWER(status) IN ('pending','reserved','approved','confirmed','active','checked_in','checked-in')")
+            ->count();
+        $occupiedSlots = max((int) ($room->capacity ?? 0) - (int) ($room->available_slots ?? 0), 0);
+        $protectedSlots = max($activeHolds, $occupiedSlots);
+        $newCapacity = (int) ($data['capacity'] ?? $room->capacity ?? 1);
+        $newAvailable = (int) ($data['available_slots'] ?? $room->available_slots ?? 0);
+        if ($newCapacity < $protectedSlots) {
+            throw ValidationException::withMessages(['capacity' => 'Capacity cannot be lower than current occupants or active reservation holds.']);
+        }
+        if ($newAvailable > ($newCapacity - $activeHolds)) {
+            throw ValidationException::withMessages(['available_slots' => 'Available slots cannot exceed capacity after active reservation holds.']);
+        }
+
         if ($request->boolean('remove_image') && $room->image) {
             Storage::disk('public')->delete($room->image);
             $data['image'] = null;
@@ -102,6 +119,16 @@ class RoomController extends Controller
     public function destroy(Request $request, Room $room)
     {
         $this->authorize('delete', $room);
+
+        $hasActiveReservations = $room->reservations()
+            ->whereRaw("LOWER(status) IN ('pending','reserved','approved','confirmed','active','checked_in','checked-in')")
+            ->exists();
+        $hasActiveTenants = $room->tenants()
+            ->whereRaw("LOWER(status) IN ('active','occupied','checked_in','checked-in')")
+            ->exists();
+        if ($hasActiveReservations || $hasActiveTenants) {
+            return back()->with('error', 'This room cannot be deleted while it has active occupants or reservations.');
+        }
 
         if ($room->image) {
             Storage::disk('public')->delete($room->image);

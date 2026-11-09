@@ -50,8 +50,9 @@ it('lets an owner upload property photos that are displayed to tenants', functio
         ->assertDontSee('Set as cover')
         ->assertSee('Upload photos')
         ->assertSee('data-owner-address-form="edit"', false)
-        ->assertSee('data-address-derived-location="true"', false)
-        ->assertSee('Update Pin From Address')
+        ->assertDontSee('data-address-derived-location="true"', false)
+        ->assertSee('Search address on map')
+        ->assertSee('Use My Location')
         ->assertDontSee('>Latitude<input', false)
         ->assertDontSee('>Longitude<input', false);
 
@@ -75,12 +76,13 @@ it('lets an owner upload property photos that are displayed to tenants', functio
         ->assertSee('Add property photos')
         ->assertSee('Previous property photo')
         ->assertSee('Next property photo')
-        ->assertSee('Address-based property pin')
+        ->assertSee('Set the exact property location')
         ->assertSee('data-owner-address-form="create"', false)
         ->assertSee('Pin This Address')
         ->assertSee('data-owner-address-form="edit"', false)
-        ->assertSee('data-address-derived-location="true"', false)
-        ->assertSee('Update Pin From Address')
+        ->assertDontSee('data-address-derived-location="true"', false)
+        ->assertSee('Search address on map')
+        ->assertSee('Use My Location')
         ->assertDontSee('>Latitude<input', false)
         ->assertDontSee('>Longitude<input', false)
         ->assertSee('Boarding House Details');
@@ -170,6 +172,49 @@ it('prevents an owner from changing another owners property photos', function ()
         ->assertForbidden();
 
     expect($house->images()->count())->toBe(0);
+});
+
+it('lets the property owner persist a confirmed location pin and protects it from other owners', function () {
+    $owner = User::factory()->verifiedOwner()->create();
+    $otherOwner = User::factory()->verifiedOwner()->create();
+    $house = BoardingHouse::factory()->create([
+        'owner_id' => $owner->id,
+        'latitude' => null,
+        'longitude' => null,
+        'address' => 'Purok 1, Aplaya, Digos City, Davao del Sur',
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('owner.boarding-houses'))
+        ->assertOk()
+        ->assertSee('Exact location has not been set.')
+        ->assertSee('Set Location')
+        ->assertSee('Search address on map')
+        ->assertSee('Use My Location');
+
+    $payload = [
+        'name' => $house->name,
+        'address' => $house->address,
+        'latitude' => '6.7587400',
+        'longitude' => '125.3090900',
+        'location_status' => 'exact',
+        'is_active' => '1',
+    ];
+
+    $this->actingAs($owner)
+        ->put(route('owner.listings.update', $house), $payload)
+        ->assertRedirect();
+
+    $this->assertDatabaseHas('boarding_houses', [
+        'id' => $house->id,
+        'latitude' => '6.7587400',
+        'longitude' => '125.3090900',
+        'location_status' => 'exact',
+    ]);
+
+    $this->actingAs($otherOwner)
+        ->put(route('owner.listings.update', $house), $payload)
+        ->assertForbidden();
 });
 
 it('shows an owner their existing legacy property photo in every owner property view', function () {

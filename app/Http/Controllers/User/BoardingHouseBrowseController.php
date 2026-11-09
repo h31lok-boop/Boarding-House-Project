@@ -17,6 +17,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 class BoardingHouseBrowseController extends Controller
 {
@@ -32,6 +33,12 @@ class BoardingHouseBrowseController extends Controller
 
     public function index(Request $request)
     {
+        $request->validate([
+            'max_price' => ['nullable', 'numeric', 'gt:0'],
+        ], [
+            'max_price.gt' => 'Maximum monthly budget must be greater than zero.',
+        ]);
+
         $tenant = $request->user();
         $hasRecommendationPreferences = $tenant?->isTenant()
             && $this->recommendationService->hasPreferences($tenant);
@@ -109,7 +116,7 @@ class BoardingHouseBrowseController extends Controller
                 $nearMe ? $providedLat : null,
                 $nearMe ? $providedLng : null,
                 $nearMe
-            )->limit(400)->get();
+            )->get();
 
         $rankedHouses = $candidateHouses
             ->map(fn (BoardingHouse $house) => $this->decorateBrowseHouse(
@@ -192,13 +199,17 @@ class BoardingHouseBrowseController extends Controller
         if ($activeTab === 'matchmaking') {
             $classification = $this->recommendationService->classifyRecommendations($tenant, $allRecommendedHouses);
             $recommendationMode = $classification['matches']->isNotEmpty() ? 'matches' : 'suggestions';
+            $preferenceMatches = $classification['matches']->values();
+            $otherOptions = $classification['other_options']->values();
             $visibleRecommendations = $recommendationMode === 'matches'
-                ? $classification['matches']->take(6)->values()
-                : $classification['suggestions']->take(6)->values();
+                ? $preferenceMatches->concat($otherOptions)->values()
+                : $classification['suggestions']->values();
 
             return view('user.recommendations', [
                 'tenant' => $tenant,
                 'houseRecommendations' => $visibleRecommendations,
+                'preferenceMatches' => $preferenceMatches,
+                'otherOptions' => $otherOptions,
                 'houseRecommendationCount' => $visibleRecommendations->count(),
                 'hasPreferences' => $hasRecommendationPreferences,
                 'preferenceSummary' => $preferenceSummary,
@@ -217,6 +228,9 @@ class BoardingHouseBrowseController extends Controller
                     'house_sort' => $request->query('house_sort', $request->query('sort', 'highest_match')),
                     'room_type' => $request->query('room_type') ?: null,
                     'dssc_area' => $request->query('dssc_area') ?: null,
+                    'min_score' => min(max((int) $request->query('house_min_score', 0), 0), 100),
+                    'available_now' => $request->boolean('available_now'),
+                    'within_budget' => $request->boolean('within_budget'),
                 ],
                 'matchmakingActionUrl' => route('user.boarding-houses.index'),
                 'matchmakingRefreshRedirect' => 'boarding_houses',
@@ -460,7 +474,7 @@ class BoardingHouseBrowseController extends Controller
         return [
             'id' => $house->id,
             'name' => $house->name,
-            'address' => $house->full_address ?? $house->address ?? '',
+                'address' => $house->canonical_address ?? '',
             'city_name' => $house->city?->city_name ?? 'Digos City',
             'barangay_name' => $house->display_barangay ?? '',
             'display_price' => (float) ($house->display_price ?? 0),
@@ -609,9 +623,11 @@ class BoardingHouseBrowseController extends Controller
         $availableRooms = $this->availableRoomCount($boardingHouse);
         $galleryImages = $this->galleryImageUrls($boardingHouse);
         $primaryRoom = $boardingHouse->rooms
+            ->filter(fn ($room) => strtolower((string) ($room->status ?? '')) === 'available'
+                && (int) ($room->available_slots ?? $room->capacity ?? 0) > 0)
             ->filter(fn ($room) => (float) ($room->price ?? 0) > 0)
             ->sortBy('price')
-            ->first() ?? $boardingHouse->rooms->first();
+            ->first();
         $primaryCategory = $boardingHouse->roomCategories
             ->filter(fn ($category) => (float) ($category->monthly_rate ?? 0) > 0)
             ->sortBy('monthly_rate')
@@ -769,11 +785,28 @@ class BoardingHouseBrowseController extends Controller
             return null;
         }
 
-        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://') || str_starts_with($path, '/')) {
-            return $path;
+        $path = trim(str_replace('\\', '/', $path));
+        $parts = parse_url($path);
+        if (($parts['scheme'] ?? null) !== null || ($parts['host'] ?? null) !== null) {
+            $host = strtolower((string) ($parts['host'] ?? ''));
+            if (! in_array($host, ['localhost', '127.0.0.1', '::1'], true)) {
+                return $path;
+            }
+            $path = (string) ($parts['path'] ?? '');
         }
 
-        return asset('storage/'.$path);
+        $path = ltrim($path, '/');
+        foreach (['storage/', 'public/'] as $prefix) {
+            if (str_starts_with($path, $prefix)) {
+                $path = substr($path, strlen($prefix));
+            }
+        }
+
+        if (Storage::disk('public')->exists($path)) {
+            return asset('storage/'.$path);
+        }
+
+        return is_file(public_path($path)) ? asset($path) : null;
     }
 
     private function propertyTypeLabel(?string $propertyType): string

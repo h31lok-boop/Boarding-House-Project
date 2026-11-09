@@ -52,7 +52,7 @@ test('notifications page renders notification content instead of profile setting
         ->assertOk()
         ->assertSee('Dashboard')
         ->assertSee('Notifications')
-        ->assertSee('Updates on your reservations, payments, messages, and system alerts.')
+        ->assertSee('Stay updated on your reservations and payments.')
         ->assertSee('Search notifications')
         ->assertSee('Newest First')
         ->assertSee('Payment confirmed')
@@ -105,8 +105,8 @@ test('notifications page shows empty state', function () {
     $this->actingAs($user)
         ->get(route('user.notifications.index'))
         ->assertOk()
-        ->assertSee('No notifications found')
-        ->assertSee('Updates about reservations, payments, messages, and system alerts will appear here.');
+        ->assertSee('You’re all caught up.')
+        ->assertSee('Reservation and payment updates will appear here.');
 });
 
 test('notifications can be filtered by type', function () {

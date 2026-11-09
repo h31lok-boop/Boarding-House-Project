@@ -588,9 +588,9 @@ class GoogleAuthController extends Controller
             [
                 'school_university' => $registration['school'],
                 'course_year_level' => $registration['course_year'],
-                'preferred_location' => $registration['preferred_location'],
+                'preferred_location' => $registration['preferred_location'] ?? null,
                 'rental_budget' => $registration['rental_budget'],
-                'lifestyle_information' => $registration['lifestyle_info'],
+                'lifestyle_information' => $registration['lifestyle_info'] ?? null,
                 'school_company' => $registration['school'],
                 'course_or_position' => $registration['course_year'],
                 'preferred_language' => 'english',
@@ -604,10 +604,12 @@ class GoogleAuthController extends Controller
                     'budget_min' => $registration['budget_min'] ?? $registration['rental_budget'],
                     'budget_max' => $registration['budget_max'] ?? $registration['rental_budget'],
                     'gender_preference' => 'no_preference',
-                    'additional_notes' => implode("\n\n", [
-                        'Preferred Location: '.$registration['preferred_location'],
-                        $registration['lifestyle_info'],
-                    ]),
+                    'additional_notes' => implode("\n\n", array_values(array_filter([
+                        filled($registration['preferred_location'] ?? null)
+                            ? 'Preferred Location: '.$registration['preferred_location']
+                            : null,
+                        $registration['lifestyle_info'] ?? null,
+                    ]))),
                     'completed_at' => now(),
                 ]
             );

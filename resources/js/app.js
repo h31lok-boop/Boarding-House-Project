@@ -2,7 +2,6 @@ import './bootstrap';
 import './boarding-house-map';
 import './boarding-house-browse-map';
 import './admin-boarding-house-maps';
-import './landing-map';
 
 import Alpine from 'alpinejs';
 

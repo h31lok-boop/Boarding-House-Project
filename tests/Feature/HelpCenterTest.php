@@ -32,8 +32,8 @@ test('user can submit a support request with a screenshot', function () {
     ]);
 
     $response = $this->actingAs($user)->post(route('user.help-center.store'), [
-        'full_name' => 'Student User',
-        'email' => 'student@example.com',
+        'full_name' => $user->name,
+        'email' => $user->email,
         'concern_type' => 'Technical Problem',
         'subject' => 'Cannot search listings',
         'message' => 'The search field does not return the expected results.',
@@ -46,8 +46,8 @@ test('user can submit a support request with a screenshot', function () {
 
     $this->assertDatabaseHas('support_requests', [
         'user_id' => $user->id,
-        'full_name' => 'Student User',
-        'email' => 'student@example.com',
+        'full_name' => $user->name,
+        'email' => $user->email,
         'concern_type' => 'Technical Problem',
         'subject' => 'Cannot search listings',
         'status' => 'Pending',

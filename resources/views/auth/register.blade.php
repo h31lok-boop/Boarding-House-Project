@@ -58,6 +58,20 @@
         .reg-head { text-align:center; margin-bottom:22px; }
         .reg-head h1 { font-size:20px; font-weight:700; color:var(--text); margin-bottom:4px; }
         .reg-head p  { font-size:13px; color:var(--muted); line-height:1.5; }
+        .wizard-panel[hidden] { display:none !important; }
+        .role-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+        .role-card { display:flex; align-items:flex-start; gap:10px; border:1.5px solid var(--border); border-radius:13px; padding:12px; background:#fff; cursor:pointer; transition:border-color .2s,background .2s,box-shadow .2s; }
+        .role-card:has(input:checked) { border-color:#2563eb; background:#eff6ff; box-shadow:0 0 0 3px rgba(37,99,235,.1); }
+        .role-card input { margin-top:3px; accent-color:#2563eb; }
+        .role-card strong { display:block; color:#172033; font-size:12.5px; }
+        .role-card span { display:block; color:#64748b; font-size:10.5px; line-height:1.4; margin-top:2px; }
+        .wizard-actions { display:flex; justify-content:space-between; gap:10px; margin-top:18px; }
+        .wizard-actions #wizardNext { width:100%; }
+        .wizard-btn { min-height:44px; border:1px solid #cbd5e1; border-radius:12px; background:#fff; color:#475569; padding:0 18px; font:700 13px inherit; cursor:pointer; }
+        .wizard-btn.primary { border-color:#2563eb; background:#2563eb; color:#fff; box-shadow:0 8px 18px rgba(37,99,235,.18); }
+        .wizard-btn:hover { border-color:#2563eb; color:#1d4ed8; }
+        .wizard-btn.primary:hover { background:#1d4ed8; color:#fff; }
+        @media (max-width:520px) { .role-grid { grid-template-columns:1fr; } .wizard-btn { flex:1; } }
 
         /* ── Section label ──────────────────────────────────────── */
         .section-label {
@@ -226,6 +240,43 @@
 
         [x-cloak] { display:none !important; }
 
+        /* Reference-style auth shell */
+        body { background: #eaf4ff; }
+        .auth-page { width: min(100% - 40px, 920px); padding: 34px 0 56px; }
+        .auth-topbar { justify-content: center; margin-bottom: 28px; }
+        .auth-topbar .auth-actions { display:none; }
+        .auth-brand { flex-direction: column; gap: 8px; font-size: 18px; color:#102a56; }
+        .auth-brand img { width: 58px; height: 58px; border-radius: 18px; }
+        .reg-card { max-width: 760px; border-color:#d7e6f7; border-radius: 22px; box-shadow: 0 20px 55px rgba(43,92,145,.14); }
+        .reg-inner { padding: 34px 42px 32px; }
+        .reg-head h1 { color:#102a56; font-size: clamp(23px, 3vw, 30px); font-weight:800; }
+        .reg-head p { color:#647b99; }
+        .wizard-panel[data-wizard-panel="1"] { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:18px; align-items:start; }
+        .wizard-panel[hidden] { display:none !important; }
+        .wizard-panel[data-wizard-panel="1"] > .section-label { display:none; }
+        .reg-head p { display:none; }
+        .wizard-panel[data-wizard-panel="1"] .section-label { grid-column:1/-1; }
+        .wizard-panel[data-wizard-panel="1"] .field { min-width:0; }
+        .input-box, .role-card, .file-zone { border-color:#cbdced; background:#fff; }
+        .input-box { min-height:48px; border-radius:10px; }
+        .role-grid { grid-template-columns:1fr 1fr; }
+        .compact-role-grid { display:flex; align-items:center; gap:22px; min-height:48px; }
+        .role-option { display:inline-flex; align-items:center; gap:7px; color:#243b60; font-size:12px; cursor:pointer; }
+        .role-option input { width:15px; height:15px; margin:0; accent-color:#2478f2; }
+        .visually-hidden { position:absolute !important; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+        .role-card { min-height:48px; }
+        .wizard-actions { grid-column:1/-1; }
+        .btn-primary-reg, .wizard-btn.primary { background:#1769e8; border-color:#1769e8; border-radius:10px; }
+        .registration-methods { background:#f8fbff; border-color:#d7e6f7; }
+        .signin-link { color:#647b99; }
+        @media (max-width: 680px) {
+            .auth-page { width:min(100% - 20px, 560px); padding-top:22px; }
+            .reg-inner { padding:26px 18px 24px; }
+            .wizard-panel[data-wizard-panel="1"] { display:block; }
+            .wizard-panel[data-wizard-panel="1"] .field { margin-bottom:14px; }
+            .compact-role-grid { min-height:44px; gap:18px; }
+        }
+
         @media (max-width:480px) {
             .auth-page { width: min(100% - 20px, 1180px); padding-top: 18px; }
             .auth-topbar { align-items: flex-start; }
@@ -234,6 +285,65 @@
             .pwd-criteria { grid-template-columns:1fr; }
             .range-row { grid-template-columns:1fr; }
             .range-sep { display:none; }
+        }
+
+        /* Compact one-screen registration layout for desktop and laptop viewports. */
+        html, body { min-height:100%; }
+        body { min-height:100dvh; }
+        .auth-page {
+            min-height:100dvh;
+            display:flex;
+            flex-direction:column;
+            padding-top:clamp(12px, 2.5dvh, 24px);
+            padding-bottom:clamp(12px, 2.5dvh, 24px);
+        }
+        .auth-topbar { margin-bottom:clamp(10px, 1.8dvh, 18px); }
+        .auth-brand { gap:5px; font-size:16px; }
+        .auth-brand img { width:46px; height:46px; border-radius:14px; }
+        .reg-card { max-width:760px; }
+        .reg-inner { padding:24px 36px 20px; }
+        .reg-head { margin-bottom:12px; }
+        .reg-head h1 { font-size:clamp(22px, 2.8vw, 28px); }
+        .wizard-panel[data-wizard-panel="1"] .field { margin-bottom:9px; }
+        .wizard-panel[data-wizard-panel="1"] .input-box { min-height:42px; padding-top:8px; padding-bottom:8px; }
+        .wizard-panel[data-wizard-panel="1"] .field-label { margin-bottom:3px; }
+        .wizard-panel[data-wizard-panel="1"] .pwd-criteria { margin-top:5px; gap:2px 8px; }
+        .wizard-panel[data-wizard-panel="1"] .security-note { margin-top:4px; padding:6px 8px; }
+        .wizard-panel[data-wizard-panel="2"] .field { margin-bottom:9px; }
+        .wizard-panel[data-wizard-panel="2"] .input-box { min-height:42px; padding-top:8px; padding-bottom:8px; }
+        .wizard-panel[data-wizard-panel="2"] .input-box textarea { min-height:54px; }
+        .wizard-panel[data-wizard-panel="2"] .range-sep { display:none; }
+        .wizard-panel[data-wizard-panel="2"] .field-hint { margin-top:2px; font-size:10px; }
+        .wizard-panel[data-wizard-panel="2"][data-role-step="tenant"] { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:18px; align-items:start; }
+        .wizard-panel[data-wizard-panel="2"][data-role-step="tenant"] .section-label { grid-column:1/-1; }
+        .wizard-panel[data-wizard-panel="2"][data-role-step="tenant"] .field { min-width:0; }
+        .wizard-actions { margin-top:10px; }
+        .wizard-btn { min-height:40px; }
+        .signin-link { margin-top:10px; }
+        @media (max-height:820px) and (min-width:681px) {
+            .auth-page { padding-top:8px; padding-bottom:8px; }
+            .auth-topbar { margin-bottom:6px; }
+            .auth-brand img { width:40px; height:40px; }
+            .reg-inner { padding:15px 32px 13px; }
+            .reg-head { margin-bottom:8px; }
+            .reg-head h1 { font-size:24px; }
+            .wizard-panel[data-wizard-panel="1"] .field { margin-bottom:4px; }
+            .wizard-panel[data-wizard-panel="1"] .input-box { min-height:38px; padding-top:6px; padding-bottom:6px; }
+            .wizard-panel[data-wizard-panel="1"] .role-option { font-size:11px; }
+            .wizard-panel[data-wizard-panel="1"] .pwd-criterion,
+            .wizard-panel[data-wizard-panel="1"] .security-note { font-size:10px; }
+            .wizard-panel[data-wizard-panel="2"] .field { margin-bottom:5px; }
+            .wizard-panel[data-wizard-panel="2"] .input-box { min-height:38px; padding-top:6px; padding-bottom:6px; }
+            .wizard-panel[data-wizard-panel="2"] .input-box textarea { min-height:42px; }
+            .wizard-panel[data-wizard-panel="2"] .field-label { margin-bottom:2px; }
+            .wizard-actions { margin-top:7px; }
+            .signin-link { margin-top:6px; }
+        }
+        @media (max-width:680px) {
+            .auth-page { min-height:100dvh; padding-top:16px; padding-bottom:20px; }
+            .reg-inner { padding:22px 18px 18px; }
+            .auth-brand img { width:44px; height:44px; }
+            .wizard-panel[data-wizard-panel="2"][data-role-step="tenant"] { display:block; }
         }
     </style>
 </head>
@@ -254,8 +364,8 @@
 <div class="reg-inner">
 
     <div class="reg-head">
-        <h1>Create your student account</h1>
-        <p>For DSSC students looking for a compatible boarding house near campus.</p>
+        <h1>Create an account <span class="visually-hidden">Create your student account</span></h1>
+        <p>Set up your BoardMatch account to continue.</p>
     </div>
 
     @if ($errors->any())
@@ -271,12 +381,14 @@
 
     @php
         $googleConfigured = filled(config('services.google.client_id'));
-        $selectedRole = 'tenant';
+        $selectedRole = old('role', request()->query('role', $selectedRole ?? 'tenant'));
+        $selectedRole = in_array($selectedRole, ['tenant', 'owner'], true) ? $selectedRole : 'tenant';
+        $initialStep = $errors->hasAny(['school', 'course_year', 'rental_budget', 'lifestyle_info', 'bh_name', 'bh_address', 'latitude', 'longitude', 'bh_contact', 'room_types', 'monthly_rent_range', 'amenities', 'house_rules', 'proof_of_ownership', 'photos']) ? 2 : ($errors->hasAny(['terms']) ? 3 : 1);
     @endphp
     <form id="regForm" method="POST" action="{{ route('register.store') }}" enctype="multipart/form-data" novalidate>
         @csrf
 
-        <input id="role" name="role" type="hidden" value="tenant" x-model="role">
+        <input id="role" name="role" type="hidden" value="{{ $selectedRole }}" x-model="role">
 
         {{-- Role-context badge --}}
         <div x-show="role === 'tenant'" x-cloak
@@ -290,11 +402,12 @@
             {{-- ════════════════════════════════════════════════════ --}}
             {{-- SHARED FIELDS                                       --}}
             {{-- ════════════════════════════════════════════════════ --}}
-            <p class="section-label">Account Information</p>
+            <section class="wizard-panel" data-wizard-panel="1">
+            <p class="section-label">Basic Account Information</p>
 
             {{-- Full Name --}}
             <div class="field">
-                <label class="field-label" for="name">Full Name<span class="req">*</span></label>
+                <label class="field-label" for="name">Full name<span class="req">*</span></label>
                 <div class="input-box{{ $errors->has('name') ? ' is-error' : '' }}" id="box-name">
                     <svg class="input-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                     <input id="name" name="name" type="text" placeholder="Your full name" value="{{ old('name') }}" autocomplete="name">
@@ -307,7 +420,7 @@
 
             {{-- Email --}}
             <div class="field">
-                <label class="field-label" for="email">Email Address<span class="req">*</span></label>
+                <label class="field-label" for="email">Email<span class="req">*</span></label>
                 <div class="input-box{{ $errors->has('email') ? ' is-error' : '' }}" id="box-email">
                     <svg class="input-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/></svg>
                     <input id="email" name="email" type="email" placeholder="you@example.com" value="{{ old('email') }}" autocomplete="email">
@@ -320,7 +433,7 @@
 
             {{-- Phone --}}
             <div class="field">
-                <label class="field-label" for="phone">Phone Number<span class="req">*</span></label>
+                <label class="field-label" for="phone">Contact number<span class="req">*</span></label>
                 <div class="input-box{{ $errors->has('phone') ? ' is-error' : '' }}" id="box-phone">
                     <svg class="input-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.338c0-.933.779-1.712 1.713-1.713h2.42c.379 0 .713.268.793.64l.927 4.167a.802.802 0 01-.228.77l-1.323 1.196a.802.802 0 00-.228.77c.43 1.852 1.677 3.403 3.45 4.56.228.143.519.115.72-.065l1.373-1.237a.802.802 0 01.77-.228l4.167.927c.372.08.64.414.64.793v2.42c0 .934-.78 1.713-1.713 1.713H6.337C4.047 21 2.25 19.204 2.25 16.913V6.338z"/></svg>
                     <input id="phone" name="phone" type="tel" placeholder="09XX XXX XXXX" value="{{ old('phone') }}" autocomplete="tel">
@@ -331,7 +444,23 @@
                 </p>
             </div>
 
+            <div class="field">
+                <label class="field-label">Account Role<span class="req">*</span></label>
+                <div class="role-grid compact-role-grid" role="radiogroup" aria-label="Account role">
+                    <label class="role-option">
+                        <input type="radio" name="role_choice" value="tenant" x-model="role" @change="onRoleChange()" @checked($selectedRole === 'tenant')>
+                        <span>Tenant <span class="visually-hidden">/ Student</span></span>
+                    </label>
+                    <label class="role-option">
+                        <input type="radio" name="role_choice" value="owner" x-model="role" @change="onRoleChange()" @checked($selectedRole === 'owner')>
+                        <span>Owner</span>
+                    </label>
+                </div>
+                <p class="field-error" id="err-role" style="display:none"><span>Please select an account role.</span></p>
+            </div>
+
             {{-- Password --}}
+            @if(false)
             <div class="field">
                 <label class="field-label">Profile Photo <span style="font-weight:500;color:var(--muted)">(optional)</span></label>
                 <div class="file-zone" id="profilePhotoZone">
@@ -344,6 +473,7 @@
                 <p id="profilePhotoCount" class="field-hint" style="margin-top:6px"></p>
                 @error('profile_photo')<p class="field-error" style="margin-top:5px"><span>{{ $message }}</span></p>@enderror
             </div>
+            @endif
 
             <div class="field">
                 <label class="field-label" for="password">Password<span class="req">*</span></label>
@@ -378,7 +508,7 @@
 
             {{-- Confirm Password --}}
             <div class="field">
-                <label class="field-label" for="password_confirmation">Confirm Password<span class="req">*</span></label>
+                <label class="field-label" for="password_confirmation">Confirm password<span class="req">*</span></label>
                 <div class="input-box" id="box-confirm">
                     <svg class="input-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 00-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>
                     <input id="password_confirmation" name="password_confirmation" type="password" placeholder="Re-enter your password">
@@ -395,7 +525,9 @@
             {{-- ════════════════════════════════════════════════════ --}}
             {{-- TENANT / STUDENT FIELDS                             --}}
             {{-- ════════════════════════════════════════════════════ --}}
-            <div x-show="role === 'tenant'" x-cloak data-role-fields="tenant">
+            </section>
+
+            <div x-show="role === 'tenant'" x-cloak data-role-fields="tenant" class="wizard-panel" data-wizard-panel="2" data-role-step="tenant">
 
                 <p class="section-label">Student Details</p>
 
@@ -427,6 +559,7 @@
 
                 <p class="section-label">Boarding Preferences</p>
 
+                @if(false)
                 {{-- Preferred Location --}}
                 <div class="field">
                     <label class="field-label" for="preferred_location">Preferred Location<span class="req">*</span></label>
@@ -440,6 +573,7 @@
                         <span>{{ $message }}</span>
                     </p>@enderror
                 </div>
+                @endif
 
                 {{-- Rental Budget --}}
                 <div class="field">
@@ -473,13 +607,13 @@
                     </p>@enderror
                 {{-- Lifestyle Info --}}
                 <div class="field">
-                    <label class="field-label" for="lifestyle_info">Lifestyle Information for AI Recommendation<span class="req">*</span></label>
+                    <label class="field-label" for="lifestyle_info">Lifestyle Information for Smart Match</label>
                     <div class="input-box{{ $errors->has('lifestyle_info') ? ' is-error' : '' }}" style="align-items:flex-start;padding-top:10px" id="box-lifestyle-info">
                         <svg class="input-icon" style="margin-top:2px" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
                         <textarea id="lifestyle_info" name="lifestyle_info" rows="4"
                             placeholder="Describe your lifestyle to help our AI find your best match.&#10;&#10;Example: I sleep early (before 10 PM), prefer quiet environments, non-smoker, keep things tidy, mostly stay indoors to study, prefer female roommates.">{{ old('lifestyle_info') }}</textarea>
                     </div>
-                    <p class="field-hint">Your AI-powered recommendations improve with more detail here.</p>
+                    <p class="field-hint">Optional now — you can complete your Smart Match preferences after registration.</p>
                     @error('lifestyle_info')<p class="field-error" style="margin-top:5px">
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         <span>{{ $message }}</span>
@@ -491,7 +625,7 @@
             {{-- ════════════════════════════════════════════════════ --}}
             {{-- OWNER / ADMIN FIELDS                                --}}
             {{-- ════════════════════════════════════════════════════ --}}
-            <div x-show="role === 'owner'" x-cloak data-role-fields="owner">
+            <div x-show="role === 'owner'" x-cloak data-role-fields="owner" class="wizard-panel" data-wizard-panel="2" data-role-step="owner">
 
                 <p class="section-label">Boarding House Information</p>
 
@@ -519,6 +653,17 @@
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         <span>{{ $message }}</span>
                     </p>@enderror
+                </div>
+
+                <div class="range-row">
+                    <div class="field">
+                        <label class="field-label" for="latitude">Map Latitude<span class="req">*</span></label>
+                        <div class="input-box{{ $errors->has('latitude') ? ' is-error' : '' }}"><input id="latitude" name="latitude" type="number" step="0.0000001" min="-90" max="90" placeholder="e.g. 6.7495" value="{{ old('latitude') }}"></div>
+                    </div>
+                    <div class="field">
+                        <label class="field-label" for="longitude">Map Longitude<span class="req">*</span></label>
+                        <div class="input-box{{ $errors->has('longitude') ? ' is-error' : '' }}"><input id="longitude" name="longitude" type="number" step="0.0000001" min="-180" max="180" placeholder="e.g. 125.3572" value="{{ old('longitude') }}"></div>
+                    </div>
                 </div>
 
                 {{-- Contact Number --}}
@@ -665,7 +810,7 @@
 
                 {{-- Valid ID / Proof of Ownership --}}
                 <div class="field">
-                    <label class="field-label">Valid ID or Proof of Ownership<span class="req">*</span></label>
+                    <label class="field-label">Upload business permit or proof of ownership<span class="req">*</span></label>
                     <div class="file-zone" id="idZone">
                         <input type="file" name="proof_of_ownership" id="validIdInput" accept=".jpg,.jpeg,.png,.pdf"
                                onchange="handleFiles(this, 'idPreview', 'idCount')">
@@ -685,10 +830,12 @@
                 {{-- Pending review notice --}}
                 <div style="background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.36);border-radius:10px;padding:10px 13px;font-size:12px;color:#92400e;display:flex;gap:9px;align-items:flex-start;margin-bottom:4px;">
                     <svg style="width:14px;height:14px;flex-shrink:0;margin-top:1px;color:#d97706" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-                    <span>Your listing will be reviewed by our team before it goes live. You can still access your dashboard while it's pending approval.</span>
+                    <span>Your account opens only after approval. Your application will be marked Pending Review, and owner management access remains restricted until an administrator approves it.</span>
                 </div>
 
             </div>{{-- /owner fields --}}
+
+            <section class="wizard-panel" data-wizard-panel="3">
 
             {{-- ── Terms & Conditions ────────────────────────────── --}}
             <div class="terms-row">
@@ -713,22 +860,27 @@
                 <div class="or-row-reg">or securely link this completed profile</div>
 
                 @if ($googleConfigured)
-                    <button type="submit" class="btn-google-reg" id="googleSubmitBtn" name="registration_method" value="google" data-google-registration="true" formaction="{{ route('register.google') }}">
+                    <button type="submit" class="btn-google-reg" id="googleSubmitBtn" name="registration_method" value="google" data-google-registration="true" formaction="{{ $selectedRole === 'owner' ? route('register.owner.google') : route('register.google') }}">
                         <svg width="18" height="18" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
                             <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
                             <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
                             <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
                             <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
                         </svg>
-                        Register with Google
+                        {{ $selectedRole === 'owner' ? 'Submit and link with Google' : 'Register with Google' }}
                     </button>
                 @else
                     <button type="button" class="btn-google-reg" disabled style="opacity:.55;cursor:not-allowed">Google registration is unavailable</button>
                 @endif
 
             </div>
+            </section>
 
         </div>{{-- /role-conditional wrapper --}}
+        <div class="wizard-actions">
+            <button type="button" class="wizard-btn" id="wizardBack">Back</button>
+            <button type="button" class="wizard-btn primary" id="wizardNext">Create Account</button>
+        </div>
     </form>
 
     <div class="signin-link">
@@ -831,6 +983,93 @@ function syncRoleFields(currentRole, clearHidden) {
     });
 }
 
+function initWizard() {
+    var form = document.getElementById('regForm');
+    var panels = Array.from(document.querySelectorAll('[data-wizard-panel]'));
+    var back = document.getElementById('wizardBack');
+    var next = document.getElementById('wizardNext');
+    var step = @js($initialStep);
+
+    function role() {
+        return (document.getElementById('role') || {}).value || 'tenant';
+    }
+
+    function requiredValue(id, label) {
+        var field = document.getElementById(id);
+        if (!field || field.disabled) return true;
+        var value = field.type === 'file' ? field.files.length : String(field.value || '').trim();
+        field.setCustomValidity(value ? '' : label + ' is required.');
+        if (!value) {
+            field.reportValidity();
+            return false;
+        }
+        return true;
+    }
+
+    function validateBasic() {
+        var ok = ['name', 'email', 'phone'].every(function(id) {
+            var labels = {name: 'Full name', email: 'Email address', phone: 'Contact number'};
+            return requiredValue(id, labels[id]);
+        });
+        var selected = document.querySelector('input[name="role_choice"]:checked');
+        if (!selected) {
+            var roleError = document.getElementById('err-role');
+            if (roleError) roleError.style.display = 'flex';
+            return false;
+        }
+        if (!requiredValue('password', 'Password')) ok = false;
+        if (!requiredValue('password_confirmation', 'Confirm password')) ok = false;
+        var password = document.getElementById('password');
+        var confirmation = document.getElementById('password_confirmation');
+        if (password && confirmation && password.value !== confirmation.value) {
+            confirmation.setCustomValidity('Passwords do not match.');
+            confirmation.reportValidity();
+            ok = false;
+        }
+        return ok;
+    }
+
+    function validateRoleDetails() {
+        var fields = role() === 'owner'
+            ? [['bh_name', 'Boarding house name'], ['bh_address', 'Boarding house address'], ['latitude', 'Map latitude'], ['longitude', 'Map longitude'], ['bh_contact', 'Boarding house contact number'], ['house_rules', 'House rules'], ['validIdInput', 'Business permit or proof of ownership']]
+            : [['school', 'School or university'], ['course_year', 'Course or year level'], ['rental_budget', 'Monthly rental budget']];
+        var ok = fields.every(function(pair) { return requiredValue(pair[0], pair[1]); });
+        if (role() === 'owner') {
+            if (!document.querySelector('[data-role-fields="owner"] input[name="room_types[]"]:checked')) { alert('Select at least one room type.'); ok = false; }
+            if (!document.querySelector('[data-role-fields="owner"] input[name="amenities[]"]:checked')) { alert('Select at least one amenity.'); ok = false; }
+        }
+        return ok;
+    }
+
+    function render() {
+        panels.forEach(function(panel) {
+            var panelStep = Number(panel.getAttribute('data-wizard-panel'));
+            var roleStep = panel.getAttribute('data-role-step');
+            panel.hidden = panelStep !== step || (roleStep && roleStep !== role());
+        });
+        if (back) back.hidden = step === 1;
+        if (next) next.hidden = step === 3;
+        if (next) next.textContent = step === 1 ? 'Create Account' : 'Continue';
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    }
+
+    document.querySelectorAll('input, textarea, select').forEach(function(field) {
+        field.addEventListener('input', function() { field.setCustomValidity(''); });
+        field.addEventListener('change', function() { field.setCustomValidity(''); });
+    });
+    if (next) next.addEventListener('click', function() {
+        if (step === 1 && !validateBasic()) return;
+        if (step === 2 && !validateRoleDetails()) return;
+        step = Math.min(3, step + 1);
+        render();
+    });
+    if (back) back.addEventListener('click', function() {
+        step = Math.max(1, step - 1);
+        render();
+    });
+    render();
+}
+
 function regApp() {
     return {
         role: @js($selectedRole),
@@ -840,6 +1079,7 @@ function regApp() {
             this.$nextTick(function () {
                 syncRoleFields(self.role, false);
                 initFormLogic();
+                initWizard();
             });
         },
 

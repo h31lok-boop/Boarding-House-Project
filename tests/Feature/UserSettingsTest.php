@@ -23,16 +23,52 @@ test('user can view the profile settings page', function () {
     $this->actingAs($user)
         ->get(route('user.settings.index'))
         ->assertOk()
-        ->assertSee('Profile Settings')
-        ->assertSee('Manage your personal information, security, and contact details.')
-        ->assertSee('Personal Information')
-        ->assertSee('Account Security')
-        ->assertSee('Contact Information')
+        ->assertSee('Settings')
+        ->assertSee('Manage your profile, security, and preferences.')
+        ->assertSee('Profile Information')
+        ->assertSee('Account &amp; Security', false)
+        ->assertSee('Notification Preferences')
+        ->assertSee('Appearance')
         ->assertSee('Change Photo')
-        ->assertSee('Country Code')
+        ->assertSee('Emergency Contact')
+        ->assertSee('Match recommendations')
+        ->assertSee('Reservation decisions and recorded payment updates remain available in Notifications.')
         ->assertSee('x-on:submit="saving = true"', false)
-        ->assertDontSee('Additional Security')
         ->assertSee('Save Changes');
+});
+
+test('user can save profile, emergency contact, optional notifications, and appearance together', function () {
+    $user = settingsUser(['name' => 'Old Name']);
+
+    $this->actingAs($user)
+        ->put(route('user.settings.profile.update'), [
+            'first_name' => 'Hazel',
+            'last_name' => 'Reyes',
+            'phone_number' => '+63 912 345 6789',
+            'emergency_contact_name' => 'Maria Reyes',
+            'emergency_contact_number' => '+63 917 000 0000',
+            'emergency_contact_relationship' => 'Parent',
+            'rent_reminders' => '0',
+            'match_recommendations' => '1',
+            'theme' => 'dark',
+        ])
+        ->assertRedirect(route('user.settings.index'))
+        ->assertSessionHas('success', 'Settings saved successfully.');
+
+    $user->refresh();
+
+    expect($user->name)->toBe('Hazel Reyes')
+        ->and($user->phone_number)->toBe('+63 912 345 6789')
+        ->and($user->notify_payment_reminders)->toBeFalse()
+        ->and($user->allow_matchmaking_data)->toBeTrue()
+        ->and(data_get($user->preferences, 'theme'))->toBe('dark');
+
+    $this->assertDatabaseHas('tenant_profiles', [
+        'user_id' => $user->id,
+        'emergency_contact_name' => 'Maria Reyes',
+        'emergency_contact_number' => '+63 917 000 0000',
+        'emergency_contact_relationship' => 'Parent',
+    ]);
 });
 
 test('user can update personal information and profile photo', function () {

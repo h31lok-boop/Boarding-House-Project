@@ -8,6 +8,7 @@ use App\Models\BoardingHouse;
 use App\Models\Room;
 use App\Services\OwnerDashboardService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -73,6 +74,7 @@ class OwnerController extends AdminOwnerController
 
         $data['hasActiveTenants'] = $data['activeTenantsCount'] > 0;
         $data['hasPendingReservations'] = $data['pendingReservationsCount'] > 0;
+        $data['editOpen'] = $request->boolean('edit');
 
         return view('owner.property', $data);
     }
@@ -84,9 +86,71 @@ class OwnerController extends AdminOwnerController
         return parent::boardingHouses($request);
     }
 
+    public function propertyDetails(Request $request, BoardingHouse $boardingHouse)
+    {
+        abort_unless((int) $boardingHouse->owner_id === (int) $request->user()->id, 404);
+
+        $request->query->set('owner', 'mine');
+        $data = parent::singleBoardingHouse($request, $boardingHouse)->getData();
+        $data['allAmenities'] = Schema::hasTable('amenities')
+            ? Amenity::query()->orderBy('name')->get(['id', 'name'])
+            : collect();
+        $data['activeTenantsCount'] = $boardingHouse->tenants()->whereIn('status', ['active', 'occupied'])->count();
+        $data['pendingReservationsCount'] = $boardingHouse->reservations()->whereIn(DB::raw('LOWER(status)'), ['pending', 'reserved'])->count();
+        $data['hasActiveTenants'] = $data['activeTenantsCount'] > 0;
+        $data['hasPendingReservations'] = $data['pendingReservationsCount'] > 0;
+
+        if ($request->boolean('edit')) {
+            $data['editOpen'] = true;
+
+            return view('owner.property', $data);
+        }
+
+        return view('owner.property-details', $data);
+    }
+
+    public function editBoardingHouse(Request $request, BoardingHouse $boardingHouse)
+    {
+        abort_unless((int) $boardingHouse->owner_id === (int) $request->user()->id, 404);
+
+        $request->query->set('owner', 'mine');
+        $data = parent::singleBoardingHouse($request, $boardingHouse)->getData();
+        $data['allAmenities'] = Schema::hasTable('amenities')
+            ? Amenity::query()->orderBy('name')->get(['id', 'name'])
+            : collect();
+        $data['backUrl'] = route('owner.boarding-houses.details', $boardingHouse);
+
+        return view('owner.property-edit', $data);
+    }
+
     public function rooms(Request $request)
     {
         $ownerHouseIds = $this->ownerHouseIds($request);
+        $houseSearch = trim((string) $request->query('q', ''));
+        $boardingHouses = BoardingHouse::whereIn('id', $ownerHouseIds)
+            ->with(['city', 'province', 'coverImage'])
+            ->withCount('rooms')
+            ->withSum('rooms as total_slots', 'capacity')
+            ->withSum('rooms as available_slots_total', 'available_slots')
+            ->when($houseSearch && ! $request->filled('boarding_house_id'), function ($query) use ($houseSearch) {
+                $term = '%'.$houseSearch.'%';
+                $query->where(function ($q) use ($term) {
+                    $q->where('name', 'like', $term)
+                        ->orWhere('address', 'like', $term)
+                        ->orWhere('full_address', 'like', $term)
+                        ->orWhereHas('city', fn ($city) => $city->where('city_name', 'like', $term))
+                        ->orWhereHas('province', fn ($province) => $province->where('province_name', 'like', $term));
+                });
+            })
+            ->orderBy('name')
+            ->get();
+        $selectedHouseId = $request->integer('boarding_house_id') ?: null;
+        $selectedHouse = $selectedHouseId
+            ? BoardingHouse::whereIn('id', $ownerHouseIds)
+                ->with(['city', 'province', 'coverImage'])
+                ->find($selectedHouseId)
+            : null;
+        $selectedHouseId = $selectedHouse?->id;
 
         $rooms = Room::with('boardingHouse')
             ->whereIn('boarding_house_id', $ownerHouseIds)
@@ -100,14 +164,20 @@ class OwnerController extends AdminOwnerController
                 });
             })
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->query('status')))
-            ->when($request->filled('boarding_house_id'), fn ($query) => $query->where('boarding_house_id', $request->integer('boarding_house_id')))
+            ->when($selectedHouseId, fn ($query) => $query->where('boarding_house_id', $selectedHouseId))
             ->orderByDesc('created_at')
             ->paginate(12)
             ->withQueryString();
 
-        $boardingHouses = BoardingHouse::whereIn('id', $ownerHouseIds)->orderBy('name')->get();
+        $statsRooms = Room::query()
+            ->whereIn('boarding_house_id', $ownerHouseIds)
+            ->when($selectedHouseId, fn ($query) => $query->where('boarding_house_id', $selectedHouseId))
+            ->get(['capacity', 'available_slots', 'status']);
+        $totalSlots = $statsRooms->sum(fn ($room) => max((int) ($room->capacity ?? 0), 0));
+        $availableSlots = $statsRooms->sum(fn ($room) => max((int) ($room->available_slots ?? 0), 0));
+        $occupiedSlots = max($totalSlots - $availableSlots, 0);
 
-        return view('admin.rooms', compact('rooms', 'boardingHouses'));
+        return view('owner.rooms', compact('rooms', 'boardingHouses', 'selectedHouse', 'totalSlots', 'occupiedSlots', 'availableSlots', 'houseSearch'));
     }
 
     // ---- Operational pages (reuse parent data, owner views) --------------

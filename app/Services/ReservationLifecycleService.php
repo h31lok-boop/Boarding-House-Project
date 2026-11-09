@@ -11,6 +11,22 @@ use Illuminate\Support\Facades\Schema;
 
 class ReservationLifecycleService
 {
+    public const APPROVED_STATUSES = [
+        'approved', 'confirmed', 'active', 'checked-in', 'checked_in',
+        'checkedin', 'completed', 'checked-out', 'checked_out', 'checkedout',
+    ];
+
+    public const CURRENT_STATUSES = [
+        'pending', 'reserved',
+        'approved', 'confirmed', 'active', 'checked-in', 'checked_in', 'checkedin',
+        'expired',
+    ];
+
+    public function isApprovedStatus(?string $status): bool
+    {
+        return in_array(strtolower(trim((string) $status)), self::APPROVED_STATUSES, true);
+    }
+
     /**
      * @return Collection<int, Reservation>
      */
@@ -132,9 +148,55 @@ class ReservationLifecycleService
 
     public function relevantReservationForUser(int $userId): ?Reservation
     {
+        $relations = [
+            'boardingHouse.images',
+            'boardingHouse.photos',
+            'boardingHouse.owner',
+            'boardingHouse.ownerProfile',
+            'boardingHouse.services',
+            'room',
+        ];
+
+        // This is the single primary-reservation rule shared by the tenant
+        // dashboard and the default Reservations tracking view. A specific
+        // reservation selected by id is handled separately by the tracker;
+        // it must never silently replace this primary record.
+        $base = Reservation::with($relations)->where('user_id', $userId);
+
+        return (clone $base)
+            ->whereNotIn(DB::raw('LOWER(status)'), ['cancelled', 'canceled', 'rejected', 'expired'])
+            ->orderByRaw('CASE WHEN check_in_date IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('check_in_date')
+            ->latest('id')
+            ->first()
+            ?: (clone $base)->latest('id')->first();
+    }
+
+    public function reservationForUser(int $userId, ?int $reservationId = null): ?Reservation
+    {
+        if ($reservationId === null || $reservationId <= 0) {
+            return $this->relevantReservationForUser($userId);
+        }
+
+        return Reservation::with([
+            'boardingHouse.images',
+            'boardingHouse.photos',
+            'boardingHouse.owner',
+            'boardingHouse.ownerProfile',
+            'room',
+        ])
+            ->where('user_id', $userId)
+            ->whereKey($reservationId)
+            ->first();
+    }
+
+    public function approvedReservationForUser(int $userId): ?Reservation
+    {
         return Reservation::with(['boardingHouse.images', 'boardingHouse.photos', 'room'])
             ->where('user_id', $userId)
-            ->whereNotIn(DB::raw('LOWER(status)'), ['cancelled', 'canceled', 'rejected'])
+            ->whereIn(DB::raw('LOWER(status)'), self::APPROVED_STATUSES)
+            ->latest('approved_at')
+            ->latest('created_at')
             ->latest('id')
             ->first();
     }

@@ -161,18 +161,54 @@
                                 $userPhotoUrl = $user->photo_url;
                                 $reviewReady = (bool) (($isSeededDemo || $permitUrl) && $house);
                                 $verifyUrl = $isOwner && ! $ownerApproved ? route('admin.owners.verify', $user) : null;
+                                $tenantProfile = $user->tenantProfile;
+                                $tenantRecords = $user->tenantRecords ?? collect();
+                                $userReservations = $user->reservations ?? collect();
+                                $contactPhone = collect([$user->phone, $user->contact_number, $user->phone_number, $ownerProfile?->contact_number])
+                                    ->filter(fn ($value) => filled($value))->first();
                                 $payload = [
+                                    'id' => $user->id,
                                     'name' => $user->name,
                                     'email' => $user->email,
+                                    'username' => $user->username,
                                     'role' => $user->role,
                                     'role_label' => $roleLabel,
-                                    'phone' => $user->phone ?? $user->contact_number,
+                                    'phone' => $contactPhone,
+                                    'current_address' => $user->current_address,
+                                    'profile' => [
+                                        'student_id' => $tenantProfile?->student_id,
+                                        'school_company' => $tenantProfile?->school_company ?: $tenantProfile?->school_university,
+                                        'course_or_position' => $tenantProfile?->course_or_position ?: $tenantProfile?->course_year_level,
+                                        'preferred_location' => $tenantProfile?->preferred_location,
+                                        'rental_budget' => $tenantProfile?->rental_budget,
+                                        'emergency_contact_name' => $tenantProfile?->emergency_contact_name,
+                                        'emergency_contact_number' => $tenantProfile?->emergency_contact_number,
+                                        'preferred_language' => $tenantProfile?->preferred_language,
+                                        'id_verified' => (bool) ($tenantProfile?->id_verified ?? false),
+                                    ],
+                                    'tenant_records' => $tenantRecords->map(fn ($tenant) => [
+                                        'id' => $tenant->id,
+                                        'boarding_house' => $tenant->boardingHouse?->name,
+                                        'room' => $tenant->room?->effective_room_number ?: $tenant->room?->room_no ?: $tenant->room?->room_number,
+                                        'move_in_date' => optional($tenant->move_in_date)->format('M d, Y'),
+                                        'move_out_date' => optional($tenant->move_out_date)->format('M d, Y'),
+                                        'status' => $tenant->status,
+                                        'payments' => $tenant->payments->count(),
+                                    ])->values()->all(),
+                                    'reservations' => $userReservations->map(fn ($reservation) => [
+                                        'id' => $reservation->id,
+                                        'boarding_house' => $reservation->boardingHouse?->name,
+                                        'room' => $reservation->room?->effective_room_number ?: $reservation->room?->room_no ?: $reservation->room?->room_number,
+                                        'check_in_date' => optional($reservation->check_in_date)->format('M d, Y'),
+                                        'status' => $reservation->status,
+                                        'payment_status' => $reservation->payment_status,
+                                    ])->values()->all(),
                                     'active' => $active,
                                     'initials' => $initials,
                                     'photo_url' => $userPhotoUrl,
                                     'permissions' => $permissions,
-                                    'created' => optional($user->created_at)->format('M d, Y') ?? 'Unknown',
-                                    'last_login' => optional($user->updated_at)->diffForHumans() ?? 'Unknown',
+                                    'created' => optional($user->created_at)->format('M d, Y'),
+                                    'last_login' => null,
                                     'verified' => (bool) $user->email_verified_at,
                                     'account_status' => $accountStatus,
                                     'verification_status' => $verificationStatus,
@@ -204,6 +240,7 @@
                                 ];
                             @endphp
                             <tr
+                                data-user-id="{{ $user->id }}"
                                 class="cursor-pointer transition hover:bg-slate-50/80 focus-within:bg-blue-50/40 dark:hover:bg-slate-800/60"
                                 role="button"
                                 tabindex="0"
@@ -306,8 +343,41 @@
                 </div>
 
                 <div class="bm-modal__body bm-modal__body--compact">
-                    <div x-show="viewTab === 'overview'">
-                        <dl class="bm-modal__details bm-modal__details--two-col"><div class="bm-modal__detail"><dt>Role</dt><dd x-text="selected.role_label"></dd></div><div class="bm-modal__detail"><dt>Account Status</dt><dd class="capitalize" x-text="selected.account_status"></dd></div><div class="bm-modal__detail"><dt>Phone</dt><dd x-text="selected.phone || 'Not set'"></dd></div><div class="bm-modal__detail"><dt>Registered</dt><dd x-text="selected.created"></dd></div></dl>
+                    <div x-show="viewTab === 'overview'" class="space-y-4">
+                        <dl class="bm-modal__details bm-modal__details--two-col">
+                            <div class="bm-modal__detail"><dt>User ID</dt><dd x-text="selected.id ?? 'Not provided'"></dd></div>
+                            <div class="bm-modal__detail"><dt>Username</dt><dd x-text="selected.username || 'Not provided'"></dd></div>
+                            <div class="bm-modal__detail"><dt>Role</dt><dd x-text="selected.role_label || 'Not provided'"></dd></div>
+                            <div class="bm-modal__detail"><dt>Account Status</dt><dd class="capitalize" x-text="selected.active ? 'Active' : (selected.account_status || 'Not provided')"></dd></div>
+                            <div class="bm-modal__detail"><dt>Phone</dt><dd x-text="selected.phone || 'Not provided'"></dd></div>
+                            <div class="bm-modal__detail"><dt>Current Address</dt><dd x-text="selected.current_address || 'Not provided'"></dd></div>
+                            <div class="bm-modal__detail"><dt>Registered</dt><dd x-text="selected.created || 'Not provided'"></dd></div>
+                            <div class="bm-modal__detail"><dt>Last Login</dt><dd x-text="selected.last_login || 'Not provided'"></dd></div>
+                        </dl>
+
+                        <section x-show="selected.role !== 'owner'" class="bm-modal__section">
+                            <h3 class="bm-modal__section-title">Tenant Profile</h3>
+                            <dl class="bm-modal__details bm-modal__details--two-col mt-3">
+                                <div class="bm-modal__detail"><dt>Student ID</dt><dd x-text="selected.profile?.student_id || 'Not provided'"></dd></div>
+                                <div class="bm-modal__detail"><dt>School / Company</dt><dd x-text="selected.profile?.school_company || 'Not provided'"></dd></div>
+                                <div class="bm-modal__detail"><dt>Course / Position</dt><dd x-text="selected.profile?.course_or_position || 'Not provided'"></dd></div>
+                                <div class="bm-modal__detail"><dt>Preferred Location</dt><dd x-text="selected.profile?.preferred_location || 'Not provided'"></dd></div>
+                                <div class="bm-modal__detail"><dt>Emergency Contact</dt><dd x-text="selected.profile?.emergency_contact_name || 'Not provided'"></dd></div>
+                                <div class="bm-modal__detail"><dt>Emergency Number</dt><dd x-text="selected.profile?.emergency_contact_number || 'Not provided'"></dd></div>
+                            </dl>
+                        </section>
+
+                        <section x-show="selected.tenant_records?.length" class="bm-modal__section">
+                            <h3 class="bm-modal__section-title">Tenant Records</h3>
+                            <div class="mt-3 space-y-2">
+                                <template x-for="record in (selected.tenant_records || [])" :key="record.id">
+                                    <div class="rounded-lg border ui-border px-3 py-2 text-sm">
+                                        <p class="font-semibold" x-text="record.boarding_house || 'Boarding house not provided'"></p>
+                                        <p class="mt-0.5 text-xs ui-muted" x-text="(record.room || 'Room not provided') + ' · ' + (record.status || 'Status not provided')"></p>
+                                    </div>
+                                </template>
+                            </div>
+                        </section>
                     </div>
 
                     <div x-show="viewTab === 'application' && selected.role === 'owner'" class="space-y-4">

@@ -24,6 +24,7 @@ class TenantProfile extends Model
         'valid_id_file',
         'emergency_contact_name',
         'emergency_contact_number',
+        'emergency_contact_relationship',
         'id_verified',
         'verified_by',
         'verified_at',

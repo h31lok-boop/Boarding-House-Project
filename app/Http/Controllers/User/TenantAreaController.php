@@ -14,6 +14,7 @@ use App\Models\Tenant;
 use App\Models\UserNotification;
 use App\Services\BoardingHouseRecommendationService;
 use App\Services\ReservationLifecycleService;
+use App\Services\TenantBillingService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -21,12 +22,14 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class TenantAreaController extends Controller
 {
     public function __construct(
         private readonly ReservationLifecycleService $reservationLifecycleService,
+        private readonly TenantBillingService $tenantBilling,
     ) {}
 
     public function reservations(Request $request)
@@ -52,18 +55,16 @@ class TenantAreaController extends Controller
             ->paginate(12)
             ->withQueryString();
 
-        $currentReservation = (clone $baseReservationQuery)
-            ->whereNotIn(DB::raw('LOWER(status)'), ['cancelled', 'canceled', 'rejected', 'expired'])
-            ->orderByRaw('CASE WHEN check_in_date IS NULL THEN 1 ELSE 0 END')
-            ->orderBy('check_in_date')
-            ->latest('id')
-            ->first()
-            ?: (clone $baseReservationQuery)->latest()->first();
+        $currentReservation = $this->reservationLifecycleService->relevantReservationForUser($tenant->id);
 
+        $createMode = $request->query('mode') === 'create';
         $selectedHouse = null;
-        $selectedHouseId = $request->integer('house');
+        $selectedRoom = null;
+        $selectedHouseId = $createMode
+            ? $request->integer('property_id')
+            : $request->integer('house');
         if ($selectedHouseId > 0) {
-            $selectedHouse = BoardingHouse::with([
+            $selectedHouseQuery = BoardingHouse::with([
                 'images',
                 'photos',
                 'amenities',
@@ -73,11 +74,79 @@ class TenantAreaController extends Controller
                 'services',
                 'city',
                 'province',
-            ])
-                ->whereKey($selectedHouseId)
-                ->when(Schema::hasColumn('boarding_houses', 'is_active'), fn ($query) => $query->where('is_active', true))
-                ->first();
+            ])->whereKey($selectedHouseId);
+
+            if ($createMode) {
+                $selectedHouseQuery
+                    ->where('is_active', true)
+                    ->whereIn(DB::raw('LOWER(approval_status)'), ['approved']);
+
+                $eligibleIds = app(\App\Services\MattiServiceArea::class)
+                    ->eligibleIds((new BoardingHouse)->getConnectionName());
+                $selectedHouseQuery->whereIn('id', $eligibleIds);
+            } elseif (Schema::hasColumn('boarding_houses', 'is_active')) {
+                $selectedHouseQuery->where('is_active', true);
+            }
+
+            $selectedHouse = $selectedHouseQuery->firstOrFail();
+
+            $selectedRoomId = $createMode
+                ? $request->integer('room_id')
+                : $request->integer('room');
+            if ($selectedHouse && $selectedRoomId > 0) {
+                $selectedRoom = $selectedHouse->rooms->firstWhere('id', $selectedRoomId);
+            }
+
+            // A reservation started from a listing should always carry a real
+            // room into the form. Fall back only when the listing has one
+            // available room and no room was specified in the URL.
+            if (! $createMode && ! $selectedRoom && $selectedHouse) {
+                $selectedRoom = $selectedHouse->rooms
+                    ->first(fn ($room) => strtolower((string) $room->status) === 'available'
+                        && (int) ($room->available_slots ?? 0) > 0);
+            }
         }
+
+        // A tracker is always resolved by the authenticated tenant's reservation
+        // id. Never fall back to another tenant's house or to a synthetic record.
+        $trackingReservation = null;
+        $requestedReservationId = $request->integer('reservation');
+        if ($requestedReservationId > 0) {
+            $trackingReservation = (clone $baseReservationQuery)
+                ->whereKey($requestedReservationId)
+                ->firstOrFail();
+        } elseif ($selectedHouseId <= 0 && ! $createMode) {
+            $trackingReservation = $currentReservation;
+        }
+
+        $trackingPayment = null;
+        if ($trackingReservation
+            && $this->reservationLifecycleService->isApprovedStatus($trackingReservation->status)
+            && Schema::hasTable('payments')
+            && Schema::hasTable('tenants')) {
+            $tenantRecordId = Tenant::query()
+                ->where('user_id', $tenant->id)
+                ->latest('id')
+                ->value('id');
+
+            if ($tenantRecordId) {
+                $trackingPayment = Payment::query()
+                    ->with(['receipts' => fn ($query) => $query
+                        ->where('status', PaymentReceipt::STATUS_APPROVED)
+                        ->latest('payment_date')->latest('id')])
+                    ->where('tenant_id', $tenantRecordId)
+                    ->where('boarding_house_id', $trackingReservation->boarding_house_id)
+                    ->whereIn(DB::raw('LOWER(payment_type)'), ['downpayment', 'deposit'])
+                    ->where('status', 'paid')
+                    ->when(Schema::hasColumn('payments', 'reservation_id'), fn ($query) => $query->where('reservation_id', $trackingReservation->id))
+                    ->latest('paid_at')->latest('id')
+                    ->first();
+            }
+        }
+
+        $reservationCancelUrl = $request->query('return_to') === 'property' && $selectedHouse
+            ? route('user.boarding-houses.show', $selectedHouse)
+            : route('user.boarding-houses.index');
 
         $latestReceipt = Schema::hasTable('payment_receipts')
             ? PaymentReceipt::where('user_id', $tenant->id)->latest()->first()
@@ -92,7 +161,9 @@ class TenantAreaController extends Controller
             ? app(BoardingHouseRecommendationService::class)->score($tenant, clone $compatibilityHouse, persist: false)
             : null;
 
-        return view('user.reservations', compact('reservations', 'currentReservation', 'latestReceipt', 'receipts', 'selectedHouse', 'reservationCompatibility'));
+        $stayDurations = [1 => '1 month', 3 => '3 months', 6 => '6 months', 12 => '12 months'];
+
+        return view('user.reservations', compact('reservations', 'currentReservation', 'trackingReservation', 'trackingPayment', 'latestReceipt', 'receipts', 'selectedHouse', 'selectedRoom', 'stayDurations', 'reservationCompatibility', 'createMode', 'reservationCancelUrl'));
     }
 
     public function cancelReservation(Request $request, Reservation $reservation)
@@ -101,7 +172,7 @@ class TenantAreaController extends Controller
         $tenant = $this->tenant($request);
         abort_unless((int) $reservation->user_id === (int) $tenant->id, 403);
 
-        if (in_array(strtolower((string) $reservation->status), ['confirmed', 'approved', 'active', 'expired', 'cancelled'], true)) {
+        if (! in_array(strtolower((string) $reservation->status), ['pending', 'reserved'], true)) {
             return back()->with('error', 'This reservation can no longer be cancelled from your account.');
         }
 
@@ -112,6 +183,7 @@ class TenantAreaController extends Controller
             'payment_status' => Schema::hasColumn('reservations', 'payment_status')
                 ? 'cancelled'
                 : $reservation->payment_status,
+            'cancelled_at' => Schema::hasColumn('reservations', 'cancelled_at') ? now() : null,
             'notes' => trim(($reservation->notes ? $reservation->notes."\n" : '').'Cancelled by tenant on '.now()->format('M d, Y h:i A')),
         ]);
 
@@ -122,8 +194,24 @@ class TenantAreaController extends Controller
     {
         $this->reservationLifecycleService->expireStaleReservations();
         $tenant = $this->tenant($request);
+        $dateToRules = ['nullable', 'date'];
+        if ($request->filled('date_from')) {
+            $dateToRules[] = 'after_or_equal:date_from';
+        }
+        $paymentFilters = $request->validate([
+            'payment_type' => ['nullable', Rule::in(['rent', 'advance_rent', 'downpayment', 'security_deposit', 'deposit'])],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => $dateToRules,
+        ]);
+        $selectedReservationId = $request->integer('reservation');
+        $reservation = $this->reservationLifecycleService->reservationForUser($tenant->id, $selectedReservationId ?: null);
+        abort_if($selectedReservationId > 0 && ! $reservation, 404);
+        $pastReservations = Reservation::with('boardingHouse')
+            ->where('user_id', $tenant->id)
+            ->when($reservation, fn ($query) => $query->where('id', '!=', $reservation->id))
+            ->latest('created_at')->latest('id')->get();
 
-        return view('user.payments', $this->paymentDashboardData($tenant->id));
+        return view('user.payments', $this->paymentDashboardData($tenant->id, $reservation, $pastReservations, $paymentFilters));
     }
 
     public function messages(Request $request)
@@ -416,51 +504,114 @@ class TenantAreaController extends Controller
         return back()->with('success', 'Review deleted.');
     }
 
-    private function paymentDashboardData(int $tenantId): array
+    private function paymentDashboardData(int $tenantId, ?Reservation $reservation = null, ?Collection $pastReservations = null, array $paymentFilters = []): array
     {
+        $currentReservation = $reservation ?: $this->reservationLifecycleService->relevantReservationForUser($tenantId);
+        $approvedReservation = $currentReservation
+            && $this->reservationLifecycleService->isApprovedStatus($currentReservation->status)
+            ? $currentReservation
+            : null;
+        $reservationHouse = $approvedReservation?->boardingHouse;
+        $agreedRent = $approvedReservation?->room?->price ?? $approvedReservation?->total_amount;
+        $depositAmount = $reservationHouse?->security_deposit_amount ?? $reservationHouse?->security_deposit;
+        $approvedHouseIds = $approvedReservation?->boarding_house_id
+            ? collect([(int) $approvedReservation->boarding_house_id])
+            : collect();
+        $hasApprovedReservation = $approvedHouseIds->isNotEmpty();
+
+        $reservationId = $approvedReservation?->id;
+        $receiptScope = function ($query) use ($reservationId) {
+            if (! $reservationId) {
+                $query->whereRaw('1 = 0');
+
+                return;
+            }
+
+            $hasRelation = Schema::hasColumn('payments', 'reservation_id') || Schema::hasColumn('bookings', 'reservation_id');
+            if (! $hasRelation) {
+                $query->whereRaw('1 = 0');
+
+                return;
+            }
+
+            $query->where(function ($scope) use ($reservationId) {
+                if (Schema::hasColumn('payments', 'reservation_id')) {
+                    $scope->whereHas('payment', fn ($payment) => $payment->where('reservation_id', $reservationId));
+                }
+                if (Schema::hasColumn('bookings', 'reservation_id')) {
+                    $scope->orWhereHas('booking', fn ($booking) => $booking->where('reservation_id', $reservationId));
+                }
+            });
+        };
+
         $latestReceipt = Schema::hasTable('payment_receipts')
-            ? PaymentReceipt::query()
+            ? PaymentReceipt::query()->with('payment.advanceAllocations')
                 ->where('user_id', $tenantId)
+                ->where($receiptScope)
                 ->latest('payment_date')
                 ->latest('id')
                 ->first()
             : null;
 
-        $bookings = Schema::hasTable('bookings') && Schema::hasColumn('bookings', 'user_id')
-            ? Booking::with('room.boardingHouse')->where('user_id', $tenantId)->latest()->limit(10)->get()
+        $bookings = $hasApprovedReservation && Schema::hasTable('bookings') && Schema::hasColumn('bookings', 'user_id') && Schema::hasColumn('bookings', 'reservation_id')
+            ? Booking::with('room.boardingHouse')->where('user_id', $tenantId)->where('reservation_id', $approvedReservation->id)->latest()->limit(10)->get()
             : collect();
 
-        $paymentRows = $this->tenantPayments($tenantId);
+        $paymentRows = $this->tenantBilling->paymentsForTenant(
+            $tenantId,
+            $approvedHouseIds,
+            $approvedReservation?->id
+        );
 
         $approvedReceipts = Schema::hasTable('payment_receipts')
-            ? PaymentReceipt::query()
+            ? PaymentReceipt::query()->with('payment.advanceAllocations')
                 ->where('user_id', $tenantId)
                 ->where('status', PaymentReceipt::STATUS_APPROVED)
+                ->where($receiptScope)
                 ->get()
             : collect();
 
         $receipts = Schema::hasTable('payment_receipts')
-            ? PaymentReceipt::query()
+            ? PaymentReceipt::query()->with('payment.advanceAllocations.billingPayment')
                 ->where('user_id', $tenantId)
+                ->where($receiptScope)
+                ->when($paymentFilters['payment_type'] ?? null, fn ($query, string $type) => $query->whereHas('payment', fn ($payment) => $payment->where('payment_type', $type)))
+                ->when($paymentFilters['date_from'] ?? null, fn ($query, string $date) => $query->whereDate('payment_date', '>=', $date))
+                ->when($paymentFilters['date_to'] ?? null, fn ($query, string $date) => $query->whereDate('payment_date', '<=', $date))
                 ->latest('payment_date')
                 ->latest('id')
                 ->limit(20)
                 ->get()
             : collect();
 
-        $today = now()->startOfDay();
-        $openStatuses = ['pending', 'unpaid', 'overdue'];
-        $paidStatuses = ['paid', 'completed', 'settled'];
-        $paidPayments = $paymentRows->filter(fn (array $payment) => in_array($payment['status_key'], $paidStatuses, true));
-        $openPayments = $paymentRows->filter(fn (array $payment) => in_array($payment['status_key'], $openStatuses, true));
-        $nextDue = $openPayments
-            ->filter(fn (array $payment) => $payment['due_date'] instanceof Carbon)
+        $today = $this->tenantBilling->now()->startOfDay();
+        $advanceRent = $this->tenantBilling->advanceCoverage($paymentRows);
+        $advanceRentRemaining = $advanceRent
+            ->filter(function (array $period) use ($today): bool {
+                if (empty($period['end'])) {
+                    return true;
+                }
+
+                return Carbon::parse($period['end'], TenantBillingService::TIMEZONE)->startOfDay()->gte($today);
+            })
+            ->sum('amount');
+        $rentRows = $paymentRows->reject(fn (array $payment) => $payment['is_advance_rent'] ?? false)->values();
+        $paidPayments = $rentRows->filter(fn (array $payment) => $this->tenantBilling->isPaid($payment));
+        $openPayments = $rentRows->filter(fn (array $payment) => $this->tenantBilling->isOpen($payment));
+        $currentDuePayments = $openPayments
+            ->filter(fn (array $payment) => $payment['due_date'] instanceof Carbon && $payment['due_date']->lte($today));
+        $nextRentDue = $openPayments
+            ->filter(fn (array $payment) => $payment['due_date'] instanceof Carbon && $payment['due_date']->gte($today))
             ->sortBy('due_date')
             ->first();
+        $overduePayments = $openPayments
+            ->filter(fn (array $payment) => $payment['due_date'] instanceof Carbon && $payment['due_date']->lt($today))
+            ->sortBy('due_date');
 
-        $pendingAmount = (float) $openPayments->sum('amount');
-        $paidAmount = (float) $paidPayments->sum('amount');
-        $totalTracked = $paidAmount + $pendingAmount;
+        $pendingAmount = (float) $openPayments->sum('remaining_amount');
+        $currentAmountDue = (float) $currentDuePayments->sum('remaining_amount');
+        $paidAmount = (float) $paymentRows->sum('cash_received');
+        $totalTracked = (float) $rentRows->sum('charged_amount');
 
         $stats = [
             [
@@ -485,31 +636,42 @@ class TenantAreaController extends Controller
                 'icon' => 'clock',
             ],
             [
-                'label' => 'Next Payment Due',
-                'value' => $nextDue['due_date_label'] ?? 'No upcoming due',
-                'meta' => $nextDue
-                    ? ($nextDue['type'].' - PHP '.number_format((float) $nextDue['amount'], 2))
-                    : 'You have no open billing item.',
+                'label' => 'Next Rent Due',
+                'value' => $nextRentDue['due_date_label'] ?? 'No upcoming due',
+                'meta' => $nextRentDue
+                    ? ($nextRentDue['type'].' - PHP '.number_format((float) $nextRentDue['remaining_amount'], 2))
+                    : 'No upcoming rent due.',
                 'icon' => 'calendar',
             ],
         ];
 
-        $paymentSchedule = $openPayments
+        $paymentSchedule = $rentRows
             ->filter(fn (array $payment) => $payment['due_date'] instanceof Carbon)
             ->sortBy('due_date')
             ->take(6)
             ->map(function (array $payment) use ($today) {
                 $status = $payment['status_label'];
-                if ($payment['due_date']->isFuture() && $payment['due_date']->gt($today->copy()->addDays(7))) {
-                    $status = 'Upcoming';
+                if ($payment['remaining_amount'] <= 0) {
+                    $status = 'Paid';
                 } elseif ($payment['due_date']->lt($today)) {
                     $status = 'Overdue';
+                } elseif ($payment['due_date']->equalTo($today)) {
+                    $status = 'Due today';
+                } elseif (($payment['paid_amount'] ?? 0) > 0) {
+                    $status = 'Partially Paid';
+                } else {
+                    $status = 'Upcoming';
                 }
 
                 return [
+                    'billing_period' => ! empty($payment['applied_advance_allocations'])
+                        ? collect($payment['applied_advance_allocations'])->map(fn (array $period) => $period['start'].' – '.$period['end'])->implode(', ')
+                        : 'Not set',
                     'due_date' => $payment['due_date_label'],
                     'type' => $payment['type'],
-                    'amount' => $payment['amount'],
+                    'charge' => $payment['charged_amount'],
+                    'paid' => $payment['paid_amount'],
+                    'balance' => $payment['remaining_amount'],
                     'status' => $status,
                 ];
             })
@@ -517,10 +679,10 @@ class TenantAreaController extends Controller
             ->all();
 
         $summaryItems = [];
-        if ($nextDue) {
+        if ($nextRentDue) {
             $summaryItems[] = [
                 'label' => 'Next bill',
-                'amount' => (float) $nextDue['amount'],
+                'amount' => (float) $nextRentDue['remaining_amount'],
             ];
         }
         if ($latestReceipt) {
@@ -543,7 +705,22 @@ class TenantAreaController extends Controller
             'bookings' => $bookings,
             'paymentSchedule' => $paymentSchedule,
             'summaryItems' => $summaryItems,
-            'summaryTotal' => $nextDue ? (float) $nextDue['amount'] : $pendingAmount,
+            'summaryTotal' => $nextRentDue ? (float) $nextRentDue['remaining_amount'] : $pendingAmount,
+            'totalOutstanding' => $pendingAmount,
+            'currentAmountDue' => $currentAmountDue,
+            'advanceRentRemaining' => round((float) $advanceRentRemaining, 2),
+            'overdueBalance' => (float) $overduePayments->sum('remaining_amount'),
+            'oldestOverdueDate' => $overduePayments->first()['due_date_label'] ?? null,
+            'nextDueDate' => $nextRentDue['due_date_label'] ?? null,
+            'nextDueAmount' => $nextRentDue ? (float) $nextRentDue['remaining_amount'] : 0.0,
+            'hasBillingData' => $paymentRows->contains(fn (array $payment) => ! $this->tenantBilling->isExcluded($payment)),
+            'hasRecordedPayment' => $paymentRows->contains(fn (array $payment) => ! $this->tenantBilling->isExcluded($payment) && (float) ($payment['cash_received'] ?? 0) > 0),
+            'advanceRent' => [
+                'amount' => round((float) $advanceRent->sum('amount'), 2),
+                'periods' => $advanceRent->values()->all(),
+                'full_period_count' => $advanceRent->filter(fn ($period) => $period['full'] ?? false)->count(),
+                'covered_through' => $advanceRent->sortBy('end')->last()['end'] ?? null,
+            ],
             'statusGuide' => [
                 ['label' => 'Review your bill', 'description' => 'Confirm the property, due date, and exact amount due.'],
                 ['label' => 'Pay in cash', 'description' => 'Give the exact cash payment to the property owner or authorized front desk staff.'],
@@ -553,6 +730,14 @@ class TenantAreaController extends Controller
             'paymentStatsMeta' => [
                 'approved_receipts' => $approvedReceipts->count(),
             ],
+            'hasApprovedReservation' => $hasApprovedReservation,
+            'agreedRent' => $agreedRent !== null ? (float) $agreedRent : null,
+            'depositAmount' => $depositAmount !== null ? (float) $depositAmount : null,
+            'billingScheduleAvailable' => $paymentRows->contains(fn (array $payment) => ! $this->tenantBilling->isExcluded($payment)),
+            'paymentEmptyMessage' => 'Payment details will appear after owner approval.',
+            'reservationContext' => $currentReservation,
+            'pastReservations' => $pastReservations ?? collect(),
+            'paymentFilters' => $paymentFilters,
         ];
     }
 
@@ -588,12 +773,19 @@ class TenantAreaController extends Controller
             ->get(['id', 'name']);
     }
 
-    private function tenantPayments(int $tenantId): Collection
+    private function approvedReservationHouseIds(int $tenantId): Collection
     {
-        if (! Schema::hasTable('payments')) {
-            return collect();
-        }
+        $reservation = $this->reservationLifecycleService->approvedReservationForUser($tenantId);
 
+        return $reservation?->boarding_house_id
+            ? collect([(int) $reservation->boarding_house_id])
+            : collect();
+    }
+
+    private function tenantPayments(int $tenantId, Collection $approvedHouseIds): Collection
+    {
+        return $this->tenantBilling->paymentsForTenant($tenantId, $approvedHouseIds);
+        /* Legacy implementation retained only for reference; live code returns above.
         $query = Payment::query()->with('boardingHouse');
         $hasUserColumn = Schema::hasColumn('payments', 'user_id');
         $hasTenantColumn = Schema::hasColumn('payments', 'tenant_id');
@@ -618,6 +810,8 @@ class TenantAreaController extends Controller
         } else {
             return collect();
         }
+
+        $query->whereIn('boarding_house_id', $approvedHouseIds);
 
         $hasPaymentType = Schema::hasColumn('payments', 'payment_type');
         $hasReferenceNumber = Schema::hasColumn('payments', 'reference_number');
@@ -649,11 +843,12 @@ class TenantAreaController extends Controller
                     'reference' => $payment->reference_no ?: ($hasReferenceNumber ? $payment->reference_number : null),
                     'boarding_house_name' => $payment->boardingHouse?->name,
                     'boarding_house_location' => $payment->boardingHouse
-                        ? ($payment->boardingHouse->full_address ?: ($payment->boardingHouse->address ?: 'Location not provided'))
+                        ? ($payment->boardingHouse->canonical_address ?: 'Location not provided')
                         : 'Location not provided',
                 ];
             })
             ->values();
+        */
     }
 
     private function buildInquiryThreads(int $tenantId, Collection $messages): Collection

@@ -2,499 +2,304 @@
 <x-user.shell>
 @php
     $tenant = auth()->user()?->loadMissing('tenantProfile');
-    $collection = $reservations->getCollection();
-    $currentReservation = $currentReservation ?? $collection->first();
-    $activeHouse = $selectedHouse ?? $currentReservation?->boardingHouse;
-    $activeRoom = $currentReservation?->room;
-
-    $money = function (mixed $value, int $decimals = 0): ?string {
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        $amount = is_numeric($value)
-            ? (float) $value
-            : (float) preg_replace('/[^0-9.]/', '', (string) $value);
-
-        return $amount > 0 ? 'PHP '.number_format($amount, $decimals) : null;
+    $createMode = (bool) ($createMode ?? request()->query('mode') === 'create');
+    $house = $selectedHouse ?? $currentReservation?->boardingHouse;
+    $room = $createMode ? $selectedRoom : ($currentReservation?->room ?? $selectedRoom);
+    // Keep the dashboard on the reference form layout by default. Existing
+    // submitted details remain available through the explicit submitted view.
+    $submitted = request()->query('view') === 'submitted';
+    $firstName = old('first_name', $tenant?->first_name ?: \Illuminate\Support\Str::before((string) $tenant?->name, ' '));
+    $lastName = old('last_name', $tenant?->last_name ?: \Illuminate\Support\Str::after((string) $tenant?->name, ' '));
+    $phone = old('phone', $tenant?->phone ?: ($tenant?->phone_number ?: $tenant?->contact_number));
+    $emergencyName = old('emergency_contact_name', $tenant?->tenantProfile?->emergency_contact_name);
+    $emergencyPhone = old('emergency_contact_number', $tenant?->tenantProfile?->emergency_contact_number ?: $tenant?->emergency_contact);
+    $address = $house?->canonical_address ?: 'Address unavailable';
+    $verified = in_array(strtolower((string) ($house?->approval_status ?? $house?->status)), ['approved', 'verified'], true);
+    $rent = $room?->price ?? $house?->effective_price ?? $house?->price ?? $house?->monthly_payment;
+    $deposit = $house?->security_deposit_amount ?? $house?->security_deposit ?? null;
+    $peso = static fn ($amount): string => html_entity_decode('&#8369;').number_format((float) $amount, 2);
+    $rentLabel = is_numeric($rent) && (float) $rent > 0 ? $peso($rent) : 'Ask owner';
+    $depositLabel = is_numeric($deposit) && (float) $deposit > 0 ? $peso($deposit) : 'Set by owner after approval';
+    $roomLabel = $room?->effective_room_number ?? $room?->name ?? 'Room not selected';
+    $roomType = $room?->room_type ?? ($room?->capacity === 1 ? 'Single Room' : 'Room');
+    $roomDisplay = $roomLabel.' • '.$roomType;
+    $capacity = max(1, (int) ($room?->available_slots ?? $room?->capacity ?? 1));
+    $image = $house?->cover_image_url ?: asset('images/boarding-house-placeholder.svg');
+    $isTracking = filled($trackingReservation ?? null);
+    $trackingHouse = $trackingReservation?->boardingHouse;
+    $trackingRoom = $trackingReservation?->room;
+    $trackingStatus = strtolower((string) ($trackingReservation?->status ?? 'pending'));
+    $trackingApproved = in_array($trackingStatus, ['approved', 'confirmed', 'active', 'checked-in', 'checked_in', 'checkedin', 'completed', 'checked-out', 'checked_out', 'checkedout'], true);
+    $trackingPending = in_array($trackingStatus, ['pending', 'reserved'], true);
+    $trackingStatusLabel = match ($trackingStatus) {
+        'pending', 'reserved' => 'Pending owner approval',
+        'approved', 'confirmed' => 'Confirmed',
+        'cancelled', 'canceled' => 'Cancelled',
+        'rejected' => 'Rejected by Owner',
+        'expired' => 'Expired',
+        default => ucfirst($trackingStatus),
     };
-
-    $imageFor = function ($house): string {
-        return $house?->cover_image_url ?: asset('images/boarding-house-placeholder.svg');
-    };
-
-    $galleryImages = collect($activeHouse?->images ?? [])
-        ->sortBy(fn ($image) => [$image->is_primary ? 0 : 1, (int) ($image->sort_order ?? 0), (int) $image->id])
-        ->pluck('image_path')
-        ->merge(collect($activeHouse?->photos ?? [])->pluck('photo_path'))
-        ->map(fn ($path) => \Illuminate\Support\Str::startsWith((string) $path, ['http://', 'https://', '/']) ? $path : \Illuminate\Support\Facades\Storage::url($path))
-        ->filter()
-        ->values();
-
-    if ($galleryImages->isEmpty() && $activeHouse) {
-        $galleryImages = collect([
-            $activeHouse->featured_image,
-            $activeHouse->exterior_image,
-            $activeHouse->room_image,
-        ])
-            ->filter()
-            ->map(fn ($path) => \Illuminate\Support\Str::startsWith((string) $path, ['http://', 'https://', '/']) ? $path : asset('storage/'.$path))
-            ->values();
-    }
-
-    if ($galleryImages->isEmpty()) {
-        $galleryImages = collect([asset('images/boarding-house-placeholder.svg')]);
-    }
-
-    $statusKey = strtolower((string) ($currentReservation?->status ?? 'draft'));
-    $paymentStatusKey = strtolower((string) ($currentReservation?->payment_status ?? 'unpaid'));
-    $isApproved = in_array($statusKey, ['approved', 'confirmed', 'active', 'checked-in', 'checked_in'], true);
-    $isExpired = $statusKey === 'expired';
-    $isCancelled = in_array($statusKey, ['cancelled', 'canceled', 'rejected'], true);
-    $isPaid = in_array($paymentStatusKey, ['paid', 'approved', 'settled'], true);
-    $canCancel = $currentReservation && ! in_array($statusKey, ['confirmed', 'approved', 'active', 'expired', 'cancelled', 'canceled'], true);
-    $canPay = $currentReservation && ! $isExpired && ! $isCancelled;
-
-    $statusMeta = match (true) {
-        $isExpired => ['label' => 'Expired', 'class' => 'border-rose-200 bg-rose-50 text-rose-700'],
-        $isCancelled => ['label' => 'Cancelled', 'class' => 'border-slate-200 bg-slate-100 text-slate-600'],
-        $isApproved => ['label' => 'Approved', 'class' => 'border-emerald-200 bg-emerald-50 text-emerald-700'],
-        default => ['label' => 'Pending Approval', 'class' => 'border-amber-200 bg-amber-50 text-amber-700'],
-    };
-
-    $rooms = collect($activeHouse?->rooms ?? []);
-    $availableRooms = $rooms->filter(fn ($room) => strtolower((string) $room->status) === 'available' || (int) ($room->available_slots ?? 0) > 0);
-    $primaryRoom = $activeRoom ?: ($availableRooms->first() ?: $rooms->first());
-    $monthlyAmount = $money($primaryRoom?->price)
-        ?? $money($activeHouse?->effective_price)
-        ?? $money($activeHouse?->price)
-        ?? $money($activeHouse?->monthly_payment)
-        ?? 'Ask owner';
-    $depositAmount = $monthlyAmount !== 'Ask owner' ? $monthlyAmount : 'Confirm with owner';
-    $serviceFee = $monthlyAmount !== 'Ask owner' ? 'PHP 0' : 'Included after owner confirmation';
-    $totalDue = $depositAmount;
-    $moveInLabel = $currentReservation?->check_in_date?->format('M d, Y') ?? 'Select move-in date';
-    $referenceNumber = $currentReservation ? 'RES-'.str_pad((string) $currentReservation->id, 9, '0', STR_PAD_LEFT) : 'Generated after submission';
-    $expiresAt = $currentReservation?->expires_at;
-    $countdownEnabled = $currentReservation && $expiresAt && in_array($statusKey, ['pending', 'reserved'], true) && ! $isPaid && $expiresAt->isFuture();
-
-    $owner = $activeHouse?->owner;
-    $ownerName = $owner?->name ?: ($activeHouse?->contact_name ?: ($activeHouse?->contact_person ?: 'Property owner'));
-    $ownerPhone = $activeHouse?->contact_number ?: ($activeHouse?->contact_phone ?: ($owner?->phone ?: ($owner?->contact_number ?: 'Not provided')));
-    $verificationLabel = in_array(strtolower((string) ($activeHouse?->approval_status ?? $activeHouse?->status)), ['approved', 'verified'], true)
-        ? 'Verified by BoardMatch'
-        : 'Verification pending';
-    $amenities = collect($activeHouse?->amenities ?? [])->pluck('name')->filter()->take(8);
-    if ($amenities->isEmpty()) {
-        $amenities = collect(['Wi-Fi', 'Study Area', 'Kitchen Access', 'Laundry Area']);
-    }
-
-    $addressLabel = $activeHouse?->full_address ?: ($activeHouse?->address ?: 'Address unavailable');
-    $hasCoordinates = $activeHouse && $activeHouse->latitude !== null && $activeHouse->longitude !== null;
-    $mapDestination = $hasCoordinates ? $activeHouse->latitude.','.$activeHouse->longitude : $addressLabel;
-    $openStreetMapUrl = $hasCoordinates
-        ? 'https://www.openstreetmap.org/?mlat='.rawurlencode((string) $activeHouse->latitude).'&mlon='.rawurlencode((string) $activeHouse->longitude).'#map=17/'.rawurlencode((string) $activeHouse->latitude).'/'.rawurlencode((string) $activeHouse->longitude)
-        : 'https://www.openstreetmap.org/search?query='.rawurlencode($addressLabel);
-
-    $mapConfig = [
-        'routing' => [
-            'serviceUrl' => config('services.openstreetmap.fallback_routing_url'),
-            'profiles' => [
-                'DRIVING' => 'driving',
-                'WALKING' => 'walking',
-            ],
-        ],
-        'messages' => [
-            'initial' => 'Loading the driving route from DSSC Main Campus to this boarding house.',
-            'requesting' => 'Requesting permission to use your current location...',
-            'reset' => 'Map reset. Use your current location again to refresh the route.',
-            'missingCoordinates' => 'Map route is unavailable because this boarding house has no saved coordinates.',
-            'geolocationDenied' => 'Enable location services to see live routes from your current location. The map is centered on the boarding house for now.',
-            'routeFailed' => 'Route could not be generated right now. Please try again in a moment.',
-            'locationUnavailable' => 'Your location could not be determined right now. Please check your device settings and try again.',
-        ],
-        'dssc' => [
-            'name' => (string) config('dssc.landmark', 'DSSC Main Campus'),
-            'address' => (string) config('dssc.address', 'Matti, Digos City, Davao del Sur'),
-            'latitude' => (float) config('dssc.latitude', 6.75874),
-            'longitude' => (float) config('dssc.longitude', 125.30909),
-        ],
-        'house' => [
-            'name' => $activeHouse?->name,
-            'address' => $addressLabel,
-            'latitude' => $activeHouse?->latitude !== null ? (float) $activeHouse->latitude : null,
-            'longitude' => $activeHouse?->longitude !== null ? (float) $activeHouse->longitude : null,
-            'priceLabel' => $monthlyAmount,
-            'availabilityLabel' => $availableRooms->count().' available '.\Illuminate\Support\Str::plural('room', $availableRooms->count()),
-        ],
-    ];
-
-    $timelineSteps = [
-        ['label' => 'Submitted', 'state' => $currentReservation ? 'done' : 'current'],
-        ['label' => 'Pending Approval', 'state' => $currentReservation && ! $isExpired && ! $isCancelled && ! $isApproved ? 'current' : ($isApproved || $isPaid ? 'done' : 'upcoming')],
-        ['label' => 'Approved', 'state' => $isApproved || $isPaid ? 'done' : 'upcoming'],
-        ['label' => 'Deposit Paid', 'state' => $isPaid ? 'done' : ($isApproved ? 'current' : 'upcoming')],
-        ['label' => 'Move-in', 'state' => $isPaid && $currentReservation?->check_in_date ? 'current' : 'upcoming'],
-    ];
+    $trackingAddress = $trackingHouse?->canonical_address ?: 'Address unavailable';
+    $trackingRoomLabel = $trackingRoom?->effective_room_number ?? $trackingRoom?->name ?? 'Room not assigned';
+    $trackingRoomType = $trackingRoom?->room_type ?? $trackingRoom?->type ?? $trackingRoom?->name ?? 'Room';
+    $trackingRent = $trackingRoom?->price ?? $trackingReservation?->total_amount;
+    $trackingDeposit = $trackingHouse?->security_deposit_amount ?? $trackingHouse?->security_deposit ?? null;
+    $trackingDateTime = static fn ($value): ?string => $value ? \Carbon\Carbon::parse($value)->setTimezone('Asia/Manila')->format('M d, Y h:i A') : null;
+    $trackingDate = static fn ($value): ?string => $value ? \Carbon\Carbon::parse($value)->format('M d, Y') : null;
+    $trackingReference = $trackingReservation ? 'RES-'.str_pad((string) $trackingReservation->id, 6, '0', STR_PAD_LEFT) : null;
+    $trackingReceipt = $trackingPayment?->receipts?->first();
+    $availableRooms = $selectedHouse?->rooms
+        ? $selectedHouse->rooms->filter(fn ($candidate) => strtolower((string) ($candidate->status ?? 'available')) === 'available'
+            && (int) ($candidate->available_slots ?? $candidate->capacity ?? 0) > 0)->values()
+        : collect();
+    $roomOptions = $availableRooms->map(fn ($availableRoom) => [
+        'id' => $availableRoom->id,
+        'label' => $availableRoom->effective_room_number ?? $availableRoom->room_no ?? $availableRoom->room_number ?? $availableRoom->name ?? 'Room '.$availableRoom->id,
+        'price' => is_numeric($availableRoom->price) ? (float) $availableRoom->price : null,
+        'capacity' => (int) ($availableRoom->capacity ?? 1),
+        'slots' => max(0, (int) ($availableRoom->available_slots ?? $availableRoom->capacity ?? 0)),
+    ])->values();
 @endphp
-
-<div class="space-y-5">
-    <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-            <h1 class="text-xl font-bold tracking-tight text-slate-950 dark:text-white">{{ $activeHouse ? 'Reserve Your Boarding House Room' : 'Reservations' }}</h1>
-            <p class="mt-1 max-w-2xl text-[13px] leading-6 text-slate-500 dark:text-slate-400">Review the property, route, payment summary, and reservation terms in one place.</p>
-        </div>
-        <a href="{{ route('user.boarding-houses.index') }}" class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/25 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200">
-            <x-user.reservation-icon name="home" class="h-4 w-4" />
-            Browse Boarding Houses
-        </a>
-    </div>
-
-    @foreach (['success' => 'emerald', 'error' => 'rose', 'reservation_limit' => 'amber'] as $key => $tone)
-        @if (session($key))
-            <div class="rounded-xl border px-4 py-3 text-sm font-bold {{ $tone === 'emerald' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : ($tone === 'amber' ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-rose-200 bg-rose-50 text-rose-800') }}">
-                {{ session($key) }}
+<style>
+    [data-reservation-page] { display: flex; flex-direction: column; gap: 18px; color: #132044; padding-bottom: 18px; }
+    [data-reservation-page] .reservation-card { min-width: 0; max-width: 100%; border: 1px solid #d8e1ef; border-radius: 16px; background: #fff; box-shadow: 0 2px 9px rgba(31,52,91,.04); }
+    [data-reservation-page] .reservation-card { box-sizing: border-box; padding: 26px; }
+    [data-reservation-page] > section.reservation-card:first-of-type { padding: 13px; }
+    [data-reservation-page] div[class*="lg:grid-cols"] > section.reservation-card,
+    [data-reservation-page] div[class*="lg:grid-cols"] aside .reservation-card { padding: 26px; }
+    [data-reservation-page] .reservation-input { min-height: 40px; width: 100%; border: 1px solid #c8d5e8; border-radius: 8px; background: #fff; padding: 0 14px; color: #30456f; font-size: 15px; outline: none; }
+    [data-reservation-page] .reservation-input { font-weight: 400; }
+    [data-reservation-page] .reservation-input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+    [data-reservation-page] textarea.reservation-input { min-height: 86px; padding-top: 10px; }
+    [data-reservation-page] .reservation-label { display: block; color: #111a37; font-size: 14px; font-weight: 800; }
+    [data-reservation-page] .reservation-label { font-weight: 700; }
+    [data-reservation-page] .reservation-label > .reservation-input { margin-top: 7px; }
+    [data-reservation-page] .summary-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 41px; border-bottom: 1px solid #e5ebf3; color: #43577d; font-size: 15px; }
+    [data-reservation-page] .summary-row:last-child { border-bottom: 0; }
+    [data-reservation-page] .property-thumbnail { display: block; width: 263px !important; max-width: 100%; height: 117px !important; max-height: 117px; align-self: start; object-fit: cover; object-position: center; border-radius: 10px; }
+    [data-reservation-page] .reservation-card, [data-reservation-page] .reservation-card > div, [data-reservation-page] aside { min-width: 0; }
+    [data-reservation-page] h1, [data-reservation-page] h2 { font-weight: 750; }
+    [data-reservation-page] h1 { font-size: 26px !important; }
+    [data-reservation-page] header p { font-size: 15px !important; }
+    [data-reservation-page] h2 { font-size: 22px !important; }
+    [data-reservation-page] .reservation-label { font-size: 13px; }
+    [data-reservation-page] .reservation-input { font-size: 14px; }
+    [data-reservation-page] .summary-row { font-size: 14px; }
+    [data-reservation-page] ol { font-size: 14px; }
+    [data-reservation-page] .reservation-card { box-shadow: 0 1px 5px rgba(31,52,91,.035); }
+    [data-reservation-page] label:has(select[name="stay_duration"]), [data-reservation-page] label:has(textarea[name="notes"]) { display: none !important; }
+    [data-reservation-page] > section.reservation-card:first-of-type > div { display: grid; grid-template-columns: 263px minmax(0, 1fr) 126px 190px; align-items: center; gap: 16px; }
+    [data-reservation-page] div[class*="lg:grid-cols"] { display: grid; grid-template-columns: minmax(0, 778px) minmax(320px, 426px); align-items: start; justify-content: center; gap: 18px; }
+    [data-reservation-page] form > div.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 28px; row-gap: 16px; }
+    [data-reservation-page] form > .reservation-form-actions { display: flex; width: 100%; margin-left: auto; justify-content: flex-end; align-items: center; gap: 12px; flex-wrap: wrap; }
+    [data-reservation-page] form > .reservation-form-actions > button { display: inline-flex !important; flex: 0 0 auto; visibility: visible !important; }
+    [data-reservation-page] .reservation-submit { min-height: 44px; padding: 0 24px; border-radius: 8px; background: #1f4ff0; color: #fff; }
+    @media (max-width: 1180px) { [data-reservation-page] div[class*="lg:grid-cols"] { grid-template-columns: minmax(0, 1fr) 360px; } }
+    @media (max-width: 900px) { [data-reservation-page] div[class*="lg:grid-cols"] { grid-template-columns: 1fr; } }
+    @media (max-width: 767px) { [data-reservation-page] { width: 100%; overflow-x: hidden; } [data-reservation-page] .property-thumbnail { width: 100% !important; height: 117px !important; } [data-reservation-page] > section.reservation-card:first-of-type > div, [data-reservation-page] form > div.grid { grid-template-columns: 1fr; } [data-reservation-page] form > .reservation-form-actions { justify-content: flex-end; } [data-reservation-page] .reservation-input { max-width: 100%; } }
+    @media (min-width: 1200px) { html:has([data-reservation-page]), body:has([data-reservation-page]) { overflow: hidden; } .user-dashboard-main:has([data-reservation-page]) { overflow-y: scroll !important; overflow-x: hidden !important; } }
+    [data-reservation-page] .reservation-tracker { width: 100%; max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+    [data-reservation-page] .reservation-tracker__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 0 4px; }
+    [data-reservation-page] .reservation-tracker__page-label { margin: 0; color: #101936; font-size: 15px; font-weight: 800; letter-spacing: .01em; }
+    [data-reservation-page] .reservation-tracker__subtitle { margin: 5px 0 0; color: #53698f; font-size: 14px; line-height: 1.5; }
+    [data-reservation-page] .reservation-tracker__status, [data-reservation-page] .reservation-tracker__property-status { display: inline-flex; width: fit-content; flex: 0 0 auto; align-items: center; border: 1px solid; border-radius: 999px; padding: 6px 11px; font-size: 12px; font-weight: 800; line-height: 1.2; white-space: nowrap; }
+    [data-reservation-page] .reservation-tracker__notice { border: 1px solid; border-radius: 10px; padding: 12px 15px; font-size: 14px; line-height: 1.5; }
+    [data-reservation-page] .reservation-tracker__notice span { margin-left: 4px; }
+    [data-reservation-page] .reservation-tracker__notice--pending { border-color: #f5d58c; background: #fff9e8; color: #8a5a00; }
+    [data-reservation-page] .reservation-tracker__notice--approved { border-color: #b8e3c7; background: #effbf2; color: #176b35; }
+    [data-reservation-page] .reservation-tracker__notice--rejected { border-color: #f2b8b5; background: #fff1f0; color: #a12620; }
+    [data-reservation-page] .reservation-tracker__notice--stopped { border-color: #d8e1ef; background: #f7f9fc; color: #52627e; }
+    [data-reservation-page] .reservation-tracker__property { display: grid; grid-template-columns: 140px minmax(0, 1fr) minmax(115px, auto) minmax(130px, auto) auto; align-items: center; gap: 20px; padding: 16px; }
+    [data-reservation-page] .reservation-tracker__property-image { display: block; width: 140px; height: 100px; border-radius: 10px; object-fit: cover; }
+    [data-reservation-page] .reservation-tracker__property-copy { min-width: 0; }
+    [data-reservation-page] .reservation-tracker__eyebrow, [data-reservation-page] .reservation-tracker__property-fact span { margin: 0; color: #7183a1; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    [data-reservation-page] .reservation-tracker__property-copy h3 { margin: 4px 0 5px; color: #101936; font-size: 18px; font-weight: 850; line-height: 1.25; overflow-wrap: anywhere; }
+    [data-reservation-page] .reservation-tracker__address { margin: 0; color: #53698f; font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
+    [data-reservation-page] .reservation-tracker__property-fact { min-width: 0; padding-left: 20px; border-left: 1px solid #e1e8f2; }
+    [data-reservation-page] .reservation-tracker__property-fact strong, [data-reservation-page] .reservation-tracker__property-fact small { display: block; overflow-wrap: anywhere; }
+    [data-reservation-page] .reservation-tracker__property-fact strong { margin-top: 5px; color: #101936; font-size: 15px; line-height: 1.3; }
+    [data-reservation-page] .reservation-tracker__property-fact small { margin-top: 3px; color: #53698f; font-size: 12px; }
+    [data-reservation-page] .reservation-tracker__property-status { justify-self: end; }
+    [data-reservation-page] .reservation-tracker__grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr); gap: 24px; align-items: start; }
+    [data-reservation-page] .reservation-tracker__card { min-width: 0; padding: 24px; }
+    [data-reservation-page] .reservation-tracker__card > h3, [data-reservation-page] .reservation-tracker__other > h3 { margin: 0; color: #101936; font-size: 19px; font-weight: 850; line-height: 1.3; }
+    [data-reservation-page] .reservation-tracker__section { margin-top: 24px; }
+    [data-reservation-page] .reservation-tracker__section h4, [data-reservation-page] .reservation-tracker__message h4 { margin: 0 0 12px; color: #263a62; font-size: 13px; font-weight: 850; }
+    [data-reservation-page] .reservation-tracker__facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 17px 24px; }
+    [data-reservation-page] .reservation-tracker__facts > div { min-width: 0; }
+    [data-reservation-page] .reservation-tracker__facts span { display: block; color: #7889a5; font-size: 12px; font-weight: 700; line-height: 1.3; }
+    [data-reservation-page] .reservation-tracker__facts strong { display: block; margin-top: 4px; color: #172342; font-size: 14px; font-weight: 750; line-height: 1.45; overflow-wrap: anywhere; }
+    [data-reservation-page] .reservation-tracker__message { margin-top: 24px; border-top: 1px solid #e5ebf3; padding-top: 18px; }
+    [data-reservation-page] .reservation-tracker__message p { margin: 0; color: #53698f; font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
+    [data-reservation-page] .reservation-tracker__timeline { position: relative; display: flex; flex-direction: column; gap: 0; margin: 22px 0 0; padding: 0; list-style: none; }
+    [data-reservation-page] .reservation-tracker__timeline li { position: relative; display: flex; min-height: 57px; gap: 12px; }
+    [data-reservation-page] .reservation-tracker__timeline li:not(:last-child)::before { position: absolute; top: 29px; left: 13px; width: 2px; height: 43px; background: #dce4ef; content: ''; }
+    [data-reservation-page] .reservation-tracker__timeline li.is-complete:not(:last-child)::before { background: #8ed2a3; }
+    [data-reservation-page] .reservation-tracker__timeline-dot { position: relative; z-index: 1; display: inline-flex; width: 28px; height: 28px; flex: 0 0 28px; align-items: center; justify-content: center; border: 2px solid #d3dce9; border-radius: 50%; background: #fff; color: #8795aa; font-size: 11px; font-weight: 850; }
+    [data-reservation-page] .reservation-tracker__timeline li.is-complete .reservation-tracker__timeline-dot { border-color: #31a653; background: #31a653; color: #fff; }
+    [data-reservation-page] .reservation-tracker__timeline li.is-rejected .reservation-tracker__timeline-dot { border-color: #c9362b; background: #c9362b; color: #fff; }
+    [data-reservation-page] .reservation-tracker__timeline li.is-current .reservation-tracker__timeline-dot { border-color: #2563eb; background: #eff5ff; color: #2563eb; }
+    [data-reservation-page] .reservation-tracker__timeline strong, [data-reservation-page] .reservation-tracker__timeline small { display: block; }
+    [data-reservation-page] .reservation-tracker__timeline strong { padding-top: 4px; color: #172342; font-size: 14px; line-height: 1.35; }
+    [data-reservation-page] .reservation-tracker__timeline li:not(.is-complete):not(.is-current) strong { color: #8290a6; }
+    [data-reservation-page] .reservation-tracker__timeline small { margin-top: 3px; color: #7889a5; font-size: 12px; line-height: 1.3; }
+    [data-reservation-page] .reservation-tracker__deposit, [data-reservation-page] .reservation-tracker__payment, [data-reservation-page] .reservation-tracker__pending-payment { margin-top: 17px; border-radius: 9px; padding: 12px 13px; font-size: 13px; line-height: 1.45; }
+    [data-reservation-page] .reservation-tracker__deposit { display: flex; justify-content: space-between; gap: 12px; background: #f2f7ff; color: #53698f; }
+    [data-reservation-page] .reservation-tracker__deposit strong { color: #172342; text-align: right; overflow-wrap: anywhere; }
+    [data-reservation-page] .reservation-tracker__payment { display: flex; flex-direction: column; gap: 3px; border: 1px solid #c6ead1; background: #effbf2; color: #176b35; }
+    [data-reservation-page] .reservation-tracker__payment a, [data-reservation-page] .reservation-tracker__view-link { color: #1d55c7; font-weight: 800; text-decoration: underline; }
+    [data-reservation-page] .reservation-tracker__empty-payment, [data-reservation-page] .reservation-tracker__pending-payment { color: #53698f; background: #f7f9fc; }
+    [data-reservation-page] .reservation-tracker__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    [data-reservation-page] .reservation-tracker__actions form { margin: 0; }
+    [data-reservation-page] .reservation-tracker__button { display: inline-flex; min-height: 44px; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 9px; padding: 0 16px; font-size: 14px; font-weight: 800; line-height: 1; white-space: nowrap; }
+    [data-reservation-page] .reservation-tracker__button--primary { background: #1f4ff0; color: #fff; }
+    [data-reservation-page] .reservation-tracker__button--secondary { border-color: #b8c7dc; background: #fff; color: #263a62; }
+    [data-reservation-page] .reservation-tracker__button--danger { border-color: #efc5c5; background: #fff; color: #b42318; }
+    [data-reservation-page] .reservation-tracker__other { padding: 22px 24px; }
+    [data-reservation-page] .reservation-tracker__other-list { margin-top: 14px; }
+    [data-reservation-page] .reservation-tracker__other-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 16px; border-top: 1px solid #e5ebf3; padding: 13px 0; }
+    [data-reservation-page] .reservation-tracker__other-row > div { min-width: 0; }
+    [data-reservation-page] .reservation-tracker__other-row strong, [data-reservation-page] .reservation-tracker__other-row span { display: block; overflow-wrap: anywhere; }
+    [data-reservation-page] .reservation-tracker__other-row strong { color: #172342; font-size: 14px; }
+    [data-reservation-page] .reservation-tracker__other-row div span { margin-top: 3px; color: #7889a5; font-size: 12px; }
+    [data-reservation-page] .reservation-tracker__other-row .reservation-tracker__status { display: inline-flex; }
+    @media (max-width: 1000px) { [data-reservation-page] .reservation-tracker__property { grid-template-columns: 120px minmax(0, 1fr) auto; } [data-reservation-page] .reservation-tracker__property-image { width: 120px; height: 90px; } [data-reservation-page] .reservation-tracker__property-fact { border-left: 0; padding-left: 0; } [data-reservation-page] .reservation-tracker__property-fact:nth-of-type(4) { grid-column: 2; } [data-reservation-page] .reservation-tracker__property-status { grid-column: 3; grid-row: 1; } [data-reservation-page] .reservation-tracker__grid { grid-template-columns: 1fr; } }
+    @media (max-width: 767px) { [data-reservation-page] .reservation-tracker { gap: 16px; } [data-reservation-page] .reservation-tracker__header { gap: 12px; } [data-reservation-page] .reservation-tracker__property { grid-template-columns: 88px minmax(0, 1fr); gap: 12px; padding: 13px; } [data-reservation-page] .reservation-tracker__property-image { width: 88px; height: 76px; } [data-reservation-page] .reservation-tracker__property-status { grid-column: 2; grid-row: 1; justify-self: start; margin-top: 5px; } [data-reservation-page] .reservation-tracker__property-fact { grid-column: span 1; border-top: 1px solid #e5ebf3; padding-top: 10px; } [data-reservation-page] .reservation-tracker__property-fact:nth-of-type(4) { grid-column: 2; } [data-reservation-page] .reservation-tracker__card { padding: 18px; } [data-reservation-page] .reservation-tracker__facts { grid-template-columns: 1fr; gap: 14px; } [data-reservation-page] .reservation-tracker__actions { align-items: stretch; } [data-reservation-page] .reservation-tracker__button, [data-reservation-page] .reservation-tracker__actions form { width: 100%; } [data-reservation-page] .reservation-tracker__other { padding: 18px; } [data-reservation-page] .reservation-tracker__other-row { grid-template-columns: minmax(0, 1fr) auto; gap: 9px 12px; } [data-reservation-page] .reservation-tracker__other-row .reservation-tracker__status { grid-column: 2; grid-row: 1; } [data-reservation-page] .reservation-tracker__view-link { grid-column: 1 / -1; } }
+</style>
+<div data-reservation-page data-default-route-origin="dssc" class="min-w-0 space-y-[18px]">
+    <header class="flex flex-col gap-4 px-1"><div><h1 class="text-[30px] font-black leading-tight tracking-[-.035em] text-[#101936]">{{ $isTracking ? 'Track Your Reservation' : ($submitted ? 'Your Reservation' : 'Reserve Your Boarding House Room') }}</h1><p class="mt-2 text-[18px] leading-6 text-[#4e638d]">{{ $isTracking ? 'View your reservation details and follow the owner’s response.' : ($submitted ? 'Track your request and reservation progress.' : 'Complete your details to request a room reservation.') }}</p></div></header>
+    @foreach (['success' => 'emerald', 'error' => 'rose', 'reservation_limit' => 'amber'] as $key => $tone) @if (session($key))<div class="rounded-xl border px-4 py-3 text-sm font-semibold {{ $tone === 'emerald' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : ($tone === 'amber' ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-rose-200 bg-rose-50 text-rose-800') }}">{{ session($key) }}</div>@endif @endforeach
+    @if ($isTracking)
+        @include('user.partials.reservation-tracker')
+        @if (false)
+        <section class="reservation-card p-6 md:p-8">
+            <div class="flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-start md:justify-between">
+                <div><h2 class="text-2xl font-black text-[#101936]">Track Your Reservation</h2><p class="mt-1 text-sm text-[#53698f]">Reference {{ $trackingReference }}</p></div>
+                <span class="inline-flex w-fit rounded-full border px-3 py-1 text-xs font-bold {{ $trackingPending ? 'border-amber-200 bg-amber-50 text-amber-700' : ($trackingApproved ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-100 text-slate-700') }}">{{ $trackingStatusLabel }}</span>
             </div>
-        @endif
-    @endforeach
-
-    @if (! $activeHouse)
-        <section class="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-sm dark:border-slate-700 dark:bg-slate-950">
-            <h2 class="text-lg font-bold text-slate-950 dark:text-white">No boarding house selected yet</h2>
-            <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400">Choose a boarding house from the listings to open the full reservation workflow, map route, and payment summary.</p>
-            <a href="{{ route('user.boarding-houses.index') }}" class="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-blue-600 px-5 text-xs font-bold text-white hover:bg-blue-700">Find a Boarding House</a>
-        </section>
-    @else
-        <div class="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_320px] 2xl:grid-cols-[minmax(0,1fr)_350px]" data-reservation-details-layout>
-            <div class="min-w-0 space-y-5">
-                <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-950">
-                    <div class="grid md:grid-cols-2">
-                        <div class="relative min-h-[260px] bg-slate-100 md:min-h-[300px]">
-                            <img src="{{ $galleryImages->first() }}" alt="{{ $activeHouse->name }}" class="absolute inset-0 h-full w-full object-cover">
-                            <div class="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-slate-950/10 to-transparent"></div>
-                            <div class="absolute bottom-4 left-4 right-4 flex flex-wrap items-center gap-2">
-                                <span class="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-blue-700 shadow-sm backdrop-blur">
-                                    <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75" /><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
-                                    {{ $verificationLabel }}
-                                </span>
-                                <span class="rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-slate-700 shadow-sm backdrop-blur">{{ $availableRooms->count() }} available</span>
-                            </div>
-                        </div>
-                        <div class="p-5 sm:p-6">
-                            <div class="flex flex-col gap-3 2xl:flex-row 2xl:items-start 2xl:justify-between">
-                                <div class="min-w-0">
-                                    <h2 class="text-xl font-bold tracking-tight text-slate-950 dark:text-white sm:text-2xl">{{ $activeHouse->name }}</h2>
-                                    <p class="mt-1.5 flex items-start gap-1.5 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                                        <svg class="mt-1 h-4 w-4 shrink-0 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21s7-4.8 7-11a7 7 0 1 0-14 0c0 6.2 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5" stroke-width="1.8"/></svg>
-                                        <span>{{ $addressLabel }}</span>
-                                    </p>
-                                </div>
-                                <span class="w-fit shrink-0 rounded-2xl bg-blue-50 px-4 py-2.5 text-right text-blue-800 ring-1 ring-inset ring-blue-100 dark:bg-blue-400/10 dark:text-blue-200 dark:ring-blue-400/20">
-                                    <span class="block text-[10px] font-bold uppercase tracking-wider text-blue-500 dark:text-blue-300">Starts at</span>
-                                    <span class="text-lg font-bold tabular-nums">{{ $monthlyAmount }}</span>
-                                </span>
-                            </div>
-
-                            <div class="mt-5 grid gap-2.5 sm:grid-cols-3">
-                                <div class="rounded-xl bg-slate-50 p-3 dark:bg-slate-900">
-                                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Room</p>
-                                    <p class="mt-1 truncate text-sm font-semibold text-slate-900 dark:text-white">{{ $activeRoom?->effective_room_number ?? $primaryRoom?->effective_room_number ?? 'Any available room' }}</p>
-                                </div>
-                                <div class="rounded-xl bg-slate-50 p-3 dark:bg-slate-900">
-                                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Owner</p>
-                                    <p class="mt-1 truncate text-sm font-semibold text-slate-900 dark:text-white">{{ $ownerName }}</p>
-                                </div>
-                                <div class="rounded-xl bg-slate-50 p-3 dark:bg-slate-900">
-                                    <p class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Contact</p>
-                                    <p class="mt-1 truncate text-sm font-semibold text-slate-900 dark:text-white">{{ $ownerPhone }}</p>
-                                </div>
-                            </div>
-
-                            <div class="mt-4 flex flex-wrap gap-1.5">
-                                @foreach ($amenities as $amenity)
-                                    <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{ $amenity }}</span>
-                                @endforeach
-                            </div>
-
-                            <div class="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
-                                <a href="#reservation-form" class="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-xs font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/25 sm:flex-none">
-                                    {{ $currentReservation ? 'View Reservation' : 'Reserve This Room' }}
-                                </a>
-                                <a href="#route-planner" class="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 dark:border-slate-700 dark:text-slate-300 sm:flex-none">
-                                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 6.75V15m6-6.75V18m-10.5 2.25 4.72-1.574a1.5 1.5 0 0 1 .948 0l5.664 1.888a1.5 1.5 0 0 0 .948 0l3.47-1.157A1.5 1.5 0 0 0 21.75 18V4.82a1.5 1.5 0 0 0-1.974-1.423l-3.052 1.018a1.5 1.5 0 0 1-.948 0L10.112 2.527a1.5 1.5 0 0 0-.948 0L5.694 3.684A1.5 1.5 0 0 0 4.5 5.109V19.5a1.5 1.5 0 0 0 1.974 1.423Z"/></svg>
-                                    View Route
-                                </a>
-                                @if ($canPay && $isApproved)
-                                    <a href="{{ route('user.payments.index') }}" class="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 text-xs font-bold text-white shadow-sm shadow-amber-500/25 transition hover:bg-amber-600 sm:flex-none">
-                                        Pay Deposit
-                                    </a>
-                                @endif
-                            </div>
-                        </div>
+            @if ($trackingPending)
+                <div class="mt-5 rounded-xl border border-blue-100 bg-[#eaf3ff] px-4 py-4 text-sm font-semibold leading-6 text-blue-800">Your reservation has been submitted. Please wait for the owner’s approval.</div>
+            @elseif ($trackingApproved)
+                <div class="mt-5 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-4 text-sm font-semibold leading-6 text-emerald-800"><strong>Confirmed by Owner</strong>@if ($trackingReservation->approved_at) <span> on {{ $trackingDateTime($trackingReservation->approved_at) }}</span>@endif</div>
+            @elseif ($trackingStatus === 'rejected')
+                <div class="mt-5 rounded-xl border border-rose-100 bg-rose-50 px-4 py-4 text-sm leading-6 text-rose-800"><strong>This request was rejected.</strong>@if ($trackingReservation->rejection_reason) <span> {{ $trackingReservation->rejection_reason }}</span>@endif</div>
+            @elseif (in_array($trackingStatus, ['cancelled', 'canceled'], true))
+                <div class="mt-5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-700">This reservation was cancelled @if ($trackingReservation->cancelled_at) on {{ $trackingDateTime($trackingReservation->cancelled_at) }} @endif.</div>
+            @elseif ($trackingStatus === 'expired')
+                <div class="mt-5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm leading-6 text-slate-700">This reservation has expired.</div>
+            @endif
+            <div class="mt-6 grid items-start gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,.9fr)]">
+                <section class="rounded-xl border border-slate-200 bg-white p-5">
+                    <h3 class="text-lg font-black">Reservation details</h3>
+                    <div class="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">
+                        <div><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Boarding house</p><p class="mt-1 font-bold">{{ $trackingHouse?->name ?? 'Boarding house unavailable' }}</p><p class="text-sm text-slate-500">{{ $trackingAddress }}</p></div>
+                        <div><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Room / type</p><p class="mt-1 font-bold">{{ $trackingRoomLabel }}</p><p class="text-sm text-slate-500">{{ $trackingRoomType }}</p></div>
+                        <div><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Agreed rent</p><p class="mt-1 font-bold">{{ is_numeric($trackingRent) ? $peso($trackingRent).' / month' : 'Awaiting owner update' }}</p></div>
+                        <div><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Move-in date</p><p class="mt-1 font-bold">{{ $trackingDate($trackingReservation->check_in_date) ?? 'Not set' }}</p></div>
+                        <div><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Occupants</p><p class="mt-1 font-bold">{{ $trackingReservation->occupants ?? 'Not set' }}</p></div>
+                        <div><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Submitted</p><p class="mt-1 font-bold">{{ $trackingDateTime($trackingReservation->created_at) }}</p></div>
+                        <div><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Student</p><p class="mt-1 font-bold">{{ trim(($trackingReservation->requester_first_name ?? '').' '.($trackingReservation->requester_last_name ?? '')) ?: ($tenant?->name ?? 'Name unavailable') }}</p><p class="text-sm text-slate-500">{{ $trackingReservation->requester_email ?: ($tenant?->email ?? 'Email unavailable') }} · {{ $trackingReservation->requester_phone ?: ($phone ?: 'Phone unavailable') }}</p></div>
+                        <div><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Emergency contact</p><p class="mt-1 font-bold">{{ $trackingReservation->emergency_contact_name ?: 'Not provided' }}</p><p class="text-sm text-slate-500">{{ $trackingReservation->emergency_contact_number ?: 'Number unavailable' }}</p></div>
                     </div>
+                    @if ($trackingReservation->notes)<div class="mt-5 rounded-lg bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700"><strong>Message to owner:</strong> {{ $trackingReservation->notes }}</div>@endif
                 </section>
-                @include('user.partials.reservation-compatibility')
-                <div class="grid items-start gap-5 md:grid-cols-2">
-                    <section id="reservation-form" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 scroll-mt-6 dark:border-slate-800 dark:bg-slate-950">
-                        <div class="flex items-start justify-between gap-3">
-                            <h2 class="text-sm font-bold text-slate-950 dark:text-white">{{ $currentReservation ? 'Reservation Details' : 'Reservation Form' }}</h2>
-                            <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">{{ $referenceNumber }}</span>
-                        </div>
-
-                        @if (! $currentReservation || $selectedHouse)
-                            <form method="POST" action="{{ route('user.boarding-houses.reservations.store', $activeHouse) }}" class="mt-5 space-y-4">
-                                @csrf
-                                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">Room Selection
-                                    <select name="room_id" class="mt-1 w-full rounded-xl border-slate-200 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500/20">
-                                        <option value="">Any available room</option>
-                                        @foreach ($availableRooms as $room)
-                                            <option value="{{ $room->id }}" @selected(old('room_id') == $room->id)>
-                                                {{ $room->effective_room_number ?? $room->name ?? 'Room #'.$room->id }} - {{ $money($room->price) ?? 'Ask owner' }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    @error('room_id')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
-                                </label>
-                                <div class="grid gap-3 sm:grid-cols-2">
-                                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">Move-in Date
-                                        <input type="date" name="check_in_date" value="{{ old('check_in_date') }}" class="mt-1 w-full rounded-xl border-slate-200 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500/20">
-                                        @error('check_in_date')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
-                                    </label>
-                                    <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">Occupants
-                                        <input type="number" name="occupants" min="1" max="20" value="{{ old('occupants', 1) }}" class="mt-1 w-full rounded-xl border-slate-200 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500/20">
-                                        @error('occupants')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
-                                    </label>
-                                </div>
-                                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">Emergency Contact Name
-                                    <input type="text" name="emergency_contact_name" value="{{ old('emergency_contact_name', $tenant?->tenantProfile?->emergency_contact_name) }}" class="mt-1 w-full rounded-xl border-slate-200 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500/20">
-                                    @error('emergency_contact_name')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
-                                </label>
-                                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">Emergency Contact Number
-                                    <input type="text" name="emergency_contact_number" value="{{ old('emergency_contact_number', $tenant?->tenantProfile?->emergency_contact_number ?? $tenant?->emergency_contact) }}" class="mt-1 w-full rounded-xl border-slate-200 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500/20">
-                                    @error('emergency_contact_number')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
-                                </label>
-                                <label class="block text-xs font-semibold text-slate-600 dark:text-slate-300">Reservation Notes
-                                    <textarea name="notes" rows="3" class="mt-1 w-full rounded-xl border-slate-200 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500/20" placeholder="Tell the owner anything important about your move-in.">{{ old('notes') }}</textarea>
-                                    @error('notes')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
-                                </label>
-                                @if ($activeHouse?->services?->where('is_active', true)->isNotEmpty())
-                                    <div>
-                                        <p class="text-xs font-semibold text-slate-600 dark:text-slate-300">Optional services</p>
-                                        <div class="mt-2 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                                            @foreach ($activeHouse->services->where('is_active', true) as $service)
-                                                <label class="flex items-center justify-between gap-3 text-xs text-slate-700">
-                                                    <span class="flex items-center gap-2"><input type="checkbox" name="service_ids[]" value="{{ $service->id }}" class="rounded border-slate-300 text-blue-600">{{ $service->name }}</span>
-                                                    <span class="font-semibold">₱{{ number_format((float) $service->price, 2) }} / {{ str_replace('_', ' ', $service->billing_type) }}</span>
-                                                </label>
-                                            @endforeach
-                                        </div>
-                                        @error('service_ids')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror
-                                    </div>
-                                @endif
-                                <label class="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
-                                    <input type="checkbox" name="terms_accepted" value="1" class="mt-1 rounded border-slate-300 text-blue-600 focus:ring-blue-500" @checked(old('terms_accepted'))>
-                                    <span>I agree to the reservation terms, cancellation policy, and 48-hour expiration rule.</span>
-                                </label>
-                                @error('terms_accepted')<span class="block text-xs text-rose-600">{{ $message }}</span>@enderror
-                                <button type="submit" class="inline-flex h-11 w-full items-center justify-center rounded-xl bg-blue-600 text-sm font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700 hover:shadow-md hover:shadow-blue-600/25 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200">Submit Reservation</button>
-                            </form>
-                        @else
-                            <dl class="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-100 bg-slate-50/60 text-sm dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900/50">
-                                <div class="flex justify-between gap-4 px-3.5 py-2.5"><dt class="text-xs text-slate-500">Room</dt><dd class="text-xs font-semibold text-slate-900 dark:text-white">{{ $activeRoom?->effective_room_number ?? 'Any available room' }}</dd></div>
-                                <div class="flex justify-between gap-4 px-3.5 py-2.5"><dt class="text-xs text-slate-500">Move-in</dt><dd class="text-xs font-semibold text-slate-900 dark:text-white">{{ $moveInLabel }}</dd></div>
-                                <div class="flex justify-between gap-4 px-3.5 py-2.5"><dt class="text-xs text-slate-500">Occupants</dt><dd class="text-xs font-semibold text-slate-900 dark:text-white">{{ $currentReservation->occupants ?? 1 }}</dd></div>
-                                <div class="px-3.5 py-2.5"><dt class="text-xs text-slate-500">Emergency Contact</dt><dd class="mt-0.5 text-xs font-semibold text-slate-900 dark:text-white">{{ $currentReservation->emergency_contact_name ?: 'Not provided' }} {{ $currentReservation->emergency_contact_number ? '· '.$currentReservation->emergency_contact_number : '' }}</dd></div>
-                            </dl>
-                        @endif
-                    </section>
-                    <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-950">
-                        <h2 class="text-sm font-bold text-slate-950 dark:text-white">Payment Summary</h2>
-                        <div class="mt-3 space-y-2">
-                            <div class="flex justify-between gap-4 text-xs"><span class="text-slate-500">Monthly rent</span><span class="font-semibold tabular-nums text-slate-900 dark:text-white">{{ $monthlyAmount }}</span></div>
-                            <div class="flex justify-between gap-4 text-xs"><span class="text-slate-500">Deposit due</span><span class="font-semibold tabular-nums text-slate-900 dark:text-white">{{ $depositAmount }}</span></div>
-                            <div class="flex justify-between gap-4 text-xs"><span class="text-slate-500">BoardMatch fee</span><span class="font-semibold tabular-nums text-slate-900 dark:text-white">{{ $serviceFee }}</span></div>
-                        </div>
-                        <div class="mt-3 flex items-center justify-between gap-4 rounded-xl bg-slate-50 px-3.5 py-2.5 dark:bg-slate-900">
-                            <span class="text-xs font-semibold text-slate-600 dark:text-slate-200">Total due now</span>
-                            <span class="text-lg font-bold tabular-nums text-blue-700 dark:text-blue-300">{{ $totalDue }}</span>
-                        </div>
-                        <p class="mt-2 text-[11px] leading-4 text-slate-400">Payment opens after owner approval and is blocked if the reservation expires.</p>
-                        @if ($canPay)
-                            <a href="{{ route('user.payments.index') }}" class="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-amber-500 text-sm font-bold text-white shadow-sm shadow-amber-500/25 transition hover:bg-amber-600 hover:shadow-md hover:shadow-amber-500/30 focus:outline-none focus-visible:ring-4 focus-visible:ring-amber-200">
-                                Go to Payments
-                                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
-                            </a>
-                        @else
-                            <button type="button" disabled class="mt-4 inline-flex h-11 w-full cursor-not-allowed items-center justify-center rounded-xl bg-slate-100 text-sm font-semibold text-slate-400 dark:bg-slate-800 dark:text-slate-500">Payment unavailable</button>
-                        @endif
-
-                    </section>
-                </div>
-                <section class="grid gap-4 lg:grid-cols-3">
-                    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-950">
-                        <h3 class="text-sm font-bold text-slate-950 dark:text-white">Boarding House Rules</h3>
-                        <ul class="mt-3 space-y-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                            @foreach (collect(preg_split('/\r\n|\r|\n|;|- /', (string) $activeHouse->house_rules))->map(fn ($rule) => trim($rule))->filter()->take(5)->values()->all() ?: ['Respect quiet hours.', 'Keep shared spaces clean.', 'Visitors must follow owner policy.'] as $rule)
-                                <li class="flex gap-2"><span class="mt-2 h-1.5 w-1.5 rounded-full bg-blue-600"></span><span>{{ $rule }}</span></li>
-                            @endforeach
-                        </ul>
-                    </div>
-                    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-950">
-                        <h3 class="text-sm font-bold text-slate-950 dark:text-white">Cancellation Policy</h3>
-                        <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">Pending reservations may be cancelled before owner approval. Approved reservations may require owner coordination, especially after deposit submission.</p>
-                    </div>
-                    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-950">
-                        <h3 class="text-sm font-bold text-slate-950 dark:text-white">Terms & Conditions</h3>
-                        <p class="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">A reservation hold lasts 48 hours. Expired reservations cannot proceed to payment and rooms are returned to available inventory.</p>
-                    </div>
-                </section>
-                <section id="route-planner" class="bm-location-map overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-200/50 scroll-mt-6 dark:border-slate-800 dark:bg-slate-950" data-boardmatch-location-map data-default-route-origin="dssc">
-                    <script type="application/json" data-map-config>{!! json_encode($mapConfig, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
-                    <div class="border-b border-slate-100 px-5 py-4 dark:border-slate-800">
-                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <h2 class="text-sm font-bold text-slate-950 dark:text-white">Turn-by-Turn Directions</h2>
-                                <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Route to {{ $activeHouse->name }}</p>
-                                <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Road directions from DSSC Main Campus via OpenStreetMap.</p>
-                            </div>
-                            <span class="inline-flex w-fit items-center rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                                <span data-map-provider>OpenStreetMap + OSRM</span>
-                            </span>
-                        </div>
-                    </div>
-
-                    <div class="grid gap-4 p-5 lg:grid-cols-[300px_minmax(0,1fr)]">
-                        <aside class="rounded-2xl border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-800 dark:bg-slate-900">
-                            <div class="grid grid-cols-2 gap-2" aria-label="Travel mode">
-                                <button type="button" data-travel-mode="DRIVING" aria-pressed="true" class="inline-flex items-center justify-center rounded-lg border px-3 py-2 text-xs font-bold transition">Driving</button>
-                                <button type="button" data-travel-mode="WALKING" aria-pressed="false" class="inline-flex items-center justify-center rounded-lg border px-3 py-2 text-xs font-bold transition">Walking</button>
-                            </div>
-                            <div class="mt-3 grid grid-cols-2 gap-2">
-                                <div class="rounded-xl bg-blue-50 p-2.5 dark:bg-blue-400/10">
-                                    <p class="text-[10px] font-bold uppercase tracking-wide text-blue-500">Distance</p>
-                                    <p data-route-distance class="mt-0.5 text-base font-bold tabular-nums text-blue-900 dark:text-blue-200">--</p>
-                                </div>
-                                <div class="rounded-xl bg-emerald-50 p-2.5 dark:bg-emerald-400/10">
-                                    <p class="text-[10px] font-bold uppercase tracking-wide text-emerald-600">Est. time</p>
-                                    <p data-route-duration class="mt-0.5 text-base font-bold tabular-nums text-emerald-900 dark:text-emerald-200">--</p>
-                                </div>
-                            </div>
-                            <div class="mt-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950">
-                                <div class="flex items-center justify-between gap-2">
-                                    <p class="text-xs font-bold text-slate-950 dark:text-white">Route Options</p>
-                                    <span data-route-options-badge class="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-800">Waiting</span>
-                                </div>
-                                <div data-route-options class="mt-2 space-y-2"></div>
-                            </div>
-                            <p data-route-status class="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs leading-5 text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">Loading the driving route from DSSC Main Campus.</p>
-                            <div class="mt-3 grid gap-1.5">
-                                <button type="button" data-route-current class="inline-flex w-full items-center justify-center rounded-lg bg-blue-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700">Use My Current Location</button>
-                                <button type="button" data-route-dssc class="inline-flex w-full items-center justify-center rounded-lg border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 dark:border-slate-700 dark:text-slate-300">Route From DSSC</button>
-                                <div class="grid grid-cols-2 gap-1.5">
-                                    <button type="button" data-reset-map class="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300">Reset</button>
-                                    <a data-open-map href="{{ $openStreetMapUrl }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300">Open Map</a>
-                                </div>
-                                <a data-view-larger-map href="{{ $openStreetMapUrl }}" target="_blank" rel="noopener noreferrer" class="hidden">View Larger Map</a>
-                            </div>
-                        </aside>
-
-                        <div class="space-y-4">
-                            <div class="relative min-h-[420px] overflow-hidden rounded-3xl border border-slate-200 bg-slate-100 dark:border-slate-800">
-                                <div data-map-canvas class="absolute inset-0"></div>
-                                <div data-map-loading class="absolute inset-0 z-20 flex items-center justify-center bg-white/85 backdrop-blur-sm">
-                                    <div class="text-center">
-                                        <span class="mx-auto block h-9 w-9 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600"></span>
-                                        <p class="mt-3 text-sm font-semibold text-slate-600">Loading route map...</p>
-                                    </div>
-                                </div>
-                                <div data-map-unavailable class="absolute inset-0 z-20 hidden items-center justify-center bg-slate-50 p-6 text-center">
-                                    <div class="max-w-sm">
-                                        <p data-map-unavailable-message class="text-sm font-bold text-slate-700">{{ $hasCoordinates ? 'Map failed to load. Please check your connection.' : 'Map route is unavailable because this boarding house has no saved coordinates.' }}</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="rounded-3xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
-                                <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-                                    <div>
-                                        <p class="text-sm font-bold text-slate-950 dark:text-white">Turn-by-Turn Directions</p>
-                                        <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Walking and driving directions update when you switch modes.</p>
-                                    </div>
-                                    <span data-route-steps-badge class="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-600">Waiting</span>
-                                </div>
-                                <div data-route-steps class="max-h-[300px] overflow-y-auto p-4">
-                                    <div class="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-4 text-sm text-slate-500">Directions will appear after the route loads.</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-            </div>
-            <aside class="min-w-0 space-y-5" aria-label="Reservation status and compatibility">
-                <section id="reservation-panel" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-950">
-                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <h2 class="text-sm font-bold text-slate-950 dark:text-white">Reservation Progress</h2>
-                        <span class="w-fit rounded-full border px-3 py-1 text-xs font-bold {{ $statusMeta['class'] }}">{{ $statusMeta['label'] }}</span>
-                    </div>
-                    <ol class="mt-5 grid gap-5">
-                        @foreach ($timelineSteps as $index => $step)
-                            @php
-                                $dotClass = match ($step['state']) {
-                                    'done' => 'border-emerald-500 bg-emerald-500 text-white',
-                                    'current' => 'border-blue-600 bg-blue-600 text-white ring-4 ring-blue-100 dark:ring-blue-400/20',
-                                    default => 'border-slate-200 bg-white text-slate-400 dark:border-slate-700 dark:bg-slate-900',
-                                };
-                                $labelClass = match ($step['state']) {
-                                    'done' => 'text-emerald-700 dark:text-emerald-300',
-                                    'current' => 'text-blue-700 dark:text-blue-300',
-                                    default => 'text-slate-400',
-                                };
-                                $connectorClass = $step['state'] === 'done' ? 'bg-emerald-300' : 'bg-slate-200 dark:bg-slate-700';
-                            @endphp
-                            <li class="relative flex items-center gap-3">
-                                @unless ($loop->last)
-                                    <span class="absolute left-3.5 top-7 h-full w-px {{ $connectorClass }}" aria-hidden="true"></span>
-                                @endunless
-                                <span class="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-[11px] font-bold {{ $dotClass }}">
-                                    @if ($step['state'] === 'done')
-                                        <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7"/></svg>
-                                    @else
-                                        {{ $index + 1 }}
-                                    @endif
-                                </span>
-                                <p class="text-xs font-semibold {{ $labelClass }}">{{ $step['label'] }}</p>
-                            </li>
-                        @endforeach
+                <section class="rounded-xl border border-slate-200 bg-white p-5">
+                    <h3 class="text-lg font-black">Reservation progress</h3>
+                    <ol class="mt-5 space-y-4">
+                        @php $steps = [['Reservation Submitted', true, $trackingDateTime($trackingReservation->created_at)], ['Waiting for Owner Approval', $trackingPending || $trackingApproved || in_array($trackingStatus, ['rejected','cancelled','canceled','expired'], true), $trackingPending ? 'Current step' : null], ['Owner Approved', $trackingApproved, $trackingApproved ? $trackingDateTime($trackingReservation->approved_at) : null], ['Cash Downpayment Recorded', filled($trackingPayment), filled($trackingPayment) ? $trackingDateTime($trackingPayment->paid_at) : null]]; @endphp
+                        @foreach ($steps as [$label, $complete, $time])<li class="flex gap-3"><span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full {{ $complete ? 'bg-blue-600 text-white' : 'border border-slate-300 text-slate-400' }} text-xs font-black">{{ $loop->iteration }}</span><div class="min-w-0"><p class="font-bold {{ $complete ? 'text-[#101936]' : 'text-slate-500' }}">{{ $label }}</p>@if ($time)<p class="text-xs text-slate-500">{{ $time }}</p>@endif</div></li>@endforeach
                     </ol>
-
-                    @if ($countdownEnabled)
-                        <div
-                            class="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900"
-                            data-reservation-countdown
-                            data-expires-at="{{ $expiresAt->toIso8601String() }}"
-                            data-expired-message="Reservation expired. Refreshing status..."
-                        >
-                            <p class="text-xs font-bold uppercase tracking-[0.16em] text-amber-600">Reservation Hold</p>
-                            <p class="mt-1 text-sm font-bold" data-countdown-label>Reservation expires in {{ $expiresAt->diffForHumans(['parts' => 2, 'join' => true, 'syntax' => \Carbon\CarbonInterface::DIFF_ABSOLUTE]) }}</p>
-                            <p class="mt-1 text-xs leading-5 text-amber-800">Owner approval before expiration stops the countdown and continues the normal reservation workflow.</p>
-                        </div>
-                    @elseif ($isApproved)
-                        <div class="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-800">Reservation approved. The countdown is stopped and your deposit workflow is active.</div>
-                    @elseif ($isExpired)
-                        <div class="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-800">This reservation expired after 48 hours and the room was released.</div>
-                    @endif
+                    @if ($trackingApproved)
+                        <div class="mt-5 rounded-lg bg-[#f4f8ff] px-4 py-3 text-sm leading-6 text-[#263a62]">Required deposit: <strong>{{ is_numeric($trackingDeposit) && (float) $trackingDeposit > 0 ? $peso($trackingDeposit) : 'Deposit amount awaiting owner update.' }}</strong></div>
+                        @if ($trackingPayment)<div class="mt-3 rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"><strong>Cash downpayment recorded:</strong> {{ $peso($trackingPayment->amount) }} on {{ $trackingDateTime($trackingPayment->paid_at) }} (Cash). @if ($trackingReceipt)<a class="font-bold underline" href="{{ route('payment-receipts.print', $trackingReceipt) }}">View receipt</a>@endif</div>@else<p class="mt-3 text-sm text-slate-600">No payments recorded yet.</p>@endif
+                    @elseif ($trackingPending)<p class="mt-5 rounded-lg bg-[#f4f8ff] px-4 py-3 text-sm font-semibold leading-6 text-blue-800">Payment details will appear after the owner approves this reservation.</p>@endif
                 </section>
-                @include('user.partials.reservation-match-breakdown')
-                    @if ($canCancel)
-                        <form method="POST" action="{{ route('user.reservations.cancel', $currentReservation) }}" onsubmit="return confirm('Cancel this reservation?')" class="mt-2">
-                            @csrf
-                            @method('PATCH')
-                            <button class="inline-flex h-10 w-full items-center justify-center rounded-xl text-xs font-semibold text-rose-600 transition hover:bg-rose-50 dark:hover:bg-rose-400/10">Cancel Reservation</button>
-                        </form>
-                    @endif
-            </aside>
-        </div>
-
+            </div>
+            <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                @if ($trackingHouse)<a href="{{ route('user.messages.index', ['boarding_house_id' => $trackingHouse->id]) }}" class="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-bold text-white">Message Owner</a><a href="{{ route('user.boarding-houses.show', $trackingHouse) }}" class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-5 text-sm font-bold text-[#263a62]">View Property</a>@endif
+                @if ($trackingApproved)<a href="{{ route('user.payments.index') }}" class="inline-flex h-11 items-center justify-center rounded-xl border border-blue-200 bg-[#f4f8ff] px-5 text-sm font-bold text-blue-700">View Payments</a>@endif
+                @if ($trackingPending)<form method="POST" action="{{ route('user.reservations.cancel', $trackingReservation) }}" onsubmit="return confirm('Cancel this reservation request?')">@csrf @method('PATCH')<button type="submit" class="inline-flex h-11 items-center justify-center rounded-xl border border-rose-200 bg-white px-5 text-sm font-bold text-rose-700">Cancel Request</button></form>@endif
+                @if ($trackingStatus === 'rejected')<a href="{{ route('user.boarding-houses.index') }}" class="inline-flex h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-bold text-white">Browse Other Boarding Houses</a>@endif
+            </div>
+        </section>
+        @if (($reservations?->total() ?? 0) > 1)<section class="reservation-card p-6"><h2 class="text-lg font-black">Your other reservations</h2><div class="mt-4 space-y-3">@foreach ($reservations as $other)<a href="{{ route('user.reservations.index', ['reservation' => $other->id]) }}" class="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-slate-200 px-4 py-3 hover:bg-slate-50"><span class="min-w-0 truncate text-sm font-bold">RES-{{ str_pad((string) $other->id, 6, '0', STR_PAD_LEFT) }} · {{ $other->boardingHouse?->name ?? 'Boarding house' }}</span><span class="shrink-0 text-xs font-bold text-blue-700">{{ ucfirst((string) $other->status) }}</span></a>@endforeach</div></section>@endif
+        @endif
+    @else
+    @if (! $house)
+        <section class="reservation-card p-10 text-center"><h2 class="text-lg font-bold">Choose a boarding house first</h2><p class="mx-auto mt-2 max-w-lg text-sm text-slate-500">Open a listing to select a room and start a reservation request.</p><a href="{{ route('user.boarding-houses.index') }}" class="mt-5 inline-flex h-10 items-center rounded-xl bg-blue-600 px-5 text-sm font-bold text-white">Browse Listings</a></section>
+    @else
+        <section class="reservation-card overflow-hidden p-[13px]"><div class="grid items-center gap-4 md:grid-cols-[263px_minmax(0,1fr)_126px_190px]"><img src="{{ $image }}" alt="{{ $house->name }}" class="property-thumbnail"><div class="min-w-0 px-1 md:px-2"><div class="flex flex-wrap items-center gap-2"><h2 class="truncate text-[22px] font-black tracking-[-.03em] text-[#101936]">{{ $house->name }}</h2>@if ($verified)<span class="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#e4f0ff] px-3 py-1 text-[13px] font-bold text-blue-700">✓ <span>Verified by BoardMatch</span></span>@endif</div><p class="mt-3 flex items-start gap-2 text-[16px] leading-5 text-[#53698f]"><x-user.reservation-icon name="map-pin" class="mt-0.5 h-5 w-5 shrink-0"/>{{ $address }}</p></div><div class="border-l border-[#dce5f0] px-5 py-2 md:border-r"><p class="text-center text-[11px] font-bold uppercase tracking-wider text-[#687da1]">Room</p><p class="mt-1 text-center text-[17px] font-black text-[#111a37]">{{ $roomLabel }}</p></div><div class="rounded-[10px] bg-[#edf4ff] px-4 py-3 text-center"><p class="text-[21px] font-black text-blue-700">{{ $rentLabel }} <span class="text-[15px]">/ month</span></p></div></div></section>
+        @if ($submitted)
+            <div class="grid items-start gap-[18px] lg:grid-cols-[minmax(0,778px)_minmax(320px,426px)] lg:justify-center"><section class="reservation-card p-[26px]"><div class="flex items-center justify-between gap-3"><h2 class="text-[25px] font-black">Reservation Progress</h2><span class="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">{{ ucfirst($currentReservation->status) }}</span></div><div class="mt-6 grid gap-3 sm:grid-cols-3">@foreach (['Submit your request', 'Wait for owner approval', 'Pay the deposit to confirm'] as $step)<div class="rounded-xl bg-[#f4f8ff] p-4 text-sm font-bold">{{ $loop->iteration }}. {{ $step }}</div>@endforeach</div>@if (in_array(strtolower((string) $currentReservation->status), ['approved','confirmed','active','checked-in','checked_in'], true))<a href="{{ route('user.payments.index') }}" class="mt-6 inline-flex h-11 items-center rounded-xl bg-blue-600 px-5 text-sm font-bold text-white">Open deposit payment</a>@else<p class="mt-6 rounded-xl bg-[#e5f1ff] px-4 py-3 text-sm font-bold text-blue-700">Deposit payment becomes available after owner approval.</p>@endif</section><aside><section class="reservation-card p-6"><h2 class="text-[25px] font-black">Reservation Summary</h2><div class="mt-4"><div class="summary-row font-bold"><span>⌂ &nbsp; Boarding house</span><span class="text-right text-[#111a37]">{{ $house->name }}</span></div><div class="summary-row"><span>▣ &nbsp; Room</span><span class="font-bold text-[#111a37]">{{ $roomLabel }}</span></div><div class="summary-row"><span>▤ &nbsp; Monthly rent</span><span class="font-bold text-[#111a37]">{{ $rentLabel }}</span></div><div class="summary-row"><span>♢ &nbsp; Required deposit</span><span class="font-bold text-[#111a37]">{{ $depositLabel }}</span></div></div><p class="mt-4 rounded-[10px] bg-[#e3f0ff] px-4 py-3 text-[14px] font-bold leading-5 text-blue-700">ⓘ &nbsp;Deposit payment becomes available after owner approval.</p></section></aside></div>
+        @else
+            <div class="grid items-start gap-[18px] lg:grid-cols-[minmax(0,778px)_minmax(320px,426px)] lg:justify-center"><section class="reservation-card p-[26px]"><h2 class="text-[25px] font-black leading-tight">Reservation Form</h2><p class="mt-1 text-[16px] text-[#53698f]">Review your information before submitting.</p><form method="POST" action="{{ route('user.boarding-houses.reservations.store', $house) }}" class="mt-6" data-reservation-form>@csrf<input type="hidden" name="room_id" value="{{ $room?->id }}">@if ($errors->any())<div class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">Please correct the highlighted fields.</div>@endif<div class="grid gap-x-7 gap-y-4 sm:grid-cols-2"><label class="reservation-label">First Name<input name="first_name" value="{{ $firstName }}" placeholder="Enter your first name" class="reservation-input">@error('first_name')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror</label><label class="reservation-label">Last Name<input name="last_name" value="{{ $lastName }}" placeholder="Enter your last name" class="reservation-input">@error('last_name')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror</label><label class="reservation-label">Email Address<input type="email" name="email" value="{{ old('email', $tenant?->email) }}" placeholder="Enter your email address" class="reservation-input">@error('email')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror</label><label class="reservation-label">Phone Number<input name="phone" value="{{ $phone }}" placeholder="Enter your phone number" class="reservation-input">@error('phone')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror</label><label class="reservation-label">Preferred Move-in Date<input type="date" name="check_in_date" min="{{ now()->toDateString() }}" value="{{ old('check_in_date') }}" class="reservation-input">@error('check_in_date')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror</label><label class="reservation-label">Number of Occupants<select name="occupants" class="reservation-input"><option value="">Select occupants</option>@for ($count=1; $count <= $capacity; $count++)<option value="{{ $count }}" @selected(old('occupants', 1) == $count)>{{ $count }} {{ $count === 1 ? 'occupant' : 'occupants' }}</option>@endfor</select>@error('occupants')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror</label><label class="reservation-label">Length of Stay<select name="stay_duration" class="reservation-input"><option value="">Select duration</option>@foreach (($stayDurations ?? [1=>'1 month',3=>'3 months',6=>'6 months',12=>'12 months']) as $months=>$label)<option value="{{ $months }}" @selected(old('stay_duration') == $months)>{{ $label }}</option>@endforeach</select>@error('stay_duration')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror</label><label class="reservation-label">Room<input value="{{ $roomDisplay }}" readonly class="reservation-input bg-[#eef2f7] text-[#3b4c6c]"></label><label class="reservation-label">Emergency Contact Name<input name="emergency_contact_name" value="{{ $emergencyName }}" placeholder="Enter emergency contact name" class="reservation-input">@error('emergency_contact_name')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror</label><label class="reservation-label">Emergency Contact Number<input name="emergency_contact_number" value="{{ $emergencyPhone }}" placeholder="Enter emergency contact number" class="reservation-input">@error('emergency_contact_number')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror</label><label class="reservation-label sm:col-span-2">Message to Owner <span class="font-normal text-[#53698f]">(Optional)</span><textarea name="notes" rows="3" placeholder="Add a message or special request for the owner..." class="reservation-input">{{ old('notes') }}</textarea>@error('notes')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror</label></div><label class="mt-5 flex items-start gap-3 text-[14px] text-[#263a62]"><input type="checkbox" name="terms_accepted" value="1" class="mt-0.5 h-5 w-5 rounded border-[#9aaac3] text-blue-600" @checked(old('terms_accepted'))><span>I agree to the <button type="button" data-reservation-modal="terms" class="font-semibold text-blue-700 underline">reservation terms</button> and <button type="button" data-reservation-modal="rules" class="font-semibold text-blue-700 underline">boarding house rules</button>.</span></label>@error('terms_accepted')<span class="mt-1 block text-xs text-rose-600">{{ $message }}</span>@enderror<div class="mt-5 flex flex-col-reverse items-stretch justify-end gap-3 sm:flex-row sm:items-center"><a href="{{ route('user.boarding-houses.index') }}" class="inline-flex h-11 items-center justify-center rounded-lg border border-[#b7c4d7] bg-white px-6 text-[15px] font-bold text-[#263a62]">Cancel</a><button type="submit" data-submit-button class="inline-flex h-11 items-center justify-center rounded-lg bg-[#1f4ff0] px-6 text-[15px] font-bold text-white">Submit Reservation</button></div></form></section><aside class="space-y-[18px]"><section class="reservation-card p-6"><h2 class="text-[25px] font-black">Reservation Summary</h2><div class="mt-4"><div class="summary-row font-bold"><span>⌂ &nbsp; Boarding house</span><span class="text-right text-[#111a37]">{{ $house->name }}</span></div><div class="summary-row"><span>▣ &nbsp; Room</span><span class="font-bold text-[#111a37]">{{ $roomLabel }}</span></div><div class="summary-row"><span>▤ &nbsp; Monthly rent</span><span class="font-bold text-[#111a37]">{{ $rentLabel }}</span></div><div class="summary-row"><span>♢ &nbsp; Required deposit</span><span class="font-bold text-[#111a37]">{{ $depositLabel }}</span></div></div><p class="mt-4 rounded-[10px] bg-[#e3f0ff] px-4 py-3 text-[14px] font-bold leading-5 text-blue-700">ⓘ &nbsp;Deposit payment becomes available after owner approval.</p></section><section class="reservation-card p-6"><h2 class="text-[25px] font-black">What happens next?</h2><ol class="mt-5 space-y-5"><li class="flex gap-4"><span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e6f0ff] text-[16px] font-black text-blue-700">1</span><div><p class="font-black">Submit your request</p><p class="mt-1 text-[14px] leading-5 text-[#53698f]">Send your reservation details to the owner.</p></div></li><li class="flex gap-4"><span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e6f0ff] text-[16px] font-black text-blue-700">2</span><div><p class="font-black">Wait for owner approval</p><p class="mt-1 text-[14px] leading-5 text-[#53698f]">The owner will review your request and notify you of the decision.</p></div></li><li class="flex gap-4"><span class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e6f0ff] text-[16px] font-black text-blue-700">3</span><div><p class="font-black">Pay the deposit to confirm</p><p class="mt-1 text-[14px] leading-5 text-[#53698f]">Once approved, you’ll be able to pay the required deposit to secure your room.</p></div></li></ol></section></aside></div>
+        @endif
+    @endif
     @endif
 </div>
+<div id="reservation-modal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true"><div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"><div class="flex items-center justify-between"><h2 class="text-xl font-black">Reservation information</h2><button type="button" data-close-reservation-modal class="text-2xl text-slate-400">×</button></div><p id="reservation-modal-content" class="mt-4 whitespace-pre-line text-sm leading-6 text-slate-600"></p></div></div>
+<script>
+const reservationRoomOptions = @json($roomOptions);
+const reservationCancelUrl = @json($reservationCancelUrl ?? route('user.boarding-houses.index'));
+if (@json($createMode) && reservationRoomOptions.length) {
+    const roomInput = document.querySelector('[data-reservation-form] input[name="room_id"][type="hidden"]');
+    const roomLabel = roomInput?.closest('form')?.querySelector('input[readonly][value*="Room"]')?.closest('label');
+    if (roomInput && roomLabel) {
+        const select = document.createElement('select');
+        select.name = 'room_id';
+        select.required = true;
+        select.className = 'reservation-input';
+        select.innerHTML = '<option value="">Select an available room</option>' + reservationRoomOptions.map((room) => '<option value="' + room.id + '">' + room.label + ' · ' + (room.price ? '₱' + Number(room.price).toLocaleString() + ' / month' : 'Rate set by owner') + ' · ' + room.slots + ' slot(s)</option>').join('');
+        if (roomInput.value) select.value = roomInput.value;
+        roomInput.removeAttribute('name');
+        roomLabel.querySelector('input')?.replaceWith(select);
+        const occupantSelect = document.querySelector('[data-reservation-form] select[name="occupants"]');
+        const updateRoomSummary = () => {
+            const room = reservationRoomOptions.find((option) => String(option.id) === String(select.value));
+            if (!room) return;
+            const rentText = room.price ? '₱' + Number(room.price).toLocaleString() + ' / month' : 'Rate set by owner';
+            document.querySelectorAll('[data-reservation-page] p').forEach((node) => {
+                if (node.textContent.includes('/ month')) node.textContent = rentText;
+            });
+            document.querySelectorAll('[data-reservation-page] .summary-row').forEach((row) => {
+                if (row.textContent.includes('Monthly rent') && row.lastElementChild) row.lastElementChild.textContent = rentText;
+            });
+            if (occupantSelect) {
+                const current = occupantSelect.value || '1';
+                occupantSelect.innerHTML = '<option value="">Select occupants</option>';
+                for (let count = 1; count <= Math.max(1, room.slots || room.capacity); count += 1) {
+                    occupantSelect.insertAdjacentHTML('beforeend', '<option value="' + count + '">' + count + (count === 1 ? ' occupant' : ' occupants') + '</option>');
+                }
+                occupantSelect.value = String(Math.min(Number(current), Math.max(1, room.slots || room.capacity)));
+            }
+        };
+        select.addEventListener('change', updateRoomSummary);
+        updateRoomSummary();
+    }
+}
+const reservationForm = document.querySelector('[data-reservation-form]');
+const reservationActions = reservationForm?.querySelector('div.mt-5');
+if (reservationActions) {
+    let submitButton = reservationActions.querySelector('[data-submit-button], button[type="submit"]');
+    if (!submitButton) {
+        submitButton = document.createElement('button');
+        submitButton.type = 'submit';
+        submitButton.dataset.submitButton = '';
+        submitButton.className = 'reservation-submit inline-flex h-11 items-center justify-center rounded-lg bg-[#1f4ff0] px-6 text-[15px] font-bold text-white';
+        submitButton.textContent = 'Submit Reservation';
+    }
+    submitButton.classList.add('reservation-submit');
+    const cancelLink = reservationActions.querySelector('a');
+    const cancelButton = document.createElement('button');
+    cancelButton.type = 'button';
+    cancelButton.className = 'inline-flex h-11 items-center justify-center rounded-lg border border-[#b7c4d7] bg-white px-6 text-[15px] font-bold text-[#263a62]';
+    cancelButton.textContent = 'Cancel';
+    cancelButton.addEventListener('click', () => { window.location.href = reservationCancelUrl || cancelLink?.href || '{{ route('user.boarding-houses.index') }}'; });
+    reservationActions.className = 'reservation-form-actions mt-5';
+    reservationActions.replaceChildren(submitButton, cancelButton);
+}
+const reservationModal = document.getElementById('reservation-modal'); const modalContent = document.getElementById('reservation-modal-content'); const modalText = { terms: 'Your request stays pending until the owner reviews it. Room holds and expiration follow the existing reservation lifecycle rules.', rules: @json($house?->house_rules ?: 'Review the owner’s boarding house rules with them before move-in.') };
+document.querySelectorAll('[data-reservation-modal]').forEach((trigger) => trigger.addEventListener('click', () => { modalContent.textContent = modalText[trigger.dataset.reservationModal] || ''; reservationModal.classList.remove('hidden'); reservationModal.classList.add('flex'); })); document.querySelector('[data-close-reservation-modal]')?.addEventListener('click', () => { reservationModal.classList.add('hidden'); reservationModal.classList.remove('flex'); }); reservationModal?.addEventListener('click', (event) => { if (event.target === reservationModal) { reservationModal.classList.add('hidden'); reservationModal.classList.remove('flex'); } }); document.querySelector('[data-reservation-page] form')?.addEventListener('submit', function () { const button = this.querySelector('[data-submit-button]'); if (!button) return; button.disabled = true; button.classList.add('cursor-wait', 'opacity-70'); button.textContent = 'Submitting…'; });
+</script>
 </x-user.shell>
 </x-layouts.dashboard>

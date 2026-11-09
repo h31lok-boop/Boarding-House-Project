@@ -39,6 +39,9 @@ Boarding House Project is a Laravel web application for managing boarding-house 
 9. Run `npm run dev`.
 10. Start the application with `php artisan serve`.
 
+For a single terminal command, run `npm run server`. Laravel will use port 8000
+and automatically try the next available port if it is already occupied.
+
 ## Demo Credentials
 
 After seeding, use these local demo accounts:

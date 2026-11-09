@@ -10,8 +10,8 @@ import {
 } from './openstreetmap';
 
 const ROOT_SELECTOR = '[data-boardmatch-browse-map]';
-const GOOGLE_ROUTE_BLUE = '#2563eb';
-const GOOGLE_ROUTE_OUTLINE = '#bfdbfe';
+const GOOGLE_ROUTE_BLUE = '#4285f4';
+const GOOGLE_ROUTE_OUTLINE = '#0b57d0';
 
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
     '&': '&amp;',
@@ -201,7 +201,11 @@ const initializeMap = async (root) => {
     (settings.houses || []).forEach((house) => {
         const latitude = numberOrNull(house.latitude);
         const longitude = numberOrNull(house.longitude);
-        if (!isInsideServiceArea(house.latitude, house.longitude)) return;
+        // The backend already restricts public mapHouses to approved listings
+        // inside the service area. Render every coordinate it returns so the
+        // map always reflects the exact saved boarding-house location instead
+        // of applying a second, potentially stale client-side boundary check.
+        if (latitude === null || longitude === null) return;
 
         validHouseCount += 1;
         points.push([longitude, latitude]);
@@ -294,7 +298,7 @@ const drivingRouteUrl = (coordinates, baseUrl) => {
     // Stored property pins can be inside a lot rather than directly on a
     // road. Let the routing service snap both endpoints to the nearest
     // routable road instead of rejecting them with a strict radius.
-    return `${routeBase}/driving/${coordinates}?overview=full&geometries=geojson&steps=false`;
+    return `${routeBase}/driving/${coordinates}?overview=full&geometries=geojson&steps=false&radiuses=100;100`;
 };
 
 const renderQuickRoute = async (listing = {}) => {

@@ -16,10 +16,10 @@
     $recommendationScore = (int) data_get($recommendation, 'recommendation.recommendation_percent', 0);
     $recommendationImage = data_get($recommendation, 'image_url') ?: asset('images/boarding-house-placeholder.svg');
 
-    $legacyHouse = trim((string) ($booking['boarding_house'] ?? ''));
-    $hasLegacyBooking = $legacyHouse !== '' && $legacyHouse !== 'No active booking';
-    $hasReservation = ($reservation && ! ($reservation['is_expired'] ?? false)) || $hasLegacyBooking;
-    $houseName = $reservation['house_name'] ?? ($hasLegacyBooking ? $legacyHouse : 'No active reservation');
+    $hasApprovedReservation = (bool) ($reservation && ($reservation['is_approved'] ?? false) && ! ($reservation['is_expired'] ?? false));
+    $hasPendingReservation = (bool) ($reservation && ! ($reservation['is_approved'] ?? false) && ! ($reservation['is_expired'] ?? false));
+    $hasReservation = $hasApprovedReservation;
+    $houseName = $reservation['house_name'] ?? 'No approved reservation yet';
     $roomNumber = $reservation['room_no'] ?? ($booking['room_number'] ?? 'Not assigned');
     $boardingHouseLocation = trim((string) ($reservation['address'] ?? ($booking['address'] ?? '')));
     $reservationStatus = $reservation['status_label'] ?? ($hasReservation ? 'Active' : 'Not started');
@@ -33,8 +33,8 @@
         : (! $hasReservation
             ? ['title' => 'Choose a boarding house', 'detail' => 'Review your ranked matches and reserve the best room.', 'label' => 'Browse matches', 'href' => $route('user.boarding-houses.index', ['tab' => 'recommended'])]
             : ($outstanding > 0
-                ? ['title' => 'Complete your payment', 'detail' => 'Pay the outstanding amount to keep your reservation current.', 'label' => 'Open payments', 'href' => $route('user.payments.index')]
-                : ['title' => 'Review your reservation', 'detail' => 'Confirm your room and move-in information.', 'label' => 'View reservation', 'href' => $route('user.reservations.index')]));
+                ? ['title' => 'Complete your payment', 'detail' => 'Pay the outstanding amount to keep your reservation current.', 'label' => 'Open payments', 'href' => $route('user.payments.index', ['reservation' => data_get($reservation, 'id')])]
+                : ['title' => 'Review your reservation', 'detail' => 'Confirm your room and move-in information.', 'label' => 'View reservation', 'href' => $route('user.reservations.index', ['reservation' => data_get($reservation, 'id')])]));
 
     $alertClasses = match ($alert['level'] ?? 'success') {
         'danger' => 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200',
@@ -67,16 +67,18 @@
         @endif
 
         <section class="grid gap-3 md:grid-cols-3" aria-label="Tenant dashboard summary">
-            <a href="{{ $route('user.reservations.index') }}" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:shadow-md dark:border-slate-700 dark:bg-slate-900">
+            <a href="{{ $route('user.reservations.index', ['reservation' => data_get($reservation, 'id')]) }}" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:shadow-md dark:border-slate-700 dark:bg-slate-900">
                 <p class="text-xs font-bold text-slate-500 dark:text-slate-400">Reservation</p>
                 <p class="mt-2 truncate text-xl font-black text-slate-950 dark:text-white">{{ $reservationStatus }}</p>
                 <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{{ $houseName }}</p>
             </a>
-            <a href="{{ $route('user.payments.index') }}" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:shadow-md dark:border-slate-700 dark:bg-slate-900">
-                <p class="text-xs font-bold text-slate-500 dark:text-slate-400">Payment Status</p>
-                <p class="mt-2 truncate text-xl font-black text-slate-950 dark:text-white">{{ $outstanding > 0 ? 'PHP '.number_format($outstanding, 0).' due' : $paymentLabel }}</p>
-                <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">Next due: {{ $nextDueDate }}</p>
-            </a>
+            @if ($hasApprovedReservation)
+                <a href="{{ $route('user.payments.index', ['reservation' => data_get($reservation, 'id')]) }}" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:shadow-md dark:border-slate-700 dark:bg-slate-900">
+                    <p class="text-xs font-bold text-slate-500 dark:text-slate-400">Payment Status</p>
+                    <p class="mt-2 truncate text-xl font-black text-slate-950 dark:text-white">{{ $outstanding > 0 ? 'PHP '.number_format($outstanding, 2).' due' : (($billing['has_data'] ?? false) ? $paymentLabel : 'Billing setup pending') }}</p>
+                    <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{{ ($billing['has_data'] ?? false) ? ($nextDueDate === 'No upcoming payment' ? $nextDueDate : 'Next due: '.$nextDueDate) : 'Billing schedule awaiting owner setup.' }}</p>
+                </a>
+            @endif
             <a href="{{ $route('user.boarding-houses.index', ['tab' => 'recommended']) }}" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:shadow-md dark:border-slate-700 dark:bg-slate-900">
                 <p class="text-xs font-bold text-slate-500 dark:text-slate-400">Best Match</p>
                 <p class="mt-2 truncate text-xl font-black text-slate-950 dark:text-white">{{ $recommendedHouse ? $recommendationScore.'%' : 'Not ready' }}</p>
@@ -84,12 +86,13 @@
             </a>
         </section>
 
+        @if ($hasApprovedReservation && ($billing['has_data'] ?? false) === true && ($billing['has_recorded_payment'] ?? false) === true)
         <x-dashboard-chart-pair
             id-prefix="tenant-dashboard"
             pie-title="Payment Overview"
-            pie-description="Your paid amount this month compared with the outstanding balance."
-            :pie-labels="['Paid This Month', 'Outstanding']"
-            :pie-data="[(float) ($billing['paid_this_month'] ?? 0), $outstanding]"
+            pie-description="Current-month bills split between paid and remaining amounts."
+            :pie-labels="['Paid toward this month’s bills', 'Remaining on this month’s bills']"
+            :pie-data="[(float) ($billing['paid_this_month'] ?? 0), (float) ($billing['remaining_this_month'] ?? 0)]"
             line-title="Payment History"
             line-description="Your recorded payments over the last six months."
             :line-labels="$paymentChart['labels'] ?? []"
@@ -97,19 +100,43 @@
             line-dataset-label="Payments"
             :currency="true"
         />
+        @elseif ($hasApprovedReservation && ($billing['has_data'] ?? false) === true)
+            <section class="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <p class="text-sm font-semibold text-slate-600 dark:text-slate-300">No payments recorded yet</p>
+            </section>
+        @elseif ($hasApprovedReservation)
+            <section class="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <p class="text-sm font-semibold text-slate-600 dark:text-slate-300">Billing schedule awaiting owner setup.</p>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">No payments recorded yet.</p>
+            </section>
+        @endif
 
         <section class="grid gap-5 lg:grid-cols-2">
             <article class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
                 <header class="border-b border-slate-100 px-5 py-4 dark:border-slate-700">
-                    <h2 class="text-base font-black text-slate-950 dark:text-white">Current reservation</h2>
-                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Your latest room and billing details.</p>
+                    <h2 class="text-base font-black text-slate-950 dark:text-white">{{ $hasPendingReservation ? 'Reservation request' : 'Current reservation' }}</h2>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{{ $hasPendingReservation ? 'Your request is waiting for the owner.' : 'Your latest room and billing details.' }}</p>
                 </header>
                 <div class="p-5">
-                    @if ($hasReservation)
+                    @if ($hasPendingReservation)
+                        <div class="py-5 text-center">
+                            <p class="text-sm font-black text-slate-950 dark:text-white">Pending owner approval.<span class="sr-only"> Pending Review</span></p>
+                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Your reservation has been submitted. Please wait for the owner's confirmation.</p>
+                            @if (data_get($reservation, 'room_no'))
+                                <p class="mt-2 text-xs font-semibold text-slate-500 dark:text-slate-400">Requested room: {{ data_get($reservation, 'room_no') }}</p>
+                            @endif
+                            @if (data_get($reservation, 'hold_countdown'))
+                                <p class="mt-1 text-xs font-semibold text-amber-600 dark:text-amber-300">{{ data_get($reservation, 'hold_countdown') }}</p>
+                            @endif
+                            <a href="{{ $route('user.reservations.index', ['reservation' => data_get($reservation, 'id')]) }}" class="mt-4 inline-flex h-9 items-center rounded-xl bg-blue-600 px-3 text-xs font-bold text-white">View Reservation</a>
+                        </div>
+                    @elseif ($hasReservation)
                         <dl class="grid gap-4 sm:grid-cols-2">
                             <div><dt class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Boarding house</dt><dd class="mt-1 text-sm font-bold text-slate-900 dark:text-white">{{ $houseName }}</dd></div>
                             <div><dt class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Location</dt><dd class="mt-1 text-sm font-bold leading-5 text-slate-900 dark:text-white">{{ $boardingHouseLocation ?: 'Location not provided' }}</dd></div>
                             <div><dt class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Room</dt><dd class="mt-1 text-sm font-bold text-slate-900 dark:text-white">{{ $roomNumber ?: 'Not assigned' }}</dd></div>
+                            <div><dt class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Agreed rent</dt><dd class="mt-1 text-sm font-bold text-slate-900 dark:text-white">{{ data_get($booking, 'agreed_rent') !== null ? 'PHP '.number_format((float) data_get($booking, 'agreed_rent'), 2).' / month' : 'Rent not set' }}</dd></div>
+                            <div><dt class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Deposit</dt><dd class="mt-1 text-sm font-bold text-slate-900 dark:text-white">{{ data_get($booking, 'deposit_amount') !== null ? 'PHP '.number_format((float) data_get($booking, 'deposit_amount'), 2) : 'Deposit amount awaiting owner update.' }}</dd></div>
                             <div>
                                 <dt class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</dt>
                                 <dd class="mt-1 text-sm font-bold text-slate-900 dark:text-white">{{ $reservationStatus }}</dd>
@@ -119,10 +146,21 @@
                             </div>
                             <div><dt class="text-[10px] font-bold uppercase tracking-wider text-slate-400">Next amount</dt><dd class="mt-1 text-sm font-bold text-slate-900 dark:text-white">{{ $nextDueAmount > 0 ? 'PHP '.number_format($nextDueAmount, 0) : 'No amount due' }}</dd></div>
                         </dl>
-                        <a href="{{ $route('user.reservations.index') }}" class="mt-5 inline-flex h-9 items-center rounded-xl border border-blue-200 px-3 text-xs font-bold text-blue-600 dark:border-blue-500/30 dark:text-blue-300">View reservation</a>
+                        @if (($billing['advance_rent']['full_period_count'] ?? 0) > 0)
+                            <div class="mt-5 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-3 dark:border-blue-400/20 dark:bg-blue-400/10">
+                                <p class="text-sm font-black text-blue-900 dark:text-blue-100">{{ $billing['advance_rent']['full_period_count'] }} {{ $billing['advance_rent']['full_period_count'] === 1 ? 'month' : 'months' }} rent paid in advance</p>
+                                <p class="mt-1 text-xs text-blue-800 dark:text-blue-200">PHP {{ number_format((float) ($billing['advance_rent']['amount'] ?? 0), 2) }}{{ data_get($billing, 'advance_rent.covered_through') ? ' · Rent covered through '.data_get($billing, 'advance_rent.covered_through') : '' }}</p>
+                                <div class="mt-2 grid gap-1 text-[11px] text-blue-800 dark:text-blue-200 sm:grid-cols-2">
+                                    @foreach (data_get($billing, 'advance_rent.periods', []) as $period)
+                                        <span>{{ $period['start'] }} – {{ $period['end'] }}: PHP {{ number_format((float) ($period['amount'] ?? 0), 2) }}</span>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+                        <a href="{{ $route('user.reservations.index', ['reservation' => data_get($reservation, 'id')]) }}" class="mt-5 inline-flex h-9 items-center rounded-xl border border-blue-200 px-3 text-xs font-bold text-blue-600 dark:border-blue-500/30 dark:text-blue-300">View reservation</a>
                     @else
                         <div class="py-5 text-center">
-                            <p class="text-sm font-black text-slate-950 dark:text-white">No active reservation</p>
+                            <p class="text-sm font-black text-slate-950 dark:text-white">No approved reservation yet.</p>
                             <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Browse your matches and reserve an available room.</p>
                             <a href="{{ $route('user.boarding-houses.index', ['tab' => 'recommended']) }}" class="mt-4 inline-flex h-9 items-center rounded-xl bg-blue-600 px-3 text-xs font-bold text-white">Browse matches</a>
                         </div>

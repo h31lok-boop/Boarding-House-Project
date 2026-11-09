@@ -130,7 +130,6 @@ const initializeAdminBoardingHouseMaps = () => {
 
         fields.latitude.value = Number(lat).toFixed(7);
         fields.longitude.value = Number(lng).toFixed(7);
-        if (fields.barangay) fields.barangay.value = 'Matti';
         fields.distance.value = distance.toFixed(2);
         fields.nearDssc.checked = distance <= 5;
         if (fields.nearDssc.checked && !fields.landmark.value.trim()) {
@@ -158,8 +157,8 @@ const initializeAdminBoardingHouseMaps = () => {
             const result = await response.json();
             if (Number(fields.latitude.value) !== Number(Number(lat).toFixed(7))
                 || Number(fields.longitude.value) !== Number(Number(lng).toFixed(7))) return;
-            fields.address.value = result.display_name || fields.address.value;
-            fields.barangay.value = 'Matti';
+            const status = geocodeStatus(mode);
+            if (status) status.textContent = `Pin placed. Saved address was not changed${result.display_name ? `; suggestion: ${result.display_name}` : '.'}`;
         } catch (error) {
             // Coordinates and distance remain usable when reverse geocoding is unavailable.
         }
@@ -199,6 +198,10 @@ const initializeAdminBoardingHouseMaps = () => {
 
         updateLocationFields(mode, lat, lng, markExact);
         picker.savedPoint = [Number(lng), Number(lat)];
+        // A manually placed or dragged marker is the owner's confirmation of
+        // the pin, so an earlier address-search suggestion is no longer dirty.
+        if (!addressDerived) pickerFields(mode).map.dataset.addressDirty = 'false';
+        pickerFields(mode).map.dataset.locationConfirmed = markExact ? 'true' : 'false';
         if (reverseAddress) reverseGeocode(mode, lat, lng);
 
         return true;
@@ -269,6 +272,7 @@ const initializeAdminBoardingHouseMaps = () => {
 
         if (hasSavedCoordinates) {
             placePickerMarker(mode, startLat, startLng, false, false);
+            fields.map.dataset.locationConfirmed = 'true';
         } else {
             pickerMaps[mode].marker?.remove();
             pickerMaps[mode].marker = null;
@@ -350,6 +354,30 @@ const initializeAdminBoardingHouseMaps = () => {
         }
     };
 
+    const useOwnerLocation = async (mode) => {
+        const fields = pickerFields(mode);
+        const status = geocodeStatus(mode);
+
+        if (! window.confirm('Use this device location as a suggestion? Your current location may differ from the boarding house. You must confirm the pin on the map before saving.')) return;
+        if (! navigator.geolocation) {
+            if (status) status.textContent = 'This browser does not provide location access.';
+            return;
+        }
+
+        if (status) status.textContent = 'Requesting location permission…';
+        navigator.geolocation.getCurrentPosition(async (position) => {
+            await openLocationPicker(mode);
+            const { latitude, longitude } = position.coords;
+            if (! placePickerMarker(mode, latitude, longitude, false, false)) return;
+            fields.map.dataset.addressDirty = 'true';
+            if (status) status.textContent = 'Your location is only a suggestion. Confirm the building by clicking or dragging the marker, then save.';
+        }, (error) => {
+            if (status) status.textContent = error.code === error.PERMISSION_DENIED
+                ? 'Location permission was not granted.'
+                : 'Your location could not be read. Search the address or place the pin manually.';
+        }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+    };
+
     document.addEventListener('click', (event) => {
         const addressButton = event.target.closest?.('[data-geocode-address]');
         if (addressButton) {
@@ -358,8 +386,13 @@ const initializeAdminBoardingHouseMaps = () => {
         }
 
         const button = event.target.closest?.('[data-location-picker]');
-        if (!button) return;
-        openLocationPicker(button.dataset.locationPicker).catch(console.error);
+        if (button) {
+            openLocationPicker(button.dataset.locationPicker).catch(console.error);
+            return;
+        }
+
+        const locationButton = event.target.closest?.('[data-use-my-location]');
+        if (locationButton) useOwnerLocation(locationButton.dataset.useMyLocation).catch(console.error);
     });
 
     window.addEventListener('boarding-house-map:edit', () => {
@@ -402,8 +435,16 @@ const initializeAdminBoardingHouseMaps = () => {
             return;
         }
         const addressChanged = fields.map?.dataset.addressDirty === 'true';
-        if (hasCoordinates && !addressChanged) {
+        const locationConfirmed = fields.map?.dataset.locationConfirmed === 'true';
+        if (hasCoordinates && !addressChanged && locationConfirmed) {
             validateLocation(mode, fields.latitude.value, fields.longitude.value);
+            return;
+        }
+
+        if (hasCoordinates && form.matches('[data-owner-address-form]') && !locationConfirmed) {
+            event.preventDefault();
+            const status = geocodeStatus(mode);
+            if (status) status.textContent = 'Confirm the property pin by clicking or dragging the marker before saving.';
             return;
         }
 
@@ -420,7 +461,9 @@ const initializeAdminBoardingHouseMaps = () => {
             const lat = Number(house.latitude);
             const lng = Number(house.longitude);
 
-            if (!isInsideServiceArea(house.latitude, house.longitude)) {
+            const hasValidCoordinates = Number.isFinite(lat) && Number.isFinite(lng)
+                && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+            if (!hasValidCoordinates) {
                 detailMarker?.remove();
                 detailMarker = null;
                 setMapEmpty(true);

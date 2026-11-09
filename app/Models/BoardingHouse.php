@@ -69,6 +69,9 @@ class BoardingHouse extends Model
         'cr_image',
         'kitchen_image',
         'featured_image',
+        'advance_rent',
+        'security_deposit',
+        'billing_cycle',
     ];
 
     protected $casts = [
@@ -78,6 +81,8 @@ class BoardingHouse extends Model
         'price' => 'decimal:2',
         'available_rooms' => 'integer',
         'distance_from_dssc' => 'decimal:2',
+        'advance_rent' => 'integer',
+        'security_deposit' => 'decimal:2',
         'is_near_dssc' => 'boolean',
     ];
 
@@ -214,6 +219,17 @@ class BoardingHouse extends Model
         return $this->barangay ?: $this->barangayReference?->barangay_name;
     }
 
+    /**
+     * The owner-entered address is the canonical property address. The legacy
+     * full_address column is only used when the newer address field is empty.
+     */
+    public function getCanonicalAddressAttribute(): ?string
+    {
+        $address = trim((string) ($this->address ?: $this->full_address ?: ''));
+
+        return $address !== '' ? $address : null;
+    }
+
     public function tenants()
     {
         return $this->hasMany(User::class, 'boarding_house_id');
@@ -258,23 +274,40 @@ class BoardingHouse extends Model
 
     public function getCoverImagePathAttribute(): ?string
     {
-        $image = $this->relationLoaded('images')
-            ? ($this->images->firstWhere('is_primary', true) ?: $this->images->first())
-            : ($this->images()->where('is_primary', true)->first() ?: $this->coverImage()->first());
+        $imagePaths = $this->relationLoaded('images')
+            ? $this->images
+                ->sortBy(fn ($image) => [
+                    $image->is_primary ? 0 : 1,
+                    (int) ($image->sort_order ?? 0),
+                    (int) $image->id,
+                ])
+                ->pluck('image_path')
+            : collect([
+                $this->images()->where('is_primary', true)->value('image_path'),
+                $this->coverImage()->value('image_path'),
+            ]);
 
-        if ($image?->image_path) {
-            return $image->image_path;
-        }
+        $imagePaths = $imagePaths->merge([
+            $this->featured_image,
+            $this->exterior_image,
+            $this->room_image,
+            $this->cr_image,
+            $this->kitchen_image,
+        ]);
 
-        foreach (['featured_image', 'exterior_image', 'room_image', 'cr_image', 'kitchen_image'] as $column) {
-            if (filled($this->{$column} ?? null)) {
-                return $this->{$column};
+        $imagePaths = $imagePaths->merge(
+            $this->relationLoaded('photos')
+                ? $this->photos->pluck('photo_path')
+                : collect([$this->photos()->value('photo_path')])
+        );
+
+        foreach ($imagePaths->filter()->map(fn ($path) => $this->normalizePublicImagePath((string) $path)) as $path) {
+            if ($this->publicImagePathExists($path)) {
+                return $path;
             }
         }
 
-        return $this->relationLoaded('photos')
-            ? $this->photos->first()?->photo_path
-            : $this->photos()->value('photo_path');
+        return null;
     }
 
     public function getCoverImageUrlAttribute(): string
@@ -285,11 +318,47 @@ class BoardingHouse extends Model
             return asset('images/boarding-house-placeholder.svg');
         }
 
-        if (Str::startsWith($path, ['http://', 'https://', '/'])) {
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            $parts = parse_url($path);
+            $host = strtolower((string) ($parts['host'] ?? ''));
+            if (in_array($host, ['localhost', '127.0.0.1', '::1'], true)) {
+                return asset(ltrim((string) ($parts['path'] ?? ''), '/'));
+            }
+
             return $path;
         }
 
-        return Storage::disk('public')->url($path);
+        return asset('storage/'.ltrim($path, '/'));
+    }
+
+    private function normalizePublicImagePath(string $path): string
+    {
+        $path = trim(str_replace('\\', '/', $path));
+        $parts = parse_url($path);
+
+        if (($parts['scheme'] ?? null) !== null || ($parts['host'] ?? null) !== null) {
+            $host = strtolower((string) ($parts['host'] ?? ''));
+            if (! in_array($host, ['localhost', '127.0.0.1', '::1'], true)) {
+                return $path;
+            }
+            $path = (string) ($parts['path'] ?? '');
+        }
+
+        $path = ltrim($path, '/');
+        foreach (['storage/', 'public/'] as $prefix) {
+            if (Str::startsWith($path, $prefix)) {
+                $path = Str::after($path, $prefix);
+            }
+        }
+
+        return $path;
+    }
+
+    private function publicImagePathExists(string $path): bool
+    {
+        return Str::startsWith($path, ['http://', 'https://'])
+            || Storage::disk('public')->exists($path)
+            || is_file(public_path($path));
     }
 
     public function favorites()

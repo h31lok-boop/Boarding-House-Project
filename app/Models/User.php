@@ -71,6 +71,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'allow_owner_messages' => 'boolean',
         'allow_matchmaking_data' => 'boolean',
         'archived_at' => 'datetime',
+        'preferences' => 'array',
     ];
 
     public function getEffectivePhotoPathAttribute(): ?string

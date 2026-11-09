@@ -39,7 +39,6 @@
             color: var(--text);
             font-family: Manrope, "Segoe UI", sans-serif;
             line-height: 1.6;
-            overflow-x: hidden;
         }
         body, button, input, select { font: inherit; }
         img { display: block; max-width: 100%; }
@@ -687,52 +686,6 @@
         .match-row > .score { display: inline-flex; margin-top: 0; }
         .score { background: #dff9ec; border-radius: 999px; color: #047857; font-size: 0.78rem; font-weight: 900; padding: 7px 9px; text-align: center; white-space: nowrap; }
 
-        .locations-layout { align-items: stretch; display: grid; gap: 28px; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); }
-        .locations-layout > * { min-width: 0; }
-        .map-panel { background: var(--white); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-soft); min-width: 0; overflow: hidden; padding: 18px; position: relative; width: 100%; z-index: 0; }
-        .map-visual {
-            background: #113d4a;
-            border: 1px solid #294f66;
-            border-radius: 8px;
-            aspect-ratio: auto;
-            height: 460px;
-            margin-inline: auto;
-            max-width: none;
-            min-height: 0;
-            width: 100%;
-            overflow: hidden;
-            position: relative;
-        }
-        #landing-osm-map { height: 100%; min-height: 0; position: relative; width: 100%; }
-        .boardmatch-map-marker { background: transparent; border: 0; }
-        .boardmatch-map-marker__glyph { align-items: center; background: var(--teal-dark); border: 3px solid #fff; border-radius: 50% 50% 50% 0; box-shadow: 0 5px 14px rgba(15, 31, 58, .3); color: #fff; display: flex; font-size: 15px; height: 34px; justify-content: center; transform: rotate(-45deg); width: 34px; }
-        .boardmatch-map-marker__glyph i { transform: rotate(45deg); }
-        .boardmatch-map-marker--campus .boardmatch-map-marker__glyph { background: var(--royal); box-shadow: 0 0 0 5px rgba(37, 99, 235, .2), 0 5px 14px rgba(15, 31, 58, .3); }
-        .leaflet-popup-content-wrapper { border-radius: 14px; }
-        .leaflet-popup-content { margin: 12px 14px; width: auto !important; }
-        .boardmatch-map-popup { box-sizing: border-box; font-family: Manrope, "Segoe UI", sans-serif; max-width: 270px; min-width: 0; width: 270px; }
-        .boardmatch-map-popup__image { border-radius: 8px; height: 92px; object-fit: cover; width: 100%; }
-        .boardmatch-map-popup__body { padding: 8px 2px 0; }
-        .boardmatch-map-popup h3 { color: var(--ink); font-size: .86rem; line-height: 1.25; margin: 0 0 5px; overflow-wrap: anywhere; }
-        .boardmatch-map-popup p { color: var(--muted); font-size: .72rem; font-weight: 700; margin: 3px 0; }
-        .boardmatch-map-popup .boardmatch-map-popup__price { color: var(--teal-dark); font-weight: 900; }
-        .boardmatch-map-popup__link { color: var(--royal); display: inline-flex; font-size: .72rem; font-weight: 900; gap: 6px; margin-top: 8px; }
-        .leaflet-container { font: inherit; }
-        .leaflet-control-zoom a { color: var(--ink); }
-        .location-labels { display: grid; gap: 10px; grid-template-columns: repeat(3, minmax(0, 1fr)); list-style: none; margin: 16px 0 0; padding: 0; }
-        .location-label { align-items: flex-start; background: #f8fbff; border: 1px solid #dbe7f2; border-radius: 8px; color: var(--text); display: flex; font-size: 0.76rem; font-weight: 800; gap: 8px; line-height: 1.35; min-width: 0; padding: 11px; }
-        .location-label i { color: var(--teal-dark); flex: 0 0 auto; margin-top: 2px; }
-        .location-label strong { color: var(--ink); display: block; font-size: 0.76rem; font-weight: 900; }
-        .location-label span { color: var(--muted); display: block; font-size: 0.7rem; font-weight: 600; margin-top: 2px; }
-        .location-card { background: linear-gradient(160deg, #f4fbff 0%, #ffffff 100%); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow-soft); margin-top: 0; overflow: hidden; }
-        .location-card img { aspect-ratio: 16 / 9; object-fit: cover; width: 100%; }
-        .location-card-body { padding: 20px; }
-        .location-card h3 { color: var(--ink); font-size: 1.3rem; line-height: 1.15; margin: 0; }
-        .location-card p { color: var(--muted); font-weight: 400; margin: 10px 0 0; }
-        .location-details { display: grid; gap: 10px; list-style: none; margin: 18px 0 20px; padding: 0; }
-        .location-details li { align-items: flex-start; color: var(--text); display: flex; font-size: 0.78rem; gap: 9px; line-height: 1.4; }
-        .location-details i { color: var(--teal-dark); flex: 0 0 15px; margin-top: 3px; text-align: center; }
-        .location-card .btn { width: 100%; }
         .amenity-list { display: grid; gap: 9px; list-style: none; margin: 10px 0 0; padding: 0; }
         .amenity-list li { align-items: flex-start; color: var(--text); display: flex; font-size: 0.78rem; font-weight: 800; gap: 8px; }
         .amenity-list i { color: var(--teal-dark); margin-top: 3px; width: 15px; }
@@ -782,9 +735,6 @@
             .listing-grid, .listing-gallery-grid, .steps-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .carousel-card { flex-basis: calc((100% - 20px) / 2); }
             .match-layout { grid-template-columns: 1fr; }
-            .locations-layout { grid-template-columns: minmax(0, 1fr); }
-            .map-panel { grid-template-columns: minmax(0, 1fr); max-width: none; }
-            .map-visual { aspect-ratio: auto; height: 420px; }
         }
         @media (max-width: 980px) {
             .menu-toggle { display: inline-flex; }
@@ -807,10 +757,6 @@
             .search-shell { margin-top: -18px; }
             .stats { grid-template-columns: repeat(2, 1fr); }
             .match-board, .get-started-grid, .footer-grid { grid-template-columns: 1fr; }
-            .locations-layout { grid-template-columns: 1fr; }
-            .map-panel { grid-template-columns: 1fr; }
-            .map-visual { aspect-ratio: auto; height: 360px; max-width: 460px; }
-            .location-labels { grid-template-columns: 1fr; }
         }
         @media (max-width: 680px) {
             .container { width: min(100% - 28px, 1180px); }
@@ -859,6 +805,160 @@
             .match-row { grid-template-columns: 54px minmax(0, 1fr); }
             .match-row .score { grid-column: 2; justify-self: start; }
         }
+        /* Reference-inspired landing hero */
+        .hero-reference {
+            background: linear-gradient(118deg, #061327 0%, #0a2242 50%, #123f76 100%);
+            color: var(--white);
+            display: block;
+            min-height: 560px;
+            overflow: hidden;
+            position: relative;
+        }
+        .hero-reference::before {
+            background: radial-gradient(circle at 72% 46%, rgba(103, 232, 249, .24), transparent 28%), radial-gradient(circle at 88% 82%, rgba(37, 99, 235, .28), transparent 35%);
+            content: "";
+            inset: 0;
+            pointer-events: none;
+            position: absolute;
+        }
+        .hero-reference-inner {
+            align-items: center;
+            display: grid;
+            gap: clamp(44px, 5vw, 76px);
+            grid-template-columns: minmax(0, 1.08fr) minmax(440px, .92fr);
+            min-height: 560px;
+            padding: 64px 0 98px;
+            position: relative;
+            z-index: 1;
+        }
+        .hero-reference-copy { max-width: 640px; min-width: 0; position: relative; z-index: 2; }
+        .hero-reference-eyebrow { color: #67e8f9; font-size: .78rem; font-weight: 900; letter-spacing: .16em; margin: 0 0 18px; }
+        .hero-reference-title { color: #fff; font-size: clamp(3.1rem, 4.35vw, 5rem); font-weight: 900; letter-spacing: -.055em; line-height: .96; margin: 0; max-width: none; white-space: nowrap; }
+        .hero-reference-title span { color: #67e8f9; display: block; }
+        .hero-reference-lead { color: rgba(255,255,255,.78); font-size: clamp(1rem, 1.5vw, 1.2rem); line-height: 1.55; margin: 24px 0 0; max-width: 450px; }
+        .hero-reference-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+        .hero-reference-actions .btn { min-height: 48px; }
+        .hero-reference-actions .btn-ghost { background: transparent; border-color: rgba(255,255,255,.6); }
+        .hero-reference-actions .btn-ghost:hover, .hero-reference-actions .btn-ghost:focus-visible { background: rgba(255,255,255,.12); border-color: #fff; color: #fff; }
+        .hero-reference-features { display: flex; flex-wrap: wrap; gap: 14px 20px; list-style: none; margin: 32px 0 0; padding: 0; }
+        .hero-reference-features li { align-items: center; color: rgba(255,255,255,.78); display: inline-flex; font-size: .72rem; font-weight: 800; gap: 7px; }
+        .hero-reference-features i { align-items: center; background: rgba(103,232,249,.12); border: 1px solid rgba(103,232,249,.28); border-radius: 50%; color: #67e8f9; display: inline-flex; height: 25px; justify-content: center; width: 25px; }
+        .hero-reference-visual { min-height: 440px; position: relative; }
+        .hero-reference-glow { background: #67e8f9; border-radius: 50%; filter: blur(70px); height: 220px; opacity: .22; position: absolute; right: 18%; top: 24%; width: 220px; }
+        .hero-reference-collage { display: grid; gap: 12px; grid-template-columns: minmax(0, 1.5fr) minmax(130px, .8fr); height: 440px; isolation: isolate; overflow: visible; position: relative; }
+        .hero-reference-collage::before { background: radial-gradient(circle at 38% 46%, rgba(103,232,249,.42), transparent 48%), radial-gradient(circle at 78% 58%, rgba(37,99,235,.38), transparent 58%); border-radius: 28px; content: ""; filter: blur(30px); inset: 16px; opacity: .72; pointer-events: none; position: absolute; z-index: 0; }
+        .hero-reference-photo-frame { border: 2px solid rgba(255,255,255,.72); border-radius: 18px; box-shadow: 0 24px 50px rgba(0,0,0,.24); height: 100%; min-height: 0; min-width: 0; overflow: hidden; position: relative; z-index: 1; }
+        .hero-reference-photo { background: #dbeafe; border: 0; border-radius: 0; display: block; height: 100%; object-fit: cover; width: 100%; }
+        .hero-reference-photo-large { object-position: center center; }
+        .hero-reference-photo-stack { display: grid; gap: 14px; grid-template-rows: 1fr 1fr; min-width: 0; position: relative; z-index: 1; }
+        .hero-reference-photo-small { min-height: 0; object-position: center 42%; }
+        .hero-reference-photo-small:last-child { object-position: center 58%; }
+        .hero-detail-card { align-items: center; animation: hero-card-float 5.5s ease-in-out infinite; background: rgba(255,255,255,.97); border: 1px solid rgba(255,255,255,.85); border-radius: 13px; box-shadow: 0 18px 34px rgba(2, 20, 45, .26); color: #0f1f3a; display: flex; gap: 9px; max-width: 220px; padding: 10px 12px; position: absolute; z-index: 3; }
+        .hero-detail-icon { align-items: center; background: #e0f7fa; border-radius: 9px; color: #0f9488; display: inline-flex; flex: 0 0 31px; height: 31px; justify-content: center; width: 31px; }
+        .hero-detail-card small { color: #64748b; display: block; font-size: .61rem; font-weight: 800; line-height: 1.1; }
+        .hero-detail-card strong { color: #0f1f3a; display: block; font-size: .75rem; font-weight: 900; line-height: 1.25; margin-top: 3px; }
+        .hero-detail-card em { color: #64748b; font-size: .62rem; font-style: normal; margin-left: 2px; }
+        .hero-detail-price { bottom: -16px; left: -18px; }
+        .hero-detail-amenities { bottom: 62px; left: -12px; }
+        .hero-detail-room { right: -16px; top: -16px; }
+        .hero-detail-location { bottom: -16px; right: -16px; }
+        .hero-float-two { animation-delay: -1.4s; }
+        .hero-float-three { animation-delay: -2.7s; }
+        .hero-float-four { animation-delay: -4s; }
+        @keyframes hero-card-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        .hero-reference + .search-shell { margin-top: -26px; }
+        @media (prefers-reduced-motion: reduce) {
+            .hero-reference .hero-entrance, .hero-reference .hero-detail-card { animation: none !important; }
+            .hero-reference-actions .btn:hover, .hero-reference-actions .btn:focus-visible { transform: none; }
+        }
+        @media (max-width: 1080px) {
+            .hero-reference-inner { gap: 34px; grid-template-columns: minmax(0, 1fr) minmax(390px, .95fr); }
+            .hero-reference-title { font-size: clamp(2.85rem, 5vw, 4.1rem); white-space: normal; }
+            .hero-reference-visual { min-height: 420px; }
+            .hero-reference-collage { height: 420px; }
+        }
+        @media (max-width: 760px) {
+            .hero-reference { min-height: 0; }
+            .hero-reference-inner { display: flex; flex-direction: column; gap: 34px; min-height: 0; padding: 58px 0 76px; }
+            .hero-reference-copy { max-width: none; width: 100%; }
+            .hero-reference-title { font-size: clamp(3rem, 15vw, 4.35rem); }
+            .hero-reference-lead { font-size: 1rem; }
+            .hero-reference-actions { display: grid; grid-template-columns: 1fr; margin-top: 25px; }
+            .hero-reference-actions .btn { width: 100%; }
+            .hero-reference-features { gap: 11px 15px; margin-top: 25px; }
+            .hero-reference-features li { font-size: .68rem; }
+            .hero-reference-visual { min-height: 350px; width: min(100%, 620px); }
+            .hero-reference-collage { height: 350px; }
+            .hero-detail-card { max-width: 185px; padding: 8px 10px; }
+            .hero-detail-price { bottom: 8px; left: 8px; }
+            .hero-detail-amenities { bottom: 70px; left: 8px; }
+            .hero-detail-room { right: 8px; top: 8px; }
+            .hero-detail-location { bottom: 8px; right: 8px; }
+            .hero-reference + .search-shell { margin-top: 0; }
+        }
+        @media (max-width: 430px) {
+            .hero-reference-inner { padding-bottom: 62px; }
+            .hero-reference-visual { min-height: 285px; }
+            .hero-reference-collage { gap: 9px; height: 285px; }
+            .hero-reference-photo-frame { border-width: 3px; }
+            .hero-reference-photo-stack { gap: 9px; }
+            .hero-detail-card { max-width: 160px; }
+            .hero-detail-card strong { font-size: .66rem; }
+            .hero-detail-amenities { bottom: 70px; }
+            .hero-detail-room { top: 8px; }
+        }
+        .hero-reference-mobile-property { display: none; }
+        @media (max-width: 767px) {
+            .container { width: min(100% - 32px, 1180px); }
+            .site-nav .nav-inner { gap: 8px; min-width: 0; }
+            .site-nav .brand { gap: 7px; min-width: 0; }
+            .nav-links { display: none !important; }
+            .nav-actions { gap: 0; }
+            .nav-actions .btn { display: inline-flex; font-size: .8rem; min-height: 44px; padding: 9px 12px; white-space: nowrap; }
+            .menu-toggle { display: none; }
+            .hero-reference { overflow: visible; }
+            .hero-reference-inner { align-items: stretch; gap: 24px; padding: 36px 0 32px; }
+            .hero-reference-title { font-size: clamp(2.35rem, 11.5vw, 3.45rem); letter-spacing: -.045em; line-height: 1; white-space: normal; }
+            .hero-reference-lead { font-size: .98rem; margin-top: 16px; }
+            .hero-reference-actions { gap: 10px; margin-top: 22px; }
+            .hero-reference-actions .btn { align-items: center; display: inline-flex; justify-content: center; min-height: 48px; padding-inline: 14px; width: 100%; }
+            .hero-reference-features { display: grid; gap: 10px 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 22px; }
+            .hero-reference-features li { min-width: 0; font-size: .7rem; line-height: 1.25; }
+            .hero-reference-features li:last-child { grid-column: 1 / -1; }
+            .hero-reference-features i { flex: 0 0 25px; }
+            .hero-reference-visual { display: none; }
+            /* The property collage and its detail badges are desktop-only. Keep
+               the mobile hero limited to copy, actions, highlights, and search. */
+            .hero-reference-mobile-property { display: none; }
+            .hero-mobile-carousel { min-width: 0; position: relative; }
+            .hero-mobile-slide { display: none; }
+            .hero-mobile-slide.is-active { display: block; }
+            .hero-mobile-image { background: #dbeafe; border-radius: 16px; height: clamp(240px, 68vw, 300px); object-fit: cover; width: 100%; }
+            .hero-mobile-caption { align-items: center; display: flex; gap: 12px; justify-content: space-between; margin-top: 10px; min-width: 0; }
+            .hero-mobile-caption strong { color: #fff; font-size: .92rem; line-height: 1.25; min-width: 0; overflow-wrap: anywhere; }
+            .hero-mobile-pagination { align-items: center; display: inline-flex; flex: 0 0 auto; gap: 6px; }
+            .hero-mobile-pagination button { background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.35); border-radius: 999px; color: #fff; height: 36px; width: 36px; }
+            .hero-mobile-pagination button:focus-visible { outline: 2px solid #67e8f9; outline-offset: 2px; }
+            .hero-mobile-dots { display: flex; gap: 6px; justify-content: center; margin-top: 12px; }
+            .hero-mobile-dot { background: rgba(255,255,255,.35); border: 0; border-radius: 999px; height: 6px; padding: 0; width: 6px; }
+            .hero-mobile-dot.is-active { background: #67e8f9; width: 20px; }
+            .hero-mobile-details { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 18px; }
+            .hero-mobile-detail { align-items: flex-start; background: rgba(255,255,255,.97); border: 1px solid rgba(255,255,255,.82); border-radius: 12px; color: var(--ink); display: flex; gap: 8px; min-width: 0; padding: 10px; }
+            .hero-mobile-detail .hero-detail-icon { flex: 0 0 28px; height: 28px; width: 28px; }
+            .hero-mobile-detail > span:last-child { min-width: 0; }
+            .hero-mobile-detail small { color: var(--muted); display: block; font-size: .58rem; font-weight: 800; line-height: 1.1; }
+            .hero-mobile-detail strong { color: var(--ink); display: block; font-size: .7rem; line-height: 1.3; margin-top: 3px; overflow-wrap: anywhere; }
+            .hero-reference + .search-shell { margin-top: 0; }
+            .search-shell { margin-top: 0; padding: 24px 0 0; }
+            .search-card { padding: 14px; }
+            .search-grid { gap: 12px; grid-template-columns: 1fr; }
+            .search-card .btn { grid-column: auto; min-height: 48px; width: 100%; }
+            .input-wrap { min-height: 46px; }
+        }
+        @media (max-width: 390px) {
+            .hero-mobile-details, .hero-reference-features { grid-template-columns: 1fr; }
+            .hero-reference-features li:last-child { grid-column: auto; }
+        }
     </style>
 </head>
 <body>
@@ -885,10 +985,19 @@
             ])->take(3 - $matchingPreviewRows->count()));
         }
         $hasMatchPreferences = (bool) ($hasMatchPreferences ?? false);
-        $recanaImage = $recanaBoardingHouse?->exterior_image
-            ? \Illuminate\Support\Facades\Storage::url($recanaBoardingHouse->exterior_image)
-            : ($recanaBoardingHouse?->cover_image_url
-            ?? 'https://images.unsplash.com/photo-1518005020951-eccb494ad742?auto=format&fit=crop&w=900&q=80');
+        $heroPrimary = $heroCards->first();
+        $heroPhotoUrls = collect($heroPrimary?->images ?? [])
+            ->map(fn ($image) => $image->url)
+            ->filter()
+            ->values();
+        $heroExteriorImage = $heroPrimary?->cover_image_url ?: asset('images/boarding-house-placeholder.svg');
+        $heroRoomImage = $heroPhotoUrls->get(1) ?: $heroExteriorImage;
+        $heroRoomImageTwo = $heroPhotoUrls->get(2) ?: ($heroPhotoUrls->get(1) ?: $heroExteriorImage);
+        $heroAmenities = collect($heroPrimary?->amenities ?? [])->pluck('name')->filter()->take(3)->values();
+        $heroRoomLabel = $heroPrimary?->roomCategories?->first()?->name ?: $heroPrimary?->rooms?->first()?->room_type;
+        $heroLocationLabel = $heroPrimary?->distance_from_dssc !== null
+            ? number_format((float) $heroPrimary->distance_from_dssc, 1).' km from DSSC'
+            : ($heroPrimary?->full_address ?: $heroPrimary?->address);
     @endphp
 
     <nav class="site-nav" aria-label="Primary navigation">
@@ -902,7 +1011,6 @@
                 <li><a href="#finder">Find a Room</a></li>
                 <li><a href="#listings">Listings</a></li>
                 <li><a href="#matching">Smart Match</a></li>
-                <li><a href="#locations">Locations</a></li>
                 <li class="mobile-signin"><a href="{{ route('login') }}"><i class="fas fa-user" aria-hidden="true"></i> Sign In</a></li>
             </ul>
             <div class="nav-actions">
@@ -915,6 +1023,107 @@
     </nav>
 
     <main>
+        <section class="hero hero-reference" id="home" aria-label="BoardMatch introduction">
+            <div class="container hero-reference-inner">
+                <div class="hero-reference-copy">
+                    <p class="hero-reference-eyebrow hero-entrance">FOR DSSC STUDENTS</p>
+                    <h1 class="hero-reference-title hero-entrance hero-entrance-delay-1">Your Next Home <span>Near DSSC.</span></h1>
+                    <p class="hero-reference-lead hero-entrance hero-entrance-delay-2">Find a boarding house that fits your budget and lifestyle.</p>
+                    <div class="hero-reference-actions hero-entrance hero-entrance-delay-3">
+                        <a class="btn btn-primary" href="#finder"><i class="fas fa-search" aria-hidden="true"></i> Find a Boarding House</a>
+                        <a class="btn btn-ghost" href="{{ $smartMatchUrl }}"><i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i> Get My Matches</a>
+                    </div>
+                    <ul class="hero-reference-features hero-entrance" aria-label="BoardMatch benefits">
+                        <li><i class="fas fa-user-graduate" aria-hidden="true"></i><span>Student-focused</span></li>
+                        <li><i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i><span>Smart matching</span></li>
+                        <li><i class="fas fa-calendar-check" aria-hidden="true"></i><span>Easy reservations</span></li>
+                    </ul>
+                </div>
+                <div class="hero-reference-mobile-property" aria-label="Featured boarding house preview">
+                    <div class="hero-mobile-carousel" data-hero-mobile-carousel>
+                        @php
+                            $heroMobileSlides = collect([
+                                [$heroExteriorImage, 'exterior'],
+                                [$heroRoomImage, 'room'],
+                                [$heroRoomImageTwo, 'interior'],
+                            ])->unique(fn ($slide) => $slide[0])->values();
+                        @endphp
+                        @foreach($heroMobileSlides as $slideIndex => $slide)
+                            <div class="hero-mobile-slide{{ $slideIndex === 0 ? ' is-active' : '' }}" data-hero-mobile-slide="{{ $slideIndex }}" aria-hidden="{{ $slideIndex === 0 ? 'false' : 'true' }}">
+                                <img class="hero-mobile-image" src="{{ $slide[0] }}" alt="{{ $heroPrimary?->name ? $heroPrimary->name.' '.$slide[1] : 'Boarding house '.$slide[1] }}" loading="{{ $slideIndex === 0 ? 'eager' : 'lazy' }}" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}';">
+                                <div class="hero-mobile-caption">
+                                    <strong>{{ $heroPrimary?->name ?: 'Featured boarding house' }}</strong>
+                                    <span class="hero-mobile-pagination">
+                                        <button type="button" data-hero-mobile-prev aria-label="Previous property photo"><i class="fas fa-chevron-left" aria-hidden="true"></i></button>
+                                        <button type="button" data-hero-mobile-next aria-label="Next property photo"><i class="fas fa-chevron-right" aria-hidden="true"></i></button>
+                                    </span>
+                                </div>
+                            </div>
+                        @endforeach
+                        <div class="hero-mobile-dots" role="tablist" aria-label="Choose a property photo">
+                            @foreach($heroMobileSlides as $slideIndex => $slide)
+                                <button class="hero-mobile-dot{{ $slideIndex === 0 ? ' is-active' : '' }}" type="button" data-hero-mobile-dot="{{ $slideIndex }}" role="tab" aria-label="Show {{ $slide[1] }} photo" aria-selected="{{ $slideIndex === 0 ? 'true' : 'false' }}"></button>
+                            @endforeach
+                        </div>
+                    </div>
+                    <div class="hero-mobile-details" aria-label="Featured property details">
+                        @if($heroPrimary?->effective_price !== null)
+                            <div class="hero-mobile-detail"><span class="hero-detail-icon"><i class="fas fa-wallet" aria-hidden="true"></i></span><span><small>From</small><strong>₱{{ number_format((float) $heroPrimary->effective_price, 0) }}<em>/mo</em></strong></span></div>
+                        @endif
+                        @if($heroAmenities->isNotEmpty())
+                            <div class="hero-mobile-detail"><span class="hero-detail-icon"><i class="fas fa-sparkles" aria-hidden="true"></i></span><span><small>Amenities</small><strong>{{ $heroAmenities->join(' · ') }}</strong></span></div>
+                        @endif
+                        @if(filled($heroRoomLabel))
+                            <div class="hero-mobile-detail"><span class="hero-detail-icon"><i class="fas fa-bed" aria-hidden="true"></i></span><span><small>Room comfort</small><strong>{{ $heroRoomLabel }}</strong></span></div>
+                        @endif
+                        @if(filled($heroLocationLabel))
+                            <div class="hero-mobile-detail"><span class="hero-detail-icon"><i class="fas fa-location-dot" aria-hidden="true"></i></span><span><small>Location</small><strong>{{ $heroLocationLabel }}</strong></span></div>
+                        @endif
+                    </div>
+                </div>
+                <div class="hero-reference-visual">
+                    <div class="hero-reference-collage">
+                         <div class="hero-reference-photo-frame">
+                             <img class="hero-reference-photo hero-reference-photo-large" src="{{ $heroExteriorImage }}" alt="{{ $heroPrimary?->name ? $heroPrimary->name.' exterior' : 'Boarding house exterior' }}" loading="eager" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}';">
+                         </div>
+                        <div class="hero-reference-photo-stack">
+                             <div class="hero-reference-photo-frame">
+                                 <img class="hero-reference-photo hero-reference-photo-small" src="{{ $heroRoomImage }}" alt="{{ $heroPrimary?->name ? $heroPrimary->name.' room' : 'Boarding house room' }}" loading="eager" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}';">
+                             </div>
+                             <div class="hero-reference-photo-frame">
+                                 <img class="hero-reference-photo hero-reference-photo-small" src="{{ $heroRoomImageTwo }}" alt="{{ $heroPrimary?->name ? $heroPrimary->name.' interior' : 'Boarding house interior' }}" loading="lazy" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}';">
+                             </div>
+                        </div>
+                    @if($heroPrimary?->effective_price !== null)
+                        <div class="hero-detail-card hero-detail-price hero-float-one">
+                            <span class="hero-detail-icon"><i class="fas fa-wallet" aria-hidden="true"></i></span>
+                            <span><small>From</small><strong>₱{{ number_format((float) $heroPrimary->effective_price, 0) }}<em>/mo</em></strong></span>
+                        </div>
+                    @endif
+                    @if($heroAmenities->isNotEmpty())
+                        <div class="hero-detail-card hero-detail-amenities hero-float-two">
+                            <span class="hero-detail-icon"><i class="fas fa-sparkles" aria-hidden="true"></i></span>
+                            <span><small>Amenities</small><strong>{{ $heroAmenities->join(' · ') }}</strong></span>
+                        </div>
+                    @endif
+                    @if(filled($heroRoomLabel))
+                        <div class="hero-detail-card hero-detail-room hero-float-three">
+                            <span class="hero-detail-icon"><i class="fas fa-bed" aria-hidden="true"></i></span>
+                            <span><small>Room comfort</small><strong>{{ $heroRoomLabel }}</strong></span>
+                        </div>
+                    @endif
+                    @if(filled($heroLocationLabel))
+                        <div class="hero-detail-card hero-detail-location hero-float-four">
+                            <span class="hero-detail-icon"><i class="fas fa-location-dot" aria-hidden="true"></i></span>
+                            <span><small>Location</small><strong>{{ $heroLocationLabel }}</strong></span>
+                        </div>
+                    @endif
+                     </div>
+                </div>
+            </div>
+        </section>
+
+        @if(false)
         <section class="mobile-hero" aria-label="BoardMatch mobile introduction">
             <div class="mobile-hero-copy">
                 <nav class="mobile-hero-nav" aria-label="Mobile navigation">
@@ -1010,6 +1219,7 @@
                 </aside>
             </div>
         </header>
+        @endif
 
         <section class="search-shell" id="finder" aria-label="Boarding house search filters">
             <div class="container">
@@ -1041,26 +1251,17 @@
                     </div>
                 </form>
                 <div class="stats" aria-label="BoardMatch platform statistics">
-                    <div class="stat"><i class="fas fa-house" aria-hidden="true"></i><div><strong>50+</strong><span>Verified Listings</span></div></div>
-                    <div class="stat"><i class="fas fa-users" aria-hidden="true"></i><div><strong>100+</strong><span>Available Rooms</span></div></div>
+                    @if(isset($verifiedListingCount))
+                        <div class="stat"><i class="fas fa-house" aria-hidden="true"></i><div><strong>{{ number_format((int) $verifiedListingCount) }}</strong><span>Verified Listings</span></div></div>
+                    @endif
+                    @if(isset($availableRoomCount))
+                        <div class="stat"><i class="fas fa-users" aria-hidden="true"></i><div><strong>{{ number_format((int) $availableRoomCount) }}</strong><span>Available Rooms</span></div></div>
+                    @endif
                     <div class="stat"><i class="fas fa-location-dot" aria-hidden="true"></i><div><strong>Matti</strong><span>Official service area</span></div></div>
                     <div class="stat"><i class="fas fa-star" aria-hidden="true"></i><div><strong>Smart Match</strong><span>Find your best fit</span></div></div>
                 </div>
             </div>
         </section>
-
-        <div class="mobile-hero-illustration" aria-hidden="true">
-            <div class="hero-phone">
-                <span class="phone-notch"></span>
-                <div class="phone-screen">
-                    <div class="phone-topline"><span>Good morning, Hazel</span><i class="fas fa-bell"></i></div>
-                    <div class="phone-search"><i class="fas fa-magnifying-glass"></i> Find a room near DSSC</div>
-                    <div class="mini-map"><span class="map-road"></span><span class="mini-pin one"></span><span class="mini-pin two"></span><span class="mini-pin three"></span></div>
-                    <div class="phone-cta">Find Your Match <i class="fas fa-arrow-right"></i></div>
-                    <div class="phone-caption"><i class="fas fa-shield-heart"></i> Verified student spaces</div>
-                </div>
-            </div>
-        </div>
 
         <section class="section" id="listings">
             <div class="container">
@@ -1260,44 +1461,6 @@
             </div>
         </section>
 
-        <section class="section" id="locations">
-            <div class="container">
-                <div class="section-header">
-                    <div class="section-title">
-                        <p class="eyebrow">Nearby locations</p>
-                        <h2>Find Boarding Houses Near DSSC</h2>
-                        <p>Explore boarding houses in Matti, Digos City, near campus and daily essentials.</p>
-                    </div>
-                </div>
-                <div class="locations-layout">
-                    <div class="map-panel">
-                        <div class="map-visual" aria-label="Matti, Digos City service area map">
-                            <div id="landing-osm-map" role="application" aria-label="Interactive OpenStreetMap showing DSSC Main Campus and nearby boarding houses"></div>
-                        </div>
-                        <script id="landing-map-listings" type="application/json">{!! json_encode($landingMapListings ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
-                        <div class="location-labels" aria-label="Nearby location details">
-                            <div class="location-label"><i class="fas fa-school" aria-hidden="true"></i><div><strong>DSSC Main Campus</strong><span>Origin for map distances</span></div></div>
-                            <div class="location-label"><i class="fas fa-store" aria-hidden="true"></i><div><strong>Daily essentials</strong><span>Student stores in Matti</span></div></div>
-                            <div class="location-label"><i class="fas fa-route" aria-hidden="true"></i><div><strong>Transport access</strong><span>Local routes nearby</span></div></div>
-                        </div>
-                    </div>
-                    <article class="location-card">
-                        <img src="{{ $recanaImage }}" alt="Recaña Boarding House room" loading="lazy" onerror="this.onerror=null;this.src='{{ asset('images/boarding-house-placeholder.svg') }}';">
-                        <div class="location-card-body">
-                            <h3>Live closer. Study better.</h3>
-                            <p>Choose a place that keeps campus, everyday errands, and your commute within easy reach.</p>
-                            <ul class="location-details">
-                                <li><i class="fas fa-school" aria-hidden="true"></i><span>Near DSSC Main Campus</span></li>
-                                <li><i class="fas fa-store" aria-hidden="true"></i><span>Close to student stores and daily essentials</span></li>
-                                <li><i class="fas fa-bus" aria-hidden="true"></i><span>Connected to local transport routes</span></li>
-                            </ul>
-                            <a class="btn btn-primary" href="{{ route('user.boarding-houses.index') }}"><i class="fas fa-location-arrow" aria-hidden="true"></i> Explore Locations</a>
-                        </div>
-                    </article>
-                </div>
-            </div>
-        </section>
-
         <section class="section section-soft how-it-works" id="how-it-works">
             <div class="container">
                 <div class="section-header">
@@ -1342,8 +1505,8 @@
             <div class="footer-grid">
                 <div><a class="brand" href="#home"><img class="brand-mark" src="{{ asset('images/boardmatch-final-logo.png') }}" alt="" aria-hidden="true"><span class="brand-name">BoardMatch</span></a><p>Matching students with a brighter tomorrow through verified boarding house discovery in Matti, Digos City.</p></div>
                 <div><h3>Explore</h3><ul><li><a href="#finder">Find a Room</a></li><li><a href="#listings">Listings</a></li><li><a href="#matching">Smart Match</a></li></ul></div>
-                <div><h3>BoardMatch</h3><ul><li><a href="#locations">Locations</a></li><li><a href="#get-started">Get Started</a></li><li><a href="{{ route('login') }}">Sign In</a></li></ul></div>
-                <div><h3>Contact</h3><ul><li>Matti, Digos City, Davao del Sur, Davao Region</li><li>Rizal Avenue, Digos City</li><li><a href="tel:+639123456789">+63 912 345 6789</a></li><li><a href="mailto:support@boardmatch.local">support@boardmatch.local</a></li></ul></div>
+                <div><h3>BoardMatch</h3><ul><li><a href="#listings">Listings</a></li><li><a href="#get-started">Get Started</a></li><li><a href="{{ route('login') }}">Sign In</a></li></ul></div>
+                <div><h3>Contact</h3><ul><li>Matti, Digos City, Davao del Sur, Davao Region</li><li><a href="mailto:support@boardmatch.local">support@boardmatch.local</a></li></ul></div>
             </div>
             <div class="footer-bottom"><span>&copy; {{ date('Y') }} BoardMatch. All rights reserved.</span><div class="socials" aria-label="Social links"><a href="#" aria-label="Facebook"><i class="fab fa-facebook-f" aria-hidden="true"></i></a><a href="#" aria-label="Instagram"><i class="fab fa-instagram" aria-hidden="true"></i></a><a href="#" aria-label="YouTube"><i class="fab fa-youtube" aria-hidden="true"></i></a></div></div>
         </div>
@@ -1388,13 +1551,41 @@
             event.preventDefault();
             document.getElementById('listings')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
+
+        (() => {
+            const carousel = document.querySelector('[data-hero-mobile-carousel]');
+            if (!carousel) return;
+            const slides = Array.from(carousel.querySelectorAll('[data-hero-mobile-slide]'));
+            const dots = Array.from(carousel.querySelectorAll('[data-hero-mobile-dot]'));
+            let index = 0;
+            const render = () => {
+                slides.forEach((slide, slideIndex) => {
+                    const active = slideIndex === index;
+                    slide.classList.toggle('is-active', active);
+                    slide.setAttribute('aria-hidden', String(!active));
+                });
+                dots.forEach((dot, dotIndex) => {
+                    const active = dotIndex === index;
+                    dot.classList.toggle('is-active', active);
+                    dot.setAttribute('aria-selected', String(active));
+                });
+            };
+            const move = (delta) => {
+                if (slides.length < 2) return;
+                index = (index + delta + slides.length) % slides.length;
+                render();
+            };
+            carousel.querySelector('[data-hero-mobile-prev]')?.addEventListener('click', () => move(-1));
+            carousel.querySelector('[data-hero-mobile-next]')?.addEventListener('click', () => move(1));
+            dots.forEach((dot, dotIndex) => dot.addEventListener('click', () => { index = dotIndex; render(); }));
+        })();
     </script>
     <script>
         (() => {
             document.documentElement.classList.add('js');
             const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
             const revealTargets = Array.from(document.querySelectorAll(
-                '.section-title h2, .step-card, .get-started-card, .location-card, .match-board'
+                '.section-title h2, .step-card, .get-started-card, .match-board'
             ));
             revealTargets.forEach((element, index) => {
                 element.classList.add('reveal-on-scroll');
@@ -1414,27 +1605,6 @@
                 revealTargets.forEach((element) => revealObserver.observe(element));
             }
 
-            const visualContainers = Array.from(document.querySelectorAll('.hero-animation, .mobile-hero-illustration'));
-            const visualVisibility = new WeakMap(visualContainers.map((element) => [element, false]));
-            const animatedVisuals = Array.from(document.querySelectorAll('.hero-phone, .mini-pin'));
-            const syncVisualMotion = () => {
-                animatedVisuals.forEach((element) => {
-                    const container = element.closest('.hero-animation, .mobile-hero-illustration');
-                    const canAnimate = !document.hidden && (visualVisibility.get(container) ?? true);
-                    element.style.animationPlayState = canAnimate ? 'running' : 'paused';
-                });
-            };
-            if ('IntersectionObserver' in window) {
-                const visualObserver = new IntersectionObserver((entries) => {
-                    entries.forEach((entry) => visualVisibility.set(entry.target, entry.isIntersecting));
-                    syncVisualMotion();
-                }, { threshold: 0.05 });
-                visualContainers.forEach((element) => visualObserver.observe(element));
-            } else {
-                visualContainers.forEach((element) => visualVisibility.set(element, true));
-            }
-            document.addEventListener('visibilitychange', syncVisualMotion);
-            syncVisualMotion();
         })();
     </script>
     <script>

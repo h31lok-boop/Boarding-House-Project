@@ -16,7 +16,7 @@
         $reservedCount = $house->rooms->filter(fn ($r) => strtolower((string) $r->status) === 'reserved')->count();
         $occupancyPct = $totalCount > 0 ? round(($occupiedCount / $totalCount) * 100) : 0;
         $tenantCount = $house->tenants->count();
-        $fullLocation = collect([$house->display_barangay, $house->city?->city_name, $house->province?->province_name])->filter()->implode(', ') ?: ($house->full_address ?: ($house->address ?: 'Location not set'));
+        $fullLocation = $house->canonical_address ?: 'Location not set';
         $coverImage = $house->cover_image_url ?: $house->images->first()?->url ?: asset('images/boarding-house-placeholder.svg');
         $sharedParams = ['owner' => 'mine'];
         $propParams = array_merge($sharedParams, ['boarding_house_id' => $bhId]);
@@ -60,8 +60,9 @@
     <div
         x-data="{
             addRoomOpen: false,
-            editOpen: false,
-            deleteOpen: false,
+            editOpen: @json($editOpen ?? false),
+            deleteOpen: @json(session()->has('delete_error')),
+            deleteSubmitting: false,
             uploadPreviews: [],
             previewUploads(event) {
                 this.uploadPreviews.forEach(photo => URL.revokeObjectURL(photo.url));
@@ -488,10 +489,10 @@
                 </div>
 
                 <section class="mt-6 rounded-2xl border border-blue-100 bg-blue-50/50 p-4">
-                    <h3 class="text-sm font-bold text-slate-950">Address-based property pin</h3>
-                    <p class="mt-1 text-xs text-slate-500">The map pin is generated from the address you enter and cannot be moved manually.</p>
+                    <h3 class="text-sm font-bold text-slate-950">Set the exact property location</h3>
+                    <p class="mt-1 text-xs text-slate-500">Search the saved address for a suggestion, then click or drag the marker to the correct building before saving.</p>
                     <div class="mt-4 overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-sm">
-                        <div id="edit-location-map" data-property-location-map data-address-derived-location="true" class="h-80 w-full sm:h-96"></div>
+                        <div id="edit-location-map" data-property-location-map class="h-80 w-full sm:h-96"></div>
                     </div>
                     <div class="mt-4 grid gap-4 md:grid-cols-2">
                         <label class="text-sm md:col-span-2">Complete Address<input id="edit-address" name="address" required class="ui-input mt-1" :value="selected.address"></label>
@@ -504,8 +505,11 @@
                         <input type="hidden" name="is_near_dssc" value="0">
                         <input id="edit-near-dssc" type="checkbox" name="is_near_dssc" value="1" :checked="selected.is_near_dssc" class="hidden" tabindex="-1" aria-hidden="true">
                         <div class="md:col-span-2">
-                            <button type="button" class="btn-secondary justify-center" data-geocode-address="edit">Update Pin From Address</button>
-                            <p id="edit-geocode-status" class="mt-2 text-xs text-slate-500" aria-live="polite">Change the address or barangay to generate a new pin.</p>
+                            <div class="flex flex-wrap gap-2">
+                                <button type="button" class="btn-secondary justify-center" data-geocode-address="edit">Search address on map</button>
+                                <button type="button" class="btn-secondary justify-center" data-use-my-location="edit">Use My Location</button>
+                            </div>
+                            <p id="edit-geocode-status" class="mt-2 text-xs text-slate-500" aria-live="polite">Search results are suggestions. Confirm the building by clicking or dragging the marker.</p>
                         </div>
                     </div>
                 </section>
@@ -527,15 +531,27 @@
     </div>
 
     {{-- Delete confirmation modal --}}
-    <div data-modal-root role="dialog" aria-modal="true" aria-labelledby="delete-property-title" x-show="deleteOpen" x-cloak x-transition.opacity @keydown.escape.window="deleteOpen = false" class="bm-modal-overlay" style="display: none;">
-        <div class="bm-modal bm-modal--sm">
-            <div class="bm-modal__header">
-                <h2 id="delete-property-title" class="bm-modal__title">Delete this property?</h2>
+    <div data-modal-root role="dialog" aria-modal="true" aria-labelledby="delete-property-title" x-show="deleteOpen" x-cloak x-transition.opacity @keydown.escape.window="if (!deleteSubmitting) deleteOpen = false" class="bm-modal-overlay bm-confirmation-modal-overlay" style="display: none;">
+        <div class="bm-modal bm-modal--confirmation" @click.stop>
+            <div class="bm-modal__header bm-confirmation-modal__header">
+                <span class="bm-confirmation-modal__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.3 4.6 2.9 17.2A1.8 1.8 0 0 0 4.46 20h15.08a1.8 1.8 0 0 0 1.56-2.8L13.7 4.6a1.96 1.96 0 0 0-3.4 0Z"/></svg>
+                </span>
+                <div class="min-w-0">
+                    <h2 id="delete-property-title" class="bm-modal__title">Delete this boarding house?</h2>
+                    <p class="bm-modal__subtitle">Are you sure you want to delete <strong>{{ $house->name }}</strong>? This action cannot be undone.</p>
+                </div>
             </div>
-            <div class="bm-modal__body">
-
+            @if ($hasActiveTenants || $hasPendingReservations || $errors->any() || session('delete_error'))
+            <div class="bm-modal__body bm-confirmation-modal__body">
+                @if ($errors->any())
+                    <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700" role="alert">{{ $errors->first() }}</div>
+                @endif
+                @if (session('delete_error'))
+                    <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700" role="alert">{{ session('delete_error') }}</div>
+                @endif
                 @if ($hasActiveTenants || $hasPendingReservations)
-                <div class="mb-4 space-y-2">
+                <div class="space-y-2">
                     @if ($hasActiveTenants)
                     <div class="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
                         ⚠ This property has {{ $activeTenantsCount }} active {{ \Illuminate\Support\Str::plural('tenant', $activeTenantsCount) }}. Move them out before deleting.
@@ -548,18 +564,18 @@
                     @endif
                 </div>
                 @endif
-
-                <p class="bm-modal__section-copy">Are you sure you want to delete this boarding house? This action cannot be undone.</p>
             </div>
-            <div class="bm-modal__footer">
-                <button type="button" @click="deleteOpen = false" class="bm-modal__button bm-modal__button--secondary">Cancel</button>
-                <form method="POST" action="{{ $destroyUrl }}" style="display:inline">
+            @endif
+            <div class="bm-modal__footer bm-confirmation-modal__footer">
+                <button type="button" @click="deleteOpen = false" class="bm-modal__button bm-modal__button--secondary">Go Back</button>
+                <form method="POST" action="{{ $destroyUrl }}" style="display:inline" @submit="deleteSubmitting = true">
                     @csrf
                     @method('DELETE')
                     <button type="submit"
                         class="bm-modal__button bm-modal__button--danger disabled:cursor-not-allowed disabled:opacity-50"
-                        {{ $hasActiveTenants || $hasPendingReservations ? 'disabled' : '' }}>
-                        @if ($hasActiveTenants || $hasPendingReservations) Cannot Delete @else Delete @endif
+                        :disabled="deleteSubmitting || {{ $hasActiveTenants || $hasPendingReservations ? 'true' : 'false' }}">
+                        <span x-show="!deleteSubmitting">{{ $hasActiveTenants || $hasPendingReservations ? 'Cannot Delete' : 'Yes, Delete' }}</span>
+                        <span x-show="deleteSubmitting" x-cloak>Deleting…</span>
                     </button>
                 </form>
             </div>

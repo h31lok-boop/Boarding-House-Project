@@ -214,6 +214,69 @@
         /* ── Links ── */
         a.brand-link { color: var(--brand-500); text-decoration: none; font-weight: 600; }
         a.brand-link:hover { text-decoration: underline; }
+        /* Match the centered pale-blue reference auth screen. */
+        body { background:#eaf4ff; }
+        .auth-page { width:min(100% - 40px, 520px); padding:34px 0 56px; }
+        .auth-topbar { justify-content:center; margin-bottom:28px; }
+        .auth-topbar .auth-actions { display:none; }
+        .auth-brand { flex-direction:column; gap:8px; color:#102a56; font-size:18px; }
+        .auth-brand img { width:58px; height:58px; border-radius:18px; }
+        .login-wrap { max-width:440px; margin:0 auto; }
+        .login-heading h1 { color:#102a56 !important; font-size:clamp(24px,4vw,30px) !important; }
+        .login-heading p { color:#647b99 !important; }
+        .login-card { border-color:#d7e6f7; border-radius:22px; box-shadow:0 20px 55px rgba(43,92,145,.14); padding:30px; }
+        .field-input { min-height:48px; border-color:#cbdced; border-radius:10px; background:#fff; }
+        .btn-signin { min-height:48px; border-radius:10px; background:#1769e8; background-image:none; }
+        @media (max-width:620px) { .auth-page { width:min(100% - 20px, 520px); padding-top:22px; } .login-card { padding:24px 18px 22px; } }
+
+        /* Keep the complete sign-in flow within a normal desktop viewport. */
+        html, body { min-height:100%; }
+        body { min-height:100dvh; }
+        .auth-page {
+            min-height:100dvh;
+            display:flex;
+            flex-direction:column;
+            padding-top:clamp(14px, 3dvh, 28px);
+            padding-bottom:clamp(14px, 3dvh, 28px);
+        }
+        .auth-topbar { margin-bottom:clamp(10px, 2dvh, 18px); }
+        .auth-brand { gap:5px; font-size:16px; }
+        .auth-brand img { width:44px; height:44px; border-radius:13px; }
+        .login-wrap {
+            flex:1;
+            display:flex;
+            flex-direction:column;
+            justify-content:center;
+            margin:0 auto;
+            min-height:0;
+        }
+        .login-heading { margin-bottom:10px; }
+        .login-heading h1 { margin-bottom:.2rem !important; }
+        .login-card { padding:20px 24px 18px; }
+        .login-card form > div { margin-bottom:.7rem !important; }
+        .field-label { margin-bottom:.3rem; }
+        .field-input { min-height:42px; padding-top:.55rem; padding-bottom:.55rem; }
+        .btn-signin { min-height:42px; padding:.62rem; }
+        .or-row { margin:8px 0; }
+        .btn-google { padding:.6rem 1rem; }
+        .divider { margin:11px 0; }
+        .login-back { margin:8px 0 0; }
+        @media (max-height:820px) and (min-width:621px) {
+            .auth-page { padding-top:10px; padding-bottom:10px; }
+            .auth-topbar { margin-bottom:8px; }
+            .login-heading { margin-bottom:7px; }
+            .login-heading h1 { font-size:1.45rem !important; }
+            .login-card { padding:16px 22px 14px; }
+            .login-card form > div { margin-bottom:.55rem !important; }
+            .login-card form > div:nth-of-type(3) { margin-bottom:.8rem !important; }
+            .login-back { margin-top:5px; }
+        }
+        @media (max-width:620px) {
+            .auth-page { min-height:100dvh; padding-top:16px; padding-bottom:20px; }
+            .login-wrap { flex:none; justify-content:flex-start; margin-top:4px; }
+            .auth-brand img { width:48px; height:48px; }
+            .login-card { padding:20px 18px 18px; }
+        }
         a.muted-link { color: #9ca3af; text-decoration: none; font-size: 0.8125rem; }
         a.muted-link:hover { color: var(--text); }
         @media (max-width: 620px) {
@@ -273,7 +336,7 @@
 
                 {{-- Email / Username --}}
                 <div style="margin-bottom:1rem">
-                    <label for="email" class="field-label">Email or Username</label>
+                    <label for="email" class="field-label">Email</label>
                     <div class="field-wrap">
                         <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>
@@ -381,7 +444,7 @@
             {{-- Register --}}
             <p style="text-align:center; font-size:0.875rem; color:var(--muted); margin:0">
                 Don't have an account?
-                <a class="brand-link" href="{{ route('register') }}" style="margin-left:3px">Create one</a>
+                <a class="brand-link" href="{{ route('register') }}" style="margin-left:3px">Create an account</a>
             </p>
 
         </div>

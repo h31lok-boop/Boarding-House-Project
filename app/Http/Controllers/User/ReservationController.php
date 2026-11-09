@@ -13,6 +13,7 @@ use App\Services\MattiServiceArea;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
 
 class ReservationController extends Controller
 {
@@ -26,25 +27,17 @@ class ReservationController extends Controller
 
         $this->reservationLifecycleService->expireStaleReservations();
 
-        // Daily limit: one reservation request per user per day.
-        $alreadySentToday = Reservation::where('user_id', $request->user()->id)
-            ->whereDate('created_at', today())
-            ->exists();
-
-        if ($alreadySentToday) {
-            return back()->with(
-                'reservation_limit',
-                'You already sent a reservation request today. Please try again tomorrow.'
-            );
-        }
-
         $data = $request->validate([
-            'room_id' => ['nullable', 'integer', 'exists:rooms,id'],
-            'check_in_date' => ['nullable', 'date'],
-            'check_out_date' => ['nullable', 'date', 'after_or_equal:check_in_date'],
-            'occupants' => ['nullable', 'integer', 'min:1', 'max:20'],
-            'emergency_contact_name' => ['nullable', 'string', 'max:255'],
-            'emergency_contact_number' => ['nullable', 'string', 'max:100'],
+            'first_name' => ['required', 'string', 'max:100'],
+            'last_name' => ['required', 'string', 'max:100'],
+            'email' => ['required', 'email', 'max:255'],
+            'phone' => ['required', 'string', 'max:30', 'regex:/^[0-9+()\-\s.]{7,30}$/'],
+            'room_id' => ['required', 'integer', 'exists:rooms,id'],
+            'check_in_date' => ['required', 'date', 'after_or_equal:today'],
+            'stay_duration' => ['nullable', 'integer', Rule::in([1, 3, 6, 12])],
+            'occupants' => ['required', 'integer', 'min:1', 'max:20'],
+            'emergency_contact_name' => ['required', 'string', 'max:255'],
+            'emergency_contact_number' => ['required', 'string', 'max:100', 'regex:/^[0-9+()\-\s.]{7,30}$/'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'service_ids' => ['nullable', 'array', 'max:10'],
             'service_ids.*' => ['integer', 'exists:boarding_house_services,id'],
@@ -106,6 +99,30 @@ class ReservationController extends Controller
                     ->withErrors(['room_id' => 'Selected room is no longer available.'])
                     ->withInput();
             }
+
+            if ((int) $data['occupants'] > $availableSlots) {
+                return back()->withErrors(['occupants' => "This room currently has {$availableSlots} available occupant slot(s)."])->withInput();
+            }
+        }
+
+        $checkOutDate = \Carbon\Carbon::parse($data['check_in_date'])->addMonthsNoOverflow((int) ($data['stay_duration'] ?? 1))->toDateString();
+
+        // Keep the existing daily limit and active-reservation business rule,
+        // but only after the request has passed field validation.
+        $alreadySentToday = Reservation::where('user_id', $request->user()->id)
+            ->whereDate('created_at', today())
+            ->exists();
+        if ($alreadySentToday) {
+            return back()->with('reservation_limit', 'You already sent a reservation request today. Please try again tomorrow.');
+        }
+
+        $hasConflictingReservation = Reservation::where('user_id', $request->user()->id)
+            ->where('boarding_house_id', $boardingHouse->id)
+            ->where('room_id', $data['room_id'])
+            ->whereIn(DB::raw('LOWER(status)'), ['pending', 'reserved', 'approved', 'confirmed', 'active', 'checked-in', 'checked_in'])
+            ->exists();
+        if ($hasConflictingReservation) {
+            return back()->withErrors(['room_id' => 'You already have an active reservation for this room.'])->withInput();
         }
 
         $notes = isset($data['notes']) ? strip_tags(trim((string) $data['notes'])) : null;
@@ -115,7 +132,7 @@ class ReservationController extends Controller
             ?? (is_numeric($boardingHouse->price ?? null) ? (float) $boardingHouse->price : null);
         $servicesTotal = $selectedServices->sum(fn (BoardingHouseService $service) => (float) $service->price);
 
-        $reservation = DB::transaction(function () use ($tenant, $boardingHouse, $data, $notes, $selectedRoom, $price, $selectedServices, $servicesTotal) {
+        $reservation = DB::transaction(function () use ($tenant, $boardingHouse, $data, $notes, $selectedRoom, $price, $selectedServices, $servicesTotal, $checkOutDate) {
             if ($selectedRoom) {
                 $selectedRoom->refresh();
                 $this->reservationLifecycleService->holdSelectedRoom($selectedRoom);
@@ -123,10 +140,14 @@ class ReservationController extends Controller
 
             $reservation = Reservation::create([
                 'user_id' => $tenant->id,
+                'requester_first_name' => $data['first_name'],
+                'requester_last_name' => $data['last_name'],
+                'requester_email' => $data['email'],
+                'requester_phone' => $data['phone'],
                 'boarding_house_id' => $boardingHouse->id,
                 'room_id' => $data['room_id'] ?? null,
                 'check_in_date' => $data['check_in_date'] ?? null,
-                'check_out_date' => $data['check_out_date'] ?? null,
+                'check_out_date' => $checkOutDate,
                 'occupants' => $data['occupants'] ?? 1,
                 'emergency_contact_name' => $data['emergency_contact_name']
                     ?? $tenant->tenantProfile?->emergency_contact_name,
@@ -161,7 +182,7 @@ class ReservationController extends Controller
         });
 
         return redirect()
-            ->route('user.reservations.index')
+            ->route('user.reservations.index', ['reservation' => $reservation->id])
             ->with('success', 'Reservation request submitted.');
     }
 

@@ -4,42 +4,48 @@
     $popularCategories = [
         [
             'title' => 'Reservations',
-            'description' => 'Track steps, request changes, and approval updates.',
+            'description' => 'Requests, approvals, and cancellations.',
+            'key' => 'reservations',
             'icon' => 'home',
             'faq_index' => 1,
             'search' => 'reservations booking reserve cancel approval status room',
         ],
         [
             'title' => 'Payments',
-            'description' => 'Payment concerns, confirmations, and receipts.',
+            'description' => 'Cash payments, advance rent, and billing.',
+            'key' => 'payments',
             'icon' => 'credit-card',
             'faq_index' => 2,
             'search' => 'payments transactions receipt pending payment proof confirmation',
         ],
         [
-            'title' => 'Messages',
-            'description' => 'Owner conversations, inquiries, and replies.',
-            'icon' => 'chat',
-            'faq_index' => 4,
-            'search' => 'messages inquiries support conversation owners response',
-        ],
-        [
-            'title' => 'Matchmaking',
-            'description' => 'Recommendations and preference tuning.',
+            'title' => 'Smart Match',
+            'description' => 'Preferences and compatibility scores.',
+            'key' => 'matchmaking',
             'icon' => 'sparkles',
             'faq_index' => 0,
             'search' => 'matchmaking recommendations preferences budget location amenities',
         ],
         [
+            'title' => 'Messages',
+            'description' => 'Contact owners and view replies.',
+            'key' => 'messages',
+            'icon' => 'chat',
+            'faq_index' => 4,
+            'search' => 'messages inquiries support conversation owners response',
+        ],
+        [
             'title' => 'Account & Security',
-            'description' => 'Profile details, access, and passwords.',
+            'description' => 'Profile details and passwords.',
+            'key' => 'account-security',
             'icon' => 'shield-check',
             'faq_index' => 6,
             'search' => 'account security password profile privacy verification',
         ],
         [
             'title' => 'Technical Issues',
-            'description' => 'Bugs, broken pages, and upload errors.',
+            'description' => 'Maps, uploads, and page errors.',
+            'key' => 'technical',
             'icon' => 'wrench',
             'faq_index' => 8,
             'search' => 'technical issue bug error upload loading broken search',
@@ -56,26 +62,32 @@
         [
             'topic' => 'reservations',
             'question' => 'How do I reserve a boarding house?',
-            'answer' => 'Open a listing from Find Boarding Houses or Matchmaking, review the room details, and use the reserve or inquire action. The request will then appear on your Reservations page for tracking.',
+            'answer' => 'Click Reserve Now, complete the reservation form, and submit. Track the owner’s response in Reservations.',
             'search' => 'reserve reservation boarding house request reservations page track',
         ],
         [
             'topic' => 'payments',
-            'question' => 'Where can I review my payment records?',
-            'answer' => 'You can review your payment history from the Transactions page, where you can see status, amount, dates, and related boarding house details.',
+            'question' => 'Where can I see my two-month advance rent?',
+            'answer' => 'Payments shows recorded advance coverage, billing allocations, and payment history after the owner records receiving the cash.',
             'search' => 'payments transactions records history amount status',
         ],
         [
             'topic' => 'payments',
-            'question' => 'What does a pending payment status mean?',
-            'answer' => 'A pending payment usually means the payment or reservation is still being reviewed by the boarding house owner or an administrator before it is fully confirmed.',
-            'search' => 'pending payment status meaning review confirmation',
+            'question' => 'Why is my cash payment missing?',
+            'answer' => 'Ask the owner to verify that the receipt was recorded and linked to the correct reservation. If it was recorded but still does not appear, submit a technical support ticket.',
+            'search' => 'cash payment missing receipt owner reservation technical support',
+        ],
+        [
+            'topic' => 'payments',
+            'question' => 'Why is my billing schedule not showing?',
+            'answer' => 'The owner must confirm the billing start date and due-date terms. If already configured but missing, report the issue.',
+            'search' => 'billing schedule due date billing start owner setup configured missing report',
         ],
         [
             'topic' => 'messages',
-            'question' => 'How can I message a property owner or support?',
-            'answer' => 'Go to Messages and open the related conversation. You can ask about room availability, rental rules, viewing schedules, or continue an existing support-related thread there.',
-            'search' => 'messages property owner support conversation inquiry',
+            'question' => 'How can I message a property owner?',
+            'answer' => 'Open Messages to continue an existing owner conversation or contact the owner from an eligible boarding house listing.',
+            'search' => 'messages property owner conversation contact inquiry reply',
         ],
         [
             'topic' => 'matchmaking',
@@ -162,13 +174,18 @@
         function helpHub(config = {}) {
             return {
                 query: '',
-                openFaq: config.initialFaq ?? 0,
+                selectedCategory: '',
+                openFaq: config.initialFaq ?? null,
+                ticketOpen: false,
+                ticketSubmitting: false,
+                faqItems: config.faqItems ?? [],
                 hasErrors: Boolean(config.hasErrors),
                 supportForm: {
                     concernType: config.initialConcernType ?? '',
                 },
                 init() {
                     if (this.hasErrors) {
+                        this.ticketOpen = true;
                         this.$nextTick(() => this.scrollTo('support-request'));
                     }
                 },
@@ -182,6 +199,19 @@
                 clearQuery() {
                     this.query = '';
                 },
+                clearFilters() {
+                    this.query = '';
+                    this.selectedCategory = '';
+                },
+                visibleFaqCount() {
+                    return this.faqItems.filter((faq) => this.matchesSearch(faq.text) && this.matchesCategory(faq.topic)).length;
+                },
+                selectCategory(category) {
+                    this.selectedCategory = this.selectedCategory === category ? '' : category;
+                },
+                matchesCategory(category) {
+                    return this.selectedCategory === '' || this.selectedCategory === category;
+                },
                 toggleFaq(index) {
                     this.openFaq = this.openFaq === index ? null : index;
                 },
@@ -193,6 +223,7 @@
                     this.$nextTick(() => this.scrollTo(target));
                 },
                 openForm(concernType = '') {
+                    this.ticketOpen = true;
                     if (concernType) {
                         this.supportForm.concernType = concernType;
                     }
@@ -210,25 +241,27 @@
     </script>
 @endonce
 
-<div
+    <div
     x-data="helpHub({
         hasErrors: @js($errors->any()),
         initialConcernType: @js(old('concern_type')),
-        initialFaq: 0,
+        initialFaq: null,
+        faqItems: @js(collect($faqs)->map(fn ($faq) => ['topic' => $faq['topic'], 'text' => $faq['search'].' '.$faq['question'].' '.$faq['answer']])->values()),
     })"
     x-init="init()"
-    class="mx-auto w-full max-w-4xl space-y-5"
+    @keydown.escape.window="ticketOpen = false"
+    class="user-help-center-page w-full min-w-0 space-y-6"
 >
     {{-- Page header --}}
     <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-            <h1 class="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Help Center</h1>
-            <p class="mt-0.5 text-[13px] text-slate-500 dark:text-slate-400">Find answers, browse FAQs, and reach the BoardMatch team.</p>
+            <h1 class="text-[26px] font-bold tracking-tight text-slate-900 dark:text-white">Help Center</h1>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Find answers and get help with BoardMatch.</p>
         </div>
         <button
             type="button"
             @click="openForm('')"
-            class="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#2563eb] px-4 text-[13px] font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-[#1d4ed8] hover:shadow-md hover:shadow-blue-600/25 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200"
+            class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#2563eb] px-4 text-sm font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-[#1d4ed8] hover:shadow-md hover:shadow-blue-600/25 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200"
         >
             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                 {!! $iconPath('ticket') !!}
@@ -251,8 +284,8 @@
         <input
             x-model="query"
             type="search"
-            class="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-11 text-sm text-slate-700 shadow-sm shadow-slate-200/50 outline-none transition hover:border-slate-300 focus:border-blue-400 focus:ring-4 focus:ring-blue-100 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:shadow-none dark:hover:border-slate-600"
-            placeholder="Search FAQs, categories, or your support requests…"
+            class="h-[42px] w-full rounded-xl border border-slate-200 bg-white pl-11 pr-11 text-sm text-slate-700 shadow-sm shadow-slate-200/50 outline-none transition hover:border-slate-300 focus:border-blue-400 focus:ring-4 focus:ring-blue-100 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:shadow-none dark:hover:border-slate-600"
+            placeholder="Search reservations, payments, or account help..."
         >
         <button
             type="button"
@@ -270,14 +303,15 @@
 
     {{-- Help categories --}}
     <section>
-        <h2 class="text-sm font-bold text-slate-900 dark:text-white">Browse by Category</h2>
+        <h2 class="text-lg font-bold text-slate-900 dark:text-white">Browse by Category</h2>
         <div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             @foreach ($popularCategories as $category)
                 <button
                     type="button"
                     x-show="matchesSearch(@js($category['search'].' '.$category['title'].' '.$category['description']))"
-                    @click="jumpTo('faq-section', {{ $category['faq_index'] }})"
-                    class="group flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm shadow-slate-200/40 transition duration-150 hover:-translate-y-0.5 hover:border-blue-200 hover:bg-gradient-to-br hover:from-blue-50/60 hover:to-white hover:shadow-md hover:shadow-blue-100/60 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-100 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none dark:hover:border-blue-400/20 dark:hover:from-blue-400/10 dark:hover:to-slate-900"
+                    @click="selectCategory(@js($category['key'])); jumpTo('faq-section', {{ $category['faq_index'] }})"
+                    :aria-pressed="selectedCategory === @js($category['key'])"
+                    class="help-category-card group flex min-w-0 items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm shadow-slate-200/40 transition duration-150 hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-50/50 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-100 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none dark:hover:border-blue-400/20"
                 >
                     <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-50 to-blue-100/60 text-blue-600 transition group-hover:from-blue-100 group-hover:to-blue-50 dark:from-blue-400/10 dark:to-blue-400/5 dark:text-blue-300">
                         <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
@@ -285,31 +319,35 @@
                         </svg>
                     </span>
                     <span class="min-w-0">
-                        <span class="block text-[13px] font-bold text-slate-900 transition group-hover:text-blue-700 dark:text-white dark:group-hover:text-blue-300">{{ $category['title'] }}</span>
-                        <span class="mt-0.5 block text-xs leading-5 text-slate-500 dark:text-slate-400">{{ $category['description'] }}</span>
+                        <span class="block text-[15px] font-bold text-slate-900 transition group-hover:text-blue-700 dark:text-white dark:group-hover:text-blue-300">{{ $category['title'] }}</span>
+                        <span class="mt-1 block text-[13px] leading-5 text-slate-500 dark:text-slate-400">{{ $category['description'] }}</span>
                     </span>
                 </button>
             @endforeach
         </div>
     </section>
 
+    <div class="help-content-grid grid min-w-0 items-start gap-3 lg:grid-cols-[minmax(0,1.85fr)_minmax(280px,1fr)]">
+        <div class="min-w-0">
     {{-- FAQs --}}
     <section id="faq-section" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
         <div class="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-slate-50/80 to-transparent px-5 py-3.5 dark:border-slate-800 dark:from-slate-800/40">
-            <h2 class="text-sm font-bold text-slate-900 dark:text-white">Frequently Asked Questions</h2>
-            <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">{{ count($faqs) }} answers</span>
+            <h2 class="text-lg font-bold text-slate-900 dark:text-white">Frequently Asked Questions</h2>
+            <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400"><span x-text="visibleFaqCount()">{{ count($faqs) }}</span> answers</span>
         </div>
 
         <div class="divide-y divide-slate-100 dark:divide-slate-800">
             @foreach ($faqs as $index => $faq)
-                <article x-show="matchesSearch(@js($faq['search'].' '.$faq['question'].' '.$faq['answer']))">
+                <article x-show="matchesSearch(@js($faq['search'].' '.$faq['question'].' '.$faq['answer'])) && matchesCategory(@js($faq['topic']))">
                     <button
                         type="button"
                         @click="toggleFaq({{ $index }})"
-                        class="flex w-full items-center justify-between gap-4 px-5 py-3.5 text-left transition hover:bg-slate-50/70 focus:outline-none focus-visible:bg-blue-50/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-200 dark:hover:bg-slate-800/50 dark:focus-visible:bg-blue-400/5"
+                        id="faq-question-{{ $index }}"
+                        class="flex w-full items-center justify-between gap-4 px-4 py-3 text-left transition hover:bg-slate-50/70 focus:outline-none focus-visible:bg-blue-50/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-200 dark:hover:bg-slate-800/50 dark:focus-visible:bg-blue-400/5"
                         :aria-expanded="openFaq === {{ $index }}"
+                        aria-controls="faq-answer-{{ $index }}"
                     >
-                        <span class="text-[13px] font-semibold text-slate-800 dark:text-slate-100">{{ $faq['question'] }}</span>
+                        <span class="text-sm font-semibold text-slate-800 dark:text-slate-100">{{ $faq['question'] }}</span>
                         <svg
                             class="h-4 w-4 shrink-0 text-slate-400 transition"
                             :class="openFaq === {{ $index }} ? 'rotate-180 text-blue-600 dark:text-blue-300' : ''"
@@ -320,22 +358,52 @@
                     </button>
 
                     <div
+                        id="faq-answer-{{ $index }}"
+                        role="region"
+                        aria-labelledby="faq-question-{{ $index }}"
                         x-show="openFaq === {{ $index }}"
                         x-transition.opacity.duration.150ms
                         x-cloak
-                        class="px-5 pb-4"
+                        class="px-4 pb-3"
                     >
-                        <p class="text-[13px] leading-6 text-slate-500 dark:text-slate-400">{{ $faq['answer'] }}</p>
+                        <p class="text-sm leading-6 text-slate-500 dark:text-slate-400">{{ $faq['answer'] }}</p>
                     </div>
                 </article>
             @endforeach
         </div>
+
+        <div x-show="visibleFaqCount() === 0" x-cloak class="px-5 py-8 text-center">
+            <p class="text-sm font-bold text-slate-900 dark:text-white">No matching answers</p>
+            <p class="mt-1 text-[13px] text-slate-500 dark:text-slate-400">Try another search or category.</p>
+            <button type="button" @click="clearFilters()" class="mt-3 inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 px-3 text-xs font-bold text-blue-700 hover:bg-blue-50 dark:border-slate-700 dark:text-blue-300">Clear filters</button>
+        </div>
     </section>
 
+        </div>
+
+        <aside class="min-w-0">
+            <section class="help-support-panel rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <div class="flex items-center justify-between gap-3"><h2 class="text-lg font-bold text-slate-900 dark:text-white">Need more help?</h2><button type="button" @click="scrollTo('my-tickets')" class="text-xs font-bold text-blue-600 hover:text-blue-700">My Tickets</button></div>
+                <div class="mt-4 space-y-4">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white">Payment or reservation concern?</h3>
+                        <p class="mt-1 text-[13px] leading-5 text-slate-500 dark:text-slate-400">Message the owner about property-specific reservations and recorded cash payments.</p>
+                        <a href="{{ route('user.messages.index') }}" class="mt-3 inline-flex h-10 w-full items-center justify-center rounded-xl border border-blue-200 px-4 text-sm font-bold text-blue-700 transition hover:bg-blue-50 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-100 dark:border-blue-400/30 dark:text-blue-300">Message Owner</a>
+                    </div>
+                    <div class="border-t border-slate-100 pt-5 dark:border-slate-800">
+                        <h3 class="text-base font-bold text-slate-900 dark:text-white">Experiencing a system issue?</h3>
+                        <p class="mt-1 text-[13px] leading-5 text-slate-500 dark:text-slate-400">Use a ticket for platform, account, or technical concerns.</p>
+                        <button type="button" @click="openForm('Technical Problem')" class="mt-3 inline-flex h-10 w-full items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-bold text-white transition hover:bg-blue-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200">Submit Ticket</button>
+                    </div>
+                </div>
+            </section>
+        </aside>
+    </div>
+
     {{-- Recent support requests --}}
-    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
+    <section id="my-tickets" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
         <div class="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-slate-50/80 to-transparent px-5 py-3.5 dark:border-slate-800 dark:from-slate-800/40">
-            <h2 class="text-sm font-bold text-slate-900 dark:text-white">Recent Support Requests</h2>
+            <h2 class="text-2xl font-bold text-slate-900 dark:text-white">My Support Tickets</h2>
             <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">{{ $recentSupportRequests->count() }} recent</span>
         </div>
 
@@ -375,7 +443,7 @@
                             </p>
                             <p class="mt-1.5 text-[13px] leading-5 text-slate-500 dark:text-slate-400">{{ \Illuminate\Support\Str::limit($supportRequest->message, 140) }}</p>
                         </div>
-                        <span class="shrink-0 text-[11px] font-medium text-slate-400">{{ optional($supportRequest->created_at)->diffForHumans(null, true) }}</span>
+                        <a href="{{ route('user.help-center.show', $supportRequest) }}" class="shrink-0 text-sm font-bold text-blue-600 hover:text-blue-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-100">View Ticket</a>
                     </div>
                 </article>
             @empty
@@ -385,7 +453,7 @@
                             {!! $iconPath('document-text') !!}
                         </svg>
                     </div>
-                    <p class="mt-3 text-sm font-bold text-slate-900 dark:text-white">No support requests yet</p>
+                    <p class="mt-3 text-sm font-bold text-slate-900 dark:text-white">You haven’t submitted any support tickets yet.</p>
                     <p class="mt-1 text-[13px] text-slate-500 dark:text-slate-400">Submitted tickets and their status will appear here.</p>
                 </div>
             @endforelse
@@ -393,13 +461,13 @@
     </section>
 
     {{-- Submit ticket --}}
-    <section id="support-request" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm shadow-slate-200/50 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none">
+    <div x-show="ticketOpen" x-cloak x-transition.opacity @click.self="ticketOpen = false" class="help-ticket-modal fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-labelledby="support-request-title">
+    <section id="support-request" class="help-ticket-dialog max-h-[calc(100dvh-32px)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900 dark:shadow-none" @click.stop>
         <div class="border-b border-slate-100 bg-gradient-to-r from-blue-50/60 to-transparent px-5 py-3.5 dark:border-slate-800 dark:from-blue-400/5">
-            <h2 class="text-sm font-bold text-slate-900 dark:text-white">Submit a Ticket</h2>
-            <p class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">Include as much detail as possible so the team can respond faster. Typical reply: 24–48 hours.</p>
+            <div class="flex items-start justify-between gap-3"><div><h2 id="support-request-title" class="text-lg font-bold text-slate-900 dark:text-white">Submit a Ticket</h2><p class="mt-0.5 text-xs text-slate-400 dark:text-slate-500">Include the page, feature, and details support needs to investigate.</p></div><button type="button" @click="ticketOpen = false" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-white/80 hover:text-slate-700 dark:hover:bg-slate-800" aria-label="Close ticket form">×</button></div>
         </div>
 
-        <form method="POST" action="{{ route('user.help-center.store') }}" enctype="multipart/form-data" class="space-y-4 px-5 py-5">
+        <form method="POST" action="{{ route('user.help-center.store') }}" enctype="multipart/form-data" class="space-y-4 px-5 py-5" @submit="ticketSubmitting = true">
             @csrf
 
             <div class="grid gap-4 sm:grid-cols-2">
@@ -498,13 +566,15 @@
             <div class="flex justify-end border-t border-slate-100 pt-4 dark:border-slate-800">
                 <button
                     type="submit"
+                    :disabled="ticketSubmitting"
                     class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#2563eb] px-5 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-[#1d4ed8] hover:shadow-md hover:shadow-blue-600/25 focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-200"
                 >
-                    Submit Request
+                    <span x-text="ticketSubmitting ? 'Submitting...' : 'Submit Request'">Submit Request</span>
                 </button>
             </div>
         </form>
     </section>
+    </div>
 </div>
 </x-user.shell>
 </x-layouts.dashboard>

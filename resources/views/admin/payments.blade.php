@@ -191,6 +191,15 @@
                             @endforeach
                         </select>
                     </label>
+                    <label class="text-xs font-semibold text-slate-700 sm:col-span-2">
+                        Authoritative Reservation
+                        <select name="reservation_id" class="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white">
+                            <option value="">Select for advance rent only</option>
+                            @foreach (($reservations ?? []) as $reservation)
+                                <option value="{{ $reservation->id }}">RES-{{ str_pad((string) $reservation->id, 6, '0', STR_PAD_LEFT) }} · {{ $reservation->user?->name ?? 'Tenant' }} · {{ $reservation->boardingHouse?->name ?? 'House' }} · Room {{ $reservation->room?->effective_room_number ?? $reservation->room?->room_no ?? 'N/A' }}</option>
+                            @endforeach
+                        </select>
+                    </label>
                     <label class="text-xs font-semibold text-slate-700">
                         Amount
                         <input name="amount" type="number" min="0" step="0.01" required class="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white">
@@ -200,6 +209,10 @@
                         <input name="due_date" type="date" class="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white">
                     </label>
                     <label class="text-xs font-semibold text-slate-700">
+                        Payment Date
+                        <input name="paid_at" type="date" class="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white">
+                    </label>
+                    <label class="text-xs font-semibold text-slate-700">
                         Status
                         <select name="status" class="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white">
                             <option value="pending">Pending</option>
@@ -207,6 +220,22 @@
                             <option value="unpaid">Unpaid</option>
                             <option value="overdue">Overdue</option>
                         </select>
+                    </label>
+                    <label class="text-xs font-semibold text-slate-700">
+                        Purpose
+                        <select name="payment_type" class="mt-1 h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white">
+                            <option value="rent">Rent</option>
+                            <option value="advance_rent">Advance Rent</option>
+                            <option value="downpayment">Downpayment</option>
+                            <option value="deposit">Deposit</option>
+                            <option value="service">Service</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </label>
+                    <label class="text-xs font-semibold text-slate-700 sm:col-span-2">
+                        Advance-rent allocation JSON
+                        <textarea name="allocation_json" rows="3" placeholder='[{"billing_payment_id":123,"period_start":"2026-10-22","period_end":"2026-11-21","amount":2800},{"billing_payment_id":124,"period_start":"2026-11-22","period_end":"2026-12-21","amount":2800}]' class="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white"></textarea>
+                        <span class="mt-1 block text-[10px] font-normal text-slate-500">Required only for Advance Rent. Use the actual rent bill IDs and billing period dates.</span>
                     </label>
                     <label class="text-xs font-semibold text-slate-700">
                         Payment Method

@@ -1,221 +1,75 @@
 <x-layouts.dashboard>
 <x-user.shell>
 @php
-    $displayName = trim((string) $tenant->name) ?: 'Student';
-    $nameParts = explode(' ', $displayName, 2);
+    $nameParts = preg_split('/\s+/', trim((string) $tenant->name), 2);
     $firstName = old('first_name', $tenant->first_name ?: ($nameParts[0] ?? ''));
     $lastName = old('last_name', $tenant->last_name ?: ($nameParts[1] ?? ''));
-    $initials = collect([$firstName, $lastName])
-        ->filter(fn ($name) => filled($name))
-        ->map(fn ($name) => strtoupper(substr(trim((string) $name), 0, 1)))
-        ->take(2)
-        ->implode('') ?: 'BM';
-
-    $storedPhone = old('phone_number', $tenant->phone_number ?: ($tenant->phone ?: ($tenant->contact_number ?: '')));
-    $localPhone = preg_replace('/^\+?63[\s-]?/', '', trim((string) $storedPhone));
-    $dateOfBirth = old('date_of_birth', $tenant->date_of_birth?->format('Y-m-d') ?? '');
-    $gender = match (strtolower((string) old('gender', $tenant->gender ?? ''))) {
-        'male' => 'Male',
-        'female' => 'Female',
-        'other' => 'Other',
-        'prefer not to say' => 'Prefer not to say',
-        default => old('gender', $tenant->gender ?? ''),
-    };
-
-    $cardClasses = 'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/40 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none sm:p-5';
-    $labelClasses = 'mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-300';
-    $inputClasses = 'h-10 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-500/10';
-    $buttonClasses = 'inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto dark:focus:ring-blue-500/20';
-    $iconClasses = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300';
-    $errorClasses = 'mt-1.5 text-xs font-medium text-rose-600 dark:text-rose-400';
+    $initials = collect([$firstName, $lastName])->filter()->map(fn ($name) => strtoupper(substr(trim((string) $name), 0, 1)))->take(2)->implode('') ?: 'BM';
+    $phone = old('phone_number', $tenant->phone_number ?: ($tenant->phone ?: ($tenant->contact_number ?: '')));
+    $profile = $tenant->tenantProfile;
+    $rentReminderInput = old('rent_reminders');
+    $matchRecommendationInput = old('match_recommendations');
+    $rentReminders = $rentReminderInput !== null
+        ? in_array((string) $rentReminderInput, ['1', 'true'], true)
+        : (bool) ($tenant->notify_payment_reminders ?? data_get($notificationPreferences, 'sms_notifications', true));
+    $matchRecommendations = $matchRecommendationInput !== null
+        ? in_array((string) $matchRecommendationInput, ['1', 'true'], true)
+        : (bool) ($tenant->allow_matchmaking_data ?? true);
+    $theme = old('theme', $savedTheme ?? 'light');
+    $card = 'rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/40 dark:border-slate-800 dark:bg-slate-900 dark:shadow-none sm:p-6';
+    $label = 'mb-1.5 block text-sm font-semibold text-slate-700 dark:text-slate-300';
+    $input = 'h-11 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:border-blue-400 dark:focus:ring-blue-500/20';
+    $error = 'mt-1.5 text-xs font-medium text-rose-600 dark:text-rose-400';
 @endphp
 
-<div
+<form method="POST" action="{{ route('user.settings.profile.update') }}" enctype="multipart/form-data"
     x-data="{
-        photoPreview: @js($tenant->photo_url),
-        previewPhoto(event) {
-            const file = event.target.files?.[0];
-            if (!file) return;
-            if (this.photoPreview?.startsWith?.('blob:')) URL.revokeObjectURL(this.photoPreview);
-            this.photoPreview = URL.createObjectURL(file);
-        }
+        savedTheme: @js($theme), theme: @js($theme), photoPreview: @js($tenant->photo_url), savedPhoto: @js($tenant->photo_url), saving: false,
+        previewPhoto(event) { const file = event.target.files?.[0]; if (!file) return; if (this.photoPreview?.startsWith?.('blob:')) URL.revokeObjectURL(this.photoPreview); this.photoPreview = URL.createObjectURL(file); },
+        chooseTheme(value) { this.theme = value; document.documentElement.setAttribute('data-theme', value); try { localStorage.setItem('theme', value); } catch (e) {} },
+        resetChanges() { this.$root.reset(); this.theme = this.savedTheme; document.documentElement.setAttribute('data-theme', this.savedTheme); try { localStorage.setItem('theme', this.savedTheme); } catch (e) {} this.photoPreview = this.savedPhoto; const file = this.$root.querySelector('#profile_photo'); if (file) file.value = ''; }
     }"
-    class="mx-auto w-full max-w-6xl space-y-4"
->
-    <header class="pb-1">
-        <h1 class="text-xl font-bold tracking-tight text-slate-950 dark:text-white sm:text-2xl">Profile Settings</h1>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Manage your personal information, security, and contact details.</p>
+    x-on:submit="saving = true" class="user-settings-page w-full space-y-5">
+    @csrf @method('PUT')
+    <input type="hidden" name="theme" x-model="theme">
+
+    <header class="flex flex-col gap-4 border-b border-slate-200 pb-5 dark:border-slate-800 sm:flex-row sm:items-end sm:justify-between">
+        <div><h1 class="text-3xl font-black tracking-tight text-slate-950 dark:text-white">Settings</h1><p class="mt-1 text-base text-slate-500 dark:text-slate-400">Manage your profile, security, and preferences.</p></div>
+        <div class="flex items-center gap-3"><div class="h-11 w-11 shrink-0 overflow-hidden rounded-full bg-blue-600 ring-2 ring-white shadow-sm dark:ring-slate-900"><img x-show="photoPreview" x-cloak :src="photoPreview" alt="{{ $tenant->name }}" class="h-full w-full object-cover"><span x-show="!photoPreview" class="flex h-full w-full items-center justify-center text-sm font-black text-white">{{ $initials }}</span></div><div class="min-w-0"><p class="truncate text-sm font-black text-slate-950 dark:text-white">{{ $tenant->name }}</p><p class="text-xs font-semibold text-slate-500 dark:text-slate-400">Student / Tenant</p></div></div>
     </header>
 
-    <form
-        method="POST"
-        action="{{ route('user.settings.personal.update') }}"
-        enctype="multipart/form-data"
-        class="{{ $cardClasses }}"
-        x-data="{ saving: false }"
-        x-on:submit="saving = true"
-    >
-        @csrf
-        @method('PUT')
+    @if (session('success'))<div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200" role="status">{{ session('success') }}</div>@endif
+    @if (session('error'))<div class="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800 dark:border-rose-400/20 dark:bg-rose-400/10 dark:text-rose-200" role="alert">{{ session('error') }}</div>@endif
 
-        <div class="flex items-center gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
-            <span class="{{ $iconClasses }}">
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.12a7.5 7.5 0 0115 0A17.9 17.9 0 0112 21.75a17.9 17.9 0 01-7.5-1.63z"/></svg>
-            </span>
-            <div>
-                <h2 class="text-sm font-bold text-slate-950 dark:text-white">Personal Information</h2>
-                <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Your photo, name, and basic details.</p>
-            </div>
+    <div class="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,1fr)] xl:items-start">
+        <div class="min-w-0 space-y-5">
+            <section class="{{ $card }}">
+                <div class="border-b border-slate-100 pb-4 dark:border-slate-800"><h2 class="text-2xl font-black text-slate-950 dark:text-white">Profile Information</h2><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Keep your account details up to date.</p></div>
+                <div class="mt-5 grid gap-5 lg:grid-cols-[180px_minmax(0,1fr)]">
+                    <div><p class="{{ $label }}">Profile Photo</p><div class="flex items-center gap-4 lg:flex-col lg:items-start"><div class="h-24 w-24 shrink-0 overflow-hidden rounded-full bg-blue-600 ring-4 ring-blue-50 dark:ring-blue-500/10"><img x-show="photoPreview" x-cloak :src="photoPreview" alt="Profile photo preview" class="h-full w-full object-cover"><span x-show="!photoPreview" class="flex h-full w-full items-center justify-center text-2xl font-black text-white">{{ $initials }}</span></div><div><label for="profile_photo" class="inline-flex h-11 cursor-pointer items-center justify-center rounded-xl border border-blue-200 bg-white px-4 text-sm font-bold text-blue-700 transition hover:bg-blue-50 focus-within:ring-4 focus-within:ring-blue-100 dark:border-blue-400/30 dark:bg-slate-950 dark:text-blue-300">Change Photo<input id="profile_photo" name="profile_photo" type="file" accept="image/jpeg,image/png" class="sr-only" x-on:change="previewPhoto($event)"></label><p class="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">JPG or PNG, up to 2 MB.</p>@error('profile_photo')<p class="{{ $error }}">{{ $message }}</p>@enderror</div></div></div>
+                    <div class="grid min-w-0 gap-4 sm:grid-cols-2">
+                        <div><label for="first_name" class="{{ $label }}">First Name</label><input id="first_name" name="first_name" value="{{ $firstName }}" required autocomplete="given-name" class="{{ $input }} @error('first_name') border-rose-400 @enderror">@error('first_name')<p class="{{ $error }}">{{ $message }}</p>@enderror</div>
+                        <div><label for="last_name" class="{{ $label }}">Last Name</label><input id="last_name" name="last_name" value="{{ $lastName }}" required autocomplete="family-name" class="{{ $input }} @error('last_name') border-rose-400 @enderror">@error('last_name')<p class="{{ $error }}">{{ $message }}</p>@enderror</div>
+                        <div><label for="phone_number" class="{{ $label }}">Phone Number</label><input id="phone_number" name="phone_number" value="{{ $phone }}" autocomplete="tel" inputmode="tel" class="{{ $input }} @error('phone_number') border-rose-400 @enderror">@error('phone_number')<p class="{{ $error }}">{{ $message }}</p>@enderror</div>
+                        <div><label for="email" class="{{ $label }}">Email Address</label><input id="email" value="{{ $tenant->email }}" readonly aria-readonly="true" class="{{ $input }} cursor-not-allowed bg-slate-50 text-slate-500 dark:bg-slate-800/70 dark:text-slate-400"></div>
+                        <div><label for="date_of_birth" class="{{ $label }}">Date of Birth</label><input id="date_of_birth" type="date" name="date_of_birth" value="{{ old('date_of_birth', $tenant->date_of_birth?->format('Y-m-d')) }}" class="{{ $input }}"></div>
+                        <div><label for="gender" class="{{ $label }}">Gender</label><select id="gender" name="gender" class="{{ $input }}"><option value="">Select gender</option>@foreach(['Male','Female','Other','Prefer not to say'] as $option)<option value="{{ $option }}" @selected(old('gender', $tenant->gender) === $option)>{{ $option }}</option>@endforeach</select></div>
+                    </div>
+                </div>
+                <div class="mt-6 border-t border-slate-100 pt-5 dark:border-slate-800"><h3 class="text-base font-black text-slate-950 dark:text-white">Emergency Contact</h3><div class="mt-4 grid gap-4 sm:grid-cols-3"><div><label for="emergency_contact_name" class="{{ $label }}">Contact Name</label><input id="emergency_contact_name" name="emergency_contact_name" value="{{ old('emergency_contact_name', $profile?->emergency_contact_name) }}" class="{{ $input }}">@error('emergency_contact_name')<p class="{{ $error }}">{{ $message }}</p>@enderror</div><div><label for="emergency_contact_number" class="{{ $label }}">Phone Number</label><input id="emergency_contact_number" name="emergency_contact_number" value="{{ old('emergency_contact_number', $profile?->emergency_contact_number) }}" class="{{ $input }}">@error('emergency_contact_number')<p class="{{ $error }}">{{ $message }}</p>@enderror</div><div><label for="emergency_contact_relationship" class="{{ $label }}">Relationship</label><input id="emergency_contact_relationship" name="emergency_contact_relationship" value="{{ old('emergency_contact_relationship', $profile?->emergency_contact_relationship) }}" class="{{ $input }}">@error('emergency_contact_relationship')<p class="{{ $error }}">{{ $message }}</p>@enderror</div></div></div>
+            </section>
+
+            <section class="{{ $card }}"><div class="border-b border-slate-100 pb-4 dark:border-slate-800"><h2 class="text-2xl font-black text-slate-950 dark:text-white">Account &amp; Security</h2><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Protect your account and active sessions.</p></div><div class="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><p class="text-sm font-bold text-slate-800 dark:text-slate-200">Account email</p><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ $tenant->email }}</p></div><button type="button" @click="$dispatch('open-password-dialog')" class="inline-flex h-11 items-center justify-center rounded-xl border border-blue-200 px-4 text-sm font-bold text-blue-700 transition hover:bg-blue-50 dark:border-blue-400/30 dark:text-blue-300">Change Password</button></div><div class="mt-5 flex items-center justify-between border-t border-slate-100 pt-5 dark:border-slate-800"><div><p class="text-sm font-bold text-slate-800 dark:text-slate-200">Sign out</p><p class="mt-1 text-xs text-slate-500 dark:text-slate-400">End this authenticated session.</p></div><button type="submit" form="tenant-logout-form" class="inline-flex h-11 items-center justify-center rounded-xl border border-rose-200 px-4 text-sm font-bold text-rose-700 transition hover:bg-rose-50 dark:border-rose-400/30 dark:text-rose-300">Log Out</button></div></section>
         </div>
+        <form id="tenant-logout-form" method="POST" action="{{ route('logout') }}" class="hidden">@csrf</form>
 
-        <div class="grid gap-6 pt-5 lg:grid-cols-[220px_minmax(0,1fr)]">
-            <div>
-                <p class="{{ $labelClasses }}">Profile Photo</p>
-                <div class="flex items-center gap-4 lg:flex-col lg:items-start">
-                    <div class="h-20 w-20 shrink-0 overflow-hidden rounded-full border-4 border-white bg-blue-600 shadow-sm ring-1 ring-slate-200 dark:border-slate-900 dark:ring-slate-700">
-                        <img x-show="photoPreview" x-cloak :src="photoPreview" alt="{{ $displayName }} profile photo" class="h-full w-full object-cover">
-                        <div x-show="!photoPreview" class="flex h-full w-full items-center justify-center text-xl font-bold text-white" aria-label="{{ $initials }} initials">{{ $initials }}</div>
-                    </div>
-                    <div>
-                        <label for="profile_photo" class="inline-flex h-9 cursor-pointer items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-blue-300 hover:text-blue-700 focus-within:ring-4 focus-within:ring-blue-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
-                            Change Photo
-                            <input id="profile_photo" name="profile_photo" type="file" accept="image/jpeg,image/png,image/gif" class="sr-only" x-on:change="previewPhoto($event)">
-                        </label>
-                        <p class="mt-2 text-[11px] leading-4 text-slate-500 dark:text-slate-400">JPG, PNG or GIF. Max size 2MB.</p>
-                        @error('profile_photo')<p class="{{ $errorClasses }}" role="alert">{{ $message }}</p>@enderror
-                    </div>
-                </div>
-            </div>
-
-            <div class="space-y-4">
-                <div class="grid gap-4 sm:grid-cols-2">
-                    <div>
-                        <label for="first_name" class="{{ $labelClasses }}">First Name</label>
-                        <input id="first_name" name="first_name" value="{{ $firstName }}" required autocomplete="given-name" class="{{ $inputClasses }} @error('first_name') border-rose-400 focus:border-rose-500 focus:ring-rose-100 @enderror">
-                        @error('first_name')<p class="{{ $errorClasses }}" role="alert">{{ $message }}</p>@enderror
-                    </div>
-                    <div>
-                        <label for="last_name" class="{{ $labelClasses }}">Last Name</label>
-                        <input id="last_name" name="last_name" value="{{ $lastName }}" required autocomplete="family-name" class="{{ $inputClasses }} @error('last_name') border-rose-400 focus:border-rose-500 focus:ring-rose-100 @enderror">
-                        @error('last_name')<p class="{{ $errorClasses }}" role="alert">{{ $message }}</p>@enderror
-                    </div>
-                    <div>
-                        <label for="date_of_birth" class="{{ $labelClasses }}">Date of Birth</label>
-                        <input id="date_of_birth" type="date" name="date_of_birth" value="{{ $dateOfBirth }}" autocomplete="bday" class="{{ $inputClasses }} @error('date_of_birth') border-rose-400 focus:border-rose-500 focus:ring-rose-100 @enderror">
-                        @error('date_of_birth')<p class="{{ $errorClasses }}" role="alert">{{ $message }}</p>@enderror
-                    </div>
-                    <div>
-                        <label for="gender" class="{{ $labelClasses }}">Gender</label>
-                        <select id="gender" name="gender" class="{{ $inputClasses }} @error('gender') border-rose-400 focus:border-rose-500 focus:ring-rose-100 @enderror">
-                            <option value="">Select gender</option>
-                            @foreach (['Male', 'Female', 'Other', 'Prefer not to say'] as $option)
-                                <option value="{{ $option }}" @selected($gender === $option)>{{ $option }}</option>
-                            @endforeach
-                        </select>
-                        @error('gender')<p class="{{ $errorClasses }}" role="alert">{{ $message }}</p>@enderror
-                    </div>
-                </div>
-                <div class="flex justify-end pt-1">
-                    <button type="submit" class="{{ $buttonClasses }}" x-bind:disabled="saving">
-                        <svg x-show="saving" x-cloak class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-                        <span x-text="saving ? 'Saving...' : 'Save Changes'">Save Changes</span>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </form>
-
-    <div class="grid items-start gap-4 lg:grid-cols-2">
-        <form method="POST" action="{{ route('user.settings.password.update') }}" class="{{ $cardClasses }} h-full" x-data="{ saving: false, showCurrent: false, showNew: false, showConfirmation: false }" x-on:submit="saving = true">
-            @csrf
-            @method('PUT')
-
-            <div class="flex items-center gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
-                <span class="{{ $iconClasses }}">
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.04A12 12 0 013.6 6 12 12 0 003 9.75c0 5.59 3.82 10.29 9 11.62 5.18-1.33 9-6.03 9-11.62 0-1.31-.21-2.57-.6-3.75h-.15A11.96 11.96 0 0112 2.71z"/></svg>
-                </span>
-                <div>
-                    <h2 class="text-sm font-bold text-slate-950 dark:text-white">Account Security</h2>
-                    <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Use a strong, unique password.</p>
-                </div>
-            </div>
-
-            <div class="space-y-4 pt-5">
-                @foreach ([
-                    ['name' => 'current_password', 'label' => 'Current Password', 'state' => 'showCurrent', 'autocomplete' => 'current-password', 'placeholder' => 'Enter current password'],
-                    ['name' => 'password', 'label' => 'New Password', 'state' => 'showNew', 'autocomplete' => 'new-password', 'placeholder' => 'Enter new password'],
-                    ['name' => 'password_confirmation', 'label' => 'Confirm Password', 'state' => 'showConfirmation', 'autocomplete' => 'new-password', 'placeholder' => 'Confirm new password'],
-                ] as $field)
-                    <div>
-                        <label for="{{ $field['name'] }}" class="{{ $labelClasses }}">{{ $field['label'] }}</label>
-                        <div class="relative">
-                            <input id="{{ $field['name'] }}" name="{{ $field['name'] }}" :type="{{ $field['state'] }} ? 'text' : 'password'" autocomplete="{{ $field['autocomplete'] }}" placeholder="{{ $field['placeholder'] }}" class="{{ $inputClasses }} pr-11 @error($field['name']) border-rose-400 focus:border-rose-500 focus:ring-rose-100 @enderror">
-                            <button type="button" x-on:click="{{ $field['state'] }} = !{{ $field['state'] }}" class="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-slate-400 transition hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 dark:hover:text-slate-200" :aria-label="{{ $field['state'] }} ? 'Hide {{ strtolower($field['label']) }}' : 'Show {{ strtolower($field['label']) }}'">
-                                <svg x-show="!{{ $field['state'] }}" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.04 12.32a1 1 0 010-.64C3.42 7.51 7.36 4.5 12 4.5s8.57 3.01 9.96 7.18a1 1 0 010 .64C20.58 16.49 16.64 19.5 12 19.5s-8.57-3.01-9.96-7.18z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                                <svg x-show="{{ $field['state'] }}" x-cloak class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M10.6 10.6A2 2 0 0013.4 13.4M9.9 4.75A10.8 10.8 0 0112 4.5c4.64 0 8.57 3.01 9.96 7.18a1 1 0 010 .64 10.8 10.8 0 01-2.05 3.77M6.23 6.23a10.45 10.45 0 00-4.2 5.45 1 1 0 000 .64C3.42 16.49 7.36 19.5 12 19.5c1.56 0 3.04-.34 4.37-.95"/></svg>
-                            </button>
-                        </div>
-                        @error($field['name'])<p class="{{ $errorClasses }}" role="alert">{{ $message }}</p>@enderror
-                    </div>
-                @endforeach
-            </div>
-
-            <p class="mt-3 text-[11px] leading-4 text-slate-500 dark:text-slate-400">Use at least 8 characters with uppercase, lowercase, a number, and a special character.</p>
-            <div class="mt-5 flex justify-end">
-                <button type="submit" class="{{ $buttonClasses }}" x-bind:disabled="saving">
-                    <svg x-show="saving" x-cloak class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-                    <span x-text="saving ? 'Updating...' : 'Update Password'">Update Password</span>
-                </button>
-            </div>
-        </form>
-
-        <form method="POST" action="{{ route('user.settings.contact.update') }}" class="{{ $cardClasses }} h-full" x-data="{ saving: false }" x-on:submit="saving = true">
-            @csrf
-            @method('PUT')
-
-            <div class="flex items-center gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
-                <span class="{{ $iconClasses }}">
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.24a2.25 2.25 0 01-1.07 1.92l-7.5 4.61a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.92v-.24"/></svg>
-                </span>
-                <div>
-                    <h2 class="text-sm font-bold text-slate-950 dark:text-white">Contact Information</h2>
-                    <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">How BoardMatch and property owners reach you.</p>
-                </div>
-            </div>
-
-            <div class="space-y-4 pt-5">
-                <div>
-                    <label for="email" class="{{ $labelClasses }}">Email Address</label>
-                    <input id="email" name="email" type="email" value="{{ old('email', $tenant->email) }}" required autocomplete="email" placeholder="you@example.com" class="{{ $inputClasses }} @error('email') border-rose-400 focus:border-rose-500 focus:ring-rose-100 @enderror">
-                    @error('email')<p class="{{ $errorClasses }}" role="alert">{{ $message }}</p>@enderror
-                </div>
-                <div>
-                    <label for="phone_number" class="{{ $labelClasses }}">Phone Number</label>
-                    <div class="grid grid-cols-[92px_minmax(0,1fr)] gap-2">
-                        <div>
-                            <label for="country_code" class="sr-only">Country Code</label>
-                            <select id="country_code" name="country_code" class="{{ $inputClasses }} px-2.5" aria-label="Country Code"><option value="+63" selected>+63</option></select>
-                        </div>
-                        <input id="phone_number" name="phone_number" type="tel" value="{{ $localPhone }}" autocomplete="tel-national" inputmode="tel" placeholder="912 345 6789" class="{{ $inputClasses }} @error('phone_number') border-rose-400 focus:border-rose-500 focus:ring-rose-100 @enderror">
-                    </div>
-                    @error('country_code')<p class="{{ $errorClasses }}" role="alert">{{ $message }}</p>@enderror
-                    @error('phone_number')<p class="{{ $errorClasses }}" role="alert">{{ $message }}</p>@enderror
-                </div>
-                <div>
-                    <label for="current_address" class="{{ $labelClasses }}">Current Address</label>
-                    <textarea id="current_address" name="current_address" rows="4" autocomplete="street-address" placeholder="Street, barangay, city, province, ZIP" class="{{ $inputClasses }} h-24 resize-none py-2.5 @error('current_address') border-rose-400 focus:border-rose-500 focus:ring-rose-100 @enderror">{{ old('current_address', $tenant->current_address) }}</textarea>
-                    @error('current_address')<p class="{{ $errorClasses }}" role="alert">{{ $message }}</p>@enderror
-                </div>
-            </div>
-
-            <div class="mt-5 flex justify-end">
-                <button type="submit" class="{{ $buttonClasses }}" x-bind:disabled="saving">
-                    <svg x-show="saving" x-cloak class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
-                    <span x-text="saving ? 'Saving...' : 'Save Contact Information'">Save Contact Information</span>
-                </button>
-            </div>
-        </form>
+        <div class="min-w-0 space-y-5"><section class="{{ $card }}"><h2 class="text-2xl font-black text-slate-950 dark:text-white">Notification Preferences</h2><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Choose optional updates for your account.</p><div class="mt-5 space-y-4"><label class="flex items-center justify-between gap-4 rounded-xl border border-slate-100 p-4 dark:border-slate-800"><span><span class="block text-sm font-bold text-slate-800 dark:text-slate-200">Upcoming rent reminders</span><span class="mt-1 block text-xs leading-5 text-slate-500 dark:text-slate-400">Receive optional reminders for genuine unpaid bills.</span></span><span class="relative shrink-0"><input type="hidden" name="rent_reminders" value="0"><input type="checkbox" name="rent_reminders" value="1" @checked($rentReminders) class="peer sr-only"><span class="block h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-blue-600 peer-focus:ring-4 peer-focus:ring-blue-100 dark:bg-slate-700"></span><span class="pointer-events-none absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow transition peer-checked:translate-x-5"></span></span></label><label class="flex items-center justify-between gap-4 rounded-xl border border-slate-100 p-4 dark:border-slate-800"><span><span class="block text-sm font-bold text-slate-800 dark:text-slate-200">Match recommendations</span><span class="mt-1 block text-xs leading-5 text-slate-500 dark:text-slate-400">Allow optional updates about new compatible listings.</span></span><span class="relative shrink-0"><input type="hidden" name="match_recommendations" value="0"><input type="checkbox" name="match_recommendations" value="1" @checked($matchRecommendations) class="peer sr-only"><span class="block h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-blue-600 peer-focus:ring-4 peer-focus:ring-blue-100 dark:bg-slate-700"></span><span class="pointer-events-none absolute left-1 top-1 h-4 w-4 rounded-full bg-white shadow transition peer-checked:translate-x-5"></span></span></label></div><div class="mt-5 rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 text-sm leading-6 text-blue-900 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-100">Reservation decisions and recorded payment updates remain available in Notifications.</div></section>
+        <section class="{{ $card }}"><h2 class="text-2xl font-black text-slate-950 dark:text-white">Appearance</h2><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Choose how BoardMatch looks for you.</p><div class="mt-5 grid gap-3 sm:grid-cols-2"><button type="button" @click="chooseTheme('light')" :class="theme === 'light' ? 'border-blue-600 ring-4 ring-blue-100' : 'border-slate-200 dark:border-slate-700'" class="relative rounded-xl border-2 bg-slate-50 p-3 text-left transition focus:outline-none focus:ring-4 focus:ring-blue-100 dark:bg-slate-950"><span class="block h-16 rounded-lg border border-slate-200 bg-white p-2 shadow-sm"><span class="block h-2 w-2/3 rounded bg-slate-200"></span><span class="mt-2 block h-8 rounded bg-blue-50"></span></span><span class="mt-2 block text-sm font-bold text-slate-800 dark:text-slate-200">Light</span><span x-show="theme === 'light'" class="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-white">✓</span></button><button type="button" @click="chooseTheme('dark')" :class="theme === 'dark' ? 'border-blue-600 ring-4 ring-blue-100' : 'border-slate-200 dark:border-slate-700'" class="relative rounded-xl border-2 bg-slate-900 p-3 text-left transition focus:outline-none focus:ring-4 focus:ring-blue-100"><span class="block h-16 rounded-lg border border-slate-700 bg-slate-800 p-2 shadow-sm"><span class="block h-2 w-2/3 rounded bg-slate-600"></span><span class="mt-2 block h-8 rounded bg-blue-900"></span></span><span class="mt-2 block text-sm font-bold text-slate-200">Dark</span><span x-show="theme === 'dark'" class="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-blue-600 text-white">✓</span></button></div></section></div>
     </div>
-</div>
+
+    <div class="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:items-center sm:justify-end dark:border-slate-800"><button type="button" @click="resetChanges()" class="inline-flex h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-bold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200">Cancel</button><button type="submit" :disabled="saving" class="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-60"><svg x-show="saving" x-cloak class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg><span x-text="saving ? 'Saving...' : 'Save Changes'">Save Changes</span></button></div>
+</form>
+
+<div x-data="{ open: false, saving: false, showCurrent: false, showNew: false, showConfirmation: false }" @open-password-dialog.window="open = true" @keydown.escape.window="open = false" x-show="open" x-cloak class="bm-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="password-dialog-title"><div class="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900" @click.stop><div class="flex items-start justify-between gap-4"><div><h2 id="password-dialog-title" class="text-xl font-black text-slate-950 dark:text-white">Change Password</h2><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Use your current password to set a new one.</p></div><button type="button" @click="open = false" class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close password dialog">×</button></div><form method="POST" action="{{ route('user.settings.password.update') }}" class="mt-5 space-y-4" x-on:submit="saving = true">@csrf @method('PUT') @foreach ([['current_password','Current Password','showCurrent'],['password','New Password','showNew'],['password_confirmation','Confirm Password','showConfirmation']] as $field)<div><label for="dialog_{{ $field[0] }}" class="{{ $label }}">{{ $field[1] }}</label><div class="relative"><input id="dialog_{{ $field[0] }}" name="{{ $field[0] }}" :type="{{ $field[2] }} ? 'text' : 'password'" required class="{{ $input }} pr-11"><button type="button" @click="{{ $field[2] }} = !{{ $field[2] }}" class="absolute inset-y-0 right-0 w-11 text-slate-400" aria-label="Toggle {{ $field[1] }} visibility">◉</button></div>@error($field[0])<p class="{{ $error }}">{{ $message }}</p>@enderror</div>@endforeach<p class="text-xs leading-5 text-slate-500 dark:text-slate-400">At least 8 characters with uppercase, lowercase, number, and special character.</p><div class="flex justify-end gap-3 pt-2"><button type="button" @click="open = false" class="inline-flex h-11 items-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 dark:border-slate-700 dark:text-slate-200">Cancel</button><button type="submit" :disabled="saving" class="inline-flex h-11 items-center rounded-xl bg-blue-600 px-4 text-sm font-bold text-white disabled:opacity-60" x-text="saving ? 'Updating...' : 'Update Password'">Update Password</button></div></form></div></div>
 </x-user.shell>
 </x-layouts.dashboard>

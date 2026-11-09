@@ -76,7 +76,7 @@ class LocationReferenceSeeder extends Seeder
             ['psgc_code' => '112405003', 'barangay_code' => '112405003', 'barangay_name' => 'Dawis', 'city_id' => $digosCityId, 'latitude' => 6.74490000, 'longitude' => 125.35620000],
             ['psgc_code' => '112405004', 'barangay_code' => '112405004', 'barangay_name' => 'Dichosa', 'city_id' => $digosCityId, 'latitude' => 6.75120000, 'longitude' => 125.34990000],
             ['psgc_code' => '112405005', 'barangay_code' => '112405005', 'barangay_name' => 'Goma', 'city_id' => $digosCityId, 'latitude' => 6.73980000, 'longitude' => 125.34350000],
-            ['psgc_code' => '112405006', 'barangay_code' => '112405006', 'barangay_name' => 'Igpit', 'city_id' => $digosCityId, 'latitude' => 6.75770000, 'longitude' => 125.36010000],
+            ['psgc_code' => '112405006', 'barangay_code' => '112405006', 'barangay_name' => 'Igpit', 'city_id' => $digosCityId, 'latitude' => 6.73382000, 'longitude' => 125.32844000],
             ['psgc_code' => '112405007', 'barangay_code' => '112405007', 'barangay_name' => 'Kiagot', 'city_id' => $digosCityId, 'latitude' => 6.76350000, 'longitude' => 125.34120000],
             ['psgc_code' => '112405008', 'barangay_code' => '112405008', 'barangay_name' => 'Matti', 'city_id' => $digosCityId, 'latitude' => 6.75874000, 'longitude' => 125.30909000],
             ['psgc_code' => null, 'barangay_code' => 'DSSCP3M001', 'barangay_name' => 'Purok 3, Matti', 'city_id' => $digosCityId, 'latitude' => 6.76450000, 'longitude' => 125.31350000],

@@ -5,14 +5,20 @@ namespace App\Http\Controllers\User;
 use App\Http\Controllers\Controller;
 use App\Models\Reservation;
 use App\Models\UserNotification;
+use App\Services\ReservationLifecycleService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class UserNotificationController extends Controller
 {
+    public function __construct(private readonly ReservationLifecycleService $reservationLifecycle) {}
+
     private const TYPE_GROUPS = [
         'reservations' => ['reservation', 'Reservation Update', 'reservation_update'],
         'payments' => ['payment', 'Payment Confirmation'],
@@ -48,6 +54,7 @@ class UserNotificationController extends Controller
 
         $notifications = $query->paginate(12)->withQueryString();
         $this->attachReservationContexts($notifications->getCollection());
+        $this->attachActionLinks($notifications->getCollection());
         $summaryCards = $this->summaryCards($user->id);
         $actionRequiredNotifications = $this->actionRequiredNotifications($user->id, $filter, $search);
 
@@ -64,6 +71,7 @@ class UserNotificationController extends Controller
             'recentUpdateCount' => $this->recentUpdateCount($user->id),
             'recentActivity' => $this->recentActivity($user->id, $filter, $search, $sort),
             'notificationPreferences' => $this->notificationPreferences($user),
+            'reservationContext' => $this->reservationLifecycle->relevantReservationForUser($user->id),
             'filters' => [
                 'all' => 'All',
                 'unread' => 'Unread',
@@ -82,7 +90,7 @@ class UserNotificationController extends Controller
         ]);
     }
 
-    public function markAsRead(Request $request, string $id): RedirectResponse
+    public function markAsRead(Request $request, string $id): RedirectResponse|JsonResponse
     {
         $notification = $this->notificationForUser($request, $id);
         $this->duplicateGroupFor($notification)->update([
@@ -90,6 +98,12 @@ class UserNotificationController extends Controller
             'read_at' => now(),
             'updated_at' => now(),
         ]);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'unread_count' => $this->baseQueryForUser($request->user()->id)->unread()->count(),
+            ]);
+        }
 
         return back()->with('success', 'Notification marked as read.');
     }
@@ -440,6 +454,48 @@ class UserNotificationController extends Controller
                 );
             }
         }
+    }
+
+    private function attachActionLinks(Collection $notifications): void
+    {
+        foreach ($notifications as $notification) {
+            $reservationId = $this->reservationIdFor($notification);
+            $paymentId = data_get($notification->data, 'payment_id')
+                ?: data_get($notification->data, 'payment.payment_id');
+            $receiptId = data_get($notification->data, 'receipt_id')
+                ?: data_get($notification->data, 'payment.receipt_id');
+            $type = strtolower(trim((string) $notification->type));
+            $actionUrl = null;
+            $actionLabel = null;
+
+            if ($receiptId && Schema::hasTable('payment_receipts')) {
+                $receiptExists = DB::table('payment_receipts')
+                    ->where('id', $receiptId)
+                    ->where('user_id', $notification->user_id)
+                    ->exists();
+                if ($receiptExists && \Illuminate\Support\Facades\Route::has('payment-receipts.show')) {
+                    $actionUrl = route('payment-receipts.show', $receiptId);
+                    $actionLabel = 'View Receipt';
+                }
+            }
+
+            if (! $actionUrl && $reservationId) {
+                $actionUrl = route('user.reservations.index', ['reservation' => $reservationId]);
+                $actionLabel = $type === 'payment' ? 'View Payments' : 'View Reservation';
+            } elseif (! $actionUrl && $type === 'payment') {
+                $actionUrl = route('user.payments.index');
+                $actionLabel = 'View Payments';
+            }
+
+            $notification->setAttribute('action_url', $actionUrl);
+            $notification->setAttribute('action_label', $actionLabel);
+            $notification->setAttribute('display_created_at', $this->manilaDate($notification->created_at));
+        }
+    }
+
+    private function manilaDate($value): ?Carbon
+    {
+        return $value ? Carbon::parse($value)->timezone('Asia/Manila') : null;
     }
 
     private function reservationIdFor(UserNotification $notification): ?int

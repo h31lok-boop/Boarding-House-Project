@@ -91,9 +91,9 @@
         <div class="mx-auto max-w-[1540px] space-y-5 px-4 py-5 sm:px-6 2xl:px-8">
             {{-- Show the workspace header only on the tenant dashboard. --}}
             @if (request()->routeIs('user.dashboard'))
-            <header data-tenant-workspace-header class="sticky top-2.5 z-[60] rounded-[1.1rem] border border-white/80 bg-white px-3 py-2.5 shadow-[0_14px_30px_rgba(15,23,42,0.08)] dark:border-slate-800/90 dark:bg-slate-950 sm:px-3.5">
+            <header data-tenant-workspace-header class="rounded-[1.1rem] border border-white/80 bg-white px-3 py-2.5 shadow-[0_14px_30px_rgba(15,23,42,0.08)] dark:border-slate-800/90 dark:bg-slate-950 sm:px-3.5">
                 <div class="flex min-w-0 items-center justify-between gap-2.5">
-                    <div class="flex min-w-0 items-center gap-2.5">
+                    <div data-tenant-workspace-title class="flex min-w-0 items-center gap-2.5">
                         <button type="button" class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-400/70 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 md:hidden" data-sidebar-toggle aria-controls="userSidebar" aria-expanded="false" aria-label="Open navigation menu">
                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16M4 12h16M4 18h16"/></svg>
                         </button>
@@ -103,7 +103,7 @@
                         </div>
                     </div>
 
-                    <div class="flex shrink-0 items-center gap-1.5 sm:gap-2">
+                    <div data-tenant-workspace-actions class="flex shrink-0 items-center gap-1.5 sm:gap-2">
                         <a href="{{ $r('user.messages.index') }}" data-tenant-message-link class="relative inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800 dark:hover:text-blue-300" aria-label="Messages, {{ $messageCount }} unread" title="Messages">
                             <svg class="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M5 6h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H9l-5 4v-4H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z"/><path stroke-linecap="round" stroke-width="1.8" d="M8 10h8M8 14h5"/></svg>
                             @if ($messageCount > 0)
@@ -113,7 +113,7 @@
                         <x-header-notification-link :href="$r('user.notifications.index')" :mark-read-url="$r('user.notifications.headerRead')" :count="$notificationsCount" />
                         <x-theme-icon-toggle />
 
-                        <div class="relative z-[70]" x-data="{ open: false }">
+                        <div data-tenant-account-menu class="relative z-[70]" x-data="{ open: false }">
                             <button type="button" @click="open = !open" class="flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white p-1 shadow-sm transition hover:border-blue-200 hover:bg-blue-50/60 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800 sm:h-11 sm:min-w-[10.5rem] sm:rounded-2xl sm:px-2" aria-haspopup="menu" :aria-expanded="open">
                                 <span class="h-7 w-7 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-blue-50 shadow-sm dark:border-slate-700 sm:h-9 sm:w-9">
                                     <img src="{{ $accountImageUrl }}" alt="{{ $currentUser?->name ?? 'Tenant account' }}" class="h-full w-full object-cover">

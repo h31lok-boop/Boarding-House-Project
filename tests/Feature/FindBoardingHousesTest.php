@@ -201,6 +201,36 @@ test('manual search uses normal filters without unrelated fallback results', fun
         ->assertDontSee('Aplaya Search Result');
 });
 
+test('maximum monthly budget accepts a positive amount, preserves it, and excludes higher rents', function () {
+    $user = createBrowseUser();
+
+    createAvailableBrowseHouse([
+        'name' => 'Within Budget House',
+        'price' => 3500,
+        'monthly_payment' => '3500',
+    ]);
+    createAvailableBrowseHouse([
+        'name' => 'Over Budget House',
+        'price' => 7000,
+        'monthly_payment' => '7000',
+    ]);
+
+    $response = $this->actingAs($user)->get(route('user.boarding-houses.index', [
+        'tab' => 'all',
+        'max_price' => '3500',
+    ]));
+
+    $response->assertOk()
+        ->assertSee('Within Budget House')
+        ->assertDontSee('Over Budget House')
+        ->assertSee('value="3500"', false);
+
+    $this->actingAs($user)
+        ->get(route('user.boarding-houses.index', ['tab' => 'all', 'max_price' => '0']))
+        ->assertRedirect()
+        ->assertSessionHasErrors('max_price');
+});
+
 test('tenant quick view displays the property owner and contact information', function () {
     $tenant = createBrowseUser();
     $owner = User::factory()->verifiedOwner()->create([

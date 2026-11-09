@@ -72,6 +72,15 @@ class HelpCenterController extends Controller
         ));
     }
 
+    public function show(Request $request, SupportRequest $supportRequest): View
+    {
+        $tenant = $request->user();
+        abort_unless($tenant && $tenant->isUser(), 403);
+        abort_unless((int) $supportRequest->user_id === (int) $tenant->id, 404);
+
+        return view('user.help-ticket', compact('supportRequest'));
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $tenant = $request->user();
@@ -87,6 +96,8 @@ class HelpCenterController extends Controller
         ]);
 
         $validated['user_id'] = $tenant->id;
+        $validated['full_name'] = $tenant->name;
+        $validated['email'] = $tenant->email;
         $validated['status'] = 'Pending';
         $validated['screenshot'] = $request->file('screenshot')?->store('support-screenshots', 'public');
 

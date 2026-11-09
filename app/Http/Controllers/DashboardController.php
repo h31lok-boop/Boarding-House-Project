@@ -8,6 +8,7 @@ use App\Models\Room;
 use App\Models\User;
 use App\Services\BoardingHouseRecommendationService;
 use App\Services\ReservationLifecycleService;
+use App\Services\TenantBillingService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -20,6 +21,7 @@ class DashboardController extends Controller
     public function __construct(
         private readonly BoardingHouseRecommendationService $recommendationService,
         private readonly ReservationLifecycleService $reservationLifecycle,
+        private readonly TenantBillingService $tenantBilling,
     ) {}
 
     public function index()
@@ -114,7 +116,7 @@ class DashboardController extends Controller
             : null;
 
         $data = array_merge(
-            $this->buildTenantDashboardData($user),
+            $this->buildTenantDashboardData($user, $reservation),
             [
                 'aiRecommendations' => $aiRecommendations,
                 'hasPreferences' => $hasPreferences,
@@ -145,9 +147,10 @@ class DashboardController extends Controller
         $isPaid = in_array($paymentStatus, ['paid', 'approved', 'settled'], true);
         $isExpired = $status === 'expired';
 
+        $isApproved = $this->reservationLifecycle->isApprovedStatus($reservation->status);
         $statusLabel = match ($status) {
-            'pending' => 'Pending Review',
-            'reserved', 'approved', 'confirmed' => 'Confirmed',
+            'pending', 'reserved' => 'Pending owner approval',
+            'approved', 'confirmed' => 'Confirmed',
             'expired' => 'Expired',
             default => Str::headline($status ?: 'Pending'),
         };
@@ -161,11 +164,12 @@ class DashboardController extends Controller
         return [
             'id' => $reservation->id,
             'house_name' => $reservation->boardingHouse?->name ?? 'Boarding house',
-            'address' => trim((string) ($reservation->boardingHouse?->full_address ?: $reservation->boardingHouse?->address ?? '')),
-            'room_no' => $reservation->room?->room_no,
+            'address' => trim((string) ($reservation->boardingHouse?->canonical_address ?? '')),
+            'room_no' => $reservation->room?->effective_room_number ?? $reservation->room?->room_no ?? $reservation->room?->name,
             'room_description' => trim((string) ($reservation->room?->description ?? '')),
             'status' => $status,
             'status_label' => $statusLabel,
+            'is_approved' => $isApproved,
             'is_expired' => $isExpired,
             'is_paid' => $isPaid,
             'check_in_date' => $reservation->check_in_date?->format('M d, Y'),
@@ -182,8 +186,6 @@ class DashboardController extends Controller
         }
 
         $status = strtolower(trim((string) ($reservation->status ?? '')));
-        $paymentStatus = strtolower(trim((string) ($reservation->payment_status ?? '')));
-        $isPaid = in_array($paymentStatus, ['paid', 'approved', 'settled'], true);
         $houseName = $reservation->boardingHouse?->name ?? 'your boarding house';
 
         if ($status === 'expired') {
@@ -191,16 +193,16 @@ class DashboardController extends Controller
                 'title' => 'Reservation expired',
                 'detail' => 'Your reservation for '.$houseName.' expired and the room was released. Browse matches to reserve again.',
                 'level' => 'danger',
-                'href' => route('user.reservations.index'),
+                'href' => route('user.reservations.index', ['reservation' => $reservation->id]),
             ];
         }
 
-        if (in_array($status, ['pending', 'reserved'], true) && ! $isPaid && $reservation->expires_at?->isFuture()) {
+        if (in_array($status, ['pending', 'reserved'], true)) {
             return [
-                'title' => 'Reservation hold expiring',
-                'detail' => 'Your hold on '.$houseName.' expires '.$reservation->expires_at->diffForHumans().'. Settle the payment to keep the room.',
-                'level' => 'warning',
-                'href' => route('user.payments.index'),
+                'title' => 'Pending owner approval',
+                'detail' => "Your reservation has been submitted. Please wait for the owner's confirmation.",
+                'level' => 'info',
+                'href' => route('user.reservations.index', ['reservation' => $reservation->id]),
             ];
         }
 
@@ -800,206 +802,116 @@ class DashboardController extends Controller
         ];
     }
 
-    private function buildTenantDashboardData(User $tenant): array
+    private function buildTenantDashboardData(User $tenant, ?Reservation $reservation = null): array
     {
-        $today = now()->startOfDay();
+        $today = $this->tenantBilling->now()->startOfDay();
         $monthStart = $today->copy()->startOfMonth();
         $monthEnd = $today->copy()->endOfMonth();
 
-        $houseName = trim((string) ($tenant->institution_name ?? ''));
-        $roomNumber = trim((string) ($tenant->room_number ?? ''));
+        $hasApprovedReservation = $reservation && $this->reservationLifecycle->isApprovedStatus($reservation->status);
+        $boardingHouse = $hasApprovedReservation ? $reservation->boardingHouse : null;
+        $room = $hasApprovedReservation ? $reservation->room : null;
+        $houseName = $boardingHouse?->name;
+        $roomNumber = $room?->effective_room_number ?? $room?->room_no ?? $room?->name;
+        $agreedRent = $hasApprovedReservation ? ($room?->price ?? $reservation?->total_amount) : null;
+        $depositAmount = $hasApprovedReservation ? ($boardingHouse?->security_deposit_amount ?? $boardingHouse?->security_deposit) : null;
 
-        $boardingHouse = null;
-        if ($houseName !== '') {
-            $boardingHouse = BoardingHouse::query()
-                ->whereRaw('LOWER(name) = ?', [strtolower($houseName)])
-                ->first();
-        }
+        // Rent reminders are only meaningful for a confirmed, active tenancy.
+        // A reservation being approved/confirmed is not proof that the tenant
+        // has moved in; the tenancy record and its confirmed move-in date are.
+        $activeTenancy = null;
+        if ($hasApprovedReservation && Schema::hasTable('tenants')
+            && Schema::hasColumn('tenants', 'user_id')
+            && Schema::hasColumn('tenants', 'move_in_date')) {
+            $tenancyQuery = DB::table('tenants')
+                ->where('user_id', $tenant->id)
+                ->whereNotNull('move_in_date')
+                ->whereDate('move_in_date', '<=', $today);
 
-        $room = null;
-        if (
-            $roomNumber !== ''
-            && $boardingHouse
-            && Schema::hasTable('rooms')
-            && Schema::hasColumn('rooms', 'boarding_house_id')
-            && Schema::hasColumn('rooms', 'room_no')
-        ) {
-            $room = Room::query()
-                ->where('boarding_house_id', $boardingHouse->id)
-                ->whereRaw('LOWER(room_no) = ?', [strtolower($roomNumber)])
-                ->first();
-        }
-
-        if (
-            ! $room
-            && $roomNumber !== ''
-            && Schema::hasTable('rooms')
-            && Schema::hasColumn('rooms', 'room_no')
-        ) {
-            $room = Room::query()
-                ->whereHas('boardingHouse')
-                ->whereRaw('LOWER(room_no) = ?', [strtolower($roomNumber)])
-                ->latest()
-                ->first();
-        }
-
-        $monthlyAmount = $this->parseMoneyToFloat($boardingHouse?->monthly_payment);
-        $billingDay = $tenant->move_in_date ? Carbon::parse($tenant->move_in_date)->day : 5;
-
-        $currentDueDate = $today->copy()->startOfMonth();
-        $currentDueDate->day(min($billingDay, $currentDueDate->daysInMonth));
-
-        $fallbackNextDueDate = $currentDueDate->copy();
-        if ($fallbackNextDueDate->lt($today)) {
-            $fallbackNextDueDate->addMonthNoOverflow();
-        }
-
-        $paymentStatuses = [
-            'paid' => ['paid', 'completed', 'settled'],
-            'excluded' => ['cancelled', 'canceled', 'void'],
-        ];
-
-        $paymentRows = collect();
-        $canUsePaymentsTable = Schema::hasTable('payments')
-            && Schema::hasColumn('payments', 'amount')
-            && Schema::hasColumn('payments', 'due_date');
-
-        if ($canUsePaymentsTable) {
-            $tenantPaymentColumn = null;
-            foreach (['user_id', 'tenant_id'] as $column) {
-                if (Schema::hasColumn('payments', $column)) {
-                    $tenantPaymentColumn = $column;
-                    break;
-                }
+            if (Schema::hasColumn('tenants', 'status')) {
+                $tenancyQuery->whereIn(DB::raw('LOWER(status)'), [
+                    'active', 'moved_in', 'moved-in', 'checked_in', 'checked-in',
+                    'checkedin', 'currently_staying', 'currently-staying', 'staying',
+                ]);
             }
 
-            if ($tenantPaymentColumn) {
-                $statusColumn = Schema::hasColumn('payments', 'status');
-                $paidDateColumn = null;
-                foreach (['paid_at', 'payment_date', 'updated_at'] as $column) {
-                    if (Schema::hasColumn('payments', $column)) {
-                        $paidDateColumn = $column;
-                        break;
-                    }
-                }
-
-                $select = ['amount', 'due_date'];
-                if ($statusColumn) {
-                    $select[] = 'status';
-                }
-                if ($paidDateColumn) {
-                    $select[] = $paidDateColumn;
-                }
-
-                $paymentRows = DB::table('payments')
-                    ->where($tenantPaymentColumn, $tenant->id)
-                    ->orderBy('due_date')
-                    ->get($select)
-                    ->map(function ($row) use ($statusColumn, $paidDateColumn) {
-                        return [
-                            'amount' => (float) ($row->amount ?? 0),
-                            'status' => $statusColumn ? strtolower(trim((string) ($row->status ?? ''))) : '',
-                            'due_date' => empty($row->due_date) ? null : Carbon::parse($row->due_date)->startOfDay(),
-                            'paid_date' => ($paidDateColumn && ! empty($row->{$paidDateColumn}))
-                                ? Carbon::parse($row->{$paidDateColumn})->startOfDay()
-                                : null,
-                        ];
-                    })
-                    ->filter(fn ($row) => $row['due_date'] instanceof Carbon)
-                    ->values();
-            }
-        }
-
-        $isPaidPayment = function (array $payment) use ($paymentStatuses): bool {
-            return in_array($payment['status'], $paymentStatuses['paid'], true);
-        };
-        $isExcludedPayment = function (array $payment) use ($paymentStatuses): bool {
-            return in_array($payment['status'], $paymentStatuses['excluded'], true);
-        };
-        $isOpenPayment = function (array $payment) use ($isPaidPayment, $isExcludedPayment): bool {
-            return ! $isPaidPayment($payment) && ! $isExcludedPayment($payment);
-        };
-
-        $nextPaymentDate = $fallbackNextDueDate;
-        $nextPaymentAmount = $monthlyAmount;
-        $dueThisMonthAmount = $monthlyAmount;
-        $paidThisMonthAmount = 0.0;
-        $outstandingBalance = 0.0;
-        $hasOverdue = false;
-
-        if ($paymentRows->isNotEmpty()) {
-            $openPayments = $paymentRows
-                ->filter($isOpenPayment)
-                ->sortBy('due_date')
-                ->values();
-
-            $nextPayment = $openPayments->first(fn ($payment) => $payment['due_date']->gte($today))
-                ?? $openPayments->first();
-
-            if ($nextPayment) {
-                $nextPaymentDate = $nextPayment['due_date'];
-                $nextPaymentAmount = (float) $nextPayment['amount'];
+            if (Schema::hasColumn('tenants', 'move_out_date')) {
+                $tenancyQuery->where(function ($query) use ($today) {
+                    $query->whereNull('move_out_date')
+                        ->orWhereDate('move_out_date', '>', $today);
+                });
             }
 
-            $dueThisMonthAmount = $openPayments
-                ->filter(fn ($payment) => $payment['due_date']->between($monthStart, $monthEnd))
-                ->sum('amount');
-
-            $paidThisMonthAmount = $paymentRows
-                ->filter(function ($payment) use ($isPaidPayment, $monthStart, $monthEnd) {
-                    if (! $isPaidPayment($payment)) {
-                        return false;
-                    }
-
-                    $paymentDate = $payment['paid_date'] ?? $payment['due_date'];
-
-                    return $paymentDate && $paymentDate->between($monthStart, $monthEnd);
-                })
-                ->sum('amount');
-
-            $outstandingBalance = $openPayments
-                ->filter(fn ($payment) => $payment['due_date']->lte($today))
-                ->sum('amount');
-
-            $hasOverdue = $openPayments
-                ->contains(fn ($payment) => $payment['due_date']->lt($today));
-        } else {
-            if ($tenant->is_active && $monthlyAmount > 0 && $currentDueDate->lte($today)) {
-                $outstandingBalance = $monthlyAmount;
-            }
-
-            $hasOverdue = $tenant->is_active
-                && $monthlyAmount > 0
-                && $today->gt($currentDueDate->copy()->addDays(7));
+            $activeTenancy = $tenancyQuery->latest('id')->first();
         }
 
-        if (! $tenant->is_active) {
-            $outstandingBalance = 0.0;
-            $hasOverdue = false;
-            $dueThisMonthAmount = $monthlyAmount;
-        }
+        $isActiveTenancy = (bool) $activeTenancy;
+
+        $approvedHouseIds = $hasApprovedReservation && $boardingHouse
+            ? collect([(int) $boardingHouse->id])
+            : collect();
+        $paymentRows = $this->tenantBilling->paymentsForTenant(
+            $tenant->id,
+            $approvedHouseIds,
+            $hasApprovedReservation ? (int) $reservation->id : null
+        );
+        $advanceCoverage = $this->tenantBilling->advanceCoverage($paymentRows);
+        $rentRows = $paymentRows->reject(fn (array $payment) => $payment['is_advance_rent'] ?? false)->values();
+        $today = $this->tenantBilling->now()->startOfDay();
+        $monthStart = $today->copy()->startOfMonth();
+        $monthEnd = $today->copy()->endOfMonth();
+        $isExcludedPayment = fn (array $payment): bool => $this->tenantBilling->isExcluded($payment);
+        $isOpenPayment = fn (array $payment): bool => $this->tenantBilling->isOpen($payment);
+        $hasRecordedCash = $paymentRows->contains(fn (array $payment) => ! $isExcludedPayment($payment) && (float) ($payment['cash_received'] ?? 0) > 0);
+
+        $openPayments = $rentRows->filter($isOpenPayment)->sortBy('due_date')->values();
+        $nextPayment = $openPayments->first();
+        $nextPaymentDate = $nextPayment['due_date'] ?? null;
+        $nextPaymentAmount = $nextPayment['remaining_amount'] ?? 0.0;
+        $dueThisMonthAmount = $openPayments
+            ->filter(fn ($payment) => $payment['due_date']?->betweenIncluded($monthStart, $monthEnd))
+            ->sum('remaining_amount');
+        $paidThisMonthAmount = $paymentRows
+            ->filter(fn ($payment) => $payment['paid_date']?->betweenIncluded($monthStart, $monthEnd))
+            ->sum('cash_received');
+        $outstandingBalance = $openPayments->sum('remaining_amount');
+        $overduePayments = $openPayments->filter(fn ($payment) => $payment['due_date']?->lt($today));
+        $overdueBalance = $overduePayments->sum('remaining_amount');
+        $oldestOverdueDate = $overduePayments->sortBy('due_date')->first()['due_date'] ?? null;
+        $remainingThisMonthAmount = $openPayments
+            ->filter(fn ($payment) => $payment['due_date']?->betweenIncluded($monthStart, $monthEnd))
+            ->sum('remaining_amount');
 
         $bookingInfo = [
-            'boarding_house' => $boardingHouse?->name ?: 'No active booking',
-            'room_number' => $roomNumber !== '' ? $roomNumber : ($room?->room_no ?: 'Not assigned'),
-            'address' => trim((string) ($boardingHouse?->full_address ?: $boardingHouse?->address ?? '')),
+            'boarding_house' => $boardingHouse?->name ?: 'No approved reservation yet',
+            'room_number' => $roomNumber ?: 'Not assigned',
+            'address' => trim((string) ($boardingHouse?->canonical_address ?? '')),
             'description' => trim((string) ($room?->description ?: $boardingHouse?->description ?: '')),
-            'move_in_date' => $tenant->move_in_date ? Carbon::parse($tenant->move_in_date)->format('M d, Y') : null,
+            'move_in_date' => $reservation?->check_in_date?->format('M d, Y')
+                ?? ($tenant->move_in_date ? Carbon::parse($tenant->move_in_date)->format('M d, Y') : null),
+            'agreed_rent' => $agreedRent !== null ? (float) $agreedRent : null,
+            'deposit_amount' => $depositAmount !== null ? (float) $depositAmount : null,
         ];
 
         $paymentStatus = [
-            'label' => 'Paid',
-            'badge' => 'bg-emerald-100 text-emerald-700 border-emerald-200',
-            'note' => 'Your account is in good standing.',
+            'label' => 'No billing records yet',
+            'badge' => 'bg-slate-100 text-slate-700 border-slate-200',
+            'note' => 'No billing records or payments have been recorded.',
         ];
 
-        if (! $tenant->is_active) {
+        if (! $hasApprovedReservation) {
             $paymentStatus = [
-                'label' => 'Pending Approval',
+                'label' => 'Not scheduled',
                 'badge' => 'bg-amber-100 text-amber-700 border-amber-200',
-                'note' => 'Your booking approval is still in review.',
+                'note' => 'No approved reservation yet.',
             ];
-        } elseif ($hasOverdue) {
+        } elseif ($rentRows->isEmpty() && ! $hasRecordedCash) {
+            $paymentStatus = [
+                'label' => 'No billing records yet',
+                'badge' => 'bg-slate-100 text-slate-700 border-slate-200',
+                'note' => 'No billing records or payments have been recorded.',
+            ];
+        } elseif ($overdueBalance > 0) {
             $paymentStatus = [
                 'label' => 'Overdue',
                 'badge' => 'bg-rose-100 text-rose-700 border-rose-200',
@@ -1011,14 +923,32 @@ class DashboardController extends Controller
                 'badge' => 'bg-amber-100 text-amber-700 border-amber-200',
                 'note' => 'You have an unpaid balance due this billing cycle.',
             ];
+        } elseif ($hasRecordedCash) {
+            $paymentStatus = [
+                'label' => 'Paid',
+                'badge' => 'bg-emerald-100 text-emerald-700 border-emerald-200',
+                'note' => 'Recorded payments cover the current billing records.',
+            ];
         }
 
         $billingBreakdown = [
             'outstanding_balance' => $outstandingBalance,
             'due_this_month' => $dueThisMonthAmount,
             'paid_this_month' => $paidThisMonthAmount,
-            'next_due_date' => $nextPaymentDate?->format('M d, Y') ?? 'Not scheduled',
+            'remaining_this_month' => $remainingThisMonthAmount,
+            'has_data' => $paymentRows->contains(fn ($payment) => ! $isExcludedPayment($payment)),
+            'has_recorded_payment' => $hasRecordedCash,
+            'overdue_balance' => $overdueBalance,
+            'oldest_overdue_date' => $oldestOverdueDate?->format('M d, Y'),
+            'next_due_date' => $nextPaymentDate?->format('M d, Y') ?? 'Next billing date not set',
             'next_due_amount' => $nextPaymentAmount,
+            'billing_schedule_available' => $paymentRows->contains(fn ($payment) => ! $isExcludedPayment($payment)),
+            'advance_rent' => [
+                'amount' => round((float) $advanceCoverage->sum('amount'), 2),
+                'periods' => $advanceCoverage->values()->all(),
+                'full_period_count' => $advanceCoverage->filter(fn ($period) => $period['full'] ?? false)->count(),
+                'covered_through' => $advanceCoverage->sortBy('end')->last()['end'] ?? null,
+            ],
         ];
 
         $chartLabels = [];
@@ -1028,85 +958,62 @@ class DashboardController extends Controller
         for ($offset = 5; $offset >= 0; $offset--) {
             $rangeStart = $today->copy()->startOfMonth()->subMonths($offset);
             $rangeEnd = $rangeStart->copy()->endOfMonth();
-            $chartLabels[] = $rangeStart->format('M');
+            $chartLabels[] = $rangeStart->format('M Y');
 
-            if ($paymentRows->isNotEmpty()) {
-                $totalBilledToDate = $paymentRows
+            if ($rentRows->isNotEmpty() || $paymentRows->isNotEmpty()) {
+                $totalBilledToDate = $rentRows
                     ->filter(function ($payment) use ($isExcludedPayment, $rangeEnd) {
-                        return ! $isExcludedPayment($payment) && $payment['due_date']->lte($rangeEnd);
+                        return ! $isExcludedPayment($payment)
+                            && $payment['due_date']
+                            && $payment['due_date']->lte($rangeEnd);
                     })
-                    ->sum('amount');
+                    ->sum('charged_amount');
 
-                $totalPaidToDate = $paymentRows
-                    ->filter(function ($payment) use ($isPaidPayment, $rangeEnd) {
-                        if (! $isPaidPayment($payment)) {
-                            return false;
-                        }
-
-                        $paymentDate = $payment['paid_date'] ?? $payment['due_date'];
-
-                        return $paymentDate && $paymentDate->lte($rangeEnd);
+                $totalPaidToDate = $rentRows
+                    ->filter(function ($payment) use ($isExcludedPayment, $rangeEnd) {
+                        return ! $isExcludedPayment($payment)
+                            && $payment['paid_date']
+                            && $payment['paid_date']->lte($rangeEnd);
                     })
-                    ->sum('amount');
+                    ->sum('paid_amount');
 
                 $balanceTrend[] = round(max($totalBilledToDate - $totalPaidToDate, 0), 2);
 
                 $paymentsMadeTrend[] = round($paymentRows
-                    ->filter(function ($payment) use ($isPaidPayment, $rangeStart, $rangeEnd) {
-                        if (! $isPaidPayment($payment)) {
-                            return false;
-                        }
-
-                        $paymentDate = $payment['paid_date'] ?? $payment['due_date'];
-
-                        return $paymentDate && $paymentDate->between($rangeStart, $rangeEnd);
+                    ->filter(function ($payment) use ($isExcludedPayment, $rangeStart, $rangeEnd) {
+                        return ! $isExcludedPayment($payment)
+                            && $payment['paid_date']
+                            && $payment['paid_date']->betweenIncluded($rangeStart, $rangeEnd);
                     })
-                    ->sum('amount'), 2);
+                    ->sum('cash_received'), 2);
 
                 continue;
             }
-
-            $isMoveInCovered = ! $tenant->move_in_date
-                || Carbon::parse($tenant->move_in_date)->startOfDay()->lte($rangeEnd);
-
-            if (! $tenant->is_active || ! $isMoveInCovered || $monthlyAmount <= 0) {
-                $balanceTrend[] = 0;
-                $paymentsMadeTrend[] = 0;
-
-                continue;
-            }
-
-            if ($offset === 0) {
-                $balanceTrend[] = round($outstandingBalance, 2);
-                $paymentsMadeTrend[] = round(max($monthlyAmount - $outstandingBalance, 0), 2);
-
-                continue;
-            }
-
             $balanceTrend[] = 0;
-            $paymentsMadeTrend[] = round($monthlyAmount, 2);
+            $paymentsMadeTrend[] = 0;
         }
 
         $alerts = [];
         $dashboardRoute = route('user.dashboard');
 
-        if (! $tenant->is_active) {
-            $alerts[] = [
-                'title' => 'Pending approval',
-                'detail' => 'Your booking approval is still pending.',
-                'level' => 'warning',
-                'href' => route('profile.edit'),
-            ];
-        }
-
-        if ($hasOverdue && $outstandingBalance > 0) {
+        if ($overdueBalance > 0) {
             $alerts[] = [
                 'title' => 'Overdue payment',
-                'detail' => 'Outstanding PHP '.number_format($outstandingBalance, 2).' requires immediate payment.',
+                'detail' => 'Overdue PHP '.number_format($overdueBalance, 2)
+                    .' since '.($oldestOverdueDate?->format('M d, Y') ?? 'the recorded due date').'.',
                 'level' => 'danger',
                 'href' => $dashboardRoute.'#billing-breakdown',
             ];
-        } elseif ($nextPaymentDate && $nextPaymentDate->diffInDays($today) <= 7) {
+        } elseif (
+            $isActiveTenancy
+            && $paymentRows->isNotEmpty()
+            && $outstandingBalance > 0
+            && $nextPaymentDate
+            && $nextPaymentDate->betweenIncluded(
+                $today,
+                $today->copy()->addDays(max((int) config('dssc.payment_reminder_days', 7), 0))
+            )
+        ) {
             $alerts[] = [
                 'title' => 'Due date approaching',
                 'detail' => 'Next payment of PHP '.number_format($nextPaymentAmount, 2).' is due on '.$nextPaymentDate->format('M d, Y').'.',
@@ -2129,28 +2036,7 @@ class DashboardController extends Controller
             return (float) ($query->sum('amount') ?? 0);
         }
 
-        $approvedTenants = $this->tenantUsersQuery()
-            ->where('is_active', true)
-            ->where(function ($query) use ($end) {
-                $query->whereNull('move_in_date')
-                    ->orWhereDate('move_in_date', '<=', $end->toDateString());
-            })
-            ->get(['institution_name', 'move_in_date']);
-
-        $rentByHouse = BoardingHouse::query()
-            ->get(['name', 'monthly_payment'])
-            ->mapWithKeys(function (BoardingHouse $house) {
-                $key = strtolower(trim((string) $house->name));
-
-                return [$key => $this->parseMoneyToFloat($house->monthly_payment)];
-            })
-            ->all();
-
-        $monthlyEstimate = $this->estimateRevenueForTenants($approvedTenants, $rentByHouse, $end);
-        $daysInMonth = max($end->daysInMonth, 1);
-        $coveredDays = max($start->diffInDays($end) + 1, 1);
-
-        return $monthlyEstimate * ($coveredDays / $daysInMonth);
+        return 0.0;
     }
 
     private function estimateRevenueForTenants(Collection $tenants, array $rentByHouse, Carbon $asOf): float
@@ -2210,57 +2096,7 @@ class DashboardController extends Controller
             ];
         }
 
-        // Fallback estimate when dedicated billing records are not available.
-        $approvedTenants = $this->tenantUsersQuery()
-            ->where('is_active', true)
-            ->get(['institution_name', 'move_in_date']);
-
-        $houseRentMap = BoardingHouse::query()
-            ->get(['name', 'monthly_payment'])
-            ->mapWithKeys(function (BoardingHouse $house) {
-                $key = strtolower(trim((string) $house->name));
-
-                return [$key => $this->parseMoneyToFloat($house->monthly_payment)];
-            })
-            ->all();
-
-        $today = now()->startOfDay();
-        $dueCount = 0;
-        $dueAmount = 0.0;
-        $overdueCount = 0;
-        $overdueAmount = 0.0;
-
-        foreach ($approvedTenants as $tenant) {
-            $houseKey = strtolower(trim((string) ($tenant->institution_name ?? '')));
-            $rent = $houseRentMap[$houseKey] ?? 0.0;
-
-            if ($rent <= 0) {
-                continue;
-            }
-
-            $billingDay = $tenant->move_in_date
-                ? Carbon::parse($tenant->move_in_date)->day
-                : 5;
-
-            $dueDate = $today->copy()->startOfMonth();
-            $dueDate->day(min($billingDay, $dueDate->daysInMonth));
-
-            if ($today->lt($dueDate)) {
-                continue;
-            }
-
-            if ($today->lte($dueDate->copy()->addDays(7))) {
-                $dueCount++;
-                $dueAmount += $rent;
-
-                continue;
-            }
-
-            $overdueCount++;
-            $overdueAmount += $rent;
-        }
-
-        return [$dueCount, $dueAmount, $overdueCount, $overdueAmount];
+        return [0, 0.0, 0, 0.0];
     }
 
     private function computeMaintenanceCounts(): array

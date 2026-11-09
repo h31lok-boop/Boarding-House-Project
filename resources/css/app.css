@@ -19,6 +19,419 @@
     --shadow-soft: 0 12px 30px rgba(15, 23, 42, 0.06);
 }
 
+/* Notifications keeps the feed and summary cards in separate desktop tracks.
+   The explicit rule prevents shared dashboard utilities from collapsing the
+   page into one vertical stack when the route is rendered at desktop width. */
+.user-notifications-page .notifications-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 2.3fr) minmax(280px, 1fr);
+    gap: 24px;
+    align-items: start;
+}
+
+.user-notifications-page .notifications-feed,
+.user-notifications-page .notifications-sidebar {
+    min-width: 0;
+}
+
+.user-notifications-page .notifications-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+@media (max-width: 900px) {
+    .user-notifications-page .notifications-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* Desktop notifications fit the viewport; only the feed becomes scrollable as
+   the number of notifications grows. Keep this route scoped so other tenant
+   dashboards retain their normal page flow. */
+@media (min-width: 901px) {
+    .user-dashboard-main:has(.user-notifications-page) {
+        overflow-y: hidden;
+    }
+
+    .user-dashboard-main:has(.user-notifications-page) > div {
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+        gap: 0;
+        padding: 20px 24px;
+    }
+
+    .user-notifications-page {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        gap: 12px !important;
+        min-height: 0;
+    }
+
+    .user-notifications-page > header,
+    .user-notifications-page > form,
+    .user-notifications-page > nav {
+        flex: 0 0 auto;
+    }
+
+    .user-notifications-page > header {
+        gap: 12px;
+    }
+
+    .user-notifications-page > header p {
+        font-size: 14px;
+    }
+
+    .user-notifications-page > form {
+        padding: 6px;
+    }
+
+    .user-notifications-page > form input,
+    .user-notifications-page > form select,
+    .user-notifications-page > header button {
+        height: 40px;
+    }
+
+    .user-notifications-page > nav a {
+        height: 38px;
+        padding-inline: 16px;
+    }
+
+    .user-notifications-page .notifications-layout {
+        flex: 1 1 auto;
+        gap: 16px;
+        grid-template-columns: minmax(0, 2.3fr) minmax(280px, 1fr);
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .user-notifications-page .notifications-feed {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .user-notifications-page [data-notification-scroll] {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        scrollbar-gutter: stable;
+    }
+
+    .user-notifications-page .notifications-feed-footer {
+        flex: 0 0 auto;
+        padding-block: 12px;
+    }
+
+    .user-notifications-page [data-notification-card] {
+        padding: 16px 20px;
+    }
+
+    .user-notifications-page [data-notification-card] p.text-lg {
+        font-size: 16px;
+    }
+
+    .user-notifications-page [data-notification-card] p.text-\[15px\] {
+        font-size: 14px;
+        line-height: 1.45;
+    }
+
+    .user-notifications-page .notifications-sidebar {
+        gap: 12px;
+    }
+
+    .user-notifications-page .notifications-sidebar > section {
+        padding: 16px 20px;
+    }
+
+    .user-notifications-page .notifications-sidebar h2 {
+        font-size: 18px;
+    }
+
+    .user-notifications-page .notifications-sidebar dl {
+        margin-top: 8px;
+    }
+
+    .user-notifications-page .notifications-sidebar dl > div {
+        padding-block: 8px;
+    }
+
+    .user-notifications-page .notifications-sidebar dd {
+        font-size: 18px;
+    }
+
+    .user-notifications-page .notifications-sidebar > section:first-child > div:last-child {
+        margin-top: 10px;
+        padding: 10px 12px;
+    }
+
+    .user-notifications-page .notifications-sidebar > section:first-child > div:last-child p {
+        font-size: 12px;
+        line-height: 1.45;
+    }
+
+    .user-notifications-page .notifications-sidebar > section:last-child > div {
+        margin-top: 8px;
+    }
+
+    .user-notifications-page .notifications-sidebar a {
+        padding-block: 8px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 900px), (max-height: 700px) {
+    .user-dashboard-main:has(.user-notifications-page) {
+        overflow-y: auto;
+    }
+
+    .user-notifications-page .notifications-layout {
+        overflow: visible;
+    }
+
+    .user-notifications-page [data-notification-scroll] {
+        overflow: visible;
+    }
+}
+
+/* Compact tenant settings and payments surfaces. These rules are route-scoped
+   and preserve normal document flow on mobile and short desktop viewports. */
+@media (min-width: 901px) and (min-height: 701px) {
+    .user-dashboard-main:has(.user-settings-page),
+    .user-dashboard-main:has(.user-payments-page) {
+        overflow-y: hidden;
+    }
+
+    .user-dashboard-main:has(.user-settings-page) > div,
+    .user-dashboard-main:has(.user-payments-page) > div {
+        box-sizing: border-box;
+        height: 100%;
+        min-height: 0;
+        padding: 20px 24px;
+    }
+
+    .user-settings-page,
+    .user-payments-page {
+        box-sizing: border-box;
+        min-height: 0;
+    }
+
+    .user-settings-page {
+        display: flex;
+        flex-direction: column;
+        gap: 12px !important;
+        height: 100%;
+    }
+
+    .user-settings-page > header {
+        flex: 0 0 auto;
+        gap: 12px;
+        padding-bottom: 12px;
+    }
+
+    .user-settings-page > header h1 {
+        font-size: 26px;
+    }
+
+    .user-settings-page > header p {
+        font-size: 14px;
+    }
+
+    .user-settings-page > header .h-11.w-11 {
+        height: 72px;
+        width: 72px;
+    }
+
+    .user-settings-page > .grid {
+        flex: 1 1 auto;
+        grid-template-columns: minmax(0, 1.5fr) minmax(320px, 1fr);
+        gap: 16px;
+        min-height: 0;
+    }
+
+    .user-settings-page > .grid > div {
+        gap: 12px;
+    }
+
+    .user-settings-page section.rounded-2xl {
+        padding: 16px 20px;
+    }
+
+    .user-settings-page section h2 {
+        font-size: 18px;
+    }
+
+    .user-settings-page section h3 {
+        font-size: 16px;
+    }
+
+    .user-settings-page section [class*="mt-6"] {
+        margin-top: 12px;
+        padding-top: 12px;
+    }
+
+    .user-settings-page section [class*="mt-5"] {
+        margin-top: 12px;
+    }
+
+    .user-settings-page section [class*="gap-5"] {
+        gap: 12px;
+    }
+
+    .user-settings-page section [class*="gap-4"] {
+        gap: 10px;
+    }
+
+    .user-settings-page .h-24.w-24 {
+        height: 72px;
+        width: 72px;
+    }
+
+    .user-settings-page .text-2xl {
+        font-size: 18px;
+    }
+
+    .user-settings-page input,
+    .user-settings-page select,
+    .user-settings-page button:not([type="button"][aria-label]) {
+        min-height: 40px;
+    }
+
+    .user-settings-page label {
+        font-size: 14px;
+    }
+
+    .user-settings-page .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+        margin-top: 8px;
+    }
+
+    .user-settings-page .space-y-4 label {
+        padding: 10px 12px;
+    }
+
+    .user-settings-page .mt-5.grid {
+        margin-top: 10px;
+    }
+
+    .user-settings-page .mt-5.grid button {
+        padding: 8px;
+    }
+
+    .user-settings-page .mt-5.grid button > span:first-child {
+        height: 48px;
+    }
+
+    .user-settings-page > .flex.border-t {
+        flex: 0 0 auto;
+        padding-top: 12px;
+    }
+
+    .user-payments-page {
+        display: flex;
+        flex-direction: column;
+        gap: 12px !important;
+        height: 100%;
+    }
+
+    .user-payments-page > .bm-page-header,
+    .user-payments-page > section[aria-label="Financial reservation selector"],
+    .user-payments-page > section[aria-label="Payment summary"],
+    .user-payments-page > section[aria-label="Advance rent details"],
+    .user-payments-page > .payments-tabs,
+    .user-payments-page > p {
+        flex: 0 0 auto;
+    }
+
+    .user-payments-page .bm-page-header__title {
+        font-size: 26px;
+    }
+
+    .user-payments-page .bm-page-header__subtitle,
+    .user-payments-page .bm-page-header__eyebrow {
+        font-size: 12px;
+    }
+
+    .user-payments-page > section[aria-label="Financial reservation selector"] {
+        padding: 10px 12px;
+    }
+
+    .user-payments-page > section[aria-label="Payment summary"] {
+        gap: 12px;
+    }
+
+    .user-payments-page > section[aria-label="Payment summary"] > div {
+        padding: 12px 16px;
+    }
+
+    .user-payments-page > section[aria-label="Payment summary"] > div > p:nth-child(2) {
+        margin-top: 4px;
+        font-size: 18px;
+    }
+
+    .user-payments-page > section[aria-label="Advance rent details"] {
+        padding: 12px 16px;
+    }
+
+    .user-payments-page .payments-tabs {
+        gap: 4px;
+        padding-top: 2px;
+    }
+
+    .user-payments-page .payments-tabs button {
+        min-height: 40px;
+    }
+
+    .user-payments-page .payments-table-card {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .user-payments-page .payments-table-card > div.overflow-x-auto {
+        flex: 1 1 auto;
+        min-height: 0;
+        max-height: 100%;
+        overflow: auto;
+        scrollbar-gutter: stable;
+    }
+
+    .user-payments-page .payments-table-card thead {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+    }
+
+    .user-payments-page .payments-table-card th,
+    .user-payments-page .payments-table-card td {
+        padding-block: 8px;
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 900px), (max-height: 700px) {
+    .user-dashboard-main:has(.user-settings-page),
+    .user-dashboard-main:has(.user-payments-page) {
+        overflow-y: auto;
+    }
+
+    .user-settings-page,
+    .user-payments-page {
+        height: auto;
+        min-height: 0;
+    }
+
+    .user-payments-page .payments-table-card > div.overflow-x-auto {
+        max-height: none;
+        overflow-x: auto;
+        overflow-y: visible;
+    }
+}
+
 [data-theme='dark'] {
     --brand-500: #60a5fa;
     --brand-600: #3b82f6;
@@ -576,6 +989,225 @@ body.modal-open .bm-native-dialog[data-modal-active='true'] {
 .bm-modal--sm {
     --bm-modal-block-size: 28rem;
     width: min(100%, 32rem);
+}
+
+/* Destructive confirmation dialogs are content-sized. Other modal variants
+   retain their fixed, scrollable work-surface sizing. */
+.bm-confirmation-modal-overlay {
+    align-items: center;
+    padding: 1rem;
+}
+
+.bm-modal.bm-modal--confirmation {
+    height: auto;
+    max-height: min(calc(100dvh - 2rem), 34rem);
+    overflow-y: auto;
+    width: min(480px, calc(100vw - 32px));
+    border-radius: 1rem;
+}
+
+.bm-modal--confirmation .bm-confirmation-modal__header {
+    align-items: flex-start;
+    background: transparent;
+    border-bottom: 0;
+    gap: 0.875rem;
+    padding: 1.5rem 1.5rem 0;
+}
+
+.bm-confirmation-modal__icon {
+    align-items: center;
+    background: #fff1f2;
+    border: 1px solid #fecdd3;
+    border-radius: 999px;
+    color: #dc2626;
+    display: inline-flex;
+    flex: 0 0 2.5rem;
+    height: 2.5rem;
+    justify-content: center;
+    width: 2.5rem;
+}
+
+.bm-confirmation-modal__icon svg {
+    height: 1.35rem;
+    width: 1.35rem;
+}
+
+.bm-modal--confirmation .bm-modal__subtitle {
+    margin-top: 0.45rem;
+}
+
+.bm-modal--confirmation .bm-confirmation-modal__body {
+    flex: 0 0 auto;
+    padding: 1rem 1.5rem 0;
+}
+
+.bm-modal--confirmation .bm-confirmation-modal__footer {
+    border-top: 0;
+    gap: 0.75rem;
+    padding: 1.5rem;
+}
+
+.bm-modal--confirmation .bm-modal__button {
+    min-height: 2.75rem;
+    width: auto;
+}
+
+/* Owner listing deletion is a true content-sized confirmation, not a
+   work-surface modal. Keep it outside the shared .bm-modal sizing contract. */
+.bm-delete-confirmation-overlay {
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.bm-delete-confirmation {
+    background: #fff;
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    border-radius: 16px;
+    box-sizing: border-box;
+    color: #0f172a;
+    display: block;
+    flex: 0 0 auto;
+    height: auto;
+    margin: 0;
+    max-height: calc(100dvh - 32px);
+    max-width: 440px;
+    min-height: 0;
+    min-width: 0;
+    overflow-y: auto;
+    padding: 24px;
+    width: min(440px, calc(100vw - 32px));
+    box-shadow: 0 28px 80px rgba(15, 23, 42, 0.22), 0 6px 18px rgba(15, 23, 42, 0.08);
+}
+
+.bm-delete-confirmation__message {
+    align-items: flex-start;
+    display: flex;
+    gap: 14px;
+}
+
+.bm-delete-confirmation__icon {
+    align-items: center;
+    background: #fff1f2;
+    border: 1px solid #fecdd3;
+    border-radius: 10px;
+    color: #dc2626;
+    display: inline-flex;
+    flex: 0 0 40px;
+    height: 40px;
+    justify-content: center;
+    width: 40px;
+}
+
+.bm-delete-confirmation__icon svg {
+    fill: none;
+    height: 20px;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    width: 20px;
+}
+
+.bm-delete-confirmation__copy {
+    min-width: 0;
+}
+
+.bm-delete-confirmation__title {
+    color: #0f172a;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+    margin: 0;
+}
+
+.bm-delete-confirmation__description {
+    color: #64748b;
+    font-size: 14px;
+    line-height: 1.45;
+    margin: 6px 0 0;
+    overflow-wrap: anywhere;
+}
+
+.bm-delete-confirmation__error {
+    background: #fff1f2;
+    border: 1px solid #fecdd3;
+    border-radius: 10px;
+    color: #b91c1c;
+    font-size: 13px;
+    line-height: 1.45;
+    margin-top: 16px;
+    padding: 10px 12px;
+}
+
+.bm-delete-confirmation__actions {
+    align-items: center;
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+.bm-delete-confirmation__button {
+    align-items: center;
+    border-radius: 10px;
+    box-sizing: border-box;
+    display: inline-flex;
+    font-size: 14px;
+    font-weight: 800;
+    justify-content: center;
+    min-height: 44px;
+    padding: 0 16px;
+    transition: background-color 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
+    white-space: nowrap;
+}
+
+.bm-delete-confirmation__button--back {
+    background: #fff;
+    border: 1px solid #cbd5e1;
+    color: #334155;
+}
+
+.bm-delete-confirmation__button--back:hover {
+    background: #f8fafc;
+}
+
+.bm-delete-confirmation__button--delete {
+    background: #dc2626;
+    border: 1px solid #dc2626;
+    color: #fff;
+}
+
+.bm-delete-confirmation__button--delete:hover {
+    background: #b91c1c;
+}
+
+.bm-delete-confirmation__button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+@media (max-width: 639px) {
+    .bm-confirmation-modal-overlay {
+        align-items: center;
+        padding: 1rem;
+    }
+
+    .bm-modal.bm-modal--confirmation {
+        max-height: calc(100dvh - 2rem);
+        width: calc(100vw - 32px);
+    }
+
+    .bm-modal--confirmation .bm-confirmation-modal__header,
+    .bm-modal--confirmation .bm-confirmation-modal__body,
+    .bm-modal--confirmation .bm-confirmation-modal__footer {
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+
+    .bm-modal--confirmation .bm-confirmation-modal__footer {
+        display: flex;
+        justify-content: flex-end;
+    }
 }
 
 .bm-modal--lg {
@@ -1628,8 +2260,157 @@ body.modal-open .bm-native-dialog[data-modal-active='true'] {
     }
 }
 
+/* Tenant Help Center: compact, data-preserving support workspace. */
+@media (min-width: 768px) {
+    .user-help-center-page {
+        display: flex;
+        flex-direction: column;
+        gap: 12px !important;
+        min-height: 0;
+    }
+
+    .user-help-center-page > header {
+        flex: 0 0 auto;
+        gap: 12px;
+    }
+
+    .user-help-center-page > header h1 {
+        font-size: 26px !important;
+    }
+
+    .user-help-center-page > header p {
+        font-size: 13px;
+    }
+
+    .user-help-center-page > .relative input {
+        height: 42px;
+    }
+
+    .user-help-center-page > section > h2 {
+        font-size: 18px;
+    }
+
+    .user-help-center-page .help-category-card {
+        min-height: 80px;
+        padding: 14px 16px;
+    }
+
+    .user-help-center-page .help-category-card > span:first-child {
+        height: 36px;
+        width: 36px;
+    }
+
+    .user-help-center-page .help-category-card > span:first-child svg {
+        height: 18px;
+        width: 18px;
+    }
+
+    .user-help-center-page .help-content-grid {
+        gap: 12px;
+        min-height: 0;
+    }
+
+    .user-help-center-page #faq-section,
+    .user-help-center-page .help-support-panel {
+        min-width: 0;
+        padding: 0;
+    }
+
+    .user-help-center-page #faq-section {
+        display: flex;
+        max-height: 430px;
+        flex-direction: column;
+    }
+
+    .user-help-center-page #faq-section > div:first-child {
+        flex: 0 0 auto;
+        padding: 12px 16px;
+    }
+
+    .user-help-center-page #faq-section > div.divide-y {
+        min-height: 0;
+        overflow-y: auto;
+        scrollbar-gutter: stable;
+    }
+
+    .user-help-center-page .help-support-panel {
+        padding: 16px 20px;
+    }
+
+    .user-help-center-page .help-support-panel h2 {
+        font-size: 18px;
+    }
+
+    .user-help-center-page .help-support-panel h3 {
+        font-size: 16px;
+    }
+
+    .user-help-center-page #my-tickets {
+        margin-top: 0;
+    }
+
+    .user-help-center-page #my-tickets > div:first-child {
+        padding: 12px 16px;
+    }
+
+    .user-help-center-page #my-tickets h2 {
+        font-size: 18px;
+    }
+
+    .user-help-center-page .help-ticket-dialog {
+        max-height: min(680px, calc(100dvh - 32px));
+    }
+
+    .user-help-center-page .help-ticket-dialog form {
+        gap: 12px;
+        padding: 16px 20px;
+    }
+
+    .user-help-center-page .help-ticket-dialog input,
+    .user-help-center-page .help-ticket-dialog select {
+        min-height: 40px;
+    }
+}
+
+@media (max-width: 767px) {
+    .user-help-center-page {
+        gap: 16px !important;
+    }
+
+    .user-help-center-page .help-content-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .user-help-center-page .help-category-card {
+        min-height: 80px;
+    }
+
+    .user-help-center-page .help-ticket-modal {
+        align-items: flex-start;
+        overflow-y: auto;
+        padding: 12px;
+    }
+
+    .user-help-center-page .help-ticket-dialog {
+        max-height: none;
+    }
+
+    .user-help-center-page .help-ticket-dialog input,
+    .user-help-center-page .help-ticket-dialog select,
+    .user-help-center-page .help-ticket-dialog textarea {
+        font-size: 16px;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1100px) {
+    .user-help-center-page .help-content-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
 /* Boarding house details navigation map */
-.bm-location-map [data-map-canvas].maplibregl-map {
+.bm-location-map [data-map-canvas].maplibregl-map,
+[data-boardmatch-location-map] [data-map-canvas].maplibregl-map {
     /* MapLibre applies `position: relative` to the container it receives.
        Keep the map pinned to the explicitly sized frame instead of allowing
        that rule to collapse this otherwise absolutely positioned host. */
@@ -1639,27 +2420,31 @@ body.modal-open .bm-native-dialog[data-modal-active='true'] {
     width: 100%;
 }
 
-.bm-location-map .maplibregl-map {
+.bm-location-map .maplibregl-map,
+[data-boardmatch-location-map] .maplibregl-map {
     background: #e2e8f0;
     font-family: inherit;
     z-index: 0;
 }
 
-.bm-location-map .maplibregl-ctrl-group {
+.bm-location-map .maplibregl-ctrl-group,
+[data-boardmatch-location-map] .maplibregl-ctrl-group {
     border: 0;
     border-radius: 0.75rem;
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.16);
     overflow: hidden;
 }
 
-.bm-location-map .maplibregl-ctrl-group button {
+.bm-location-map .maplibregl-ctrl-group button,
+[data-boardmatch-location-map] .maplibregl-ctrl-group button {
     border-bottom-color: #e2e8f0;
     color: #0f172a;
     height: 2.25rem;
     width: 2.25rem;
 }
 
-.bm-location-map .maplibregl-ctrl-attrib {
+.bm-location-map .maplibregl-ctrl-attrib,
+[data-boardmatch-location-map] .maplibregl-ctrl-attrib {
     background: rgba(255, 255, 255, 0.88);
     border-radius: 0.5rem 0 0 0;
     color: #475569;
@@ -2014,12 +2799,99 @@ body.modal-open .bm-native-dialog[data-modal-active='true'] {
 
 /* User dashboard sidebar behavior */
 .user-shell {
-    --user-sidebar-expanded-width: 240px;
+    --user-sidebar-expanded-width: 260px;
     --user-sidebar-collapsed-width: 76px;
     height: 100vh;
     height: 100dvh;
     overflow: hidden;
     position: relative;
+}
+
+/* Full Details is intentionally independent of arbitrary Tailwind grid and
+   height utilities. This keeps the page at its intended desktop geometry
+   even while a cached Vite asset is being replaced. */
+.user-shell .details-page {
+    box-sizing: border-box;
+    max-width: none;
+    min-width: 0;
+    width: 100%;
+}
+
+.user-shell .details-page .details-gallery {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    height: 300px;
+    min-height: 300px;
+    min-width: 0;
+    width: 100%;
+}
+
+.user-shell .details-page .details-gallery > *,
+.user-shell .details-page .details-gallery img {
+    min-width: 0;
+    min-height: 0;
+}
+
+.user-shell .details-page .details-gallery img {
+    display: block;
+    height: 100%;
+    object-fit: cover;
+    width: 100%;
+}
+
+.user-shell .details-page .details-layout {
+    align-items: start;
+    display: grid;
+    gap: 20px;
+    grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);
+    min-width: 0;
+    width: 100%;
+}
+
+.user-shell .details-page .details-layout > * {
+    min-width: 0;
+}
+
+.user-shell .details-page .details-layout > aside > section:nth-child(3) {
+    display: none;
+}
+
+.user-shell .details-page .details-column-left,
+.user-shell .details-page .details-column-right {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    min-width: 0;
+}
+
+.user-shell .details-page .details-column-left > *,
+.user-shell .details-page .details-column-right > * {
+    min-width: 0;
+}
+
+.user-shell .details-owner-card {
+    width: 100%;
+}
+
+@media (max-width: 1023px) {
+    .user-shell .details-page .details-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .user-shell .details-page .details-layout { gap: 16px; }
+    .user-shell .details-owner-card { max-width: none; }
+}
+
+@media (max-width: 767px) {
+    .user-shell .details-page .details-gallery {
+        grid-template-columns: minmax(0, 1fr);
+        height: 250px;
+        min-height: 250px;
+    }
+
+    .user-shell .details-page .details-gallery > div {
+        display: none;
+    }
 }
 
 html.sidebar-mobile-open,
@@ -2064,6 +2936,59 @@ body.sidebar-mobile-open {
     transition: margin-left 0.22s ease;
 }
 
+/* Keep the tenant workspace title and account controls in separate layout
+   tracks so the profile name/role never covers the header copy. */
+[data-tenant-workspace-header] > div:first-child {
+    min-width: 0;
+}
+[data-tenant-workspace-title] {
+    min-width: 0;
+}
+[data-tenant-workspace-actions] {
+    min-width: 0;
+}
+[data-tenant-account-menu] {
+    min-width: 0;
+}
+@media (max-width: 900px) {
+    [data-tenant-workspace-header] > div:first-child {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        row-gap: 0.65rem;
+    }
+
+    [data-tenant-workspace-title] {
+        flex: 1 1 18rem;
+    }
+
+    [data-tenant-workspace-actions] {
+        flex: 1 1 100%;
+        justify-content: flex-end;
+        width: 100%;
+    }
+}
+@media (max-width: 520px) {
+    [data-tenant-workspace-header] > div:first-child {
+        row-gap: 0.55rem;
+    }
+
+    [data-tenant-workspace-title] h1 {
+        font-size: 1rem;
+    }
+
+    [data-tenant-workspace-title] p {
+        max-width: 100%;
+    }
+
+    [data-tenant-workspace-actions] {
+        gap: 0.35rem;
+    }
+
+    [data-tenant-account-menu] button {
+        max-width: min(13rem, 48vw);
+    }
+}
+
 .user-shell .user-sidebar .sidebar-header {
     flex: 0 0 auto;
     margin-bottom: 1rem;
@@ -2081,13 +3006,11 @@ body.sidebar-mobile-open {
 }
 
 .user-shell .sidebar-nav {
-    flex: 1 1 auto;
+    flex: 0 0 auto;
     min-height: 0;
     overflow-x: hidden;
-    overflow-y: auto;
-    overscroll-behavior: contain;
+    overflow-y: visible;
     padding-right: 0;
-    scrollbar-width: none;
 }
 
 .user-shell .sidebar-nav::-webkit-scrollbar {
@@ -2098,7 +3021,20 @@ body.sidebar-mobile-open {
 .user-shell .sidebar-footer {
     flex: 0 0 auto;
     margin-top: auto !important;
-    padding-top: 1.25rem;
+    padding-top: 0.75rem;
+}
+
+/* At normal desktop heights the sidebar is a fixed, non-scrolling rail. If
+   the viewport is unusually short or zoomed, restore an accessible inner
+   fallback so the final navigation items remain reachable. */
+@media (min-width: 768px) and (max-height: 760px) {
+    .user-shell .sidebar-nav {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+    }
 }
 
 .user-shell .user-sidebar .sidebar-brand-icon svg {
@@ -2196,6 +3132,14 @@ body.sidebar-mobile-open {
         padding-bottom: env(safe-area-inset-bottom, 0px);
         scrollbar-gutter: auto;
         width: 100%;
+    }
+
+    .user-shell .sidebar-nav {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
     }
 
     .user-shell .user-sidebar {
@@ -2968,6 +3912,117 @@ body.sidebar-mobile-open {
     }
 }
 
+/* Owner Properties uses the full-size workspace composition. The shared
+   admin compact rules remain in place for legacy admin screens, but must not
+   shrink this page's shell or readable card grid. */
+.owner-properties-page .admin-sidebar {
+    width: 260px !important;
+}
+
+.owner-properties-page .admin-dashboard-main {
+    margin-left: 260px;
+}
+
+.owner-properties-page .admin-dashboard-main > div {
+    max-width: none;
+    gap: 1.25rem;
+    padding: 24px !important;
+}
+
+.owner-properties-page .sidebar-nav a,
+.owner-properties-page .sidebar-nav button {
+    font-size: 15px;
+    line-height: 1.45;
+}
+
+.owner-properties-page {
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.45;
+}
+
+.owner-properties-page article {
+    min-width: 0;
+}
+
+.owner-properties-page article > div:first-child,
+.owner-properties-page article > div:first-child img {
+    height: 195px;
+    width: 100%;
+}
+
+.owner-properties-page article > div:first-child img {
+    display: block;
+    object-fit: cover;
+}
+
+/* Owner Rooms keeps the shared fixed-sidebar shell but uses the full workspace
+   for the property-scoped table and compact room dialogs. */
+.owner-rooms-page .admin-sidebar {
+    width: 260px !important;
+}
+
+.owner-rooms-page .admin-dashboard-main {
+    margin-left: 260px;
+}
+
+.owner-rooms-page .admin-dashboard-main > div {
+    max-width: none;
+    padding: 24px !important;
+}
+
+.owner-rooms-page .owner-rooms-content {
+    min-width: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.45;
+}
+
+.owner-room-modal__panel {
+    min-height: 0;
+    box-sizing: border-box;
+}
+
+.owner-room-modal__panel > form,
+.owner-room-modal__panel > div {
+    min-height: 0;
+}
+
+body.owner-room-modal-open {
+    overflow: hidden;
+}
+
+@media (max-width: 767px) {
+    .owner-rooms-page .admin-dashboard-main {
+        margin-left: 0 !important;
+    }
+
+    .owner-rooms-page .admin-dashboard-main > div {
+        padding: 16px !important;
+    }
+
+    .owner-rooms-page .admin-sidebar {
+        width: min(86vw, 260px) !important;
+    }
+}
+
+@media (max-width: 767px) {
+    .owner-properties-page .admin-dashboard-main {
+        margin-left: 0 !important;
+    }
+
+    .owner-properties-page .admin-dashboard-main > div {
+        padding: 16px !important;
+    }
+
+    .owner-properties-page .admin-sidebar {
+        width: min(86vw, 260px) !important;
+    }
+
+    .owner-properties-page input,
+    .owner-properties-page select {
+        font-size: 16px;
+    }
+}
+
 @media (min-width: 1280px) {
     .admin-shell .admin-dashboard-main > div {
         padding-left: 1rem;
@@ -3387,6 +4442,39 @@ body.sidebar-mobile-open {
     display: none;
 }
 
+/* Owner property details is an in-place dialog. Keep the backdrop full-screen,
+ * but let the white panel size itself to its content and scroll only its body. */
+body.owner-properties-detail-modal-open {
+    overflow: hidden;
+}
+
+.owner-property-details-modal {
+    box-sizing: border-box;
+}
+
+.owner-property-details-dialog {
+    min-height: 0;
+    box-sizing: border-box;
+}
+
+.owner-property-details-dialog > div {
+    min-height: 0;
+}
+
+@media (max-width: 767px) {
+    .owner-property-details-dialog {
+        max-height: calc(100dvh - 24px);
+    }
+
+    .owner-property-details-dialog footer {
+        justify-content: stretch;
+    }
+
+    .owner-property-details-dialog footer > * {
+        flex: 1 1 140px;
+    }
+}
+
 @media (min-width: 768px) {
     [data-sidebar='collapsed'] .user-shell .user-sidebar,
     [data-sidebar='collapsed'] .admin-shell .admin-sidebar {
@@ -3429,5 +4517,289 @@ body.sidebar-mobile-open {
     [data-sidebar='collapsed'] .sidebar-reopen-button:focus-visible {
         outline: 3px solid rgba(96, 165, 250, 0.48);
         outline-offset: 2px;
+    }
+}
+
+/* Final shared rail contract: this intentionally comes after legacy page
+   overrides so all three workspaces resolve to the same desktop geometry. */
+.user-shell,
+.admin-shell {
+    --bm-sidebar-expanded-width: 240px;
+    --bm-sidebar-collapsed-width: 72px;
+    --bm-main-padding-x: 24px;
+    --bm-main-padding-y: 20px;
+    --bm-card-padding: 20px;
+    --bm-card-gap: 16px;
+}
+
+@media (min-width: 768px) {
+    .user-shell .user-sidebar,
+    .admin-shell .admin-sidebar,
+    .owner-properties-page .admin-sidebar,
+    .owner-rooms-page .admin-sidebar {
+        width: var(--bm-sidebar-expanded-width) !important;
+    }
+
+    .user-shell .user-dashboard-main,
+    .admin-shell .admin-dashboard-main,
+    .owner-properties-page .admin-dashboard-main,
+    .owner-rooms-page .admin-dashboard-main {
+        margin-left: var(--bm-sidebar-expanded-width) !important;
+    }
+
+    .user-shell .user-dashboard-main > div,
+    .admin-shell .admin-dashboard-main > div,
+    .owner-properties-page .admin-dashboard-main > div,
+    .owner-rooms-page .admin-dashboard-main > div {
+        padding: var(--bm-main-padding-y) var(--bm-main-padding-x) !important;
+    }
+
+    [data-sidebar='collapsed'] .user-shell .user-sidebar,
+    [data-sidebar='collapsed'] .admin-shell .admin-sidebar,
+    [data-sidebar='collapsed'] .owner-properties-page .admin-sidebar,
+    [data-sidebar='collapsed'] .owner-rooms-page .admin-sidebar {
+        width: var(--bm-sidebar-collapsed-width) !important;
+    }
+
+    [data-sidebar='collapsed'] .user-shell .user-dashboard-main,
+    [data-sidebar='collapsed'] .admin-shell .admin-dashboard-main,
+    [data-sidebar='collapsed'] .owner-properties-page .admin-dashboard-main,
+    [data-sidebar='collapsed'] .owner-rooms-page .admin-dashboard-main {
+        margin-left: var(--bm-sidebar-collapsed-width) !important;
+    }
+
+    .user-shell .sidebar-nav,
+    .admin-shell .sidebar-nav {
+        overflow-y: auto !important;
+        scrollbar-width: thin;
+    }
+
+    .admin-shell .owner-sidebar-nav,
+    .admin-shell .owner-sidebar-nav .sidebar-nav {
+        overflow-y: auto !important;
+    }
+
+    .user-shell .sidebar-nav a,
+    .user-shell .sidebar-nav button,
+    .admin-shell .sidebar-nav a,
+    .admin-shell .sidebar-nav button {
+        min-height: 40px;
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+        font-size: 14px !important;
+        line-height: 1.2;
+    }
+
+    .user-shell .sidebar-nav > section + section,
+    .admin-shell .sidebar-nav > section + section {
+        margin-top: 16px !important;
+    }
+
+    .user-shell .sidebar-icon,
+    .admin-shell .sidebar-icon,
+    .user-shell .sidebar-icon svg,
+    .admin-shell .sidebar-icon svg {
+        height: 18px;
+        width: 18px;
+    }
+
+    .user-shell .sidebar-badge,
+    .admin-shell .sidebar-badge {
+        font-size: 10px !important;
+        line-height: 1;
+    }
+
+    .user-shell .sidebar-group,
+    .admin-shell .sidebar-group {
+        font-size: 10px !important;
+    }
+
+    .user-shell .sidebar-brand-text > p:first-child,
+    .admin-shell .sidebar-brand-text > p:first-child {
+        font-size: 20px !important;
+    }
+
+    .user-shell .sidebar-brand-text > p + p,
+    .admin-shell .sidebar-brand-text > p + p {
+        font-size: 10px !important;
+    }
+
+    .user-shell .user-dashboard-main h1,
+    .admin-shell .admin-dashboard-main h1 {
+        font-size: 26px !important;
+    }
+
+    .user-shell .user-dashboard-main h2,
+    .admin-shell .admin-dashboard-main h2 {
+        font-size: 18px !important;
+    }
+
+    .user-shell .user-dashboard-main h3,
+    .admin-shell .admin-dashboard-main h3 {
+        font-size: 16px !important;
+    }
+
+    .user-shell .user-dashboard-main,
+    .admin-shell .admin-dashboard-main {
+        font-size: 14px;
+    }
+
+    .user-shell .user-dashboard-main .text-2xl,
+    .admin-shell .admin-dashboard-main .text-2xl {
+        font-size: 26px !important;
+    }
+
+    .user-shell .user-dashboard-main .text-xl,
+    .admin-shell .admin-dashboard-main .text-xl {
+        font-size: 20px !important;
+    }
+
+    .user-shell .user-dashboard-main .text-xs,
+    .admin-shell .admin-dashboard-main .text-xs {
+        font-size: 12px;
+    }
+
+    .user-shell .user-dashboard-main input:not([type='checkbox']):not([type='radio']):not([type='file']),
+    .user-shell .user-dashboard-main select,
+    .user-shell .user-dashboard-main textarea,
+    .admin-shell .admin-dashboard-main input:not([type='checkbox']):not([type='radio']):not([type='file']),
+    .admin-shell .admin-dashboard-main select,
+    .admin-shell .admin-dashboard-main textarea {
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 767px) {
+    .user-shell .user-sidebar,
+    .admin-shell .admin-sidebar {
+        width: min(86vw, var(--bm-sidebar-expanded-width)) !important;
+    }
+
+    .user-shell .user-dashboard-main,
+    .admin-shell .admin-dashboard-main {
+        margin-left: 0 !important;
+    }
+
+    .user-shell .user-dashboard-main input:not([type='checkbox']):not([type='radio']):not([type='file']),
+    .user-shell .user-dashboard-main select,
+    .user-shell .user-dashboard-main textarea,
+    .admin-shell .admin-dashboard-main input:not([type='checkbox']):not([type='radio']):not([type='file']),
+    .admin-shell .admin-dashboard-main select,
+    .admin-shell .admin-dashboard-main textarea {
+        font-size: 16px;
+    }
+}
+
+/* Sidebar fit pass: compact the actual navigation geometry so a normal
+   desktop viewport does not need an internal scrollbar. The scroll fallback
+   remains available for short screens, zoomed text, and wrapped labels. */
+@media (min-width: 768px) {
+    .user-shell .user-sidebar,
+    .admin-shell .admin-sidebar {
+        box-sizing: border-box;
+        height: 100dvh;
+        padding-bottom: 12px !important;
+        padding-top: 12px !important;
+    }
+
+    .user-shell .user-sidebar .sidebar-header,
+    .admin-shell .admin-sidebar .sidebar-header {
+        flex: 0 0 48px;
+        height: 48px;
+        margin-bottom: 8px !important;
+        min-height: 48px;
+    }
+
+    .user-shell .user-sidebar .sidebar-brand-icon,
+    .admin-shell .admin-sidebar .sidebar-brand-icon {
+        height: 36px;
+        width: 36px;
+    }
+
+    .user-shell .sidebar-nav,
+    .admin-shell .sidebar-nav,
+    .admin-shell .owner-sidebar-nav,
+    .admin-shell .owner-sidebar-nav .sidebar-nav {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
+        scrollbar-width: thin;
+    }
+
+    .user-shell .sidebar-nav > :not([hidden]) ~ :not([hidden]),
+    .admin-shell .sidebar-nav > :not([hidden]) ~ :not([hidden]) {
+        margin-top: 0 !important;
+    }
+
+    .user-shell .sidebar-nav > section + section,
+    .admin-shell .sidebar-nav > section + section {
+        margin-top: 12px !important;
+    }
+
+    .user-shell .sidebar-nav section > div > :not([hidden]) ~ :not([hidden]),
+    .admin-shell .sidebar-nav section > div > :not([hidden]) ~ :not([hidden]) {
+        margin-top: 2px !important;
+    }
+
+    .user-shell .sidebar-nav a,
+    .user-shell .sidebar-nav button,
+    .admin-shell .sidebar-nav a,
+    .admin-shell .sidebar-nav button {
+        min-height: 36px;
+        height: auto;
+        padding-bottom: 8px !important;
+        padding-top: 8px !important;
+        white-space: normal;
+    }
+
+    .user-shell .sidebar .sidebar-text,
+    .admin-shell .sidebar .sidebar-text {
+        max-width: none;
+        overflow: visible;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .user-shell .sidebar-footer,
+    .admin-shell .sidebar-footer {
+        flex: 0 0 auto;
+        margin-top: 8px !important;
+        padding-top: 8px !important;
+    }
+
+    .user-shell .sidebar-nav::-webkit-scrollbar,
+    .admin-shell .sidebar-nav::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .user-shell .sidebar-nav::-webkit-scrollbar-track,
+    .admin-shell .sidebar-nav::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .user-shell .sidebar-nav::-webkit-scrollbar-thumb,
+    .admin-shell .sidebar-nav::-webkit-scrollbar-thumb {
+        border-radius: 999px;
+        background: rgba(148, 163, 184, 0.45);
+    }
+}
+
+@media (min-width: 768px) and (max-height: 760px) {
+    .user-shell .user-sidebar .sidebar-header,
+    .admin-shell .admin-sidebar .sidebar-header {
+        flex-basis: 44px;
+        height: 44px;
+        min-height: 44px;
+    }
+
+    .user-shell .sidebar-nav a,
+    .user-shell .sidebar-nav button,
+    .admin-shell .sidebar-nav a,
+    .admin-shell .sidebar-nav button {
+        min-height: 34px;
+        padding-bottom: 6px !important;
+        padding-top: 6px !important;
     }
 }

@@ -177,6 +177,17 @@
         };
     @endphp
 
+    @if ($workspace === 'admin')
+        <style>
+            .admin-reservation-view-only input,
+            .admin-reservation-view-only select,
+            .admin-reservation-view-only textarea {
+                pointer-events: none;
+                background-color: #f8fafc;
+            }
+        </style>
+    @endif
+
     <script>
         window.reservationsData = function (config) {
             return {
@@ -199,7 +210,7 @@
                 submitting: false,
                 confirmOpen: false,
                 confirmError: '',
-                confirmAction: { url: '', method: 'PATCH', status: '', title: '', message: '', label: '', tone: 'emerald' },
+                 confirmAction: { url: '', method: 'PATCH', status: '', title: '', message: '', label: '', tone: 'emerald', reason: '' },
                 csrfToken: config.csrfToken,
 
                 /* edit-modal state */
@@ -479,6 +490,9 @@
                     if (this.confirmAction.status) {
                         formData.append('status', this.confirmAction.status);
                     }
+                     if (this.confirmAction.status === 'rejected') {
+                         formData.append('notes', this.confirmAction.reason || '');
+                     }
 
                     try {
                         const response = await fetch(this.confirmAction.url, {
@@ -529,6 +543,9 @@
         @keydown.escape.window="if (!submitting && !editSaving) { editOpen = false; filterOpen = false; menuOpen = null; confirmOpen = false; }"
         class="space-y-5 text-slate-950"
     >
+        <style>
+            .owner-reservation-readonly .edit-reservation-body > .space-y-6 { display: none; }
+        </style>
         @if ($workspace !== 'admin')
         <header data-reservations-toolbar class="overflow-hidden rounded-[1.35rem] border border-slate-200/80 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
             <div class="px-5 py-4 sm:px-6">
@@ -536,7 +553,7 @@
                 <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div class="min-w-0">
                         <h1 class="text-[1.6rem] font-semibold tracking-[-0.04em] text-slate-950">Reservations</h1>
-                        <p class="mt-1 text-[13px] leading-5 text-slate-500">Track reservation requests, room assignments, and payment progress.</p>
+                        <p class="mt-1 text-[13px] leading-5 text-slate-500">Review reservation requests and track their progress.</p>
                     </div>
 
                     <div class="flex flex-wrap items-center gap-3 lg:justify-end">
@@ -546,6 +563,9 @@
                             </svg>
                             Export
                         </a>
+                        <button type="button" data-walk-in-trigger data-no-loading-overlay @click.prevent="openWalkIn()" class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-[13px] font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700">
+                            <span aria-hidden="true">+</span> Create Walk-in
+                        </button>
                         <button type="button" @click="filterOpen = true" class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-[13px] font-semibold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700">
                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 6h16M7 12h10M10 18h4"/>
@@ -633,16 +653,7 @@
                 ])
             })"
         >
-        <section class="rounded-2xl border border-blue-100 bg-blue-50/50 p-5 shadow-sm">
-            <div class="flex flex-wrap items-center justify-between gap-3">
-                <div><h2 class="text-sm font-bold text-slate-950">Front desk walk-in booking</h2><p class="mt-1 text-xs text-slate-500">Paid walk-ins are automatically prioritized and get a printable receipt.</p></div>
-                <button type="button" data-walk-in-trigger data-no-loading-overlay @click.prevent="openWalkIn()" class="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-[13px] font-bold text-white shadow-sm shadow-blue-600/20 transition hover:bg-blue-700">
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 5v14m7-7H5"/></svg>
-                    Create Walk-in
-                </button>
-            </div>
-        </section>
-
+        @if ($workspace !== 'admin')
         <template x-teleport="body">
             <div data-modal-root data-walk-in-modal role="dialog" aria-modal="true" aria-labelledby="walk-in-modal-title" x-show="walkInOpen" x-cloak @click.self="closeWalkIn()" @keydown.escape.window="closeWalkIn()" class="bm-modal-overlay">
                 <form method="POST" action="{{ $route('reservations.walk-in.store') }}" @submit="walkInSaving = true" class="bm-modal bm-modal--lg">
@@ -744,12 +755,19 @@
                 </form>
             </div>
         </template>
+        @endif
         </div>
 
         {{-- Stat Cards --}}
         @php
             $unpaidCount = $quickMetrics->firstWhere('label', 'Unpaid Deposits')['value'] ?? 0;
-            $statCards = [
+            $statCards = $workspace === 'owner' ? [
+                ['label' => 'Total', 'value' => $stats['total'] ?? 0, 'tone' => 'blue', 'href' => $route('reservations'), 'icon' => 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z'],
+                ['label' => 'Pending', 'value' => $stats['pending'] ?? 0, 'tone' => 'amber', 'href' => $route('reservations', ['status' => 'pending']), 'icon' => 'M12 6v6l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z'],
+                ['label' => 'Confirmed', 'value' => $stats['confirmed'] ?? 0, 'tone' => 'emerald', 'href' => $route('reservations', ['status' => 'confirmed']), 'icon' => 'M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z'],
+                ['label' => 'Rejected', 'value' => $stats['rejected'] ?? 0, 'tone' => 'rose', 'href' => $route('reservations', ['status' => 'rejected']), 'icon' => 'M9.75 9.75 14.25 14.25m0-4.5-4.5 4.5M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z'],
+                ['label' => 'Cancelled', 'value' => $stats['cancelled'] ?? 0, 'tone' => 'orange', 'href' => $route('reservations', ['status' => 'cancelled']), 'icon' => 'M6 6l12 12M18 6 6 18'],
+            ] : [
                 ['label' => 'Total', 'value' => $stats['total'] ?? 0, 'tone' => 'blue', 'href' => $route('reservations'), 'icon' => 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2z'],
                 ['label' => 'Pending', 'value' => $stats['pending'] ?? 0, 'tone' => 'amber', 'href' => $route('reservations', ['status' => 'pending']), 'icon' => 'M12 6v6l3 3m6-3a9 9 0 1 1-18 0 9 9 0 0 1 18 0z'],
                 ['label' => 'Confirmed', 'value' => $stats['confirmed'] ?? 0, 'tone' => 'emerald', 'href' => $route('reservations', ['status' => 'confirmed']), 'icon' => 'M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z'],
@@ -796,6 +814,28 @@
                     </template>
 
                     <div class="overflow-x-auto transition-opacity duration-200" :class="filtering ? 'opacity-50' : ''">
+                    @if ($workspace === 'owner')
+                        <table class="min-w-[980px] w-full text-left text-[13px]">
+                            <thead class="bg-slate-50 text-[11px] font-bold uppercase tracking-wide text-slate-500"><tr><th class="px-5 py-3.5">Reference</th><th class="px-5 py-3.5">Tenant</th><th class="px-5 py-3.5">Boarding House / Room</th><th class="px-5 py-3.5">Move-in</th><th class="px-5 py-3.5">Reservation Status</th><th class="px-5 py-3.5">Payment Status</th><th class="px-5 py-3.5 text-right">Actions</th></tr></thead>
+                            <tbody class="divide-y divide-slate-100">
+                            @forelse ($reservations as $reservation)
+                                @php
+                                    $tenantName = $reservation->user->name ?? 'Tenant';
+                                    $tenantInitials = collect(explode(' ', trim($tenantName)))->filter()->take(2)->map(fn ($part) => strtoupper(substr($part, 0, 1)))->join('') ?: 'T';
+                                    $houseName = $reservation->boardingHouse->name ?? 'Boarding House';
+                                    $roomLabel = $roomTypeLabel($reservation);
+                                    $rowStatus = strtolower((string) ($reservation->status ?? 'pending'));
+                                    $paymentStatus = strtolower((string) ($reservation->payment_status ?? 'unpaid'));
+                                    $ownerPayload = ['reservation_id'=>$reservation->id,'reservation_no'=>'RES-'.str_pad((string) $reservation->id, 6, '0', STR_PAD_LEFT),'tenant'=>$tenantName,'tenant_initials'=>$tenantInitials,'tenant_email'=>$reservation->user->email ?? '','house'=>$houseName,'location'=>$reservation->boardingHouse->canonical_address ?? $reservation->boardingHouse->address ?? 'Address not set','room'=>$roomLabel,'move_in'=>$reservation->check_in_date?->format('M d, Y') ?? 'Not set','status'=>$statusLabel($reservation->status),'status_value'=>$rowStatus,'payment'=>$paymentLabel($paymentStatus),'payment_status_value'=>$paymentStatus,'amount'=>(float) ($reservation->total_amount ?? 0) > 0 ? 'PHP '.number_format((float) $reservation->total_amount, 2) : 'Not recorded','notes'=>$reservation->notes,'rejection_reason'=>$reservation->rejection_reason,'submitted_at'=>$reservation->created_at?->format('M d, Y h:i A'),'approved_at'=>$reservation->approved_at?->format('M d, Y h:i A'),'cancelled_at'=>$reservation->cancelled_at?->format('M d, Y h:i A'),'update_url'=>$route('reservations.update',$reservation),'payment_url'=>$route('transactions.index',['q'=>$tenantName])];
+                                    $confirmApprove = ['url'=>$route('reservations.update',$reservation),'method'=>'PATCH','status'=>'approved','title'=>'Approve this reservation?','message'=>'The tenant will be notified after approval.','label'=>'Approve','tone'=>'emerald'];
+                                    $confirmReject = ['url'=>$route('reservations.update',$reservation),'method'=>'PATCH','status'=>'rejected','title'=>'Reject this reservation?','message'=>'A reason is required and the held room will be released.','label'=>'Reject','tone'=>'rose'];
+                                    $ownerPayload['actions'] = ['approve'=>$confirmApprove,'reject'=>$confirmReject];
+                                @endphp
+                                <tr class="bg-white hover:bg-slate-50/90" data-reservation-row="{{ $reservation->id }}"><td class="whitespace-nowrap px-5 py-3.5 font-black text-slate-800">{{ $ownerPayload['reservation_no'] }}</td><td class="px-5 py-3.5"><p class="truncate font-semibold text-slate-900">{{ $tenantName }}</p><p class="truncate text-[11px] text-slate-500">{{ $reservation->user->email ?? 'No email' }}</p></td><td class="px-5 py-3.5"><p class="truncate font-semibold text-slate-900">{{ $houseName }}</p><p class="truncate text-[11px] text-slate-500">{{ $roomLabel }}</p></td><td class="whitespace-nowrap px-5 py-3.5 text-slate-700">{{ $reservation->check_in_date?->format('M d, Y') ?? 'Not set' }}</td><td class="whitespace-nowrap px-5 py-3.5"><span class="inline-flex rounded-full border px-2.5 py-1 text-[11px] font-black {{ $statusBadge($reservation->status) }}">{{ $statusLabel($reservation->status) }}</span></td><td class="whitespace-nowrap px-5 py-3.5"><span class="inline-flex rounded-full border px-2.5 py-1 text-[11px] font-black {{ $paymentBadge($paymentStatus) }}">{{ $paymentLabel($paymentStatus) }}</span></td><td class="whitespace-nowrap px-5 py-3.5 text-right"><div class="relative flex justify-end gap-2"><button type="button" @click="openEdit({{ \Illuminate\Support\Js::from($ownerPayload) }})" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">View</button>@if($rowStatus === 'pending')<button type="button" @click="askConfirm({{ \Illuminate\Support\Js::from($confirmApprove) }})" class="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">Approve</button><button type="button" @click="askConfirm({{ \Illuminate\Support\Js::from($confirmReject) }})" class="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">Reject</button>@elseif(in_array($rowStatus,['approved','confirmed'],true))<button type="button" @click="menuOpen = menuOpen === {{ $reservation->id }} ? null : {{ $reservation->id }}" class="rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-bold" aria-label="More actions">⋮</button><div x-show="menuOpen === {{ $reservation->id }}" x-cloak @click.outside="menuOpen=null" class="absolute right-0 top-10 z-10 w-40 rounded-xl border border-slate-200 bg-white p-1 text-left shadow-lg"><a href="{{ $ownerPayload['payment_url'] }}" class="block rounded-lg px-3 py-2 text-xs font-bold hover:bg-slate-50">Payment Details</a><a href="{{ $ownerPayload['payment_url'] }}" class="block rounded-lg px-3 py-2 text-xs font-bold hover:bg-slate-50">Record Payment</a></div>@endif</div></td></tr>
+                            @empty <tr><td colspan="7" class="px-5 py-14 text-center text-sm text-slate-500">No reservations match the current filters.</td></tr>@endforelse
+                            </tbody>
+                        </table>
+                    @else
                         <table class="min-w-[1180px] w-full text-left text-[13px]">
                             <thead class="sticky top-0 z-10 bg-slate-50/95 text-[11px] font-bold uppercase tracking-wide text-slate-500 backdrop-blur">
                                 <tr>
@@ -949,7 +989,14 @@
                                         <td class="whitespace-nowrap px-5 py-4 text-[13px] font-semibold text-slate-900" data-cell="amount">{{ $amount > 0 ? 'PHP '.number_format($amount, 2) : 'PHP 0.00' }}</td>
                                         <td class="whitespace-nowrap px-5 py-4" @click.stop>
                                             <div class="flex items-center gap-2">
-                                                @if ($isPendingRow)
+                                                @if ($workspace === 'admin')
+                                                    <button
+                                                        type="button"
+                                                        @click.stop="openEdit({{ \Illuminate\Support\Js::from($payload) }})"
+                                                        title="Edit"
+                                                        class="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-[12px] font-bold text-slate-600 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                                                    >View details</button>
+                                                @elseif ($isPendingRow)
                                                     <button
                                                         type="button"
                                                         @click.stop="askConfirm({{ \Illuminate\Support\Js::from($confirmApprove) }})"
@@ -1024,6 +1071,7 @@
                                 @endforelse
                             </tbody>
                         </table>
+                    @endif
                     </div>
 
                     <div class="flex flex-col gap-2.5 border-t border-slate-100 px-5 py-4 text-[13px] text-slate-500 md:flex-row md:items-center md:justify-between">
@@ -1090,11 +1138,22 @@
                 </div>
 
                 <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                    @if ($workspace === 'owner')
+                    <label class="text-sm font-semibold text-slate-700 sm:col-span-2">
+                        Boarding House
+                        <select name="boarding_house_id" class="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100">
+                            <option value="">All boarding houses</option>
+                            @foreach ($walkInHouses as $house)
+                                <option value="{{ $house->id }}" @selected((string) request('boarding_house_id') === (string) $house->id)>{{ $house->name }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                    @endif
                     <label class="text-sm font-semibold text-slate-700">
                         Reservation Status
                         <select name="status" class="mt-1 h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100">
                             <option value="">All</option>
-                            @foreach (['confirmed' => 'Confirmed', 'pending' => 'Pending', 'cancelled' => 'Cancelled', 'currently-staying' => 'Currently Staying', 'completed-stay' => 'Completed Stay'] as $value => $label)
+                            @foreach (['confirmed' => 'Confirmed', 'pending' => 'Pending', 'rejected' => 'Rejected', 'cancelled' => 'Cancelled', 'currently-staying' => 'Currently Staying', 'completed-stay' => 'Completed Stay'] as $value => $label)
                                 <option value="{{ $value }}" @selected(request('status') === $value)>{{ $label }}</option>
                             @endforeach
                         </select>
@@ -1140,7 +1199,7 @@
             x-show="editOpen"
             x-cloak
             x-transition
-            class="edit-reservation-modal fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-3 backdrop-blur-sm"
+            class="edit-reservation-modal {{ $workspace === 'admin' ? 'admin-reservation-view-only' : 'owner-reservation-readonly' }} fixed inset-0 z-[90] flex items-center justify-center bg-black/30 p-3 backdrop-blur-sm"
         >
             <div class="edit-reservation-dialog flex w-full max-w-3xl max-h-[92vh] flex-col overflow-x-hidden overflow-y-auto rounded-2xl bg-white shadow-2xl shadow-slate-900/25">
                 {{-- Header --}}
@@ -1148,7 +1207,7 @@
                     <div class="flex min-w-0 items-center gap-3">
                         <span class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-100 text-sm font-black text-blue-700"><template x-if="selected.tenant_photo_url"><img :src="selected.tenant_photo_url" :alt="selected.tenant" class="h-full w-full object-cover"></template><span x-show="!selected.tenant_photo_url" x-text="selected.tenant_initials || 'T'"></span></span>
                         <div class="min-w-0">
-                            <h2 class="text-[19px] font-bold tracking-[-0.02em] text-slate-950">Edit Reservation</h2>
+                            <h2 class="text-[19px] font-bold tracking-[-0.02em] text-slate-950">Reservation Details</h2>
                             <p class="mt-0.5 truncate text-[13px] font-bold tracking-wide text-blue-600"><span x-text="selected.reservation_no"></span> · <span x-text="selected.tenant"></span></p>
                         </div>
                     </div>
@@ -1161,6 +1220,18 @@
                 <div class="edit-reservation-body shrink-0 px-7 py-5">
                     {{-- Error banner --}}
                     <div x-show="editError" x-cloak class="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-[13px] font-semibold text-rose-800" x-text="editError"></div>
+
+                    @if ($workspace === 'owner')
+                    <div class="owner-reservation-details grid gap-4 text-sm sm:grid-cols-2">
+                        <div><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Property</p><p class="mt-1 font-bold text-slate-900" x-text="selected.house"></p><p class="text-xs text-slate-500" x-text="selected.location"></p></div>
+                        <div><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Room / agreed monthly rent</p><p class="mt-1 font-bold text-slate-900" x-text="selected.room"></p><p class="text-xs text-slate-500" x-text="selected.amount"></p></div>
+                        <div><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Tenant / contact</p><p class="mt-1 font-bold text-slate-900" x-text="selected.tenant"></p><p class="text-xs text-slate-500" x-text="selected.tenant_email || 'Email not recorded'"></p></div>
+                        <div><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Preferred move-in</p><p class="mt-1 font-bold text-slate-900" x-text="selected.move_in"></p><p class="text-xs text-slate-500">This is the requested date, not a billing start date.</p></div>
+                        <div><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Submitted</p><p class="mt-1 font-bold text-slate-900" x-text="selected.submitted_at || 'Not recorded'"></p><p class="text-xs text-slate-500" x-text="selected.approved_at ? 'Approved ' + selected.approved_at : (selected.cancelled_at ? 'Cancelled ' + selected.cancelled_at : 'No later status event recorded')"></p></div>
+                        <div><p class="text-xs font-bold uppercase tracking-wide text-slate-500">Billing / payment</p><p class="mt-1 font-bold text-slate-900" x-text="selected.payment || 'Billing not set'"></p><p class="text-xs text-slate-500">A confirmed reservation is not automatically paid.</p></div>
+                        <div x-show="selected.rejection_reason" x-cloak class="sm:col-span-2 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-rose-800"><p class="text-xs font-bold uppercase tracking-wide">Rejection reason</p><p class="mt-1" x-text="selected.rejection_reason"></p></div>
+                    </div>
+                    @endif
 
                     <div class="space-y-6">
                         {{-- Boarding House (Read-only) --}}
@@ -1178,6 +1249,7 @@
                                         <p class="truncate text-[12px] text-slate-500" x-text="selected.location"></p>
                                     </div>
                                 </div>
+                                @if ($workspace !== 'admin')
                                 <span class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-[11px] font-bold text-blue-700">
                                     <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <rect x="5" y="11" width="14" height="9" rx="2" stroke-width="1.8"/>
@@ -1185,6 +1257,7 @@
                                     </svg>
                                     Read-only
                                 </span>
+                                @endif
                             </div>
                         </section>
 
@@ -1304,6 +1377,7 @@
                                     <p class="text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">House Rules / Policy <span class="text-rose-600">*</span></p>
                                     <p class="mt-1 text-[12px] text-slate-500">Define the rules and policies that the tenant must follow.</p>
                                 </div>
+                                @if ($workspace !== 'admin')
                                 <div class="flex shrink-0 items-center gap-2">
                                     <select x-model="selectedTemplate" :disabled="editSaving" class="h-9 rounded-xl border border-slate-200 bg-white px-3 text-[12px] font-semibold text-slate-700 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:opacity-60">
                                         <option value="">Use Template</option>
@@ -1316,6 +1390,7 @@
                                         Insert Template
                                     </button>
                                 </div>
+                                @endif
                             </div>
                             <div class="relative mt-3">
                                 <textarea x-model="editForm.house_rules" @input="delete editErrors.house_rules" rows="8" :disabled="editSaving" class="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 pb-8 text-[13px] leading-relaxed text-slate-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100 disabled:bg-slate-50 disabled:opacity-60" placeholder="Type the house rules here, or pick a template above and edit it&hellip;" :class="editErrors.house_rules ? 'border-rose-300 bg-rose-50' : ''"></textarea>
@@ -1324,6 +1399,7 @@
                             <p x-show="editErrors.house_rules" x-cloak class="mt-1.5 text-[11px] font-semibold text-rose-600" x-text="editErrors.house_rules?.[0]"></p>
                         </section>
 
+                        @if ($workspace !== 'admin')
                         {{-- Notes --}}
                         <section>
                             <p class="mb-2.5 text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">Notes <span class="font-bold normal-case tracking-normal text-slate-400">(optional)</span></p>
@@ -1332,9 +1408,16 @@
                                 <span class="pointer-events-none absolute bottom-3 right-4 text-[11px] font-medium text-slate-400" x-text="(editForm.notes || '').length + ' / 500'"></span>
                             </div>
                         </section>
+                        @endif
                     </div>
                 </div>
 
+                @if ($workspace === 'owner')
+                    <div class="flex shrink-0 flex-wrap justify-end gap-2.5 border-t border-slate-100 bg-white px-7 py-4">
+                        <a x-show="['approved','confirmed'].includes(selected.status_value)" :href="selected.payment_url" class="inline-flex h-10 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 px-4 text-[13px] font-bold text-blue-700">Payment Details / Record Payment</a>
+                        <button type="button" @click="editOpen = false" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-[13px] font-bold text-slate-700">Close</button>
+                    </div>
+                @elseif ($workspace !== 'admin')
                 {{-- Footer --}}
                 <div class="edit-reservation-footer flex shrink-0 flex-wrap items-center justify-end gap-2.5 border-t border-slate-100 bg-white px-7 py-4">
                     <button
@@ -1381,6 +1464,11 @@
                         <span x-text="editSaving ? 'Saving…' : 'Save Changes'">Save Changes</span>
                     </button>
                 </div>
+                @else
+                    <div class="flex shrink-0 justify-end border-t border-slate-100 bg-white px-7 py-4">
+                        <button type="button" @click="editOpen = false" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-[13px] font-bold text-slate-700 transition hover:bg-slate-50">Close</button>
+                    </div>
+                @endif
             </div>
         </div>
 
@@ -1422,6 +1510,11 @@
                                 <p class="min-w-0 pt-1 text-[13px] leading-6 text-slate-600" x-text="confirmAction.message"></p>
                             </div>
                         </section>
+
+                        <label x-show="confirmAction.status === 'rejected'" x-cloak class="mt-4 block text-[13px] font-semibold text-slate-700">
+                            Rejection reason
+                            <textarea x-model="confirmAction.reason" rows="3" required class="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" placeholder="Explain why this reservation cannot be accepted."></textarea>
+                        </label>
 
                         <p
                             x-show="confirmError"

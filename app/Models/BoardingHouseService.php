@@ -13,6 +13,7 @@ class BoardingHouseService extends Model
         'boarding_house_id',
         'name',
         'description',
+        'pricing_type',
         'price',
         'billing_type',
         'is_active',

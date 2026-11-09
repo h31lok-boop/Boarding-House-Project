@@ -1,5 +1,7 @@
 @props([
     'showHeader' => true,
+    'pageClass' => '',
+    'stickyHeader' => true,
 ])
 
 @php
@@ -233,13 +235,13 @@
 <div
     x-data="{ adminProfileOpen: false, adminProfileMenuReady: false }"
     @keydown.escape.window="adminProfileOpen = false; adminProfileMenuReady = false"
-    class="admin-shell relative w-full overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.08),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(37,99,235,0.08),_transparent_24%),#f4f7fb] dark:bg-[#020617]"
+    class="admin-shell {{ $pageClass }} relative w-full overflow-x-hidden bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.08),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(37,99,235,0.08),_transparent_24%),#f4f7fb] dark:bg-[#020617]"
 >
     <div class="sidebar-overlay" data-sidebar-overlay aria-hidden="true"></div>
 
     <aside
         id="adminSidebar"
-        class="sidebar admin-sidebar fixed inset-y-0 left-0 z-50 h-screen w-[200px] shrink-0 overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#0F172A_0%,#111827_48%,#0B1224_100%)] px-2.5 py-3 shadow-2xl shadow-slate-950/30 flex flex-col"
+        class="sidebar admin-sidebar fixed inset-y-0 left-0 z-50 h-screen w-[240px] shrink-0 overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#0F172A_0%,#111827_48%,#0B1224_100%)] px-2.5 py-3 shadow-2xl shadow-slate-950/30 flex flex-col"
         aria-label="{{ $isOwnerWorkspace ? 'Owner sidebar' : 'Admin sidebar' }}"
     >
         <div class="sidebar-header flex items-center gap-1.5">
@@ -248,8 +250,8 @@
                     <img src="{{ asset('images/boardmatch-final-logo.png') }}" alt="" class="h-full w-full object-cover" aria-hidden="true">
                 </div>
                 <div class="sidebar-brand-text min-w-0 leading-tight">
-                    <p class="truncate text-base font-bold tracking-tight text-white">BoardMatch</p>
-                    <p class="truncate text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-400">{{ $isOwnerWorkspace ? 'Owner portal' : 'Admin portal' }}</p>
+                    <p class="truncate text-xl font-bold tracking-tight text-white">BoardMatch</p>
+                    <p class="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{{ $isOwnerWorkspace ? 'Owner portal' : 'Admin portal' }}</p>
                 </div>
             </a>
             <button
@@ -294,7 +296,7 @@
             <div class="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.7),_transparent_62%)] dark:bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.08),_transparent_62%)]"></div>
 
             @if ($showHeader)
-                <header data-admin-workspace-header data-workspace="{{ $workspace }}" class="admin-workspace-header sticky top-2.5 z-[60] overflow-visible rounded-[1.1rem] border border-white/80 bg-white px-3 py-2.5 shadow-[0_14px_30px_rgba(15,23,42,0.08)] dark:border-slate-800/90 dark:bg-slate-950 xl:px-3.5">
+                <header data-admin-workspace-header data-workspace="{{ $workspace }}" class="admin-workspace-header {{ $stickyHeader ? 'sticky top-2.5 z-[60]' : 'static' }} overflow-visible rounded-[1.1rem] border border-white/80 bg-white px-3 py-2.5 shadow-[0_14px_30px_rgba(15,23,42,0.08)] dark:border-slate-800/90 dark:bg-slate-950 xl:px-3.5">
                     <div class="absolute inset-y-0 right-0 hidden w-32 bg-[radial-gradient(circle_at_center,_rgba(16,185,129,0.12),_transparent_68%)] lg:block"></div>
                     <div class="relative flex flex-col gap-2.5 xl:flex-row xl:items-center xl:justify-between">
                         <div class="flex min-w-0 items-center gap-2.5">
@@ -311,8 +313,8 @@
                                 </svg>
                             </button>
                             <div class="min-w-0">
-                                <h1 class="truncate text-[1.2rem] font-black tracking-tight text-slate-950 dark:text-white">{{ $workspaceHeaderTitle }}</h1>
-                                <p class="mt-1 hidden max-w-3xl text-[11px] leading-5 text-slate-500 dark:text-slate-400 sm:block">{{ $workspaceHeaderDescription }}</p>
+                                <h1 class="truncate {{ $isOwnerWorkspace ? 'text-[18px]' : 'text-[1.2rem]' }} font-black tracking-tight text-slate-950 dark:text-white">{{ $workspaceHeaderTitle }}</h1>
+                                <p class="mt-1 hidden max-w-3xl {{ $isOwnerWorkspace ? 'text-[13px]' : 'text-[11px]' }} leading-5 text-slate-500 dark:text-slate-400 sm:block">{{ $workspaceHeaderDescription }}</p>
                             </div>
                         </div>
 
@@ -352,8 +354,8 @@
                                             @endif
                                         </span>
                                         <span class="hidden min-w-0 flex-1 text-left leading-tight sm:block">
-                                            <span class="block truncate text-[13px] font-bold text-slate-900 dark:text-white">{{ $ownerName }}</span>
-                                            <span class="block truncate text-[11px] font-semibold text-slate-500 dark:text-slate-400">{{ $ownerRole }}</span>
+                                            <span class="block truncate {{ $isOwnerWorkspace ? 'text-[14px]' : 'text-[13px]' }} font-bold text-slate-900 dark:text-white">{{ $ownerName }}</span>
+                                            <span class="block truncate {{ $isOwnerWorkspace ? 'text-[12px]' : 'text-[11px]' }} font-semibold text-slate-500 dark:text-slate-400">{{ $ownerRole }}</span>
                                         </span>
                                         <svg class="hidden h-4 w-4 shrink-0 text-slate-400 transition sm:block" :class="adminProfileOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m19 9-7 7-7-7"/>

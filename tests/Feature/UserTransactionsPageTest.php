@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\PaymentReceipt;
+use App\Models\BoardingHouse;
+use App\Models\Reservation;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
@@ -16,12 +18,10 @@ test('transactions page is dedicated to transaction history only', function () {
         ->assertSee('Transactions')
         ->assertSee('View your payment history, receipts, and transaction records.')
         ->assertSee('Total Transactions')
-        ->assertSee('All-time transactions')
-        ->assertSee('Total amount paid')
-        ->assertSee('Awaiting verification')
-        ->assertSee('Most recent payment')
+        ->assertSee('Selected reservation scope')
+        ->assertSee('Selected reservation total')
         ->assertSee('No transactions yet')
-        ->assertSee('Your payment records will appear here after successful payment submissions.')
+        ->assertSee('Your cash payment records will appear here after the owner or authorized staff records receiving them.')
         ->assertDontSee('Total Payments')
         ->assertDontSee('Paid Amount')
         ->assertDontSee('Pending Amount')
@@ -35,25 +35,23 @@ test('payments page no longer contains recent transactions history', function ()
     $this->actingAs($user)
         ->get(route('user.payments.index'))
         ->assertOk()
-        ->assertSee('Cash payment only')
-        ->assertSee('Amount due')
-        ->assertSee('Payment Schedule')
-        ->assertDontSee('Payment Status Guide')
-        ->assertDontSee('Payment Summary')
-        ->assertDontSee('Quick Payment Action')
-        ->assertDontSee('Total Payments')
-        ->assertDontSee('Paid Amount')
-        ->assertDontSee('Upload Proof of Payment')
-        ->assertDontSee('Recent Transactions')
-        ->assertDontSee('Latest rent and deposit activity.')
-        ->assertDontSee('View All');
+        ->assertSee('Payment details will appear after owner approval.')
+        ->assertDontSee('Payment Schedule');
 });
 
-test('transactions page lists payment receipts and filters by status', function () {
+test('transactions page excludes receipts that are not linked to the authoritative reservation', function () {
     Storage::fake('public');
 
     $user = User::factory()->create(['role' => 'user']);
     $other = User::factory()->create(['role' => 'user']);
+    $house = BoardingHouse::factory()->create(['approval_status' => 'approved', 'status' => 'approved']);
+
+    Reservation::create([
+        'user_id' => $user->id,
+        'boarding_house_id' => $house->id,
+        'status' => 'approved',
+        'payment_status' => 'unpaid',
+    ]);
 
     PaymentReceipt::create([
         'user_id' => $user->id,
@@ -91,13 +89,13 @@ test('transactions page lists payment receipts and filters by status', function 
     $this->actingAs($user)
         ->get(route('user.transactions.index'))
         ->assertOk()
-        ->assertSee('GC123456789')
-        ->assertSee('MYA987654321')
+        ->assertDontSee('GC123456789')
+        ->assertDontSee('MYA987654321')
         ->assertDontSee('OTHER123');
 
     $this->actingAs($user)
         ->get(route('user.transactions.index', ['status' => 'pending_review']))
         ->assertOk()
-        ->assertSee('MYA987654321')
+        ->assertDontSee('MYA987654321')
         ->assertDontSee('GC123456789');
 });

@@ -74,14 +74,14 @@
             $payload = [
                 'id' => $house->id,
                 'name' => $house->name,
-                'address' => $house->address ?: $house->full_address,
-                'full_address' => $house->full_address ?: $house->address,
+                'address' => $house->canonical_address,
+                'full_address' => $house->canonical_address,
                 'barangay' => $house->barangay ?: $house->display_barangay,
                 'nearby_landmark' => $house->nearby_landmark,
                 'distance_from_dssc' => $house->distance_from_dssc !== null ? (float) $house->distance_from_dssc : null,
                 'is_near_dssc' => (bool) $house->is_near_dssc,
                 'location_status' => $house->location_status ?: 'approximate',
-                'location_label' => collect([$house->display_barangay, $house->city?->city_name, $house->province?->province_name, $house->region?->region_name])->filter()->implode(', '),
+                'location_label' => $house->canonical_address ?: 'Location not set',
                 'latitude' => $house->latitude !== null ? (float) $house->latitude : null,
                 'longitude' => $house->longitude !== null ? (float) $house->longitude : null,
                 'description' => $house->description,
@@ -174,9 +174,10 @@
             addOpen: @js(request()->routeIs($workspace.'.boarding-houses.create')),
             viewOpen: false,
             editOpen: false,
-            confirmOpen: false,
+            confirmOpen: @js(session()->has('delete_error')),
+            confirmSubmitting: false,
             confirmAction: { url: '', title: '', message: '', label: '' },
-            askConfirm(action) { this.confirmAction = action; this.confirmOpen = true; },
+            askConfirm(action) { this.confirmAction = action; this.confirmSubmitting = false; this.confirmOpen = true; },
             selected: {},
             createPhotos: [],
             editPhotos: [],
@@ -978,7 +979,7 @@
                         </label>
                         @endif
                     </div>
-                    <div id="create-location-map" @if ($isOwnerWorkspace) data-address-derived-location="true" @endif class="mt-4 hidden h-80 w-full overflow-hidden rounded-xl border border-blue-200 bg-white"></div>
+                    <div id="create-location-map" class="mt-4 hidden h-80 w-full overflow-hidden rounded-xl border border-blue-200 bg-white"></div>
                 </section>
                 <datalist id="dssc-location-options">
                     @foreach ($locationOptions as $locationOption)
@@ -1083,10 +1084,16 @@
                             <section class="rounded-xl border ui-border p-4">
                                 <div class="flex items-center justify-between gap-3">
                                     <div><h3 class="text-sm font-bold">Property location</h3><p class="mt-1 text-xs ui-muted" x-text="selected.location_label || selected.full_address || 'Location not set'"></p></div>
-                                    <a x-show="selected.google_maps_url" :href="selected.google_maps_url" target="_blank" rel="noopener" class="shrink-0 text-xs font-bold text-[color:var(--brand-600)]">Open map</a>
+                                    <template x-if="selected.google_maps_url"><a :href="selected.google_maps_url" target="_blank" rel="noopener" class="shrink-0 text-xs font-bold text-[color:var(--brand-600)]">Open map</a></template>
+                                    <template x-if="!selected.google_maps_url && (selected.address || selected.full_address)"><a :href="`https://www.openstreetmap.org/search?query=${encodeURIComponent(selected.address || selected.full_address)}`" target="_blank" rel="noopener" class="shrink-0 text-xs font-bold text-[color:var(--brand-600)]">Search address on map</a></template>
                                 </div>
-                                <div id="boardingHouseDetailMap" class="mt-3 h-56 w-full overflow-hidden rounded-lg border ui-border"></div>
-                                <p id="boardingHouseDetailMapEmpty" class="mt-2 hidden text-sm ui-muted">No geotag coordinates set for this boarding house.</p>
+                                <div id="boardingHouseDetailMap" class="mt-3 h-64 w-full overflow-hidden rounded-lg border ui-border"></div>
+                                <div id="boardingHouseDetailMapEmpty" class="mt-3 hidden flex items-center justify-between gap-3 rounded-lg border border-dashed ui-border px-3 py-3">
+                                    <p class="text-sm ui-muted">Exact location has not been set.</p>
+                                    @if ($isOwnerWorkspace)
+                                    <button type="button" @click="editDetails(selected); viewOpen = false" class="bm-modal__button bm-modal__button--primary shrink-0">Set Location</button>
+                                    @endif
+                                </div>
                             </section>
 
                             <section class="rounded-xl border ui-border p-4">
@@ -1268,18 +1275,18 @@
                                 <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                     <div>
                                         <p class="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-300">Location</p>
-                                        <h3 class="mt-1 text-base font-bold text-slate-950 dark:text-white">{{ $isOwnerWorkspace ? 'Address-based property pin' : 'Tag the property on the map' }}</h3>
-                                        <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{{ $isOwnerWorkspace ? 'Update the address below and BoardMatch will move the pin to that location.' : 'Click the exact building location to place the marker. Drag the marker anytime to correct it.' }}</p>
+                                        <h3 class="mt-1 text-base font-bold text-slate-950 dark:text-white">Set the exact property location</h3>
+                                        <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">Search the saved address for a suggestion, then click or drag the marker to the correct building before saving.</p>
                                     </div>
                                     @unless ($isOwnerWorkspace)
                                     <button type="button" class="btn-secondary shrink-0 justify-center" data-location-picker="edit">Center marker</button>
                                     @endunless
                                 </div>
                                 <div class="mt-4 overflow-hidden rounded-2xl border border-blue-200 bg-white shadow-sm dark:border-blue-400/30 dark:bg-slate-900">
-                                    <div id="edit-location-map" data-property-location-map @if ($isOwnerWorkspace) data-address-derived-location="true" @endif class="h-80 w-full sm:h-96"></div>
+                                    <div id="edit-location-map" data-property-location-map class="h-80 w-full sm:h-96"></div>
                                     <div class="flex items-start gap-3 border-t border-blue-100 bg-white px-4 py-3 dark:border-blue-400/20 dark:bg-slate-900">
                                         <span class="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-400/10 dark:text-blue-300"><svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 21s7-4.35 7-11a7 7 0 1 0-14 0c0 6.65 7 11 7 11Z"/><circle cx="12" cy="10" r="2.5" stroke-width="2"/></svg></span>
-                                        <div><p class="text-xs font-bold text-slate-800 dark:text-slate-100">Property marker</p><p class="mt-0.5 text-[11px] leading-5 text-slate-500 dark:text-slate-400">{{ $isOwnerWorkspace ? 'This pin is generated from the property address and cannot be dragged manually.' : 'The coordinates and DSSC distance below update automatically from this marker.' }}</p></div>
+                                        <div><p class="text-xs font-bold text-slate-800 dark:text-slate-100">Property marker</p><p class="mt-0.5 text-[11px] leading-5 text-slate-500 dark:text-slate-400">The coordinates and DSSC distance update from this marker. Address search results are suggestions until you confirm the pin.</p></div>
                                     </div>
                                 </div>
                                 <div class="mt-4 grid gap-4 md:grid-cols-2">
@@ -1294,8 +1301,11 @@
                                         <input type="hidden" name="is_near_dssc" value="0">
                                         <input id="edit-near-dssc" type="checkbox" name="is_near_dssc" value="1" :checked="selected.is_near_dssc" class="hidden" tabindex="-1" aria-hidden="true">
                                         <div class="md:col-span-2">
-                                            <button type="button" class="btn-secondary justify-center" data-geocode-address="edit">Update Pin From Address</button>
-                                            <p id="edit-geocode-status" class="mt-2 text-xs text-slate-500 dark:text-slate-400" aria-live="polite">Change the address or barangay to generate a new pin.</p>
+                                            <div class="flex flex-wrap gap-2">
+                                                <button type="button" class="btn-secondary justify-center" data-geocode-address="edit">Search address on map</button>
+                                                <button type="button" class="btn-secondary justify-center" data-use-my-location="edit">Use My Location</button>
+                                            </div>
+                                            <p id="edit-geocode-status" class="mt-2 text-xs text-slate-500 dark:text-slate-400" aria-live="polite">Search results are suggestions. Confirm the building by clicking or dragging the marker.</p>
                                         </div>
                                     @else
                                     <label class="text-sm font-semibold text-slate-700 dark:text-slate-200">Distance from DSSC (km)<input id="edit-distance" name="distance_from_dssc" type="number" min="0" max="100" step="0.01" class="ui-input mt-1.5" :value="selected.distance_from_dssc"></label>
@@ -1353,25 +1363,32 @@
     @if ($isOwnerWorkspace)
     {{-- Delete confirmation modal --}}
     <template x-teleport="body">
-    <div data-modal-root role="dialog" aria-modal="true" x-show="confirmOpen" x-cloak x-transition
-        class="bm-modal-overlay">
-        <div class="bm-modal bm-modal--sm">
-            <div class="flex items-start gap-3.5">
-                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <div data-modal-root role="dialog" aria-modal="true" aria-labelledby="delete-boarding-house-title" x-show="confirmOpen" x-cloak x-transition
+        @keydown.escape.window="if (!confirmSubmitting) confirmOpen = false"
+        class="bm-modal-overlay bm-delete-confirmation-overlay">
+        <div class="bm-delete-confirmation" @click.stop>
+            <div class="bm-delete-confirmation__message">
+                <div class="bm-delete-confirmation__icon" aria-hidden="true">
+                    <svg fill="none" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                     </svg>
                 </div>
-                <div class="min-w-0">
-                    <h2 class="text-[15px] font-bold tracking-[-0.01em] text-slate-950" x-text="confirmAction.title"></h2>
-                    <p class="mt-1.5 text-[13px] leading-5 text-slate-500" x-text="confirmAction.message"></p>
+                <div class="bm-delete-confirmation__copy">
+                    <h2 id="delete-boarding-house-title" class="bm-delete-confirmation__title" x-text="confirmAction.title"></h2>
+                    <p class="bm-delete-confirmation__description" x-text="confirmAction.message"></p>
                 </div>
             </div>
-            <form method="POST" :action="confirmAction.url" class="mt-5 flex justify-end gap-2">
+            @if (session('delete_error'))
+                <div class="bm-delete-confirmation__error" role="alert">{{ session('delete_error') }}</div>
+            @endif
+            <form method="POST" :action="confirmAction.url" class="bm-delete-confirmation__actions" @submit="confirmSubmitting = true">
                 @csrf
                 @method('DELETE')
-                <button type="button" @click="confirmOpen = false" class="inline-flex h-9 items-center justify-center rounded-xl border border-slate-200 px-4 text-sm font-bold text-slate-700 transition hover:bg-slate-50">Go Back</button>
-                <button class="inline-flex h-9 items-center justify-center rounded-xl bg-rose-600 px-4 text-sm font-bold text-white shadow-sm shadow-rose-600/20 transition hover:bg-rose-700" x-text="confirmAction.label || 'Delete'"></button>
+                <button type="button" @click="confirmOpen = false" class="bm-delete-confirmation__button bm-delete-confirmation__button--back">Go Back</button>
+                <button type="submit" class="bm-delete-confirmation__button bm-delete-confirmation__button--delete" :disabled="confirmSubmitting">
+                    <span x-show="!confirmSubmitting" x-text="confirmAction.label || 'Yes, Delete'"></span>
+                    <span x-show="confirmSubmitting" x-cloak>Deleting...</span>
+                </button>
             </form>
         </div>
     </div>

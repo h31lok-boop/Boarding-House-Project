@@ -150,7 +150,7 @@ test('owners can accept or reject reservations for their own properties only', f
         ->assertSessionHas('success');
 
     $this->actingAs($data['owner'])
-        ->patch(route('owner.reservations.update', $rejectedReservation), ['status' => 'rejected'])
+        ->patch(route('owner.reservations.update', $rejectedReservation), ['status' => 'rejected', 'notes' => 'The requested room is no longer available.'])
         ->assertRedirect()
         ->assertSessionHas('success');
 

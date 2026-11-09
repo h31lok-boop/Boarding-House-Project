@@ -78,6 +78,7 @@
         },
     }"
     @keydown.escape.window="notificationModalOpen = false"
+    @notifications-unread-count.window="unreadCount = Number($event.detail || 0)"
     class="inline-flex shrink-0"
 >
     <button
